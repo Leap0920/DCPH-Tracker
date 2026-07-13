@@ -1,8 +1,6 @@
 "use client"
 
 import { useState, useEffect } from "react"
-import { Navbar } from "@/components/layout/Navbar"
-import { Footer } from "@/components/layout/Footer"
 import { ContentGrid } from "@/components/tracker/ContentGrid"
 import { createClient } from "@/utils/supabase/client"
 import type { Database } from "@/types/database.types"
@@ -18,7 +16,6 @@ export default function TrackerPage() {
 
   useEffect(() => {
     async function loadData() {
-      // Fetch content
       const { data: contentData } = await supabase
         .from("content_entries")
         .select("*")
@@ -26,7 +23,6 @@ export default function TrackerPage() {
 
       if (contentData) setEntries(contentData)
 
-      // Fetch user watch statuses
       const { data: { user } } = await supabase.auth.getUser()
       if (user) {
         const { data: statusData } = await supabase
@@ -78,38 +74,34 @@ export default function TrackerPage() {
   }
 
   return (
-    <div className="flex min-h-screen flex-col">
-      <Navbar />
-      <main className="flex-1 px-6 py-10">
-        <div className="mx-auto max-w-7xl">
-          <div className="mb-8 flex items-center gap-3">
-            <span className="case-number">FILE NO. 003 — CASE FILES</span>
-            <span className="redacted-bar w-16" />
-          </div>
-
-          <h1 className="font-display text-3xl sm:text-4xl uppercase tracking-wide text-dossier-cream mb-2">
-            Case Files
-          </h1>
-          <p className="text-dossier-cream-dim mb-8 max-w-xl">
-            Every episode, movie, special, and OVA — tracked and catalogued.
-          </p>
-
-          {loading ? (
-            <div className="text-center py-16">
-              <p className="font-display text-lg uppercase text-silver-steel animate-pulse">
-                Loading case files...
-              </p>
-            </div>
-          ) : (
-            <ContentGrid
-              entries={entries}
-              userStatuses={userStatuses}
-              onToggleStatus={handleToggleStatus}
-            />
-          )}
+    <div className="px-6 py-10">
+      <div className="mx-auto max-w-7xl">
+        <div className="mb-8 flex items-center gap-3">
+          <span className="case-number">FILE NO. 003 — CASE FILES</span>
+          <span className="redacted-bar w-16" />
         </div>
-      </main>
-      <Footer />
+
+        <h1 className="font-display text-3xl sm:text-4xl uppercase tracking-wide text-dossier-cream mb-2">
+          Case Files
+        </h1>
+        <p className="text-dossier-cream-dim mb-8 max-w-xl">
+          Every episode, movie, special, and OVA — tracked and catalogued.
+        </p>
+
+        {loading ? (
+          <div className="text-center py-16">
+            <p className="font-display text-lg uppercase text-silver-steel animate-pulse">
+              Loading case files...
+            </p>
+          </div>
+        ) : (
+          <ContentGrid
+            entries={entries}
+            userStatuses={userStatuses}
+            onToggleStatus={handleToggleStatus}
+          />
+        )}
+      </div>
     </div>
   )
 }
