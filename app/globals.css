@@ -1,0 +1,71 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/*
+  Fonts (load via next/font in app/layout.tsx instead of @import for perf —
+  this file just documents the CSS var names they should map to):
+
+  --font-display : Oswald (condensed, bold, poster/WANTED-notice feel)
+  --font-body    : Inter (clean, high legibility)
+  --font-mono    : IBM Plex Mono (case numbers, timestamps, stats — typewriter/dossier feel)
+*/
+
+@layer base {
+  body {
+    @apply bg-noir-black text-dossier-cream font-body antialiased;
+    background-image:
+      radial-gradient(circle at 20% 0%, rgba(122,22,32,0.08), transparent 40%),
+      radial-gradient(circle at 100% 100%, rgba(168,172,179,0.05), transparent 45%);
+    background-attachment: fixed;
+  }
+
+  h1, h2, h3, h4 {
+    @apply font-display uppercase tracking-wide text-dossier-cream;
+  }
+
+  ::selection {
+    @apply bg-poison-red text-dossier-cream;
+  }
+
+  /* visible keyboard focus everywhere — non-negotiable a11y floor */
+  :focus-visible {
+    outline: 2px solid theme("colors.gold-seal");
+    outline-offset: 2px;
+  }
+}
+
+@layer components {
+  /* Signature element: the "dossier card" used for profile cards,
+     episode/movie cards, and the screening announcement. A manila-folder
+     / redacted-file metaphor instead of a plain rounded card. */
+  .dossier-card {
+    @apply relative bg-case-file border border-white/5 shadow-dossier rounded-sm overflow-hidden;
+  }
+
+  .dossier-card::before {
+    content: "";
+    @apply absolute top-0 left-0 h-full w-[3px] bg-poison-red;
+  }
+
+  .dossier-stamp {
+    @apply absolute top-3 right-3 rotate-6 border border-poison-red/60 text-poison-red/80
+           text-[10px] font-mono tracking-stamp uppercase px-2 py-1 rounded-sm;
+  }
+
+  .redacted-bar {
+    @apply h-3 bg-redacted rounded-[2px];
+  }
+
+  .case-number {
+    @apply font-mono text-xs text-silver-steel tracking-wide;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  * {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}
