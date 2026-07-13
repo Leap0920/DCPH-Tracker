@@ -74,32 +74,26 @@ export default function TrackerPage() {
   }
 
   return (
-    <div className="px-6 py-10">
-      <div className="mx-auto max-w-7xl">
-        <div className="mb-8 flex items-center gap-3">
-          <span className="case-number">FILE NO. 003 — CASE FILES</span>
-          <span className="redacted-bar w-16" />
-        </div>
-
-        <h1 className="font-display text-3xl sm:text-4xl uppercase tracking-wide text-dossier-cream mb-2">
-          Case Files
-        </h1>
-        <p className="text-dossier-cream-dim mb-8 max-w-xl">
-          Every episode, movie, special, and OVA — tracked and catalogued.
-        </p>
-
+    <div className="px-0 sm:px-6 py-6 sm:py-10">
+      <div className="mx-auto max-w-4xl">
         {loading ? (
-          <div className="text-center py-16">
-            <p className="font-display text-lg uppercase text-silver-steel animate-pulse">
-              Loading case files...
-            </p>
+          <div className="text-center py-24">
+            <div className="inline-flex items-center gap-3">
+              <div className="h-2 w-2 bg-poison-red-bright rounded-full animate-pulse" />
+              <p className="font-display text-lg uppercase text-silver-steel animate-pulse tracking-widest">
+                Loading case files...
+              </p>
+              <div className="h-2 w-2 bg-poison-red-bright rounded-full animate-pulse" style={{ animationDelay: "0.3s" }} />
+            </div>
           </div>
         ) : (
-          <ContentGrid
-            entries={entries}
-            userStatuses={userStatuses}
-            onToggleStatus={handleToggleStatus}
-          />
+          <div className="bg-case-file border border-white/5 rounded-sm overflow-hidden shadow-dossier">
+            <ContentGrid
+              entries={entries}
+              userStatuses={userStatuses}
+              onToggleStatus={handleToggleStatus}
+            />
+          </div>
         )}
       </div>
     </div>
