@@ -22,10 +22,13 @@ create table profiles (
 );
 
 -- Auto-create profile on signup
-create or replace function handle_new_user()
+drop trigger if exists on_auth_user_created on auth.users;
+drop function if exists public.handle_new_user();
+
+create or replace function public.handle_new_user()
 returns trigger as $$
 begin
-  insert into profiles (user_id, username, display_name)
+  insert into public.profiles (user_id, username, display_name)
   values (
     new.id,
     coalesce(new.raw_user_meta_data ->> 'username', split_part(new.email, '@', 1)),
@@ -33,11 +36,11 @@ begin
   );
   return new;
 end;
-$$ language plpgsql security definer;
+$$ language plpgsql security definer set search_path = public;
 
 create trigger on_auth_user_created
   after insert on auth.users
-  for each row execute function handle_new_user();
+  for each row execute function public.handle_new_user();
 
 -- ─────────────────────────────────────────────────────────────
 -- ARCS (Story Arcs)

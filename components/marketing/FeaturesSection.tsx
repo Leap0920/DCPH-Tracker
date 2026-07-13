@@ -22,7 +22,7 @@ const features = [
     icon: Trophy,
     title: "Leaderboard",
     description:
-      "Compete with fellow agents. Climb ranks based on episodes watched, ratings, and engagement.",
+      "Compete with fellow detectives. Climb ranks based on episodes watched, ratings, and engagement.",
     fileNo: "003",
   },
   {
@@ -47,7 +47,7 @@ export function FeaturesSection() {
           What&apos;s in the dossier
         </h2>
         <p className="text-dossier-cream-dim max-w-xl mb-12">
-          Everything an agent needs to track their progress through the Detective Conan universe.
+          Everything a detective needs to track their progress through the Detective Conan universe.
         </p>
 
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">

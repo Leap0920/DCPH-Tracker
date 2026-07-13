@@ -1,0 +1,33 @@
+import { ProfileCard } from "@/components/profile/ProfileCard"
+import { StatsGrid } from "@/components/profile/StatsGrid"
+import { getProfileByUsername, getProfileStats } from "@/lib/queries/profile"
+import { notFound } from "next/navigation"
+
+export default async function ProfilePage({
+  params,
+}: {
+  params: Promise<{ username: string }>
+}) {
+  const { username } = await params
+  const profile = await getProfileByUsername(username)
+
+  if (!profile) {
+    notFound()
+  }
+
+  const stats = await getProfileStats(profile.user_id)
+
+  return (
+    <div className="px-6 py-10">
+      <div className="mx-auto max-w-3xl">
+        <div className="mb-6 flex items-center gap-3">
+          <span className="case-number">FILE NO. 007 — AGENT DOSSIER</span>
+          <span className="redacted-bar w-16" />
+        </div>
+
+        <ProfileCard profile={profile} />
+        <StatsGrid stats={stats} />
+      </div>
+    </div>
+  )
+}
