@@ -1,6 +1,6 @@
 "use client"
 
-import { motion, AnimatePresence, useScroll, useTransform } from "framer-motion"
+import { motion, AnimatePresence, useScroll, useTransform, useSpring } from "framer-motion"
 import { ArrowRight, ChevronDown } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { useEffect, useState, useCallback, useRef } from "react"
@@ -8,26 +8,61 @@ import { useEffect, useState, useCallback, useRef } from "react"
 export function HeroSection() {
   const [typedText, setTypedText] = useState("")
   const [typingCompleted, setTypingCompleted] = useState(false)
-  const fullText = "Your ultimate Detective Conan episode tracking platform"
+  const fullText = "Your ultimate Detective Conan tracking platform"
 
-  // Typewriter effect
+  // Typewriter effect with 2-second delay
   useEffect(() => {
     let index = 0
-    const interval = setInterval(() => {
-      if (index < fullText.length) {
-        setTypedText(fullText.slice(0, index + 1))
-        index++
-      } else {
-        clearInterval(interval)
-        // Delay a bit before revealing logo/title
-        setTimeout(() => {
-          setTypingCompleted(true)
-        }, 400)
-      }
-    }, 45) // typing speed: 45ms per character
+    let interval: NodeJS.Timeout | null = null
+    let timeout: NodeJS.Timeout | null = null
 
-    return () => clearInterval(interval)
+    // Wait 2 seconds before starting to type
+    timeout = setTimeout(() => {
+      interval = setInterval(() => {
+        if (index < fullText.length) {
+          setTypedText(fullText.slice(0, index + 1))
+          index++
+        } else {
+          if (interval) clearInterval(interval)
+          // Delay a bit before revealing logo/title and buttons
+          setTimeout(() => {
+            setTypingCompleted(true)
+          }, 400)
+        }
+      }, 65) // slower typing speed: 65ms per character
+    }, 2000) // 2 second initial delay
+
+    return () => {
+      if (interval) clearInterval(interval)
+      if (timeout) clearTimeout(timeout)
+    }
   }, [])
+
+  // Render typed text with line break after "episode"
+  const renderTypedText = (text: string) => {
+    const line1 = "Your ultimate Detective Conan"
+    const line2 = "tracking platform"
+    const lineBreakIndex = line1.length
+
+    const line1Chars = text.slice(0, Math.min(lineBreakIndex, text.length))
+    const line2Chars = text.length > lineBreakIndex ? text.slice(lineBreakIndex) : ""
+
+    return (
+      <>
+        <span className="text-3xl sm:text-5xl font-bold text-gray-900">
+          {line1Chars}
+        </span>
+        {line2Chars.length > 0 && (
+          <>
+            <br />
+            <span className="text-3xl sm:text-5xl font-bold text-gray-900">
+              {line2Chars}
+            </span>
+          </>
+        )}
+      </>
+    )
+  }
 
   const scrollRef = useRef<HTMLDivElement>(null)
   const { scrollYProgress } = useScroll({
@@ -35,10 +70,17 @@ export function HeroSection() {
     offset: ["start end", "end start"]
   })
 
-  // Smooth scroll animations for the video banner
-  const scale = useTransform(scrollYProgress, [0, 0.45, 0.55, 1], [0.85, 1.05, 1.05, 0.85])
-  const borderRadius = useTransform(scrollYProgress, [0, 0.45, 0.55, 1], ["5rem", "1.5rem", "1.5rem", "5rem"])
-  const opacity = useTransform(scrollYProgress, [0, 0.2, 0.8, 1], [0.7, 1, 1, 0.7])
+  // Create a slow, smooth version of the scroll progress using spring physics
+  const smoothProgress = useSpring(scrollYProgress, {
+    stiffness: 45,  // lower stiffness for a slower, smoother slide
+    damping: 24,    // damping for clean deceleration without bounciness
+    restDelta: 0.001
+  })
+
+  // Smooth scroll animations for the video banner (scales to 95% full screen width) mapped to spring physics
+  const scale = useTransform(smoothProgress, [0, 0.45, 0.55, 1], [0.72, 1.0, 1.0, 0.72])
+  const borderRadius = useTransform(smoothProgress, [0, 0.45, 0.55, 1], ["2.5rem", "0.75rem", "0.75rem", "2.5rem"])
+  const opacity = useTransform(smoothProgress, [0, 0.2, 0.8, 1], [0.8, 1, 1, 0.8])
 
   const scrollToContent = useCallback(() => {
     window.scrollBy({ top: window.innerHeight * 0.9, behavior: "smooth" })
@@ -50,8 +92,8 @@ export function HeroSection() {
       <div className="absolute inset-0 -z-10 bg-[linear-gradient(to_right,#f3f4f6_1px,transparent_1px),linear-gradient(to_bottom,#f3f4f6_1px,transparent_1px)] bg-[size:4rem_4rem] [mask-image:radial-gradient(ellipse_60%_50%_at_50%_0%,#000_70%,transparent_100%)]" />
 
       {/* Hero Content Area */}
-      <div className="min-h-[85vh] flex flex-col items-center justify-center px-6 text-center w-full max-w-4xl mx-auto pt-16">
-        
+      <div className="min-h-[72vh] flex flex-col items-center justify-start px-6 text-center w-full max-w-4xl mx-auto pt-32 pb-6">
+
         {/* Animated container for Logo and Main Heading */}
         <AnimatePresence>
           {typingCompleted && (
@@ -61,27 +103,25 @@ export function HeroSection() {
               transition={{ duration: 0.9, ease: [0.16, 1, 0.3, 1] }}
               className="flex flex-col items-center"
             >
-              {/* Logo */}
-              <div className="mb-6 flex justify-center">
+              {/* Logo and Title in same row */}
+              <div className="flex items-center gap-3 mb-6">
                 <img
                   src="/img/logo_DCPH.png"
                   alt="Detective Conan PH Logo"
-                  className="h-28 w-auto object-contain drop-shadow-sm hover:scale-105 transition-transform duration-300 pointer-events-none"
+                  className="h-10 w-auto object-contain drop-shadow-sm hover:scale-105 transition-transform duration-300 pointer-events-none"
                 />
+                <h1 className="text-sm sm:text-base font-display font-semibold tracking-widest text-gray-900 leading-tight uppercase">
+                  Detective Conan PH: Anime and Manga
+                </h1>
               </div>
-
-              {/* Title */}
-              <h1 className="text-4xl sm:text-6xl font-display font-bold tracking-tight text-gray-900 leading-tight mb-4 uppercase">
-                Detective Conan PH: <span className="text-gray-500">Anime and Manga</span>
-              </h1>
             </motion.div>
           )}
         </AnimatePresence>
 
         {/* Subtitle / Typewriter block */}
-        <div className="h-12 flex items-center justify-center mt-4 mb-10">
-          <p className="text-lg sm:text-xl font-body text-gray-600 max-w-xl mx-auto font-medium">
-            {typedText}
+        <div className="min-h-16 flex items-center justify-center mt-4 mb-10">
+          <p className="font-body text-gray-900 max-w-5xl mx-auto font-medium">
+            {renderTypedText(typedText)}
             {/* Blinking typewriter cursor */}
             <motion.span
               animate={{ opacity: [1, 0] }}
@@ -103,17 +143,17 @@ export function HeroSection() {
               <a href="/tracker">
                 <Button
                   size="lg"
-                  className="bg-gray-950 hover:bg-gray-800 text-white px-10 h-14 text-base font-semibold rounded-full shadow-md hover:shadow-lg transition-all hover:scale-[1.02]"
+                  className="bg-gray-950 hover:bg-gray-800 text-white px-8 h-11 text-sm font-semibold rounded-full shadow-md hover:shadow-lg transition-all hover:scale-[1.02]"
                 >
                   Track Now
-                  <ArrowRight className="ml-2 h-5 w-5" />
+                  <ArrowRight className="ml-2 h-4 w-4" />
                 </Button>
               </a>
               <Button
                 variant="outline"
                 size="lg"
                 onClick={scrollToContent}
-                className="border-gray-300 hover:border-gray-400 bg-white hover:bg-gray-50 text-gray-700 hover:text-gray-955 px-10 h-14 text-base font-semibold rounded-full transition-all"
+                className="border-gray-300 hover:border-gray-400 bg-white hover:bg-gray-50 text-gray-700 hover:text-gray-955 px-8 h-11 text-sm font-semibold rounded-full transition-all"
               >
                 Explore Now
               </Button>
@@ -148,9 +188,9 @@ export function HeroSection() {
       </AnimatePresence>
 
       {/* Scroll-driven Video Section */}
-      <div 
+      <div
         ref={scrollRef}
-        className="w-full max-w-5xl px-6 mx-auto mt-24 flex items-center justify-center relative z-10"
+        className="w-full max-w-[95vw] mx-auto mt-24 flex items-center justify-center relative z-10"
       >
         <motion.div
           style={{

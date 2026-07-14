@@ -46,7 +46,7 @@ export function ArcTimeline({ entries }: { entries: ContentEntry[] }) {
                     </span>
                   </div>
 
-                  <h3 className="font-display text-sm uppercase tracking-wide text-dossier-cream group-hover:text-poison-red-bright transition-colors">
+                  <h3 className="font-display text-sm uppercase tracking-wide text-dossier-cream group-hover:text-gold-seal transition-colors">
                     {entry.title}
                   </h3>
 

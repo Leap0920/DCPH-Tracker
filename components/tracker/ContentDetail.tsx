@@ -28,16 +28,16 @@ export function ContentDetail({ entry }: { entry: ContentEntry }) {
 
   return (
     <div>
-      <Link href="/tracker" className="inline-flex items-center gap-2 text-sm text-silver-steel hover:text-dossier-cream transition-colors mb-6">
+      <Link href="/tracker" className="inline-flex items-center gap-2 text-sm text-gray-500 hover:text-gray-900 transition-colors mb-6">
         <ArrowLeft className="h-4 w-4" />
         Back to Case Files
       </Link>
 
-      <div className="dossier-card overflow-hidden">
-        <span className="dossier-stamp">{displayNumber}</span>
+      <div className="relative bg-white border border-gray-200 rounded-lg overflow-hidden shadow-sm">
+        <span className="absolute top-2 right-2 z-10 bg-gray-900 text-white text-[10px] font-mono px-2 py-0.5 rounded">{displayNumber}</span>
 
         {/* Image */}
-        <div className="relative aspect-video bg-case-file-raised">
+        <div className="relative aspect-video bg-gray-100">
           {entry.image_url ? (
             <img
               src={entry.image_url}
@@ -46,7 +46,7 @@ export function ContentDetail({ entry }: { entry: ContentEntry }) {
             />
           ) : (
             <div className="flex h-full items-center justify-center">
-              <span className="font-display text-6xl text-white/5 uppercase">
+              <span className="font-display text-6xl text-gray-200 uppercase">
                 {displayNumber}
               </span>
             </div>
@@ -59,32 +59,32 @@ export function ContentDetail({ entry }: { entry: ContentEntry }) {
             <Badge variant={typeBadgeVariant[entry.type] ?? "outline"}>
               {CONTENT_TYPE_LABELS[entry.type as ContentType]}
             </Badge>
-            <span className="case-number">
+            <span className="text-xs text-gray-500 font-mono">
               CANON #{padNumber(entry.canon_order, 3)}
             </span>
           </div>
 
-          <h1 className="font-display text-2xl sm:text-4xl uppercase tracking-wide text-dossier-cream mb-4">
+          <h1 className="font-display text-2xl sm:text-4xl uppercase tracking-wide text-gray-900 mb-4">
             {entry.title}
           </h1>
 
-          <div className="flex flex-wrap gap-6 mb-6 text-sm text-dossier-cream-dim">
+          <div className="flex flex-wrap gap-6 mb-6 text-sm text-gray-600">
             <div className="flex items-center gap-2">
-              <Calendar className="h-4 w-4 text-poison-red-bright" />
+              <Calendar className="h-4 w-4 text-gray-900" />
               <span>{formatDate(entry.air_date)}</span>
             </div>
             {entry.runtime_minutes && (
               <div className="flex items-center gap-2">
-                <Clock className="h-4 w-4 text-poison-red-bright" />
+                <Clock className="h-4 w-4 text-gray-900" />
                 <span>{entry.runtime_minutes} min</span>
               </div>
             )}
             {entry.arcs && (
               <div className="flex items-center gap-2">
-                <Film className="h-4 w-4 text-poison-red-bright" />
+                <Film className="h-4 w-4 text-gray-900" />
                 <Link
                   href={`/arcs/${entry.arcs.slug}`}
-                  className="hover:text-dossier-cream transition-colors"
+                  className="hover:text-gray-900 transition-colors"
                 >
                   {entry.arcs.title}
                 </Link>
@@ -93,11 +93,11 @@ export function ContentDetail({ entry }: { entry: ContentEntry }) {
           </div>
 
           {entry.synopsis && (
-            <div className="border-t border-white/5 pt-6">
-              <h2 className="font-display text-sm uppercase tracking-wide text-silver-steel mb-3">
+            <div className="border-t border-gray-200 pt-6">
+              <h2 className="font-display text-sm uppercase tracking-wide text-gray-500 mb-3">
                 Synopsis
               </h2>
-              <p className="font-body text-dossier-cream-dim leading-relaxed">
+              <p className="font-body text-gray-600 leading-relaxed">
                 {entry.synopsis}
               </p>
             </div>

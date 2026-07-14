@@ -9,9 +9,9 @@ const buttonVariants = cva(
     variants: {
       variant: {
         default:
-          "bg-poison-red text-dossier-cream hover:bg-poison-red-bright",
+          "bg-poison-red text-dossier-cream hover:bg-[#630f18]",
         destructive:
-          "bg-poison-red text-dossier-cream hover:bg-poison-red-bright",
+          "bg-poison-red text-dossier-cream hover:bg-[#630f18]",
         outline:
           "border border-white/10 bg-transparent text-dossier-cream hover:bg-case-file-raised",
         secondary:

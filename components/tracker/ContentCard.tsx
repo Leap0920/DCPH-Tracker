@@ -42,11 +42,11 @@ export function ContentCard({ entry, watchStatus, onToggleStatus }: ContentCardP
       : entry.type.toUpperCase()
 
   return (
-    <div className="dossier-card group">
-      <span className="dossier-stamp">{displayNumber}</span>
+    <div className="relative bg-white border border-gray-200 rounded-lg overflow-hidden group hover:shadow-md transition-shadow">
+      <span className="absolute top-2 right-2 z-10 bg-gray-900 text-white text-[10px] font-mono px-2 py-0.5 rounded">{displayNumber}</span>
 
       {/* Image area */}
-      <div className="relative aspect-[3/2] bg-case-file-raised overflow-hidden">
+      <div className="relative aspect-[3/2] bg-gray-100 overflow-hidden">
         {entry.image_url ? (
           <img
             src={entry.image_url}
@@ -55,7 +55,7 @@ export function ContentCard({ entry, watchStatus, onToggleStatus }: ContentCardP
           />
         ) : (
           <div className="flex h-full items-center justify-center">
-            <span className="font-display text-4xl text-white/5 uppercase">
+            <span className="font-display text-4xl text-gray-200 uppercase">
               {displayNumber}
             </span>
           </div>
@@ -69,8 +69,8 @@ export function ContentCard({ entry, watchStatus, onToggleStatus }: ContentCardP
               onToggleStatus(entry.id, watchStatus ?? null)
             }}
             className={cn(
-              "absolute bottom-2 right-2 h-8 w-8 rounded-sm bg-noir-black/80 flex items-center justify-center transition-colors hover:bg-noir-black",
-              config.color
+              "absolute bottom-2 right-2 h-8 w-8 rounded-full bg-white/90 border border-gray-200 flex items-center justify-center transition-colors hover:bg-white shadow-sm",
+              status === "watched" ? "text-green-500" : status === "watching" ? "text-gray-900" : "text-gray-400"
             )}
             title={config.label}
           >
@@ -85,19 +85,19 @@ export function ContentCard({ entry, watchStatus, onToggleStatus }: ContentCardP
           <Badge variant={typeBadgeVariant[entry.type] ?? "outline"}>
             {CONTENT_TYPE_LABELS[entry.type as ContentType]}
           </Badge>
-          <span className="case-number">
+          <span className="text-xs text-gray-500">
             {new Date(entry.air_date).getFullYear()}
           </span>
         </div>
 
         <Link href={`/tracker/${entry.slug}`}>
-          <h3 className="font-display text-sm uppercase tracking-wide text-dossier-cream group-hover:text-poison-red-bright transition-colors line-clamp-2">
+          <h3 className="font-display text-sm uppercase tracking-wide text-gray-900 group-hover:text-gray-600 transition-colors line-clamp-2">
             {entry.title}
           </h3>
         </Link>
 
         {entry.synopsis && (
-          <p className="mt-2 text-xs text-dossier-cream-dim line-clamp-2">
+          <p className="mt-2 text-xs text-gray-500 line-clamp-2">
             {entry.synopsis}
           </p>
         )}

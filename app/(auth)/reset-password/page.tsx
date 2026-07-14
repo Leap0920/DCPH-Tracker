@@ -77,28 +77,28 @@ export default function ResetPasswordPage() {
 
   if (isSessionValid === false) {
     return (
-      <Card className="w-full max-w-md bg-case-file border border-white/5 shadow-dossier relative overflow-hidden">
-        <div className="absolute top-0 left-0 w-full h-[3px] bg-poison-red" />
-        <CardHeader className="text-center pb-4">
-          <div className="flex items-center justify-center gap-2 mb-2">
-            <ShieldAlert className="h-4 w-4 text-poison-red-bright animate-pulse" />
-            <span className="case-number font-mono text-[10px] text-silver-steel tracking-widest">
-              CASE FILE — ACCESS DENIED
-            </span>
+      <Card className="w-full max-w-md bg-white border border-gray-200 shadow-xl shadow-gray-100/50 rounded-2xl relative overflow-hidden">
+        <CardHeader className="text-center pb-4 pt-6">
+          <div className="flex justify-center mb-4">
+            <img
+              src="/img/logo_DCPH.png"
+              alt="Detective Conan PH Logo"
+              className="h-14 w-auto object-contain transition-transform duration-300 hover:scale-105"
+            />
           </div>
-          <CardTitle className="font-display text-2xl uppercase tracking-wider text-dossier-cream">
+          <CardTitle className="font-display text-2xl font-bold tracking-tight text-gray-900">
             Invalid Recovery Link
           </CardTitle>
-          <CardDescription className="text-dossier-cream-dim text-sm mt-1">
+          <CardDescription className="text-gray-500 text-sm mt-1.5">
             Your recovery session has expired or the token is invalid.
           </CardDescription>
         </CardHeader>
-        <CardContent className="text-center">
-          <p className="text-sm text-dossier-cream-dim mb-6">
-            Please request a new password recovery link from the recovery gate.
+        <CardContent className="text-center px-6 pb-8">
+          <p className="text-sm text-gray-500 mb-6">
+            Please request a new password recovery link from the recovery page.
           </p>
           <Link href="/forgot-password">
-            <Button className="w-full bg-poison-red hover:bg-poison-red-bright text-dossier-cream font-display uppercase tracking-widest text-xs h-11 rounded-sm">
+            <Button className="w-full bg-gray-950 hover:bg-gray-800 text-white font-semibold text-sm h-11 rounded-full transition-all shadow-sm">
               Request New Link
             </Button>
           </Link>
@@ -108,58 +108,58 @@ export default function ResetPasswordPage() {
   }
 
   return (
-    <Card className="w-full max-w-md bg-case-file border border-white/5 shadow-dossier relative overflow-hidden">
-      <div className="absolute top-0 left-0 w-full h-[3px] bg-poison-red" />
+    <Card className="w-full max-w-md bg-white border border-gray-200 shadow-xl shadow-gray-100/50 rounded-2xl relative overflow-hidden">
       
-      <CardHeader className="text-center pb-4">
-        <div className="flex items-center justify-center gap-2 mb-2">
-          <KeyRound className="h-4 w-4 text-poison-red-bright animate-pulse" />
-          <span className="case-number font-mono text-[10px] text-silver-steel tracking-widest">
-            CASE FILE — DECRYPTION OVERWRITE
-          </span>
+      <CardHeader className="text-center pb-4 pt-6">
+        <div className="flex justify-center mb-4">
+          <img
+            src="/img/logo_DCPH.png"
+            alt="Detective Conan PH Logo"
+            className="h-14 w-auto object-contain transition-transform duration-300 hover:scale-105"
+          />
         </div>
-        <CardTitle className="font-display text-2xl uppercase tracking-wider text-dossier-cream">
-          Reset Credentials
+        <CardTitle className="font-display text-2xl font-bold tracking-tight text-gray-900">
+          Reset Password
         </CardTitle>
-        <CardDescription className="text-dossier-cream-dim text-sm mt-1">
-          Set a new master password for your detective files.
+        <CardDescription className="text-gray-500 text-sm mt-1.5">
+          Set a new password for your account to restore access.
         </CardDescription>
       </CardHeader>
 
-      <CardContent>
+      <CardContent className="px-6 pb-8">
         {success ? (
           <div className="space-y-4 text-center">
-            <div className="bg-green-500/10 border border-green-500/30 rounded-sm p-4 text-xs text-green-400 flex flex-col items-center gap-2">
-              <CheckCircle2 className="h-8 w-8 text-green-400 shrink-0" />
+            <div className="bg-green-55 border border-green-200 rounded-lg p-4 text-sm text-green-700 flex flex-col items-center gap-2">
+              <CheckCircle2 className="h-8 w-8 text-green-600 shrink-0" />
               <div>
-                <p className="font-bold mb-1">Decryption Overwrite Complete</p>
-                <p>Your password has been successfully updated. Redirecting to access gate...</p>
+                <p className="font-semibold mb-1">Password Reset Complete</p>
+                <p>Your password has been successfully updated. Redirecting to login...</p>
               </div>
             </div>
           </div>
         ) : (
           <form onSubmit={handleReset} className="space-y-4">
             {error && (
-              <div className="bg-poison-red/10 border border-poison-red-bright/30 rounded-sm p-3 flex gap-2 items-start text-xs text-poison-red-bright">
-                <ShieldAlert className="h-4 w-4 shrink-0 mt-0.5" />
+              <div className="bg-red-50 border border-red-200 rounded-lg p-3.5 flex gap-2 items-start text-xs text-red-600">
+                <ShieldAlert className="h-4 w-4 shrink-0 mt-0.5 text-red-500" />
                 <span>{error}</span>
               </div>
             )}
 
             {isSessionValid === null && (
-              <div className="text-center font-mono text-xs text-silver-steel animate-pulse py-4">
-                VALIDATING RECOVERY TOKEN...
+              <div className="text-center font-display text-xs text-gray-400 animate-pulse py-4 font-medium uppercase tracking-wider">
+                Validating recovery link...
               </div>
             )}
 
             {isSessionValid && (
               <>
                 <div className="space-y-1.5">
-                  <Label htmlFor="password" className="font-mono text-xs uppercase tracking-wider text-silver-steel">
+                  <Label htmlFor="password" className="font-display text-xs font-semibold uppercase tracking-wider text-gray-500">
                     New Password
                   </Label>
                   <div className="relative">
-                    <Lock className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-silver-steel/40" />
+                    <Lock className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
                     <Input
                       id="password"
                       type={showPassword ? "text" : "password"}
@@ -168,12 +168,12 @@ export default function ResetPasswordPage() {
                       onChange={(e) => setPassword(e.target.value)}
                       required
                       minLength={6}
-                      className="pl-10 pr-10 bg-noir-black border-white/5 focus:border-poison-red-bright/50 focus:ring-1 focus:ring-poison-red-bright/50 rounded-sm text-dossier-cream placeholder:text-silver-steel/30 text-sm h-11"
+                      className="pl-10 pr-10 bg-white border border-gray-200 focus:border-gray-400 focus:ring-1 focus:ring-gray-400 rounded-lg text-gray-900 placeholder:text-gray-400/50 text-sm h-11 transition-colors"
                     />
                     <button
                       type="button"
                       onClick={() => setShowPassword(!showPassword)}
-                      className="absolute right-3 top-1/2 -translate-y-1/2 text-silver-steel/40 hover:text-dossier-cream transition-colors"
+                      className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 transition-colors"
                       aria-label={showPassword ? "Hide password" : "Show password"}
                     >
                       {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
@@ -182,11 +182,11 @@ export default function ResetPasswordPage() {
                 </div>
 
                 <div className="space-y-1.5">
-                  <Label htmlFor="confirmPassword" className="font-mono text-xs uppercase tracking-wider text-silver-steel">
+                  <Label htmlFor="confirmPassword" className="font-display text-xs font-semibold uppercase tracking-wider text-gray-500">
                     Confirm New Password
                   </Label>
                   <div className="relative">
-                    <Lock className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-silver-steel/40" />
+                    <Lock className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
                     <Input
                       id="confirmPassword"
                       type={showConfirmPassword ? "text" : "password"}
@@ -194,12 +194,12 @@ export default function ResetPasswordPage() {
                       value={confirmPassword}
                       onChange={(e) => setConfirmPassword(e.target.value)}
                       required
-                      className="pl-10 pr-10 bg-noir-black border-white/5 focus:border-poison-red-bright/50 focus:ring-1 focus:ring-poison-red-bright/50 rounded-sm text-dossier-cream placeholder:text-silver-steel/30 text-sm h-11"
+                      className="pl-10 pr-10 bg-white border border-gray-200 focus:border-gray-400 focus:ring-1 focus:ring-gray-400 rounded-lg text-gray-900 placeholder:text-gray-400/50 text-sm h-11 transition-colors"
                     />
                     <button
                       type="button"
                       onClick={() => setShowConfirmPassword(!showConfirmPassword)}
-                      className="absolute right-3 top-1/2 -translate-y-1/2 text-silver-steel/40 hover:text-dossier-cream transition-colors"
+                      className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 transition-colors"
                       aria-label={showConfirmPassword ? "Hide confirm password" : "Show confirm password"}
                     >
                       {showConfirmPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
@@ -209,10 +209,10 @@ export default function ResetPasswordPage() {
 
                 <Button 
                   type="submit" 
-                  className="w-full bg-poison-red hover:bg-poison-red-bright text-dossier-cream font-display uppercase tracking-widest text-xs h-11 rounded-sm transition-all border border-poison-red-bright/20 shadow-md hover:scale-[1.01] mt-2" 
+                  className="w-full bg-gray-950 hover:bg-gray-800 text-white font-semibold text-sm h-11 rounded-full transition-all shadow-sm hover:scale-[1.01] mt-2" 
                   disabled={loading}
                 >
-                  {loading ? "Rewriting master file..." : "Overwrite Password"}
+                  {loading ? "Updating password..." : "Reset Password"}
                 </Button>
               </>
             )}

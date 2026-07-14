@@ -22,10 +22,12 @@ export function Footer() {
         <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
           {/* Brand */}
           <div>
-            <Link href="/" className="flex items-center gap-3 mb-4">
-              <div className="h-8 w-8 rounded-sm bg-poison-red flex items-center justify-center">
-                <span className="font-display text-sm font-bold text-dossier-cream">DC</span>
-              </div>
+            <Link href="/" className="flex items-center gap-2 mb-4">
+              <img
+                src="/img/logo_DCPH.png"
+                alt="Detective Conan PH Logo"
+                className="h-8 w-auto object-contain transition-transform duration-300 hover:scale-105"
+              />
               <span className="font-display text-lg uppercase tracking-wide text-dossier-cream">
                 Detective Conan <span className="text-poison-red-bright">PH</span>
               </span>
@@ -67,7 +69,7 @@ export function Footer() {
                   href={social.href}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="h-9 w-9 rounded-sm border border-white/10 flex items-center justify-center text-silver-steel hover:text-poison-red-bright hover:border-poison-red/40 transition-colors"
+                  className="h-9 w-9 rounded-sm border border-white/10 flex items-center justify-center text-silver-steel hover:text-white hover:border-white/30 transition-colors"
                   aria-label={social.label}
                 >
                   <social.icon className="h-4 w-4" />

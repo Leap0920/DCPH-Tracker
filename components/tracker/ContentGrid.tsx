@@ -104,14 +104,14 @@ export function ContentGrid({ entries, userStatuses, onToggleStatus }: ContentGr
   return (
     <div className="space-y-0">
       {/* ── Hero Banner ── */}
-      <div className="relative w-full h-48 sm:h-64 bg-gradient-to-b from-case-file-raised to-noir-black overflow-hidden rounded-t-sm">
+      <div className="relative w-full h-48 sm:h-64 bg-gradient-to-b from-gray-100 to-white overflow-hidden rounded-t-lg">
         <div className="absolute inset-0 bg-[linear-gradient(to_right,rgba(165,32,45,0.05)_1px,transparent_1px),linear-gradient(to_bottom,rgba(165,32,45,0.05)_1px,transparent_1px)] bg-[size:3rem_3rem]" />
-        <div className="absolute bottom-0 left-0 right-0 h-32 bg-gradient-to-t from-noir-black to-transparent" />
+        <div className="absolute bottom-0 left-0 right-0 h-32 bg-gradient-to-t from-white to-transparent" />
         <div className="absolute bottom-0 left-0 right-0 p-6 sm:p-8">
-          <h1 className="font-display text-3xl sm:text-5xl uppercase tracking-wider text-dossier-cream mb-1 drop-shadow-lg">
+          <h1 className="font-display text-3xl sm:text-5xl uppercase tracking-wider text-gray-900 mb-1">
             Detective Conan
           </h1>
-          <div className="flex items-center gap-3 text-sm text-silver-steel mb-3">
+          <div className="flex items-center gap-3 text-sm text-gray-500 mb-3">
             <span className="font-mono text-xs">{seasons.length} seasons</span>
             <span>·</span>
             <span className="font-mono text-xs">{totalEpisodes} episodes</span>
@@ -120,28 +120,28 @@ export function ContentGrid({ entries, userStatuses, onToggleStatus }: ContentGr
           </div>
           {/* Progress bar */}
           <div className="flex items-center gap-3 max-w-md">
-            <div className="flex-1 h-1.5 bg-case-file rounded-full overflow-hidden">
+            <div className="flex-1 h-1.5 bg-gray-200 rounded-full overflow-hidden">
               <motion.div
-                className="h-full bg-poison-red-bright rounded-full"
+                className="h-full bg-gray-900 rounded-full"
                 initial={{ width: 0 }}
                 animate={{ width: `${progressPercent}%` }}
                 transition={{ duration: 0.8, ease: "easeOut" }}
               />
             </div>
-            <span className="font-mono text-xs text-poison-red-bright font-bold">{progressPercent}%</span>
+            <span className="font-mono text-xs text-gray-900 font-bold">{progressPercent}%</span>
           </div>
         </div>
       </div>
 
       {/* ── Tabs Bar ── */}
-      <div className="flex border-b border-white/5">
+      <div className="flex border-b border-gray-200">
         <button
           onClick={() => setActiveTab("about")}
           className={cn(
             "flex-1 py-3 text-center font-display uppercase tracking-widest text-xs transition-colors border-b-2",
             activeTab === "about"
-              ? "text-dossier-cream border-poison-red-bright"
-              : "text-silver-steel border-transparent hover:text-dossier-cream-dim"
+              ? "text-gray-900 border-gray-900"
+              : "text-gray-400 border-transparent hover:text-gray-600"
           )}
         >
           About
@@ -151,8 +151,8 @@ export function ContentGrid({ entries, userStatuses, onToggleStatus }: ContentGr
           className={cn(
             "flex-1 py-3 text-center font-display uppercase tracking-widest text-xs transition-colors border-b-2",
             activeTab === "episodes"
-              ? "text-dossier-cream border-poison-red-bright"
-              : "text-silver-steel border-transparent hover:text-dossier-cream-dim"
+              ? "text-gray-900 border-gray-900"
+              : "text-gray-400 border-transparent hover:text-gray-600"
           )}
         >
           Episodes
@@ -166,12 +166,12 @@ export function ContentGrid({ entries, userStatuses, onToggleStatus }: ContentGr
           animate={{ opacity: 1, y: 0 }}
           className="p-6 space-y-6"
         >
-          <div className="dossier-card p-6">
+          <div className="bg-gray-50 border border-gray-200 p-6 rounded-lg">
             <div className="flex items-center gap-2 mb-3">
-              <Info className="h-4 w-4 text-poison-red-bright" />
-              <span className="font-display uppercase tracking-wider text-sm text-dossier-cream">Synopsis</span>
+              <Info className="h-4 w-4 text-gray-900" />
+              <span className="font-display uppercase tracking-wider text-sm text-gray-900">Synopsis</span>
             </div>
-            <p className="text-sm text-dossier-cream-dim leading-relaxed">
+            <p className="text-sm text-gray-600 leading-relaxed">
               High school detective Shinichi Kudo, known as the &quot;Savior of the Japanese Police Force,&quot; 
               is poisoned by the Black Organization and shrinks into a child. Taking the alias Conan Edogawa, 
               he secretly solves cases while searching for clues about the mysterious organization and an antidote 
@@ -186,35 +186,35 @@ export function ContentGrid({ entries, userStatuses, onToggleStatus }: ContentGr
               { label: "Watched", value: watchedEpisodes.toString(), icon: Eye },
               { label: "Remaining", value: (totalEpisodes - watchedEpisodes).toString(), icon: EyeOff },
             ].map(stat => (
-              <div key={stat.label} className="dossier-card p-4 text-center">
-                <stat.icon className="h-5 w-5 text-poison-red-bright mx-auto mb-2" />
-                <div className="font-display text-2xl text-dossier-cream">{stat.value}</div>
-                <div className="font-mono text-[10px] uppercase tracking-widest text-silver-steel mt-1">{stat.label}</div>
+              <div key={stat.label} className="bg-gray-50 border border-gray-200 p-4 text-center rounded-lg">
+                <stat.icon className="h-5 w-5 text-gray-900 mx-auto mb-2" />
+                <div className="font-display text-2xl text-gray-900">{stat.value}</div>
+                <div className="font-mono text-[10px] uppercase tracking-widest text-gray-500 mt-1">{stat.label}</div>
               </div>
             ))}
           </div>
 
-          <div className="dossier-card p-6">
+          <div className="bg-gray-50 border border-gray-200 p-6 rounded-lg">
             <div className="flex items-center gap-2 mb-3">
-              <Users className="h-4 w-4 text-poison-red-bright" />
-              <span className="font-display uppercase tracking-wider text-sm text-dossier-cream">Details</span>
+              <Users className="h-4 w-4 text-gray-900" />
+              <span className="font-display uppercase tracking-wider text-sm text-gray-900">Details</span>
             </div>
             <dl className="grid grid-cols-2 gap-y-3 gap-x-6 text-sm">
               <div>
-                <dt className="font-mono text-[10px] uppercase tracking-widest text-silver-steel">Creator</dt>
-                <dd className="text-dossier-cream mt-0.5">Gosho Aoyama</dd>
+                <dt className="font-mono text-[10px] uppercase tracking-widest text-gray-500">Creator</dt>
+                <dd className="text-gray-900 mt-0.5">Gosho Aoyama</dd>
               </div>
               <div>
-                <dt className="font-mono text-[10px] uppercase tracking-widest text-silver-steel">Studio</dt>
-                <dd className="text-dossier-cream mt-0.5">TMS Entertainment</dd>
+                <dt className="font-mono text-[10px] uppercase tracking-widest text-gray-500">Studio</dt>
+                <dd className="text-gray-900 mt-0.5">TMS Entertainment</dd>
               </div>
               <div>
-                <dt className="font-mono text-[10px] uppercase tracking-widest text-silver-steel">First Aired</dt>
-                <dd className="text-dossier-cream mt-0.5">January 8, 1996</dd>
+                <dt className="font-mono text-[10px] uppercase tracking-widest text-gray-500">First Aired</dt>
+                <dd className="text-gray-900 mt-0.5">January 8, 1996</dd>
               </div>
               <div>
-                <dt className="font-mono text-[10px] uppercase tracking-widest text-silver-steel">Status</dt>
-                <dd className="text-dossier-cream mt-0.5">Ongoing</dd>
+                <dt className="font-mono text-[10px] uppercase tracking-widest text-gray-500">Status</dt>
+                <dd className="text-gray-900 mt-0.5">Ongoing</dd>
               </div>
             </dl>
           </div>
@@ -231,7 +231,7 @@ export function ContentGrid({ entries, userStatuses, onToggleStatus }: ContentGr
           {/* Continue Tracking */}
           {continueTracking.length > 0 && !search && (
             <div className="p-6 pb-2">
-              <h2 className="font-display text-sm uppercase tracking-widest text-dossier-cream mb-4">
+              <h2 className="font-display text-sm uppercase tracking-widest text-gray-900 mb-4">
                 Continue tracking
               </h2>
               <div className="flex gap-3 overflow-x-auto pb-3 -mx-2 px-2 scrollbar-thin scrollbar-thumb-case-file-raised scrollbar-track-transparent">
@@ -240,24 +240,24 @@ export function ContentGrid({ entries, userStatuses, onToggleStatus }: ContentGr
                   return (
                     <div
                       key={entry.id}
-                      className="flex-shrink-0 w-64 bg-case-file rounded-sm overflow-hidden border border-white/5 group hover:border-poison-red/30 transition-colors"
+                      className="flex-shrink-0 w-64 bg-white rounded-lg overflow-hidden border border-gray-200 group hover:border-gray-300 transition-colors shadow-sm"
                     >
                       <div className="flex items-center gap-3 p-3">
                         {/* Thumbnail placeholder */}
-                        <div className="w-16 h-12 bg-case-file-raised rounded-sm flex items-center justify-center shrink-0 overflow-hidden">
+                        <div className="w-16 h-12 bg-gray-100 rounded-md flex items-center justify-center shrink-0 overflow-hidden">
                           {entry.image_url ? (
                             <img src={entry.image_url} alt="" className="w-full h-full object-cover" />
                           ) : (
-                            <span className="font-display text-xs text-white/10">
+                            <span className="font-display text-xs text-gray-300">
                               EP {padNumber(entry.episode_number ?? 0)}
                             </span>
                           )}
                         </div>
                         <div className="flex-1 min-w-0">
-                          <p className="font-display text-xs uppercase tracking-wide text-dossier-cream truncate">
+                          <p className="font-display text-xs uppercase tracking-wide text-gray-900 truncate">
                             EP {padNumber(entry.episode_number ?? 0)}
                           </p>
-                          <p className="text-[11px] text-dossier-cream-dim truncate mt-0.5">
+                          <p className="text-[11px] text-gray-500 truncate mt-0.5">
                             {entry.title}
                           </p>
                         </div>
@@ -268,10 +268,10 @@ export function ContentGrid({ entries, userStatuses, onToggleStatus }: ContentGr
                             className={cn(
                               "shrink-0 h-8 w-8 rounded-full flex items-center justify-center transition-all border",
                               status === "watched"
-                                ? "bg-green-500 border-green-400 text-noir-black"
+                                ? "bg-green-500 border-green-400 text-white"
                                 : status === "watching"
-                                  ? "bg-poison-red-bright/20 border-poison-red-bright text-poison-red-bright"
-                                  : "bg-transparent border-silver-steel/30 text-silver-steel hover:border-dossier-cream hover:text-dossier-cream"
+                                  ? "bg-gray-900/10 border-gray-900 text-gray-900"
+                                  : "bg-transparent border-gray-300 text-gray-400 hover:border-gray-900 hover:text-gray-900"
                             )}
                           >
                             <Check className="h-4 w-4" />
@@ -287,7 +287,7 @@ export function ContentGrid({ entries, userStatuses, onToggleStatus }: ContentGr
 
           {/* All Episodes Header */}
           <div className="px-6 pt-4 pb-2 flex items-center justify-between">
-            <h2 className="font-display text-sm uppercase tracking-widest text-dossier-cream">
+            <h2 className="font-display text-sm uppercase tracking-widest text-gray-900">
               All episodes
             </h2>
             <div className="flex items-center gap-2">
@@ -300,8 +300,8 @@ export function ContentGrid({ entries, userStatuses, onToggleStatus }: ContentGr
                     className={cn(
                       "px-2.5 py-1 rounded-sm text-[10px] font-mono uppercase tracking-wider transition-colors",
                       typeFilter === t
-                        ? "bg-poison-red text-dossier-cream"
-                        : "bg-case-file text-silver-steel hover:text-dossier-cream"
+                        ? "bg-gray-900 text-white"
+                        : "bg-gray-100 text-gray-500 hover:text-gray-900"
                     )}
                   >
                     {t === "all" ? "All" : t === "episode" ? "Episodes" : t === "movie" ? "Movies" : "Specials"}
@@ -311,7 +311,7 @@ export function ContentGrid({ entries, userStatuses, onToggleStatus }: ContentGr
 
               {/* Mark all circle */}
               <button
-                className="h-7 w-7 rounded-full border border-silver-steel/30 flex items-center justify-center text-silver-steel hover:text-dossier-cream hover:border-dossier-cream transition-colors"
+                className="h-7 w-7 rounded-full border border-gray-300 flex items-center justify-center text-gray-400 hover:text-gray-900 hover:border-gray-900 transition-colors"
                 title="Toggle all"
               >
                 <Check className="h-3.5 w-3.5" />
@@ -322,13 +322,13 @@ export function ContentGrid({ entries, userStatuses, onToggleStatus }: ContentGr
           {/* Search */}
           <div className="px-6 pb-4">
             <div className="relative">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-silver-steel/40" />
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
               <input
                 type="text"
                 placeholder="Search episodes..."
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
-                className="w-full h-9 rounded-sm border border-white/5 bg-case-file pl-10 pr-3 text-sm text-dossier-cream placeholder:text-silver-steel/30 focus:outline-none focus:ring-1 focus:ring-poison-red-bright/50 focus:border-poison-red-bright/50"
+                className="w-full h-9 rounded-lg border border-gray-200 bg-gray-50 pl-10 pr-3 text-sm text-gray-900 placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-gray-900/20 focus:border-gray-900"
               />
             </div>
           </div>
@@ -336,7 +336,7 @@ export function ContentGrid({ entries, userStatuses, onToggleStatus }: ContentGr
           {/* Search Results */}
           {search && filteredEntries && (
             <div className="px-6 pb-6 space-y-1">
-              <p className="font-mono text-[10px] text-silver-steel uppercase tracking-widest mb-2">
+              <p className="font-mono text-[10px] text-gray-500 uppercase tracking-widest mb-2">
                 {filteredEntries.length} results
               </p>
               {filteredEntries.map(entry => (
@@ -454,24 +454,24 @@ function SeasonAccordion({
   const isComplete = watchedCount === totalCount && totalCount > 0
 
   return (
-    <div className="border-b border-white/5">
+    <div className="border-b border-gray-200">
       <button
         onClick={onToggle}
-        className="w-full flex items-center gap-4 px-6 py-4 hover:bg-case-file/50 transition-colors group"
+        className="w-full flex items-center gap-4 px-6 py-4 hover:bg-gray-50 transition-colors group"
       >
         <div className="flex-1 text-left">
           <div className="flex items-center gap-2">
-            <span className="font-display text-base uppercase tracking-wide text-dossier-cream">
+            <span className="font-display text-base uppercase tracking-wide text-gray-900">
               {label}
             </span>
             {isExpanded ? (
-              <ChevronUp className="h-4 w-4 text-silver-steel" />
+              <ChevronUp className="h-4 w-4 text-gray-400" />
             ) : (
-              <ChevronDown className="h-4 w-4 text-silver-steel" />
+              <ChevronDown className="h-4 w-4 text-gray-400" />
             )}
           </div>
           {/* Progress bar */}
-          <div className="mt-2 h-1 w-full bg-case-file rounded-full overflow-hidden">
+          <div className="mt-2 h-1 w-full bg-gray-200 rounded-full overflow-hidden">
             <motion.div
               className={cn("h-full rounded-full", progressColor)}
               initial={{ width: 0 }}
@@ -482,15 +482,15 @@ function SeasonAccordion({
         </div>
 
         <div className="flex items-center gap-3 shrink-0">
-          <span className="font-mono text-xs text-silver-steel">
+          <span className="font-mono text-xs text-gray-500">
             {watchedCount}/{totalCount}
           </span>
           <div
             className={cn(
               "h-7 w-7 rounded-full flex items-center justify-center border transition-colors",
               isComplete
-                ? "bg-green-500 border-green-400 text-noir-black"
-                : "border-silver-steel/30 text-silver-steel"
+                ? "bg-green-500 border-green-400 text-white"
+                : "border-gray-300 text-gray-400"
             )}
           >
             <Check className="h-3.5 w-3.5" />
@@ -507,7 +507,7 @@ function SeasonAccordion({
             transition={{ duration: 0.25, ease: "easeInOut" }}
             className="overflow-hidden"
           >
-            <div className="px-3 pb-3 space-y-0.5">
+            <div className="px-3 pb-3 space-y-1">
               {children}
             </div>
           </motion.div>
@@ -536,15 +536,15 @@ function EpisodeRow({
 
   return (
     <div className={cn(
-      "flex items-center gap-3 px-3 py-3 rounded-sm transition-colors hover:bg-case-file-raised/50 group",
+      "flex items-center gap-3 px-3 py-3 rounded-md transition-colors hover:bg-gray-50 group",
       isWatched && "opacity-60"
     )}>
       {/* Thumbnail */}
-      <div className="w-20 h-14 bg-case-file-raised rounded-sm flex items-center justify-center shrink-0 overflow-hidden relative">
+      <div className="w-20 h-14 bg-gray-100 rounded-md flex items-center justify-center shrink-0 overflow-hidden relative">
         {entry.image_url ? (
           <img src={entry.image_url} alt="" className="w-full h-full object-cover" />
         ) : (
-          <span className="font-display text-sm text-white/10 uppercase">
+          <span className="font-display text-sm text-gray-300 uppercase">
             {epLabel}
           </span>
         )}
@@ -552,12 +552,12 @@ function EpisodeRow({
 
       {/* Info */}
       <div className="flex-1 min-w-0">
-        <p className="font-display text-sm uppercase tracking-wide text-dossier-cream">
+        <p className="font-display text-sm uppercase tracking-wide text-gray-900">
           {epLabel}{" "}
-          <span className="text-silver-steel">({entry.title})</span>
+          <span className="text-gray-500">({entry.title})</span>
         </p>
         {entry.synopsis && (
-          <p className="text-xs text-dossier-cream-dim mt-0.5 line-clamp-1">
+          <p className="text-xs text-gray-500 mt-0.5 line-clamp-1">
             {entry.synopsis}
           </p>
         )}
@@ -570,10 +570,10 @@ function EpisodeRow({
           className={cn(
             "shrink-0 h-8 w-8 rounded-full flex items-center justify-center transition-all border",
             isWatched
-              ? "bg-green-500 border-green-400 text-noir-black"
+              ? "bg-green-500 border-green-400 text-white"
               : isWatching
-                ? "bg-poison-red-bright/20 border-poison-red-bright text-poison-red-bright"
-                : "bg-transparent border-silver-steel/30 text-silver-steel hover:border-dossier-cream hover:text-dossier-cream"
+                ? "bg-gray-900/10 border-gray-900 text-gray-900"
+                : "bg-transparent border-gray-300 text-gray-400 hover:border-gray-900 hover:text-gray-900"
           )}
           title={isWatched ? "Watched" : isWatching ? "Watching" : "Mark as watching"}
         >

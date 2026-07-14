@@ -23,8 +23,9 @@ export default function ForgotPasswordPage() {
     setSuccess(false)
 
     const origin = typeof window !== "undefined" ? window.location.origin : ""
+    const cleanEmail = email.trim().toLowerCase()
 
-    const { error: resetError } = await supabase.auth.resetPasswordForEmail(email, {
+    const { error: resetError } = await supabase.auth.resetPasswordForEmail(cleanEmail, {
       redirectTo: `${origin}/reset-password`,
     })
 
@@ -39,53 +40,53 @@ export default function ForgotPasswordPage() {
   }
 
   return (
-    <Card className="w-full max-w-md bg-case-file border border-white/5 shadow-dossier relative overflow-hidden">
-      <div className="absolute top-0 left-0 w-full h-[3px] bg-poison-red" />
+    <Card className="w-full max-w-md bg-white border border-gray-200 shadow-xl shadow-gray-100/50 rounded-2xl relative overflow-hidden">
       
-      <CardHeader className="text-center pb-4">
-        <div className="flex items-center justify-center gap-2 mb-2">
-          <KeyRound className="h-4 w-4 text-poison-red-bright animate-pulse" />
-          <span className="case-number font-mono text-[10px] text-silver-steel tracking-widest">
-            CASE FILE — ACCESS RECOVERY
-          </span>
+      <CardHeader className="text-center pb-4 pt-6">
+        <div className="flex justify-center mb-4">
+          <img
+            src="/img/logo_DCPH.png"
+            alt="Detective Conan PH Logo"
+            className="h-14 w-auto object-contain transition-transform duration-300 hover:scale-105"
+          />
         </div>
-        <CardTitle className="font-display text-2xl uppercase tracking-wider text-dossier-cream">
-          Request Password Reset
+        <CardTitle className="font-display text-2xl font-bold tracking-tight text-gray-900">
+          Reset Password
         </CardTitle>
-        <CardDescription className="text-dossier-cream-dim text-sm mt-1">
-          Provide your email address to receive decryption recovery link.
+        <CardDescription className="text-gray-500 text-sm mt-1.5">
+          Enter your email address to receive a password recovery link.
         </CardDescription>
       </CardHeader>
 
-      <CardContent>
+      <CardContent className="px-6 pb-8">
         {success ? (
           <div className="space-y-4">
-            <div className="bg-green-500/10 border border-green-500/30 rounded-sm p-4 text-xs text-green-400">
-              <p className="font-bold mb-1">Transmission Sent</p>
-              <p>Check your email for the password recovery link. Follow it to reset your credentials.</p>
+            <div className="bg-green-50 border border-green-200 rounded-lg p-4 text-sm text-green-700">
+              <p className="font-semibold mb-1">Recovery Email Sent</p>
+              <p>Check your email for the password recovery link. Follow the instructions in the email to reset your password.</p>
             </div>
             <Link href="/login" className="block">
-              <Button variant="outline" className="w-full gap-2 font-display uppercase tracking-wider text-xs border-white/10 text-dossier-cream-dim hover:text-dossier-cream h-11">
+              <Button variant="outline" className="w-full gap-2 border-gray-200 text-gray-700 hover:bg-gray-50 rounded-full h-11 text-sm font-semibold transition-all">
                 <ArrowLeft className="h-4 w-4" />
-                Return to Access Gate
+                Return to Sign In
               </Button>
             </Link>
           </div>
         ) : (
           <form onSubmit={handleResetRequest} className="space-y-5">
             {error && (
-              <div className="bg-poison-red/10 border border-poison-red-bright/30 rounded-sm p-3 flex gap-2 items-start text-xs text-poison-red-bright">
-                <ShieldAlert className="h-4 w-4 shrink-0 mt-0.5" />
+              <div className="bg-red-50 border border-red-200 rounded-lg p-3.5 flex gap-2 items-start text-xs text-red-600">
+                <ShieldAlert className="h-4 w-4 shrink-0 mt-0.5 text-red-500" />
                 <span>{error}</span>
               </div>
             )}
 
             <div className="space-y-1.5">
-              <Label htmlFor="email" className="font-mono text-xs uppercase tracking-wider text-silver-steel">
-                Registered Email
+              <Label htmlFor="email" className="font-display text-xs font-semibold uppercase tracking-wider text-gray-500">
+                Email Address
               </Label>
               <div className="relative">
-                <Mail className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-silver-steel/40" />
+                <Mail className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
                 <Input
                   id="email"
                   type="email"
@@ -93,26 +94,26 @@ export default function ForgotPasswordPage() {
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
                   required
-                  className="pl-10 bg-noir-black border-white/5 focus:border-poison-red-bright/50 focus:ring-1 focus:ring-poison-red-bright/50 rounded-sm text-dossier-cream placeholder:text-silver-steel/30 text-sm h-11"
+                  className="pl-10 bg-white border border-gray-200 focus:border-gray-400 focus:ring-1 focus:ring-gray-400 rounded-lg text-gray-900 placeholder:text-gray-400/50 text-sm h-11 transition-colors"
                 />
               </div>
             </div>
 
             <Button 
               type="submit" 
-              className="w-full bg-poison-red hover:bg-poison-red-bright text-dossier-cream font-display uppercase tracking-widest text-xs h-11 rounded-sm transition-all border border-poison-red-bright/20 shadow-md hover:scale-[1.01]" 
+              className="w-full bg-gray-950 hover:bg-gray-800 text-white font-semibold text-sm h-11 rounded-full transition-all shadow-sm hover:scale-[1.01]" 
               disabled={loading}
             >
-              {loading ? "Sending..." : "Request Recovery Link"}
+              {loading ? "Sending..." : "Send Reset Link"}
             </Button>
           </form>
         )}
 
         {!success && (
-          <div className="mt-8 pt-6 border-t border-white/5 text-center">
-            <Link href="/login" className="inline-flex items-center gap-2 font-mono text-xs text-silver-steel hover:text-dossier-cream transition-colors">
+          <div className="mt-8 pt-6 border-t border-gray-100 text-center">
+            <Link href="/login" className="inline-flex items-center gap-2 text-sm text-gray-500 hover:text-gray-900 hover:underline transition-colors">
               <ArrowLeft className="h-3.5 w-3.5" />
-              Back to Access Gate
+              Back to Sign In
             </Link>
           </div>
         )}
