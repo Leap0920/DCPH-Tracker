@@ -69,3 +69,92 @@
     transition-duration: 0.01ms !important;
   }
 }
+
+/* Homepage White Theme Overrides */
+.homepage-light-theme {
+  background-color: #ffffff !important;
+  color: #1f2937 !important;
+  background-image: none !important;
+}
+
+.homepage-light-theme h1,
+.homepage-light-theme h2,
+.homepage-light-theme h3,
+.homepage-light-theme h4 {
+  color: #111827 !important;
+}
+
+.homepage-light-theme .text-dossier-cream {
+  color: #111827 !important;
+}
+
+.homepage-light-theme .text-dossier-cream-dim {
+  color: #4b5563 !important;
+}
+
+.homepage-light-theme .text-silver-steel {
+  color: #6b7280 !important;
+}
+
+.homepage-light-theme .case-number {
+  color: #6b7280 !important;
+}
+
+.homepage-light-theme .redacted-bar {
+  background-color: #e5e7eb !important;
+}
+
+.homepage-light-theme .dossier-card {
+  background-color: #f9fafb !important;
+  border-color: #e5e7eb !important;
+  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05), 0 2px 4px -1px rgba(0, 0, 0, 0.03) !important;
+}
+
+.homepage-light-theme .dossier-card::before {
+  background-color: #A5202D !important;
+}
+
+.homepage-light-theme .dossier-stamp {
+  border-color: rgba(165, 32, 45, 0.3) !important;
+  color: rgba(165, 32, 45, 0.8) !important;
+}
+
+/* Hover effects for light cards */
+.homepage-light-theme .dossier-card.group:hover {
+  background-color: #f3f4f6 !important;
+  border-color: #d1d5db !important;
+}
+
+/* Footer light overrides */
+.homepage-light-theme footer {
+  background-color: #ffffff !important;
+  border-top: 1px solid #e5e7eb !important;
+}
+
+.homepage-light-theme footer .border-t,
+.homepage-light-theme footer .border-white\/5 {
+  border-color: #e5e7eb !important;
+}
+
+.homepage-light-theme footer .text-dossier-cream-dim {
+  color: #4b5563 !important;
+}
+
+.homepage-light-theme footer .text-dossier-cream-dim:hover {
+  color: #111827 !important;
+}
+
+.homepage-light-theme footer .text-silver-steel {
+  color: #6b7280 !important;
+}
+
+.homepage-light-theme footer .h-9 {
+  border-color: #e5e7eb !important;
+  color: #6b7280 !important;
+}
+
+.homepage-light-theme footer .h-9:hover {
+  color: #A5202D !important;
+  border-color: rgba(165, 32, 45, 0.4) !important;
+}
+
