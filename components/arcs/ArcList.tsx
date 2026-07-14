@@ -47,7 +47,7 @@ export function ArcList({ arcs }: { arcs: Arc[] }) {
                 </div>
               )}
 
-              <CardTitle className="group-hover:text-poison-red-bright transition-colors">
+              <CardTitle className="group-hover:text-gold-seal transition-colors">
                 {arc.title}
               </CardTitle>
 

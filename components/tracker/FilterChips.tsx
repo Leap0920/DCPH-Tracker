@@ -45,10 +45,10 @@ export function FilterChips({ onFilterChange, initialFilters }: FilterChipsProps
             setSearch(e.target.value)
             emitFilters({ search: e.target.value })
           }}
-          className="w-full h-10 rounded-sm border border-white/10 bg-case-file px-3 pl-10 text-sm text-dossier-cream placeholder:text-dossier-cream-dim focus:outline-none focus:ring-2 focus:ring-poison-red"
+          className="w-full h-10 rounded-lg border border-gray-200 bg-gray-50 px-3 pl-10 text-sm text-gray-900 placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-gray-900/20 focus:border-gray-900"
         />
         <svg
-          className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-silver-steel"
+          className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400"
           fill="none"
           viewBox="0 0 24 24"
           stroke="currentColor"
@@ -59,7 +59,7 @@ export function FilterChips({ onFilterChange, initialFilters }: FilterChipsProps
 
       {/* Sort chips */}
       <div className="flex flex-wrap gap-2">
-        <span className="case-number self-center mr-1">ORDER:</span>
+        <span className="text-xs text-gray-500 self-center mr-1 font-mono uppercase tracking-wider">ORDER:</span>
         {FILTER_OPTIONS.SORT_BY.map((option) => (
           <button
             key={option.value}
@@ -68,10 +68,10 @@ export function FilterChips({ onFilterChange, initialFilters }: FilterChipsProps
               emitFilters({ sort: option.value })
             }}
             className={cn(
-              "px-3 py-1.5 rounded-sm text-xs font-mono uppercase tracking-wide transition-colors",
+              "px-3 py-1.5 rounded-full text-xs font-mono uppercase tracking-wide transition-colors",
               sort === option.value
-                ? "bg-poison-red text-dossier-cream"
-                : "bg-case-file text-silver-steel hover:bg-case-file-raised hover:text-dossier-cream"
+                ? "bg-gray-900 text-white"
+                : "bg-gray-100 text-gray-500 hover:bg-gray-200 hover:text-gray-900"
             )}
           >
             {option.label}
@@ -81,7 +81,7 @@ export function FilterChips({ onFilterChange, initialFilters }: FilterChipsProps
 
       {/* Type chips */}
       <div className="flex flex-wrap gap-2">
-        <span className="case-number self-center mr-1">TYPE:</span>
+        <span className="text-xs text-gray-500 self-center mr-1 font-mono uppercase tracking-wider">TYPE:</span>
         {FILTER_OPTIONS.TYPE.map((option) => (
           <button
             key={option.value}
@@ -90,10 +90,10 @@ export function FilterChips({ onFilterChange, initialFilters }: FilterChipsProps
               emitFilters({ type: option.value })
             }}
             className={cn(
-              "px-3 py-1.5 rounded-sm text-xs font-mono uppercase tracking-wide transition-colors",
+              "px-3 py-1.5 rounded-full text-xs font-mono uppercase tracking-wide transition-colors",
               type === option.value
-                ? "bg-poison-red text-dossier-cream"
-                : "bg-case-file text-silver-steel hover:bg-case-file-raised hover:text-dossier-cream"
+                ? "bg-gray-900 text-white"
+                : "bg-gray-100 text-gray-500 hover:bg-gray-200 hover:text-gray-900"
             )}
           >
             {option.label}
@@ -103,7 +103,7 @@ export function FilterChips({ onFilterChange, initialFilters }: FilterChipsProps
 
       {/* Status chips */}
       <div className="flex flex-wrap gap-2">
-        <span className="case-number self-center mr-1">STATUS:</span>
+        <span className="text-xs text-gray-500 self-center mr-1 font-mono uppercase tracking-wider">STATUS:</span>
         {FILTER_OPTIONS.STATUS.map((option) => (
           <button
             key={option.value}
@@ -112,10 +112,10 @@ export function FilterChips({ onFilterChange, initialFilters }: FilterChipsProps
               emitFilters({ status: option.value })
             }}
             className={cn(
-              "px-3 py-1.5 rounded-sm text-xs font-mono uppercase tracking-wide transition-colors",
+              "px-3 py-1.5 rounded-full text-xs font-mono uppercase tracking-wide transition-colors",
               status === option.value
-                ? "bg-poison-red text-dossier-cream"
-                : "bg-case-file text-silver-steel hover:bg-case-file-raised hover:text-dossier-cream"
+                ? "bg-gray-900 text-white"
+                : "bg-gray-100 text-gray-500 hover:bg-gray-200 hover:text-gray-900"
             )}
           >
             {option.label}

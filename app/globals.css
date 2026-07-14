@@ -1,3 +1,26 @@
+@import url('https://fonts.cdnfonts.com/css/google-sans');
+
+@font-face {
+  font-family: 'Product Sans';
+  font-style: normal;
+  font-weight: 300;
+  src: local('Product Sans Light'), url('https://fonts.cdnfonts.com/s/14955/ProductSans-Light.woff') format('woff');
+}
+
+@font-face {
+  font-family: 'Product Sans';
+  font-style: normal;
+  font-weight: 500;
+  src: local('Product Sans Medium'), url('https://fonts.cdnfonts.com/s/14955/ProductSans-Medium.woff') format('woff');
+}
+
+@font-face {
+  font-family: 'Product Sans';
+  font-style: normal;
+  font-weight: 900;
+  src: local('Product Sans Black'), url('https://fonts.cdnfonts.com/s/14955/ProductSans-Black.woff') format('woff');
+}
+
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
@@ -15,12 +38,15 @@
   body {
     @apply bg-noir-black text-dossier-cream font-body antialiased;
     background-image:
-      radial-gradient(circle at 20% 0%, rgba(122,22,32,0.08), transparent 40%),
-      radial-gradient(circle at 100% 100%, rgba(168,172,179,0.05), transparent 45%);
+      radial-gradient(circle at 20% 0%, rgba(122, 22, 32, 0.08), transparent 40%),
+      radial-gradient(circle at 100% 100%, rgba(168, 172, 179, 0.05), transparent 45%);
     background-attachment: fixed;
   }
 
-  h1, h2, h3, h4 {
+  h1,
+  h2,
+  h3,
+  h4 {
     @apply font-display uppercase tracking-wide text-dossier-cream;
   }
 
@@ -36,6 +62,7 @@
 }
 
 @layer components {
+
   /* Signature element: the "dossier card" used for profile cards,
      episode/movie cards, and the screening announcement. A manila-folder
      / redacted-file metaphor instead of a plain rounded card. */
@@ -49,8 +76,7 @@
   }
 
   .dossier-stamp {
-    @apply absolute top-3 right-3 rotate-6 border border-poison-red/60 text-poison-red/80
-           text-[10px] font-mono tracking-stamp uppercase px-2 py-1 rounded-sm;
+    @apply absolute top-3 right-3 rotate-6 border border-poison-red/60 text-poison-red/80 text-[10px] font-mono tracking-stamp uppercase px-2 py-1 rounded-sm;
   }
 
   .redacted-bar {
@@ -72,6 +98,9 @@
 
 /* Homepage White Theme Overrides */
 .homepage-light-theme {
+  --font-display: 'Product Sans', sans-serif !important;
+  --font-body: 'Product Sans', sans-serif !important;
+  font-family: 'Product Sans', sans-serif !important;
   background-color: #ffffff !important;
   color: #1f2937 !important;
   background-image: none !important;
@@ -81,7 +110,15 @@
 .homepage-light-theme h2,
 .homepage-light-theme h3,
 .homepage-light-theme h4 {
+  font-family: 'Product Sans', sans-serif !important;
   color: #111827 !important;
+}
+
+.homepage-light-theme button,
+.homepage-light-theme .button,
+.homepage-light-theme a button {
+  text-transform: none !important;
+  letter-spacing: normal !important;
 }
 
 .homepage-light-theme .text-dossier-cream {
@@ -105,13 +142,13 @@
 }
 
 .homepage-light-theme .dossier-card {
-  background-color: #f9fafb !important;
+  background-color: #ffffff !important;
   border-color: #e5e7eb !important;
-  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05), 0 2px 4px -1px rgba(0, 0, 0, 0.03) !important;
+  box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.05), 0 8px 10px -6px rgba(0, 0, 0, 0.05) !important;
 }
 
 .homepage-light-theme .dossier-card::before {
-  background-color: #A5202D !important;
+  display: none !important;
 }
 
 .homepage-light-theme .dossier-stamp {
@@ -154,7 +191,6 @@
 }
 
 .homepage-light-theme footer .h-9:hover {
-  color: #A5202D !important;
-  border-color: rgba(165, 32, 45, 0.4) !important;
+  color: #111827 !important;
+  border-color: #9ca3af !important;
 }
-

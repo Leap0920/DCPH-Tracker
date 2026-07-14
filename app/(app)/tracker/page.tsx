@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from "react"
 import { ContentGrid } from "@/components/tracker/ContentGrid"
+import { ProgressIndicator } from "@/components/tracker/ProgressIndicator"
 import { createClient } from "@/utils/supabase/client"
 import type { Database } from "@/types/database.types"
 import type { WatchStatus } from "@/lib/constants"
@@ -75,24 +76,27 @@ export default function TrackerPage() {
 
   return (
     <div className="px-0 sm:px-6 py-6 sm:py-10">
-      <div className="mx-auto max-w-4xl">
+      <div className="mx-auto max-w-5xl">
         {loading ? (
           <div className="text-center py-24">
             <div className="inline-flex items-center gap-3">
-              <div className="h-2 w-2 bg-poison-red-bright rounded-full animate-pulse" />
-              <p className="font-display text-lg uppercase text-silver-steel animate-pulse tracking-widest">
+              <div className="h-2 w-2 bg-gray-900 rounded-full animate-pulse" />
+              <p className="font-display text-lg uppercase text-gray-500 animate-pulse tracking-widest">
                 Loading case files...
               </p>
-              <div className="h-2 w-2 bg-poison-red-bright rounded-full animate-pulse" style={{ animationDelay: "0.3s" }} />
+              <div className="h-2 w-2 bg-gray-900 rounded-full animate-pulse" style={{ animationDelay: "0.3s" }} />
             </div>
           </div>
         ) : (
-          <div className="bg-case-file border border-white/5 rounded-sm overflow-hidden shadow-dossier">
-            <ContentGrid
-              entries={entries}
-              userStatuses={userStatuses}
-              onToggleStatus={handleToggleStatus}
-            />
+          <div className="space-y-6">
+            <ProgressIndicator entries={entries} userStatuses={userStatuses} />
+            <div className="bg-white border border-gray-200 rounded-lg overflow-hidden shadow-sm">
+              <ContentGrid
+                entries={entries}
+                userStatuses={userStatuses}
+                onToggleStatus={handleToggleStatus}
+              />
+            </div>
           </div>
         )}
       </div>

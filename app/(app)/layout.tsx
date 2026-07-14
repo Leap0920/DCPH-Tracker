@@ -1,4 +1,4 @@
-import { Sidebar } from "@/components/layout/Sidebar"
+import { Navbar } from "@/components/layout/Navbar"
 
 export default function AppLayout({
   children,
@@ -6,9 +6,9 @@ export default function AppLayout({
   children: React.ReactNode
 }) {
   return (
-    <div className="min-h-screen bg-noir-black">
-      <Sidebar />
-      <main className="md:ml-64 min-h-screen">
+    <div className="min-h-screen bg-white">
+      <Navbar />
+      <main className="min-h-[calc(100vh-4rem)]">
         {children}
       </main>
     </div>

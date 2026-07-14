@@ -16,6 +16,8 @@ export function Navbar() {
   const [user, setUser] = useState<any>(null)
   const [profile, setProfile] = useState<any>(null)
   const [loading, setLoading] = useState(true)
+  const [navVisible, setNavVisible] = useState(true)
+  const [lastScrollY, setLastScrollY] = useState(0)
   const supabase = createClient()
 
   useEffect(() => {
@@ -56,6 +58,20 @@ export function Navbar() {
     }
   }, [supabase])
 
+  useEffect(() => {
+    const handleScroll = () => {
+      const currentScrollY = window.scrollY
+      if (currentScrollY > 80 && !mobileOpen) {
+        setNavVisible(false)
+      } else {
+        setNavVisible(true)
+      }
+    }
+
+    window.addEventListener("scroll", handleScroll, { passive: true })
+    return () => window.removeEventListener("scroll", handleScroll)
+  }, [mobileOpen])
+
   async function handleSignOut() {
     await supabase.auth.signOut()
     setMobileOpen(false)
@@ -64,13 +80,18 @@ export function Navbar() {
   }
 
   return (
-    <header className="sticky top-0 z-40 border-b border-gray-200 bg-white/80 backdrop-blur-md">
+    <header className={cn(
+      "sticky top-0 z-40 border-b border-gray-200 bg-white/80 backdrop-blur-md transition-transform duration-300",
+      navVisible ? "translate-y-0" : "-translate-y-full"
+    )}>
       <nav className="mx-auto flex h-16 max-w-7xl items-center justify-between px-6">
         {/* Logo */}
-        <Link href="/" className="flex items-center gap-3 group">
-          <div className="h-8 w-8 rounded-sm bg-gray-900 flex items-center justify-center transition-colors group-hover:bg-gray-800">
-            <span className="font-display text-sm font-bold text-white">DC</span>
-          </div>
+        <Link href="/" className="flex items-center gap-2 group">
+          <img
+            src="/img/logo_DCPH.png"
+            alt="Detective Conan PH Logo"
+            className="h-8 w-auto object-contain transition-transform duration-300 group-hover:scale-105"
+          />
           <span className="font-display text-lg uppercase tracking-wide text-gray-900 hidden sm:block">
             Detective Conan <span className="text-gray-500">PH</span>
           </span>
@@ -79,7 +100,7 @@ export function Navbar() {
         {/* Desktop nav */}
         <div className="hidden md:flex items-center gap-1">
           {NAV_ROUTES.map((route) => {
-            const isActive = pathname === route.href || 
+            const isActive = pathname === route.href ||
               (route.href !== "/" && pathname.startsWith(route.href))
             return (
               <Link
