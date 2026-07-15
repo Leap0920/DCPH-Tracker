@@ -7,6 +7,8 @@ import {
   Check,
   Play,
   ChevronDown,
+  ChevronLeft,
+  ChevronRight,
   Info,
   Users,
   BookOpen,
@@ -57,7 +59,14 @@ export function ContentGrid({ entries, userStatuses, onToggleStatus, onMarkAll }
   const [search, setSearch] = useState("")
   const [typeFilter, setTypeFilter] = useState<ContentType | "all">("all")
   const [expandedType, setExpandedType] = useState<string | null>(null)
+  const [pages, setPages] = useState<Record<string, number>>({})
   const didInit = useRef(false)
+
+  const PAGE_SIZE = 30
+
+  function setPage(type: string, page: number) {
+    setPages((prev) => ({ ...prev, [type]: page }))
+  }
 
   const totalYears = new Set(entries.map((e) => e.air_date?.slice(0, 4))).size
   const totalEpisodes = entries.filter((e) => e.type === "episode").length
@@ -235,6 +244,9 @@ export function ContentGrid({ entries, userStatuses, onToggleStatus, onMarkAll }
               : started
                 ? "bg-gray-900"
                 : "bg-gray-200"
+            const totalPages = Math.max(1, Math.ceil(section.entries.length / PAGE_SIZE))
+            const page = Math.min(pages[section.type] ?? 0, totalPages - 1)
+            const pageItems = section.entries.slice(page * PAGE_SIZE, (page + 1) * PAGE_SIZE)
             return (
               <Section
                 key={section.type}
@@ -263,7 +275,7 @@ export function ContentGrid({ entries, userStatuses, onToggleStatus, onMarkAll }
                 }
               >
                 <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4 pt-1">
-                  {section.entries.map((entry) => (
+                  {pageItems.map((entry) => (
                     <ContentCard
                       key={entry.id}
                       entry={entry}
@@ -272,6 +284,30 @@ export function ContentGrid({ entries, userStatuses, onToggleStatus, onMarkAll }
                     />
                   ))}
                 </div>
+
+                {totalPages > 1 && (
+                  <div className="flex items-center justify-center gap-4 mt-5">
+                    <button
+                      onClick={() => setPage(section.type, Math.max(0, page - 1))}
+                      disabled={page === 0}
+                      className="inline-flex items-center gap-1.5 h-8 px-3 rounded-sm border border-gray-300 text-[11px] font-mono uppercase tracking-wider text-gray-600 transition-colors hover:text-gray-900 hover:border-gray-900 disabled:opacity-30 disabled:cursor-not-allowed disabled:hover:border-gray-300 disabled:hover:text-gray-600"
+                    >
+                      <ChevronLeft className="h-4 w-4" />
+                      Prev
+                    </button>
+                    <span className="font-mono text-xs text-gray-500">
+                      Page {page + 1} / {totalPages}
+                    </span>
+                    <button
+                      onClick={() => setPage(section.type, Math.min(totalPages - 1, page + 1))}
+                      disabled={page >= totalPages - 1}
+                      className="inline-flex items-center gap-1.5 h-8 px-3 rounded-sm border border-gray-300 text-[11px] font-mono uppercase tracking-wider text-gray-600 transition-colors hover:text-gray-900 hover:border-gray-900 disabled:opacity-30 disabled:cursor-not-allowed disabled:hover:border-gray-300 disabled:hover:text-gray-600"
+                    >
+                      Next
+                      <ChevronRight className="h-4 w-4" />
+                    </button>
+                  </div>
+                )}
               </Section>
             )
           })}
