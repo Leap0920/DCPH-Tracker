@@ -1,6 +1,7 @@
 import { ProfileCard } from "@/components/profile/ProfileCard"
 import { StatsGrid } from "@/components/profile/StatsGrid"
 import { getProfileByUsername, getProfileStats } from "@/lib/queries/profile"
+import { createClient } from "@/utils/supabase/server"
 import { notFound } from "next/navigation"
 
 export default async function ProfilePage({
@@ -15,6 +16,12 @@ export default async function ProfilePage({
     notFound()
   }
 
+  const supabase = await createClient()
+  const {
+    data: { user },
+  } = await supabase.auth.getUser()
+  const isOwn = user?.id === profile.user_id
+
   const stats = await getProfileStats(profile.user_id)
 
   return (
@@ -25,7 +32,7 @@ export default async function ProfilePage({
           <span className="redacted-bar w-16" />
         </div>
 
-        <ProfileCard profile={profile} />
+        <ProfileCard profile={profile} isOwn={isOwn} />
         <StatsGrid stats={stats} />
       </div>
     </div>
