@@ -4,6 +4,9 @@
  * Docs: https://docs.api.jikan.moe/
  *
  * Rate limit: 3 requests/second (we use 400ms delay between requests)
+ *
+ * ROLE IN THIS SYSTEM: legacy / fallback metadata source. Kitsu is the
+ * primary source; Jikan remains available for `source=jikan` syncs.
  */
 
 const JIKAN_BASE_URL = "https://api.jikan.moe/v4"
@@ -113,6 +116,24 @@ export interface JikanEpisodesResponse {
   data: JikanEpisode[]
 }
 
+export interface JikanAnime {
+  data: {
+    mal_id: number
+    title: string
+    title_english: string | null
+    synopsis: string | null
+    images: {
+      jpg: JikanImage
+    }
+    type: string
+    episodes: number | null
+    aired: {
+      from: string | null
+    }
+    duration: string
+  }
+}
+
 // ─── API Functions ───────────────────────────────────────────────
 
 /** Generate a URL-safe slug from text */
@@ -131,6 +152,15 @@ export function slugify(text: string): string {
 export async function getAnimeFull(malId: number = DETECTIVE_CONAN_MAL_ID) {
   return rateLimitedFetch<JikanAnimeFull>(
     `${JIKAN_BASE_URL}/anime/${malId}/full`
+  )
+}
+
+/**
+ * Get basic anime details from Jikan (for related entries like movies/specials/OVAs)
+ */
+export async function getAnime(malId: number): Promise<JikanAnime> {
+  return rateLimitedFetch<JikanAnime>(
+    `${JIKAN_BASE_URL}/anime/${malId}`
   )
 }
 
