@@ -74,6 +74,32 @@ export default function TrackerPage() {
     }
   }
 
+  async function handleMarkAll(contentIds: string[], status: WatchStatus) {
+    const { data: { user } } = await supabase.auth.getUser()
+    if (!user) {
+      window.location.href = "/login"
+      return
+    }
+
+    const rows = contentIds.map((contentId) => ({
+      user_id: user.id,
+      content_id: contentId,
+      status,
+    }))
+
+    const { error } = await supabase
+      .from("watch_status")
+      .upsert(rows, { onConflict: "user_id,content_id" })
+
+    if (!error) {
+      setUserStatuses((prev) => {
+        const next = new Map(prev)
+        contentIds.forEach((id) => next.set(id, status))
+        return next
+      })
+    }
+  }
+
   return (
     <div className="px-0 sm:px-6 py-6 sm:py-10">
       <div className="mx-auto max-w-5xl">
@@ -95,6 +121,7 @@ export default function TrackerPage() {
                 entries={entries}
                 userStatuses={userStatuses}
                 onToggleStatus={handleToggleStatus}
+                onMarkAll={handleMarkAll}
               />
             </div>
           </div>

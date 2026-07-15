@@ -2,7 +2,6 @@
 
 import Link from "next/link"
 import { Eye, EyeOff, Play, Check } from "lucide-react"
-import { Badge } from "@/components/ui/badge"
 import { cn } from "@/lib/utils"
 import { padNumber } from "@/lib/utils"
 import { CONTENT_TYPE_LABELS, type ContentType, type WatchStatus } from "@/lib/constants"
@@ -17,17 +16,21 @@ interface ContentCardProps {
 }
 
 const statusConfig: Record<WatchStatus | "none", { icon: typeof Eye; color: string; label: string }> = {
-  unwatched: { icon: EyeOff, color: "text-silver-steel", label: "Unwatched" },
-  watching: { icon: Play, color: "text-poison-red-bright", label: "Watching" },
-  watched: { icon: Check, color: "text-green-500", label: "Watched" },
-  none: { icon: EyeOff, color: "text-silver-steel", label: "Unwatched" },
+  unwatched: { icon: EyeOff, color: "text-gray-400", label: "Unwatched" },
+  watching: { icon: Play, color: "text-gray-900", label: "Watching" },
+  watched: { icon: Check, color: "text-green-600", label: "Watched" },
+  none: { icon: EyeOff, color: "text-gray-400", label: "Unwatched" },
 }
 
-const typeBadgeVariant: Record<string, "default" | "secondary" | "outline" | "gold"> = {
-  movie: "gold",
-  special: "default",
-  ova: "secondary",
-  episode: "outline",
+const typeBadgeClass: Record<string, string> = {
+  movie: "bg-amber-100 text-amber-700 border-amber-300",
+  special: "bg-rose-100 text-rose-700 border-rose-300",
+  ova: "bg-violet-100 text-violet-700 border-violet-300",
+  live_action: "bg-sky-100 text-sky-700 border-sky-300",
+  magic_kaito: "bg-fuchsia-100 text-fuchsia-700 border-fuchsia-300",
+  hanzawa: "bg-zinc-200 text-zinc-700 border-zinc-300",
+  zero_tea_time: "bg-teal-100 text-teal-700 border-teal-300",
+  episode: "bg-gray-100 text-gray-600 border-gray-300",
 }
 
 export function ContentCard({ entry, watchStatus, onToggleStatus }: ContentCardProps) {
@@ -69,8 +72,12 @@ export function ContentCard({ entry, watchStatus, onToggleStatus }: ContentCardP
               onToggleStatus(entry.id, watchStatus ?? null)
             }}
             className={cn(
-              "absolute bottom-2 right-2 h-8 w-8 rounded-full bg-white/90 border border-gray-200 flex items-center justify-center transition-colors hover:bg-white shadow-sm",
-              status === "watched" ? "text-green-500" : status === "watching" ? "text-gray-900" : "text-gray-400"
+              "absolute bottom-2 right-2 h-8 w-8 rounded-full bg-white border flex items-center justify-center transition-colors shadow-sm",
+              status === "watched"
+                ? "border-green-500 text-green-600 bg-green-50"
+                : status === "watching"
+                  ? "border-gray-900 text-gray-900 bg-gray-100"
+                  : "border-gray-300 text-gray-400 hover:border-gray-900 hover:text-gray-900"
             )}
             title={config.label}
           >
@@ -82,9 +89,12 @@ export function ContentCard({ entry, watchStatus, onToggleStatus }: ContentCardP
       {/* Content */}
       <div className="p-4">
         <div className="flex items-start justify-between gap-2 mb-2">
-          <Badge variant={typeBadgeVariant[entry.type] ?? "outline"}>
+          <span className={cn(
+            "inline-flex items-center rounded-sm border px-2 py-0.5 text-[10px] font-mono uppercase tracking-wide",
+            typeBadgeClass[entry.type] ?? typeBadgeClass.episode
+          )}>
             {CONTENT_TYPE_LABELS[entry.type as ContentType]}
-          </Badge>
+          </span>
           <span className="text-xs text-gray-500">
             {new Date(entry.air_date).getFullYear()}
           </span>

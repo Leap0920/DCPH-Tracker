@@ -65,11 +65,12 @@ create table content_entries (
   id               uuid primary key default uuid_generate_v4(),
   slug             text unique not null,
   title            text not null,
-  type             text not null check (type in ('episode', 'movie', 'special', 'ova')),
+  type             text not null check (type in ('episode', 'movie', 'special', 'ova', 'live_action', 'magic_kaito', 'hanzawa', 'zero_tea_time')),
   episode_number   integer,
   movie_number     integer,
   air_date         date not null,
   canon_order      integer not null,
+  release_order    integer,
   arc_id           uuid references arcs(id) on delete set null,
   synopsis         text,
   image_url        text,
@@ -79,6 +80,7 @@ create table content_entries (
 
 create index idx_content_air_date on content_entries(air_date);
 create index idx_content_canon_order on content_entries(canon_order);
+create index idx_content_release_order on content_entries(release_order);
 create index idx_content_type on content_entries(type);
 create index idx_content_arc on content_entries(arc_id);
 
@@ -249,6 +251,15 @@ create policy "Arcs are publicly readable"
 create policy "Content entries are publicly readable"
   on content_entries for select using (true);
 
+-- Content entries: admins can insert/update (used by /api/sync)
+create policy "Admins can insert content entries"
+  on content_entries for insert
+  with check ((select role from public.profiles where user_id = auth.uid()) = 'admin');
+
+create policy "Admins can update content entries"
+  on content_entries for update
+  using ((select role from public.profiles where user_id = auth.uid()) = 'admin');
+
 -- Watch status: owner CRUD
 create policy "Users can view own watch status"
   on watch_status for select using (auth.uid() = user_id);
@@ -284,3 +295,44 @@ create policy "Screening events are publicly readable"
 -- Social links: public read
 create policy "Social links are publicly readable"
   on social_links for select using (true);
+
+-- ─────────────────────────────────────────────────────────────
+-- STORAGE: AVATARS BUCKET
+-- Lets users upload and manage their own profile picture.
+-- ─────────────────────────────────────────────────────────────
+
+insert into storage.buckets (id, name, public)
+values ('avatars', 'avatars', true)
+on conflict (id) do nothing;
+
+-- Anyone can read avatar images (bucket is public)
+drop policy if exists "Avatar images are publicly readable" on storage.objects;
+create policy "Avatar images are publicly readable"
+  on storage.objects for select
+  using ( bucket_id = 'avatars' );
+
+-- Authenticated users may upload only inside their own folder: avatars/<user_id>/*
+drop policy if exists "Users can upload their own avatar" on storage.objects;
+create policy "Users can upload their own avatar"
+  on storage.objects for insert to authenticated
+  with check (
+    bucket_id = 'avatars'
+    and (storage.foldername(name))[1] = auth.uid()::text
+  );
+
+-- Users may update/delete only their own avatar objects
+drop policy if exists "Users can update their own avatar" on storage.objects;
+create policy "Users can update their own avatar"
+  on storage.objects for update to authenticated
+  using (
+    bucket_id = 'avatars'
+    and (storage.foldername(name))[1] = auth.uid()::text
+  );
+
+drop policy if exists "Users can delete their own avatar" on storage.objects;
+create policy "Users can delete their own avatar"
+  on storage.objects for delete to authenticated
+  using (
+    bucket_id = 'avatars'
+    and (storage.foldername(name))[1] = auth.uid()::text
+  );

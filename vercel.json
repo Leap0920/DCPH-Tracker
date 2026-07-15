@@ -1,0 +1,8 @@
+{
+  "crons": [
+    {
+      "path": "/api/sync?mode=airing&cron_secret=REPLACE_WITH_CRON_SECRET",
+      "schedule": "23 */6 * * *"
+    }
+  ]
+}
