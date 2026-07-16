@@ -21,7 +21,9 @@ export default function SignupPage() {
   const [showConfirmPassword, setShowConfirmPassword] = useState(false)
   
   const [error, setError] = useState<string | null>(null)
+  const [needsConfirmation, setNeedsConfirmation] = useState(false)
   const [loading, setLoading] = useState(false)
+  const [resendState, setResendState] = useState<"idle" | "sending" | "sent">("idle")
   const router = useRouter()
   const supabase = createClient()
 
@@ -76,6 +78,7 @@ export default function SignupPage() {
       email: cleanEmail,
       password,
       options: {
+        emailRedirectTo: `${window.location.origin}/callback?next=/tracker`,
         data: { 
           username: generatedUsername, 
           display_name: displayName,
@@ -90,12 +93,33 @@ export default function SignupPage() {
       return
     }
 
-    // The profiles table has a trigger on auth.users (on_auth_user_created)
-    // which automatically inserts the profile based on raw_user_meta_data.
-    // Therefore, we must NOT manually insert into profiles here to avoid duplicate key errors.
-    
+    // If email confirmation is required, Supabase returns no active session.
+    if (!authData.session) {
+      setNeedsConfirmation(true)
+      setLoading(false)
+      return
+    }
+
     router.push("/tracker")
     router.refresh()
+  }
+
+  async function handleResend() {
+    setResendState("sending")
+    setError(null)
+    const { error: resendError } = await supabase.auth.resend({
+      type: "signup",
+      email: email.trim().toLowerCase(),
+      options: {
+        emailRedirectTo: `${window.location.origin}/callback?next=/tracker`,
+      },
+    })
+    if (resendError) {
+      setError(resendError.message)
+      setResendState("idle")
+      return
+    }
+    setResendState("sent")
   }
 
   return (
@@ -118,6 +142,40 @@ export default function SignupPage() {
       </CardHeader>
 
       <CardContent className="px-6 pb-8">
+        {needsConfirmation ? (
+          <div className="space-y-4 text-center">
+            <div className="bg-green-50 border border-green-200 rounded-lg p-4 text-sm text-green-700">
+              <p className="font-semibold mb-1">Confirm your email</p>
+              <p>
+                We sent a confirmation link to <span className="font-medium">{email}</span>.
+                Open it to activate your account, then sign in.
+              </p>
+            </div>
+            {error && (
+              <div className="bg-red-50 border border-red-200 rounded-lg p-3 text-xs text-red-600 text-left">
+                {error}
+              </div>
+            )}
+            <button
+              type="button"
+              onClick={handleResend}
+              disabled={resendState !== "idle"}
+              className="text-sm text-gray-600 hover:text-gray-900 hover:underline disabled:opacity-50 disabled:no-underline"
+            >
+              {resendState === "sending"
+                ? "Resending..."
+                : resendState === "sent"
+                  ? "Confirmation email resent ✓"
+                  : "Didn't get it? Resend confirmation email"}
+            </button>
+            <Link href="/login" className="block">
+              <Button className="w-full rounded-full h-11 text-sm font-semibold">
+                Go to Sign In
+              </Button>
+            </Link>
+          </div>
+        ) : (
+        <>
         <form onSubmit={handleSignup} className="space-y-4">
           {error && (
             <div className="bg-red-50 border border-red-200 rounded-lg p-3.5 flex gap-2 items-start text-xs text-red-600">
@@ -248,6 +306,8 @@ export default function SignupPage() {
             </Link>
           </p>
         </div>
+        </>
+        )}
       </CardContent>
     </Card>
   )

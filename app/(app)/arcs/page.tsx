@@ -18,6 +18,12 @@ import {
   formatEpisodeRange,
 } from "@/lib/arcs-guide"
 
+export const metadata = {
+  title: "Story Arcs & Watch Guide — Detective Conan PH",
+  description:
+    "The full Detective Conan main plot from Season 1 to the latest episode, plus a newcomer watch guide.",
+}
+
 export default function ArcsPage() {
   return (
     <div className="px-6 py-10">

@@ -18,6 +18,7 @@ type ChatMessage = Database["public"]["Tables"]["chat_messages"]["Row"] & {
 
 const MESSAGE_QUERY = "*, profiles:user_id(username, display_name, avatar_url)"
 const GROUP_GAP_MS = 5 * 60 * 1000
+const PAGE_SIZE = 100
 
 function formatTime(iso: string) {
   return new Date(iso).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })
@@ -59,6 +60,8 @@ export function ChatWindow({
   const [newMessage, setNewMessage] = useState("")
   const [sending, setSending] = useState(false)
   const [loading, setLoading] = useState(true)
+  const [loadingMore, setLoadingMore] = useState(false)
+  const [hasMore, setHasMore] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [userId, setUserId] = useState<string | null>(null)
   const [me, setMe] = useState<Profile | null>(null)
@@ -80,6 +83,37 @@ export function ChatWindow({
     setUnread(0)
   }, [])
 
+  const loadEarlier = useCallback(async () => {
+    if (loadingMore || messages.length === 0) return
+    setLoadingMore(true)
+    const oldest = messages[0].created_at
+    const el = scrollRef.current
+    const prevScrollHeight = el?.scrollHeight ?? 0
+
+    const { data, error: moreError } = await supabase
+      .from("chat_messages")
+      .select(MESSAGE_QUERY)
+      .eq("room_id", room.id)
+      .lt("created_at", oldest)
+      .order("created_at", { ascending: false })
+      .limit(PAGE_SIZE)
+
+    if (!moreError && data) {
+      const older = (data as ChatMessage[]).slice().reverse()
+      setMessages((prev) => {
+        const existing = new Set(prev.map((m) => m.id))
+        return [...older.filter((m) => !existing.has(m.id)), ...prev]
+      })
+      setHasMore(data.length === PAGE_SIZE)
+      // Preserve scroll position so the view doesn't jump.
+      requestAnimationFrame(() => {
+        const node = scrollRef.current
+        if (node) node.scrollTop = node.scrollHeight - prevScrollHeight
+      })
+    }
+    setLoadingMore(false)
+  }, [loadingMore, messages, room.id, supabase])
+
   useEffect(() => {
     let active = true
 
@@ -100,15 +134,23 @@ export function ChatWindow({
 
       if (profileData && active) setMe(profileData as Profile)
 
-      const { data } = await supabase
+      // Load the most recent page of messages (newest first), then flip to
+      // chronological order for rendering.
+      const { data, error: loadError } = await supabase
         .from("chat_messages")
         .select(MESSAGE_QUERY)
         .eq("room_id", room.id)
-        .order("created_at", { ascending: true })
-        .limit(100)
+        .order("created_at", { ascending: false })
+        .limit(PAGE_SIZE)
 
       if (active) {
-        if (data) setMessages(data as ChatMessage[])
+        if (loadError) {
+          setError("Couldn't load messages. Check your connection and refresh.")
+        } else if (data) {
+          const ordered = (data as ChatMessage[]).slice().reverse()
+          setMessages(ordered)
+          setHasMore(data.length === PAGE_SIZE)
+        }
         setLoading(false)
         initialLoadRef.current = true
         requestAnimationFrame(() => scrollToBottom(false))
@@ -281,6 +323,25 @@ export function ChatWindow({
       >
         {loading ? (
           <ChatSkeleton />
+        ) : !userId ? (
+          <div className="flex h-full flex-col items-center justify-center text-center">
+            <MessagesSquare className="h-8 w-8 text-gray-300" />
+            <p className="mt-4 font-display text-sm uppercase tracking-wide text-gray-500">
+              Sign in to read the conversation
+            </p>
+            <div className="mt-3 flex items-center gap-2">
+              <Link href="/login">
+                <Button size="sm" className="rounded-lg">
+                  Sign In
+                </Button>
+              </Link>
+              <Link href="/signup">
+                <Button size="sm" variant="outline" className="rounded-lg border-gray-200">
+                  Sign Up
+                </Button>
+              </Link>
+            </div>
+          </div>
         ) : messages.length === 0 ? (
           <div className="flex h-full flex-col items-center justify-center text-center">
             <MessagesSquare className="h-8 w-8 text-gray-300" />
@@ -293,6 +354,17 @@ export function ChatWindow({
           </div>
         ) : (
           <div className="space-y-1">
+            {hasMore && (
+              <div className="flex justify-center py-2">
+                <button
+                  onClick={loadEarlier}
+                  disabled={loadingMore}
+                  className="rounded-full border border-gray-200 bg-white px-4 py-1.5 font-mono text-[11px] uppercase tracking-wide text-gray-500 hover:text-gray-900 hover:border-gray-300 disabled:opacity-50 transition-colors"
+                >
+                  {loadingMore ? "Loading…" : "Load earlier messages"}
+                </button>
+              </div>
+            )}
             {messages.map((msg, i) => {
               const prev = messages[i - 1]
               const isOwn = msg.user_id === userId

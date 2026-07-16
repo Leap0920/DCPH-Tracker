@@ -5,7 +5,7 @@ const footerLinks = [
   { label: "Tracker", href: "/tracker" },
   { label: "Story Arcs", href: "/arcs" },
   { label: "Rankings", href: "/community/rankings" },
-  { label: "Chat", href: "/community/chat/general" },
+  { label: "Chat", href: "/community/chat" },
 ]
 
 const socialLinks = [
@@ -17,7 +17,7 @@ const socialLinks = [
 
 export function Footer() {
   return (
-    <footer className="border-t border-white/5 bg-noir-black">
+    <footer className="border-t border-gray-200 bg-white">
       <div className="mx-auto max-w-7xl px-6 py-12">
         <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
           {/* Brand */}
@@ -28,11 +28,11 @@ export function Footer() {
                 alt="Detective Conan PH Logo"
                 className="h-8 w-auto object-contain transition-transform duration-300 hover:scale-105"
               />
-              <span className="font-display text-lg uppercase tracking-wide text-dossier-cream">
-                Detective Conan <span className="text-poison-red-bright">PH</span>
+              <span className="font-display text-lg uppercase tracking-wide text-gray-900">
+                Detective Conan <span className="text-[#A5202D]">PH</span>
               </span>
             </Link>
-            <p className="text-sm text-dossier-cream-dim max-w-xs">
+            <p className="text-sm text-gray-500 max-w-xs">
               The Filipino Detective Conan community — track episodes, join discussions,
               and prove your rank in the organization.
             </p>
@@ -40,7 +40,7 @@ export function Footer() {
 
           {/* Navigation */}
           <div>
-            <h3 className="font-display text-sm uppercase tracking-wide text-silver-steel mb-4">
+            <h3 className="font-display text-sm uppercase tracking-wide text-gray-900 mb-4">
               Navigation
             </h3>
             <ul className="space-y-2">
@@ -48,7 +48,7 @@ export function Footer() {
                 <li key={link.href}>
                   <Link
                     href={link.href}
-                    className="text-sm text-dossier-cream-dim hover:text-dossier-cream transition-colors"
+                    className="text-sm text-gray-500 hover:text-gray-900 transition-colors"
                   >
                     {link.label}
                   </Link>
@@ -59,7 +59,7 @@ export function Footer() {
 
           {/* Social */}
           <div>
-            <h3 className="font-display text-sm uppercase tracking-wide text-silver-steel mb-4">
+            <h3 className="font-display text-sm uppercase tracking-wide text-gray-900 mb-4">
               Connect
             </h3>
             <div className="flex gap-3">
@@ -69,7 +69,7 @@ export function Footer() {
                   href={social.href}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="h-9 w-9 rounded-sm border border-white/10 flex items-center justify-center text-silver-steel hover:text-white hover:border-white/30 transition-colors"
+                  className="h-9 w-9 rounded-sm border border-gray-200 flex items-center justify-center text-gray-400 hover:text-gray-900 hover:border-gray-300 transition-colors"
                   aria-label={social.label}
                 >
                   <social.icon className="h-4 w-4" />
@@ -79,11 +79,11 @@ export function Footer() {
           </div>
         </div>
 
-        <div className="mt-10 pt-6 border-t border-white/5 flex flex-col sm:flex-row justify-between items-center gap-4">
+        <div className="mt-10 pt-6 border-t border-gray-200 flex flex-col sm:flex-row justify-between items-center gap-4">
           <p className="case-number">
             FILE NO. 001 — CLASSIFIED
           </p>
-          <p className="text-xs text-dossier-cream-dim">
+          <p className="text-xs text-gray-400">
             &copy; {new Date().getFullYear()} Detective Conan PH. Not affiliated with Gosho Aoyama.
           </p>
         </div>

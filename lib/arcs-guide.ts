@@ -319,6 +319,17 @@ export function getArcBySlug(slug: string): StoryArc | undefined {
   return STORY_ARCS.find((a) => a.slug === slug)
 }
 
+/** Resolve which guide arc an episode belongs to by its episode number. */
+export function getArcSlugForEpisode(episode?: number | null): string | null {
+  if (episode == null) return null
+  const arc = STORY_ARCS.find(
+    (a) =>
+      episode >= a.episodeStart &&
+      (a.episodeEnd == null || episode <= a.episodeEnd)
+  )
+  return arc?.slug ?? null
+}
+
 export function getAdjacentArcs(slug: string): {
   prev: StoryArc | null
   next: StoryArc | null

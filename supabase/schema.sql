@@ -17,6 +17,7 @@ create table profiles (
   avatar_url text,
   bio        text,
   role       text not null default 'member' check (role in ('member', 'moderator', 'admin')),
+  birthday   date,
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now()
 );
@@ -28,11 +29,12 @@ drop function if exists public.handle_new_user();
 create or replace function public.handle_new_user()
 returns trigger as $$
 begin
-  insert into public.profiles (user_id, username, display_name)
+  insert into public.profiles (user_id, username, display_name, birthday)
   values (
     new.id,
     coalesce(new.raw_user_meta_data ->> 'username', split_part(new.email, '@', 1)),
-    coalesce(new.raw_user_meta_data ->> 'display_name', split_part(new.email, '@', 1))
+    coalesce(new.raw_user_meta_data ->> 'display_name', split_part(new.email, '@', 1)),
+    nullif(new.raw_user_meta_data ->> 'birthday', '')::date
   );
   return new;
 end;

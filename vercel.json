@@ -1,7 +1,7 @@
 {
   "crons": [
     {
-      "path": "/api/sync?mode=airing&cron_secret=REPLACE_WITH_CRON_SECRET",
+      "path": "/api/sync?mode=airing",
       "schedule": "23 */6 * * *"
     }
   ]

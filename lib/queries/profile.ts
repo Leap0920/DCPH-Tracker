@@ -11,8 +11,10 @@ export async function getProfileByUsername(username: string) {
     .from("profiles")
     .select("*")
     .eq("username", username)
-    .single()
+    .maybeSingle()
 
+  // maybeSingle returns null (not an error) when no row matches, so a
+  // non-existent username results in a clean 404 rather than a crash.
   if (error) throw error
 
   return data
