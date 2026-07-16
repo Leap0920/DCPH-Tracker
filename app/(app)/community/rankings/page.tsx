@@ -7,6 +7,12 @@ import { Button } from "@/components/ui/button"
 
 export const dynamic = "force-dynamic"
 
+export const metadata = {
+  title: "Agent Rankings — Detective Conan PH",
+  description:
+    "See how many episodes fellow agents have watched and climb the community leaderboard.",
+}
+
 export default async function RankingsPage() {
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()

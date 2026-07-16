@@ -4,6 +4,11 @@ import { getProfileByUsername, getProfileStats } from "@/lib/queries/profile"
 import { createClient } from "@/utils/supabase/server"
 import { notFound } from "next/navigation"
 
+export const metadata = {
+  title: "Agent Dossier — Detective Conan PH",
+  description: "View an agent's watch stats, badges, and profile.",
+}
+
 export default async function ProfilePage({
   params,
 }: {

@@ -1,4 +1,5 @@
 import { createClient } from "@/utils/supabase/server"
+import type { Database } from "@/types/database.types"
 
 export interface RankingRow {
   user_id: string

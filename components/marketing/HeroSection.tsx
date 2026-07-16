@@ -153,7 +153,7 @@ export function HeroSection() {
                 variant="outline"
                 size="lg"
                 onClick={scrollToContent}
-                className="border-gray-300 hover:border-gray-400 bg-white hover:bg-gray-50 text-gray-700 hover:text-gray-955 px-8 h-11 text-sm font-semibold rounded-full transition-all"
+                className="border-gray-300 hover:border-gray-400 bg-white hover:bg-gray-50 text-gray-700 hover:text-gray-900 px-8 h-11 text-sm font-semibold rounded-full transition-all"
               >
                 Explore Now
               </Button>

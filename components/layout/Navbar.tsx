@@ -3,21 +3,23 @@
 import Link from "next/link"
 import { usePathname, useRouter } from "next/navigation"
 import { useState, useEffect } from "react"
-import { Menu, X, Search, LogOut, User, Settings } from "lucide-react"
+import { Menu, X, LogOut, User, Settings } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { NAV_ROUTES } from "@/lib/constants"
 import { cn } from "@/lib/utils"
 import { createClient } from "@/utils/supabase/client"
+import type { User as SupabaseUser } from "@supabase/supabase-js"
+
+type NavProfile = { username: string; display_name: string }
 
 export function Navbar() {
   const pathname = usePathname()
   const router = useRouter()
   const [mobileOpen, setMobileOpen] = useState(false)
-  const [user, setUser] = useState<any>(null)
-  const [profile, setProfile] = useState<any>(null)
+  const [user, setUser] = useState<SupabaseUser | null>(null)
+  const [profile, setProfile] = useState<NavProfile | null>(null)
   const [loading, setLoading] = useState(true)
   const [navVisible, setNavVisible] = useState(true)
-  const [lastScrollY, setLastScrollY] = useState(0)
   const supabase = createClient()
 
   useEffect(() => {
@@ -30,7 +32,7 @@ export function Navbar() {
           .select("username, display_name")
           .eq("user_id", user.id)
           .single()
-        setProfile(profileData)
+        setProfile(profileData as NavProfile | null)
       }
       setLoading(false)
     }
@@ -46,7 +48,7 @@ export function Navbar() {
           .select("username, display_name")
           .eq("user_id", currentUser.id)
           .single()
-        setProfile(profileData)
+        setProfile(profileData as NavProfile | null)
       } else {
         setProfile(null)
       }
@@ -82,7 +84,9 @@ export function Navbar() {
   return (
     <header className={cn(
       "sticky top-0 z-40 border-b border-gray-200 bg-white/80 backdrop-blur-md transition-transform duration-300",
-      navVisible ? "translate-y-0" : "-translate-y-full"
+      // Only auto-hide on desktop. On mobile the header must stay put so the
+      // hamburger menu button is always reachable.
+      navVisible ? "translate-y-0" : "translate-y-0 md:-translate-y-full"
     )}>
       <nav className="mx-auto flex h-16 max-w-7xl items-center justify-between px-6">
         {/* Logo */}
@@ -121,10 +125,6 @@ export function Navbar() {
 
         {/* Right side */}
         <div className="flex items-center gap-2">
-          <Button variant="ghost" size="icon" aria-label="Search" className="text-gray-500 hover:text-gray-900">
-            <Search className="h-4 w-4" />
-          </Button>
-
           {!loading && (
             <>
               {user ? (

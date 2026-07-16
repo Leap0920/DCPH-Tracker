@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server"
 import { createClient } from "@/utils/supabase/server"
+import { createAdminClient } from "@/utils/supabase/admin"
 import {
   getAllEpisodes,
   getAnimeFull,
@@ -13,6 +14,9 @@ import { getNextAiringEpisode } from "@/lib/anilist"
 import type { Database } from "@/types/database.types"
 
 type ContentInsert = Database["public"]["Tables"]["content_entries"]["Insert"]
+
+/** Either the cookie-bound server client or the service-role admin client. */
+type SyncClient = Awaited<ReturnType<typeof createClient>>
 
 interface SyncResult {
   type: "episodes" | "franchise" | "airing"
@@ -72,15 +76,30 @@ export async function POST(request: NextRequest) {
       }
     }
 
+    // Writes need to satisfy the admin-only RLS policy on content_entries.
+    // A logged-in admin session already does; a cron run does NOT (no user
+    // context), so it must use the service-role client which bypasses RLS.
+    let writeClient: SyncClient = supabase
+    if (isCron) {
+      const admin = createAdminClient()
+      if (!admin) {
+        return NextResponse.json(
+          { error: "SUPABASE_SERVICE_ROLE_KEY is not configured; cron sync cannot write." },
+          { status: 500 }
+        )
+      }
+      writeClient = admin as unknown as SyncClient
+    }
+
     // ── Airing mode: AniList detects new episode → Jikan pulls its detail ──
     if (mode === "airing") {
-      const result = await syncAiring(supabase, dryRun)
+      const result = await syncAiring(writeClient, dryRun)
       return NextResponse.json({ mode: "airing", results: [result] })
     }
 
     // ── Seed mode (default): episodes (Jikan) + franchise (Kitsu) ──
-    const episodeResult = await syncSeedEpisodes(supabase, limit, dryRun)
-    const franchiseResult = await syncSeedFranchise(supabase, limit, dryRun)
+    const episodeResult = await syncSeedEpisodes(writeClient, limit, dryRun)
+    const franchiseResult = await syncSeedFranchise(writeClient, limit, dryRun)
 
     return NextResponse.json({
       mode: "seed",
@@ -102,7 +121,7 @@ function kitsuContentSlug(type: "movie" | "special" | "ova", idx: number): strin
 // ─── Shared upsert helper ────────────────────────────────────────
 
 async function upsertBatch(
-  supabase: Awaited<ReturnType<typeof createClient>>,
+  supabase: SyncClient,
   rows: ContentInsert[]
 ): Promise<{ inserted: number; errors: string[] }> {
   const BATCH_SIZE = 50
@@ -125,7 +144,7 @@ async function upsertBatch(
 // ─── Seed: episodes from Jikan (complete for DC) ────────────────
 
 async function syncSeedEpisodes(
-  supabase: Awaited<ReturnType<typeof createClient>>,
+  supabase: SyncClient,
   limit: number | undefined,
   dryRun: boolean
 ): Promise<SyncResult> {
@@ -174,7 +193,7 @@ async function syncSeedEpisodes(
 // ─── Seed: franchise (movies / specials / OVAs) from Kitsu ──────
 
 async function syncSeedFranchise(
-  supabase: Awaited<ReturnType<typeof createClient>>,
+  supabase: SyncClient,
   limit: number | undefined,
   dryRun: boolean
 ): Promise<SyncResult> {
@@ -235,7 +254,7 @@ async function syncSeedFranchise(
 // ─── Airing mode: AniList detects new episode → Jikan tail re-sync ─
 
 async function syncAiring(
-  supabase: Awaited<ReturnType<typeof createClient>>,
+  supabase: SyncClient,
   dryRun: boolean
 ): Promise<SyncResult> {
   // Current max episode we have.

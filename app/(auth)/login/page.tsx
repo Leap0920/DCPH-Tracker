@@ -20,7 +20,11 @@ function LoginForm() {
   const searchParams = useSearchParams()
   const supabase = createClient()
 
-  const redirectTo = searchParams ? searchParams.get("redirectTo") || "/tracker" : "/tracker"
+  const redirectToRaw = searchParams ? searchParams.get("redirectTo") : null
+  const redirectTo =
+    redirectToRaw && redirectToRaw.startsWith("/") && !redirectToRaw.startsWith("//")
+      ? redirectToRaw
+      : "/tracker"
 
   async function handleLogin(e: React.FormEvent) {
     e.preventDefault()

@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { CONTENT_TYPE_LABELS, type ContentType } from "@/lib/constants"
 import { formatDate, padNumber } from "@/lib/utils"
+import { getArcBySlug, getArcSlugForEpisode } from "@/lib/arcs-guide"
 import type { Database } from "@/types/database.types"
 
 type ContentEntry = Database["public"]["Tables"]["content_entries"]["Row"] & {
@@ -79,17 +80,24 @@ export function ContentDetail({ entry }: { entry: ContentEntry }) {
                 <span>{entry.runtime_minutes} min</span>
               </div>
             )}
-            {entry.arcs && (
-              <div className="flex items-center gap-2">
-                <Film className="h-4 w-4 text-gray-900" />
-                <Link
-                  href={`/arcs/${entry.arcs.slug}`}
-                  className="hover:text-gray-900 transition-colors"
-                >
-                  {entry.arcs.title}
-                </Link>
-              </div>
-            )}
+            {(() => {
+              const arcSlug = getArcSlugForEpisode(
+                entry.type === "episode" ? entry.episode_number : null
+              )
+              const arc = arcSlug ? getArcBySlug(arcSlug) : null
+              if (!arc) return null
+              return (
+                <div className="flex items-center gap-2">
+                  <Film className="h-4 w-4 text-gray-900" />
+                  <Link
+                    href={`/arcs/${arc.slug}`}
+                    className="hover:text-gray-900 transition-colors"
+                  >
+                    {arc.title}
+                  </Link>
+                </div>
+              )
+            })()}
           </div>
 
           {entry.synopsis && (
