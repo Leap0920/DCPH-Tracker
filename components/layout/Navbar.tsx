@@ -3,14 +3,14 @@
 import Link from "next/link"
 import { usePathname, useRouter } from "next/navigation"
 import { useState, useEffect } from "react"
-import { Menu, X, LogOut, User, Settings } from "lucide-react"
+import { Menu, X, LogOut, User, Settings, ShieldCheck } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { NAV_ROUTES } from "@/lib/constants"
 import { cn } from "@/lib/utils"
 import { createClient } from "@/utils/supabase/client"
 import type { User as SupabaseUser } from "@supabase/supabase-js"
 
-type NavProfile = { username: string; display_name: string }
+type NavProfile = { username: string; display_name: string; role: "member" | "moderator" | "admin" }
 
 export function Navbar() {
   const pathname = usePathname()
@@ -29,7 +29,7 @@ export function Navbar() {
       if (user) {
         const { data: profileData } = await supabase
           .from("profiles")
-          .select("username, display_name")
+          .select("username, display_name, role")
           .eq("user_id", user.id)
           .single()
         setProfile(profileData as NavProfile | null)
@@ -45,7 +45,7 @@ export function Navbar() {
       if (currentUser) {
         const { data: profileData } = await supabase
           .from("profiles")
-          .select("username, display_name")
+          .select("username, display_name, role")
           .eq("user_id", currentUser.id)
           .single()
         setProfile(profileData as NavProfile | null)
@@ -129,6 +129,14 @@ export function Navbar() {
             <>
               {user ? (
                 <div className="hidden md:flex items-center gap-2">
+                  {profile?.role === "admin" && (
+                    <Link href="/admin">
+                      <Button variant="ghost" size="sm" className="gap-2 text-gray-500 hover:text-gray-900 font-display uppercase tracking-wider text-xs">
+                        <ShieldCheck className="h-4 w-4" />
+                        Admin
+                      </Button>
+                    </Link>
+                  )}
                   <Link href={profile ? `/profile/${profile.username}` : "#"}>
                     <Button variant="ghost" size="sm" className="gap-2 text-gray-500 hover:text-gray-900 font-display uppercase tracking-wider text-xs">
                       <User className="h-4 w-4" />
@@ -196,6 +204,14 @@ export function Navbar() {
                 <>
                   {user ? (
                     <div className="flex flex-col gap-2">
+                      {profile?.role === "admin" && (
+                        <Link href="/admin" onClick={() => setMobileOpen(false)}>
+                          <Button variant="ghost" className="w-full justify-start gap-2 font-display uppercase tracking-wider">
+                            <ShieldCheck className="h-4 w-4" />
+                            Admin Console
+                          </Button>
+                        </Link>
+                      )}
                       <Link href={profile ? `/profile/${profile.username}` : "#"} onClick={() => setMobileOpen(false)}>
                         <Button variant="ghost" className="w-full justify-start gap-2 font-display uppercase tracking-wider">
                           <User className="h-4 w-4" />
