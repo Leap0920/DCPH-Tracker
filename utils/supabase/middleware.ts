@@ -32,7 +32,7 @@ export async function updateSession(request: NextRequest) {
     data: { user },
   } = await supabase.auth.getUser();
 
-  const protectedPaths = ["/tracker", "/settings", "/community/chat"];
+  const protectedPaths = ["/tracker", "/settings", "/community/chat", "/admin"];
   const isProtected = protectedPaths.some((path) =>
     request.nextUrl.pathname.startsWith(path)
   );
@@ -42,6 +42,21 @@ export async function updateSession(request: NextRequest) {
     redirectUrl.pathname = "/login";
     redirectUrl.searchParams.set("redirectTo", request.nextUrl.pathname);
     return NextResponse.redirect(redirectUrl);
+  }
+
+  // Admin area additionally requires the 'admin' role.
+  if (request.nextUrl.pathname.startsWith("/admin") && user) {
+    const { data: profile } = await supabase
+      .from("profiles")
+      .select("role")
+      .eq("user_id", user.id)
+      .single();
+    if (profile?.role !== "admin") {
+      const redirectUrl = request.nextUrl.clone();
+      redirectUrl.pathname = "/tracker";
+      redirectUrl.searchParams.set("error", "admin_only");
+      return NextResponse.redirect(redirectUrl);
+    }
   }
 
   return supabaseResponse;
