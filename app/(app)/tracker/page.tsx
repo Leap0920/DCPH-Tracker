@@ -23,18 +23,29 @@ export default function TrackerPage() {
     setLoading(true)
     setError(null)
 
-    const { data: contentData, error: contentError } = await supabase
-      .from("content_entries")
-      .select("*")
-      .order("air_date", { ascending: true })
+    // PostgREST caps responses at 1,000 rows per request (server max-rows),
+    // so fetch all entries in paginated chunks of 1,000.
+    const PAGE_SIZE = 1000
+    const allEntries: ContentEntry[] = []
+    for (let offset = 0; ; offset += PAGE_SIZE) {
+      const { data: chunk, error: chunkError } = await supabase
+        .from("content_entries")
+        .select("*")
+        .order("air_date", { ascending: true })
+        .range(offset, offset + PAGE_SIZE - 1)
 
-    if (contentError) {
-      setError("We couldn't load the case files. Please try again.")
-      setLoading(false)
-      return
+      if (chunkError) {
+        setError("We couldn't load the case files. Please try again.")
+        setLoading(false)
+        return
+      }
+
+      if (!chunk || chunk.length === 0) break
+      allEntries.push(...chunk)
+      if (chunk.length < PAGE_SIZE) break
     }
 
-    setEntries(contentData ?? [])
+    setEntries(allEntries)
 
     const { data: { user } } = await supabase.auth.getUser()
     setUser(user?.id ?? null)
