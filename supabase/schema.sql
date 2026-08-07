@@ -565,6 +565,11 @@ create policy "Admins can delete content images"
 -- is correct (DELETE bypasses the BEFORE UPDATE escalation trigger,
 -- so no ALTER TABLE DISABLE TRIGGER is needed). It is safe to run
 -- on fresh and existing databases alike.
+--
+-- NOTE: user_ids are resolved FROM auth.users by email (NOT hardcoded)
+-- because GoTrue-assigned user IDs are random UUIDs that change on
+-- every re-provision. Hardcoding them here would violate the FK
+-- profiles.user_id -> auth.users(id) after a fresh signup.
 -- ─────────────────────────────────────────────────────────────
 
 -- Re-assert demo profiles with the correct roles (works even if
@@ -575,9 +580,13 @@ where user_id in (
 );
 
 insert into public.profiles (user_id, username, display_name, role)
-values
-  ('11111111-1111-4111-8111-111111111111', 'demo_admin', 'Demo Admin', 'admin'),
-  ('22222222-2222-4222-8222-222222222222', 'demo_member', 'Demo Member', 'member');
+select
+  u.id,
+  coalesce(u.raw_user_meta_data ->> 'username', split_part(u.email, '@', 1)),
+  coalesce(u.raw_user_meta_data ->> 'display_name', split_part(u.email, '@', 1)),
+  case when u.email = 'admin@dcph.ph' then 'admin' else 'member' end
+from auth.users u
+where u.email in ('admin@dcph.ph', 'member@dcph.ph');
 
 -- ─────────────────────────────────────────────────────────────
 -- VERIFICATION
