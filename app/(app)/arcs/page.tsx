@@ -17,6 +17,7 @@ import {
   WATCH_GUIDE,
   formatEpisodeRange,
 } from "@/lib/arcs-guide"
+import { computeArcProgress, getArcProgressData } from "@/lib/arcs-progress"
 
 export const metadata = {
   title: "Story Arcs & Watch Guide — Detective Conan PH",
@@ -24,7 +25,14 @@ export const metadata = {
     "The full Detective Conan main plot from Season 1 to the latest episode, plus a newcomer watch guide.",
 }
 
-export default function ArcsPage() {
+export default async function ArcsPage() {
+  const { signedIn, watchedEpisodeNumbers } = await getArcProgressData()
+  const progressBySlug = new Map(
+    STORY_ARCS.map((arc) => [
+      arc.slug,
+      computeArcProgress(arc, watchedEpisodeNumbers),
+    ])
+  )
   return (
     <div className="px-6 py-10">
       <div className="mx-auto max-w-5xl">
@@ -95,7 +103,9 @@ export default function ArcsPage() {
           </p>
 
           <ol className="relative space-y-4 border-l border-gray-200 pl-6">
-            {STORY_ARCS.map((arc) => (
+            {STORY_ARCS.map((arc) => {
+              const progress = progressBySlug.get(arc.slug)!
+              return (
               <li key={arc.slug} className="relative">
                 <span className="absolute -left-[31px] top-5 h-3 w-3 rounded-full border-2 border-[#7A1620] bg-white" />
                 <Link
@@ -133,6 +143,26 @@ export default function ArcsPage() {
                     {arc.summary}
                   </p>
 
+                  {/* Live per-arc progress */}
+                  <div className="mt-3">
+                    <div className="flex items-center justify-between mb-1">
+                      <span className="font-mono text-[10px] uppercase tracking-widest text-gray-400">
+                        {signedIn
+                          ? `${progress.watched} / ${progress.total} watched`
+                          : `${progress.total} episodes`}
+                      </span>
+                      <span className="font-mono text-[10px] text-gray-500">
+                        {progress.percent}%
+                      </span>
+                    </div>
+                    <div className="h-1.5 bg-gray-200 rounded-full overflow-hidden">
+                      <div
+                        className="h-full bg-[#7A1620] rounded-full"
+                        style={{ width: `${progress.percent}%` }}
+                      />
+                    </div>
+                  </div>
+
                   <div className="mt-3 flex items-center gap-4 text-xs text-gray-400">
                     <span className="flex items-center gap-1">
                       <Clock className="h-3.5 w-3.5" />
@@ -149,7 +179,8 @@ export default function ArcsPage() {
                   </div>
                 </Link>
               </li>
-            ))}
+              )
+            })}
           </ol>
         </section>
 
