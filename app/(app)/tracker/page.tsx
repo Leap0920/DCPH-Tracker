@@ -1,23 +1,85 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import { useState, useEffect, useRef, Suspense, useCallback } from "react"
 import Link from "next/link"
-import { ContentGrid } from "@/components/tracker/ContentGrid"
+import { useRouter, useSearchParams } from "next/navigation"
+import { ContentGrid, type StatusFilter } from "@/components/tracker/ContentGrid"
 import { ProgressIndicator } from "@/components/tracker/ProgressIndicator"
+import { MotivationStats } from "@/components/tracker/MotivationStats"
 import { Button } from "@/components/ui/button"
 import { createClient } from "@/utils/supabase/client"
 import type { Database } from "@/types/database.types"
-import type { WatchStatus } from "@/lib/constants"
+import {
+  WATCH_STATUSES,
+  VIEW_MODES,
+  CONTENT_TYPES,
+  type WatchStatus,
+  type ViewMode,
+  type ContentType,
+} from "@/lib/constants"
 
 type ContentEntry = Database["public"]["Tables"]["content_entries"]["Row"]
 
-export default function TrackerPage() {
+const VALID_TYPES = new Set<string>([CONTENT_TYPES.EPISODE, CONTENT_TYPES.MOVIE, CONTENT_TYPES.SPECIAL, CONTENT_TYPES.OVA, CONTENT_TYPES.LIVE_ACTION, CONTENT_TYPES.MAGIC_KAITO, CONTENT_TYPES.HANZAWA, CONTENT_TYPES.ZERO_TEA_TIME])
+const VALID_STATUS = new Set<string>([WATCH_STATUSES.UNWATCHED, WATCH_STATUSES.WATCHING, WATCH_STATUSES.WATCHED])
+const MAX_EPISODE = 1209
+
+function clampInt(value: string | null, min: number, max: number): number | null {
+  if (!value) return null
+  const n = Number.parseInt(value, 10)
+  if (!Number.isInteger(n) || n < min || n > max) return null
+  return n
+}
+
+function TrackerPageContent() {
   const [entries, setEntries] = useState<ContentEntry[]>([])
   const [userStatuses, setUserStatuses] = useState<Map<string, WatchStatus>>(new Map())
+  const [arcMap, setArcMap] = useState<Map<string, { slug: string; title: string }> | null>(null)
   const [user, setUser] = useState<string | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const supabase = createClient()
+  const router = useRouter()
+  const searchParams = useSearchParams()
+  const searchTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
+
+  // ── URL param parsing (invalid values fall back to defaults) ──
+  const qParam = searchParams.get("q")?.slice(0, 100) ?? ""
+  const typeParam = searchParams.get("type") ?? "all"
+  const modeParam = searchParams.get("mode") ?? VIEW_MODES.YEAR
+  const statusParam = searchParams.get("status") ?? "all"
+  const epParam = clampInt(searchParams.get("ep"), 1, MAX_EPISODE)
+  const pageParam = clampInt(searchParams.get("page"), 1, 1000)
+
+  const initialMode: ViewMode = modeParam === VIEW_MODES.CHRONOLOGICAL ? VIEW_MODES.CHRONOLOGICAL : VIEW_MODES.YEAR
+  const initialStatus: StatusFilter = VALID_STATUS.has(statusParam) ? (statusParam as WatchStatus) : "all"
+  const initialType: ContentType | "all" = VALID_TYPES.has(typeParam) ? (typeParam as ContentType) : "all"
+  const initialPage = pageParam && initialType !== "all" ? pageParam - 1 : undefined
+
+  const updateUrl = useCallback(
+    (patch: Record<string, string | null>, debounceSearch = false) => {
+      const next = new URLSearchParams(searchParams.toString())
+      for (const [key, value] of Object.entries(patch)) {
+        if (value === null || value === "") next.delete(key)
+        else next.set(key, value)
+      }
+      const qs = next.toString()
+      const url = qs ? `?${qs}` : "/tracker"
+      if (debounceSearch) {
+        if (searchTimer.current) clearTimeout(searchTimer.current)
+        searchTimer.current = setTimeout(() => router.replace(url, { scroll: false }), 300)
+      } else {
+        router.replace(url, { scroll: false })
+      }
+    },
+    [router, searchParams]
+  )
+
+  useEffect(() => {
+    return () => {
+      if (searchTimer.current) clearTimeout(searchTimer.current)
+    }
+  }, [])
 
   async function loadData() {
     setLoading(true)
@@ -60,6 +122,14 @@ export default function TrackerPage() {
         statusData.forEach((s) => map.set(s.content_id, s.status as WatchStatus))
         setUserStatuses(map)
       }
+    }
+
+    // Fetch arcs once (id, slug, title) for episode arc badges.
+    const { data: arcsData } = await supabase.from("arcs").select("id, slug, title")
+    if (arcsData) {
+      const map = new Map<string, { slug: string; title: string }>()
+      arcsData.forEach((a) => map.set(a.id, { slug: a.slug, title: a.title }))
+      setArcMap(map)
     }
 
     setLoading(false)
@@ -171,6 +241,7 @@ export default function TrackerPage() {
                 {error}
               </div>
             )}
+            <MotivationStats entries={entries} userStatuses={userStatuses} userName={user} />
             <ProgressIndicator entries={entries} userStatuses={userStatuses} />
             {!user && (
               <div className="flex flex-wrap items-center gap-4 rounded-lg border border-gray-200 bg-white p-5">
@@ -195,11 +266,42 @@ export default function TrackerPage() {
                 userStatuses={userStatuses}
                 onToggleStatus={user ? handleToggleStatus : undefined}
                 onMarkAll={user ? handleMarkAll : undefined}
+                initialMode={initialMode}
+                initialStatusFilter={initialStatus}
+                initialSearch={qParam}
+                initialType={initialType}
+                initialPage={initialPage}
+                onModeChange={(m) => updateUrl({ mode: m, page: null })}
+                onStatusFilterChange={(s) => updateUrl({ status: s, page: null })}
+                onSearchChange={(q) => updateUrl({ q: q.trim() || null }, true)}
+                onTypeChange={(t) => updateUrl({ type: t === "all" ? null : t, page: null })}
+                onPageChange={(_key, page) =>
+                  updateUrl({ page: initialType !== "all" && page > 0 ? String(page + 1) : null })
+                }
+                jumpTarget={epParam}
+                onJumped={() => updateUrl({ ep: null })}
+                arcMap={arcMap}
               />
             </div>
           </div>
         )}
       </div>
     </div>
+  )
+}
+
+export default function TrackerPage() {
+  return (
+    <Suspense
+      fallback={
+        <div className="text-center py-24">
+          <p className="font-display text-lg uppercase text-gray-500 animate-pulse tracking-widest">
+            Loading case files...
+          </p>
+        </div>
+      }
+    >
+      <TrackerPageContent />
+    </Suspense>
   )
 }
