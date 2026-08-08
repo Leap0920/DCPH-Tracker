@@ -13,6 +13,7 @@ import {
   getAdjacentArcs,
   formatEpisodeRange,
 } from "@/lib/arcs-guide"
+import { computeArcProgress, getArcProgressData } from "@/lib/arcs-progress"
 
 export default async function ArcDetailPage({
   params,
@@ -27,6 +28,10 @@ export default async function ArcDetailPage({
   }
 
   const { prev, next } = getAdjacentArcs(slug)
+
+  const { signedIn, watchedEpisodeNumbers } = await getArcProgressData()
+  const progress = computeArcProgress(arc, watchedEpisodeNumbers)
+  const nextEpisode = progress.nextUnwatchedEpisode
 
   return (
     <div className="px-6 py-10">
@@ -83,6 +88,47 @@ export default async function ArcDetailPage({
         <p className="mt-4 text-sm leading-relaxed text-gray-600">
           {arc.summary}
         </p>
+
+        {/* Live per-arc progress */}
+        <div className="mt-6 rounded-lg border border-gray-200 bg-white p-5 shadow-sm">
+          <div className="flex items-center justify-between mb-2">
+            <span className="font-display text-sm uppercase tracking-wider text-gray-900">
+              Your progress in this arc
+            </span>
+            <span className="font-mono text-xs text-gray-500">
+              {progress.watched} / {progress.total} · {progress.percent}%
+            </span>
+          </div>
+          <div className="h-2 bg-gray-200 rounded-full overflow-hidden">
+            <div
+              className="h-full bg-[#7A1620] rounded-full"
+              style={{ width: `${progress.percent}%` }}
+            />
+          </div>
+          <div className="mt-3 flex flex-wrap items-center gap-3 text-sm">
+            {signedIn && nextEpisode !== null ? (
+              <Link
+                href={`/tracker?ep=${nextEpisode}`}
+                className="inline-flex items-center gap-1.5 rounded-sm bg-[#7A1620] px-3 py-1.5 text-xs font-mono uppercase tracking-wider text-white transition-colors hover:bg-[#5d0f17]"
+              >
+                Continue at Ep {nextEpisode}
+                <ArrowRight className="h-3.5 w-3.5" />
+              </Link>
+            ) : signedIn && nextEpisode === null ? (
+              <span className="text-xs font-mono uppercase tracking-wider text-green-600">
+                Arc complete — nice work!
+              </span>
+            ) : (
+              <Link
+                href="/login"
+                className="inline-flex items-center gap-1.5 rounded-sm border border-gray-300 px-3 py-1.5 text-xs font-mono uppercase tracking-wider text-gray-600 transition-colors hover:border-gray-900 hover:text-gray-900"
+              >
+                Sign in to track progress
+                <ArrowRight className="h-3.5 w-3.5" />
+              </Link>
+            )}
+          </div>
+        </div>
 
         {/* Key characters */}
         <section className="mt-10">
