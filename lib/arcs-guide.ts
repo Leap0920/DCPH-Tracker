@@ -247,6 +247,26 @@ export interface RecurringThread {
   starterEpisodes: string
 }
 
+/**
+ * DB-sync arc rows for the `arcs` table (supabase/seed.sql + scripts/populate-arcs.mjs).
+ * Derived from STORY_ARCS; episodeEnd null resolves to the latest episode (1209).
+ */
+export interface ArcDbRow {
+  slug: string
+  title: string
+  description: string
+  start_episode: number
+  end_episode: number
+}
+
+export const ARC_DB_ROWS: ArcDbRow[] = STORY_ARCS.map((arc) => ({
+  slug: arc.slug,
+  title: arc.title,
+  description: arc.tagline,
+  start_episode: arc.episodeStart,
+  end_episode: arc.episodeEnd ?? 1209,
+}))
+
 export const RECURRING_THREADS: RecurringThread[] = [
   {
     slug: "kaitou-kid",
