@@ -13,6 +13,10 @@ interface ContentCardProps {
   entry: ContentEntry
   watchStatus?: WatchStatus | null
   onToggleStatus?: (contentId: string, currentStatus: WatchStatus | null) => void
+  /** Story arc for episodes, rendered as a badge linking to /arcs/[slug]. */
+  arc?: { slug: string; title: string } | null
+  /** Brief highlight ring, used by the jump-to-episode feature. */
+  flash?: boolean
 }
 
 const statusConfig: Record<WatchStatus | "none", { icon: typeof Eye; color: string; label: string }> = {
@@ -33,7 +37,13 @@ const typeBadgeClass: Record<string, string> = {
   episode: "bg-gray-100 text-gray-600 border-gray-300",
 }
 
-export function ContentCard({ entry, watchStatus, onToggleStatus }: ContentCardProps) {
+export function ContentCard({
+  entry,
+  watchStatus,
+  onToggleStatus,
+  arc,
+  flash = false,
+}: ContentCardProps) {
   const status = watchStatus ?? "none"
   const config = statusConfig[status]
   const StatusIcon = config.icon
@@ -45,8 +55,24 @@ export function ContentCard({ entry, watchStatus, onToggleStatus }: ContentCardP
       : entry.type.toUpperCase()
 
   return (
-    <div className="relative bg-white border border-gray-200 rounded-lg overflow-hidden group hover:shadow-md transition-shadow">
+    <div
+      id={`card-${entry.id}`}
+      className={cn(
+        "relative bg-white border rounded-lg overflow-hidden group transition-all",
+        flash
+          ? "border-gray-900 ring-2 ring-gray-900/60 shadow-md"
+          : "border-gray-200 hover:shadow-md"
+      )}
+    >
       <span className="absolute top-2 right-2 z-10 bg-gray-900 text-white text-[10px] font-mono px-2 py-0.5 rounded">{displayNumber}</span>
+
+      {/* Watching pill */}
+      {status === "watching" && (
+        <span className="absolute top-2 left-2 z-10 inline-flex items-center gap-1 bg-emerald-500 text-white text-[10px] font-mono px-2 py-0.5 rounded shadow-sm">
+          <Play className="h-2.5 w-2.5" />
+          Watching
+        </span>
+      )}
 
       {/* Image area */}
       <div className="relative aspect-[3/2] bg-gray-100 overflow-hidden">
@@ -105,6 +131,19 @@ export function ContentCard({ entry, watchStatus, onToggleStatus }: ContentCardP
             {entry.title}
           </h3>
         </Link>
+
+        {/* Arc badge (episodes only) */}
+        {entry.type === "episode" && arc && (
+          <Link
+            href={`/arcs/${arc.slug}`}
+            onClick={(e) => e.stopPropagation()}
+            className="mt-1.5 inline-flex items-center gap-1 rounded-sm border border-gray-200 bg-gray-50 px-1.5 py-0.5 text-[9px] font-mono uppercase tracking-wider text-gray-500 hover:border-gray-900 hover:text-gray-900 transition-colors"
+            title={`View the ${arc.title} story arc`}
+          >
+            <span className="h-1 w-1 rounded-full bg-[#A5202D]" />
+            {arc.title}
+          </Link>
+        )}
 
         {entry.synopsis && (
           <p className="mt-2 text-xs text-gray-500 line-clamp-2">
