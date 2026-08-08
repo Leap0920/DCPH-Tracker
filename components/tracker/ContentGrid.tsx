@@ -41,6 +41,11 @@ interface ContentGridProps {
   entries: ContentEntry[]
   userStatuses?: Map<string, WatchStatus>
   onToggleStatus?: (contentId: string, currentStatus: WatchStatus | null) => void
+  /** watch_count per content id, for rewatch badges. */
+  watchCounts?: Map<string, number>
+  /** favorite flag per content id. */
+  favorites?: Map<string, boolean>
+  onToggleFavorite?: (contentId: string, current: boolean) => void
   onMarkAll?: (ids: string[], status: WatchStatus) => void
   /** Initial values for the view mode / filters. Used for URL persistence. */
   initialMode?: ViewMode
@@ -88,6 +93,9 @@ export function ContentGrid({
   entries,
   userStatuses,
   onToggleStatus,
+  watchCounts,
+  favorites,
+  onToggleFavorite,
   onMarkAll,
   initialMode = "year",
   initialStatusFilter = "all",
@@ -143,10 +151,16 @@ export function ContentGrid({
     return s === statusFilter
   }
 
+  /** Watched OR rewatched both count as "has been seen". */
+  function isWatched(entry: ContentEntry): boolean {
+    const s = userStatuses?.get(entry.id)
+    return s === "watched" || s === "rewatched"
+  }
+
   const totalYears = new Set(entries.map((e) => e.air_date?.slice(0, 4))).size
   const totalEpisodes = entries.filter((e) => e.type === "episode").length
   const totalMovies = entries.filter((e) => e.type === "movie").length
-  const overallWatched = entries.filter((e) => userStatuses?.get(e.id) === "watched").length
+  const overallWatched = entries.filter(isWatched).length
   const overallPercent = entries.length > 0 ? Math.round((overallWatched / entries.length) * 100) : 0
 
   // Sections grouped by content type. Episodes are grouped by air-date year in
@@ -171,7 +185,7 @@ export function ContentGrid({
         title: CONTENT_TYPE_LABELS.episode,
         icon: BookOpen,
         entries: list,
-        watched: list.filter((e) => userStatuses?.get(e.id) === "watched").length,
+        watched: list.filter(isWatched).length,
         total: list.length,
       })
     } else {
@@ -190,7 +204,7 @@ export function ContentGrid({
           title: year,
           icon: BookOpen,
           entries: sorted,
-          watched: sorted.filter((e) => userStatuses?.get(e.id) === "watched").length,
+          watched: sorted.filter(isWatched).length,
           total: sorted.length,
         })
       }
@@ -207,7 +221,7 @@ export function ContentGrid({
           title: CONTENT_TYPE_LABELS[s.type],
           icon: s.icon,
           entries: list,
-          watched: list.filter((e) => userStatuses?.get(e.id) === "watched").length,
+          watched: list.filter(isWatched).length,
           total: list.length,
         }
       })
@@ -238,7 +252,7 @@ export function ContentGrid({
   // Continue tracking: first few unwatched episodes in order
   const continueTracking = useMemo(() => {
     return entries
-      .filter((e) => e.type === "episode" && matchesStatus(e) && userStatuses?.get(e.id) !== "watched")
+      .filter((e) => e.type === "episode" && matchesStatus(e) && !isWatched(e))
       .sort((a, b) => (a.episode_number ?? 0) - (b.episode_number ?? 0))
       .slice(0, 12)
   }, [entries, userStatuses, statusFilter])
@@ -327,7 +341,7 @@ export function ContentGrid({
         (e) =>
           e.type === "episode" &&
           (e.episode_number ?? 0) <= n &&
-          userStatuses?.get(e.id) !== "watched"
+          !isWatched(e)
       )
       .map((e) => e.id)
     if (ids.length === 0) {
@@ -562,6 +576,9 @@ export function ContentGrid({
                       entry={entry}
                       watchStatus={getStatusForEntry(entry.id)}
                       onToggleStatus={onToggleStatus}
+                      watchCount={watchCounts?.get(entry.id) ?? 0}
+                      favorite={favorites?.get(entry.id) ?? false}
+                      onToggleFavorite={onToggleFavorite}
                       arc={getArcForEntry(entry)}
                     />
                   </div>
@@ -617,6 +634,9 @@ export function ContentGrid({
                       entry={entry}
                       watchStatus={getStatusForEntry(entry.id)}
                       onToggleStatus={onToggleStatus}
+                      watchCount={watchCounts?.get(entry.id) ?? 0}
+                      favorite={favorites?.get(entry.id) ?? false}
+                      onToggleFavorite={onToggleFavorite}
                       flash={flashId === entry.id}
                       arc={getArcForEntry(entry)}
                     />

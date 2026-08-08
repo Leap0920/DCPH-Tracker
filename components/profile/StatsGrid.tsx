@@ -1,11 +1,11 @@
 "use client"
 
-import { Eye, Play, Clock, Award } from "lucide-react"
+import { Eye, RefreshCw, Clock, Award } from "lucide-react"
 
 interface StatsGridProps {
   stats: {
     watchedCount: number
-    watchingCount: number
+    rewatchedCount: number
     totalMinutes: number
     badgeCount: number
   }
@@ -19,9 +19,9 @@ const statItems = [
     color: "text-green-500",
   },
   {
-    key: "watchingCount" as const,
-    icon: Play,
-    label: "In Progress",
+    key: "rewatchedCount" as const,
+    icon: RefreshCw,
+    label: "Rewatched",
     color: "text-[#A5202D]",
   },
   {

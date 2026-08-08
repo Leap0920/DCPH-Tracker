@@ -28,7 +28,7 @@ export default async function RankingsPage() {
     const { data: watched } = await supabase
       .from("watch_status")
       .select("user_id, content_entries(runtime_minutes)")
-      .eq("status", "watched")
+      .in("status", ["watched", "rewatched"])
       .eq("user_id", currentUserId)
     if (watched && watched.length > 0) {
       const count = watched.length

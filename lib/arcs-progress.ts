@@ -84,7 +84,7 @@ export async function getArcProgressData(): Promise<{
   const watchedEpisodeNumbers = new Set<number>()
   if (statuses) {
     for (const s of statuses) {
-      if (s.status === "watched") {
+      if (s.status === "watched" || s.status === "rewatched") {
         const num = idToNumber.get(s.content_id)
         if (num != null) watchedEpisodeNumbers.add(num)
       }

@@ -22,7 +22,7 @@ export async function getRankings(limit = 100): Promise<RankingRow[]> {
   const { data: watched, error } = await supabase
     .from("watch_status")
     .select("user_id, content_entries(runtime_minutes)")
-    .eq("status", "watched")
+    .in("status", ["watched", "rewatched"])
 
   if (error) throw error
   if (!watched || watched.length === 0) return []

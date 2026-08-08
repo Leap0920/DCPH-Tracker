@@ -18,3 +18,11 @@ export function formatDate(date: string | Date): string {
     day: "numeric",
   }).format(new Date(date));
 }
+
+/** Format a minute count as a compact duration string (e.g. 2h 30m) */
+export function formatHours(minutes: number): string {
+  const h = Math.floor(minutes / 60);
+  const m = Math.round(minutes % 60);
+  if (h === 0) return `${m}m`;
+  return m > 0 ? `${h}h ${m}m` : `${h}h`;
+}

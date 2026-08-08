@@ -1,7 +1,7 @@
 "use client"
 
 import Link from "next/link"
-import { Eye, EyeOff, Play, Check } from "lucide-react"
+import { Eye, EyeOff, Check, RefreshCw, Heart } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { padNumber } from "@/lib/utils"
 import { CONTENT_TYPE_LABELS, type ContentType, type WatchStatus } from "@/lib/constants"
@@ -13,6 +13,11 @@ interface ContentCardProps {
   entry: ContentEntry
   watchStatus?: WatchStatus | null
   onToggleStatus?: (contentId: string, currentStatus: WatchStatus | null) => void
+  /** Total times watched; shows a badge when > 1. */
+  watchCount?: number
+  /** Whether the user has favorited this entry. */
+  favorite?: boolean
+  onToggleFavorite?: (contentId: string, current: boolean) => void
   /** Story arc for episodes, rendered as a badge linking to /arcs/[slug]. */
   arc?: { slug: string; title: string } | null
   /** Brief highlight ring, used by the jump-to-episode feature. */
@@ -21,8 +26,8 @@ interface ContentCardProps {
 
 const statusConfig: Record<WatchStatus | "none", { icon: typeof Eye; color: string; label: string }> = {
   unwatched: { icon: EyeOff, color: "text-gray-400", label: "Unwatched" },
-  watching: { icon: Play, color: "text-gray-900", label: "Watching" },
   watched: { icon: Check, color: "text-green-600", label: "Watched" },
+  rewatched: { icon: RefreshCw, color: "text-gray-900", label: "Rewatched" },
   none: { icon: EyeOff, color: "text-gray-400", label: "Unwatched" },
 }
 
@@ -41,6 +46,9 @@ export function ContentCard({
   entry,
   watchStatus,
   onToggleStatus,
+  watchCount = 0,
+  favorite = false,
+  onToggleFavorite,
   arc,
   flash = false,
 }: ContentCardProps) {
@@ -66,11 +74,11 @@ export function ContentCard({
     >
       <span className="absolute top-2 right-2 z-10 bg-gray-900 text-white text-[10px] font-mono px-2 py-0.5 rounded">{displayNumber}</span>
 
-      {/* Watching pill */}
-      {status === "watching" && (
-        <span className="absolute top-2 left-2 z-10 inline-flex items-center gap-1 bg-emerald-500 text-white text-[10px] font-mono px-2 py-0.5 rounded shadow-sm">
-          <Play className="h-2.5 w-2.5" />
-          Watching
+      {/* Rewatch count badge */}
+      {watchCount > 1 && (
+        <span className="absolute top-2 left-2 z-10 inline-flex items-center gap-1 bg-gray-900 text-white text-[10px] font-mono px-2 py-0.5 rounded shadow-sm">
+          <RefreshCw className="h-2.5 w-2.5" />
+          ×{watchCount}
         </span>
       )}
 
@@ -90,6 +98,26 @@ export function ContentCard({
           </div>
         )}
 
+        {/* Favorite heart */}
+        {onToggleFavorite && (
+          <button
+            onClick={(e) => {
+              e.preventDefault()
+              onToggleFavorite(entry.id, favorite)
+            }}
+            className={cn(
+              "absolute bottom-2 left-2 h-8 w-8 rounded-full bg-white border flex items-center justify-center transition-colors shadow-sm",
+              favorite
+                ? "border-red-300 text-red-500 bg-red-50 hover:border-red-500"
+                : "border-gray-300 text-gray-400 hover:border-red-400 hover:text-red-400"
+            )}
+            title={favorite ? "Remove from favorites" : "Add to favorites"}
+            aria-label={favorite ? "Remove from favorites" : "Add to favorites"}
+          >
+            <Heart className={cn("h-4 w-4", favorite && "fill-current")} />
+          </button>
+        )}
+
         {/* Status overlay */}
         {onToggleStatus && (
           <button
@@ -101,7 +129,7 @@ export function ContentCard({
               "absolute bottom-2 right-2 h-8 w-8 rounded-full bg-white border flex items-center justify-center transition-colors shadow-sm",
               status === "watched"
                 ? "border-green-500 text-green-600 bg-green-50"
-                : status === "watching"
+                : status === "rewatched"
                   ? "border-gray-900 text-gray-900 bg-gray-100"
                   : "border-gray-300 text-gray-400 hover:border-gray-900 hover:text-gray-900"
             )}
