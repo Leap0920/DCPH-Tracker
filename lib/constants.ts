@@ -51,16 +51,16 @@ export const VIEW_MODE_OPTIONS = [
 /** Watch status values */
 export const WATCH_STATUSES = {
   UNWATCHED: "unwatched",
-  WATCHING: "watching",
   WATCHED: "watched",
+  REWATCHED: "rewatched",
 } as const;
 
 export type WatchStatus = (typeof WATCH_STATUSES)[keyof typeof WATCH_STATUSES];
 
 export const WATCH_STATUS_LABELS: Record<WatchStatus, string> = {
   unwatched: "Unwatched",
-  watching: "Watching",
   watched: "Watched",
+  rewatched: "Rewatched",
 };
 
 /** Filter chip options for the tracker */
@@ -83,8 +83,8 @@ export const FILTER_OPTIONS = {
   STATUS: [
     { value: "all", label: "All Status" },
     { value: "unwatched", label: "Unwatched" },
-    { value: "watching", label: "Watching" },
     { value: "watched", label: "Watched" },
+    { value: "rewatched", label: "Rewatched" },
   ] as const,
 };
 
@@ -92,6 +92,7 @@ export const FILTER_OPTIONS = {
 export const NAV_ROUTES = [
   { href: "/", label: "Home" },
   { href: "/tracker", label: "Tracker" },
+  { href: "/analytics", label: "Self Analytics" },
   { href: "/arcs", label: "Story Arcs" },
   { href: "/community/rankings", label: "Rankings" },
   { href: "/community/chat", label: "Chat" },

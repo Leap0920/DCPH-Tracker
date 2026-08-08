@@ -23,16 +23,21 @@ export function ProgressIndicator({ entries, userStatuses }: ProgressIndicatorPr
     const movies = entries.filter(e => e.type === "movie")
     const specials = entries.filter(e => e.type === "special" || e.type === "ova")
 
-    const watchedEpisodes = episodes.filter(e => userStatuses?.get(e.id) === "watched").length
-    const watchedMovies = movies.filter(m => userStatuses?.get(m.id) === "watched").length
-    const watchedSpecials = specials.filter(s => userStatuses?.get(s.id) === "watched").length
+    const isWatched = (e: ContentEntry) => {
+      const s = userStatuses?.get(e.id)
+      return s === "watched" || s === "rewatched"
+    }
+
+    const watchedEpisodes = episodes.filter(isWatched).length
+    const watchedMovies = movies.filter(isWatched).length
+    const watchedSpecials = specials.filter(isWatched).length
 
     const totalWatched = watchedEpisodes + watchedMovies + watchedSpecials
     const totalEntries = entries.length
     const progressPercent = totalEntries > 0 ? Math.round((totalWatched / totalEntries) * 100) : 0
 
     const minutesWatched = entries
-      .filter(e => userStatuses?.get(e.id) === "watched")
+      .filter(isWatched)
       .reduce((acc, e) => acc + (e.runtime_minutes ?? getDefaultRuntime(e.type)), 0)
 
     return { episodes, movies, specials, watchedEpisodes, watchedMovies, watchedSpecials, totalEntries, totalWatched, progressPercent, minutesWatched }

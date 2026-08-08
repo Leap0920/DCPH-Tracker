@@ -21,7 +21,7 @@ import {
 type ContentEntry = Database["public"]["Tables"]["content_entries"]["Row"]
 
 const VALID_TYPES = new Set<string>([CONTENT_TYPES.EPISODE, CONTENT_TYPES.MOVIE, CONTENT_TYPES.SPECIAL, CONTENT_TYPES.OVA, CONTENT_TYPES.LIVE_ACTION, CONTENT_TYPES.MAGIC_KAITO, CONTENT_TYPES.HANZAWA, CONTENT_TYPES.ZERO_TEA_TIME])
-const VALID_STATUS = new Set<string>([WATCH_STATUSES.UNWATCHED, WATCH_STATUSES.WATCHING, WATCH_STATUSES.WATCHED])
+const VALID_STATUS = new Set<string>([WATCH_STATUSES.UNWATCHED, WATCH_STATUSES.WATCHED, WATCH_STATUSES.REWATCHED])
 const MAX_EPISODE = 1209
 
 function clampInt(value: string | null, min: number, max: number): number | null {
@@ -34,6 +34,8 @@ function clampInt(value: string | null, min: number, max: number): number | null
 function TrackerPageContent() {
   const [entries, setEntries] = useState<ContentEntry[]>([])
   const [userStatuses, setUserStatuses] = useState<Map<string, WatchStatus>>(new Map())
+  const [watchCounts, setWatchCounts] = useState<Map<string, number>>(new Map())
+  const [favorites, setFavorites] = useState<Map<string, boolean>>(new Map())
   const [arcMap, setArcMap] = useState<Map<string, { slug: string; title: string }> | null>(null)
   const [user, setUser] = useState<string | null>(null)
   const [loading, setLoading] = useState(true)
@@ -114,13 +116,21 @@ function TrackerPageContent() {
     if (user) {
       const { data: statusData } = await supabase
         .from("watch_status")
-        .select("content_id, status")
+        .select("content_id, status, watch_count, favorite")
         .eq("user_id", user.id)
 
       if (statusData) {
-        const map = new Map<string, WatchStatus>()
-        statusData.forEach((s) => map.set(s.content_id, s.status as WatchStatus))
-        setUserStatuses(map)
+        const statusMap = new Map<string, WatchStatus>()
+        const countMap = new Map<string, number>()
+        const favMap = new Map<string, boolean>()
+        statusData.forEach((s) => {
+          statusMap.set(s.content_id, s.status as WatchStatus)
+          countMap.set(s.content_id, s.watch_count ?? 0)
+          favMap.set(s.content_id, s.favorite ?? false)
+        })
+        setUserStatuses(statusMap)
+        setWatchCounts(countMap)
+        setFavorites(favMap)
       }
     }
 
@@ -148,16 +158,24 @@ function TrackerPageContent() {
     }
 
     const nextStatus =
-      currentStatus === "watched"
+      currentStatus === "rewatched"
         ? "unwatched"
-        : currentStatus === "watching"
-          ? "watched"
-          : "watching"
+        : currentStatus === "watched"
+          ? "rewatched"
+          : "watched"
+
+    const existingCount = watchCounts.get(contentId) ?? 0
+    const nextCount =
+      nextStatus === "unwatched"
+        ? existingCount
+        : nextStatus === "rewatched"
+          ? existingCount + 1
+          : Math.max(existingCount, 1)
 
     const { error } = await supabase
       .from("watch_status")
       .upsert(
-        { user_id: user.id, content_id: contentId, status: nextStatus },
+        { user_id: user.id, content_id: contentId, status: nextStatus, watch_count: nextCount },
         { onConflict: "user_id,content_id" }
       )
 
@@ -169,6 +187,39 @@ function TrackerPageContent() {
     setUserStatuses((prev) => {
       const next = new Map(prev)
       next.set(contentId, nextStatus)
+      return next
+    })
+    setWatchCounts((prev) => {
+      const next = new Map(prev)
+      next.set(contentId, nextCount)
+      return next
+    })
+  }
+
+  async function handleToggleFavorite(contentId: string, current: boolean) {
+    const { data: { user } } = await supabase.auth.getUser()
+    if (!user) {
+      window.location.href = "/login"
+      return
+    }
+
+    const nextFavorite = !current
+
+    const { error } = await supabase
+      .from("watch_status")
+      .upsert(
+        { user_id: user.id, content_id: contentId, favorite: nextFavorite },
+        { onConflict: "user_id,content_id" }
+      )
+
+    if (error) {
+      setError("Couldn't update your favorites. Please try again.")
+      return
+    }
+
+    setFavorites((prev) => {
+      const next = new Map(prev)
+      next.set(contentId, nextFavorite)
       return next
     })
   }
@@ -184,6 +235,7 @@ function TrackerPageContent() {
       user_id: user.id,
       content_id: id,
       status,
+      watch_count: Math.max(watchCounts.get(id) ?? 0, 1),
     }))
 
     const { error } = await supabase
@@ -198,6 +250,11 @@ function TrackerPageContent() {
     setUserStatuses((prev) => {
       const next = new Map(prev)
       ids.forEach((id) => next.set(id, status))
+      return next
+    })
+    setWatchCounts((prev) => {
+      const next = new Map(prev)
+      ids.forEach((id) => next.set(id, Math.max(next.get(id) ?? 0, 1)))
       return next
     })
   }
@@ -264,7 +321,10 @@ function TrackerPageContent() {
               <ContentGrid
                 entries={entries}
                 userStatuses={userStatuses}
+                watchCounts={watchCounts}
+                favorites={favorites}
                 onToggleStatus={user ? handleToggleStatus : undefined}
+                onToggleFavorite={user ? handleToggleFavorite : undefined}
                 onMarkAll={user ? handleMarkAll : undefined}
                 initialMode={initialMode}
                 initialStatusFilter={initialStatus}

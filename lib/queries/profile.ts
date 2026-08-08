@@ -60,8 +60,8 @@ export async function getProfileStats(userId: string) {
   if (watchError) throw watchError
 
   const watched = watchStatuses?.filter((ws) => ws.status === "watched") ?? []
-  const watching = watchStatuses?.filter((ws) => ws.status === "watching") ?? []
-  const totalMinutes = watched.reduce((acc, ws) => {
+  const rewatched = watchStatuses?.filter((ws) => ws.status === "rewatched") ?? []
+  const totalMinutes = [...watched, ...rewatched].reduce((acc, ws) => {
     const entry = Array.isArray(ws.content_entries) ? ws.content_entries[0] : ws.content_entries
     return acc + (entry?.runtime_minutes ?? 0)
   }, 0)
@@ -75,7 +75,7 @@ export async function getProfileStats(userId: string) {
 
   return {
     watchedCount: watched.length,
-    watchingCount: watching.length,
+    rewatchedCount: rewatched.length,
     totalMinutes,
     badgeCount: badgeCount ?? 0,
   }

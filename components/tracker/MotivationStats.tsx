@@ -18,6 +18,7 @@ import {
 import type { Database } from "@/types/database.types"
 import type { WatchStatus } from "@/lib/constants"
 import { CONTENT_TYPE_LABELS, type ContentType } from "@/lib/constants"
+import { formatHours } from "@/lib/utils"
 
 type ContentEntry = Database["public"]["Tables"]["content_entries"]["Row"]
 
@@ -42,14 +43,6 @@ const TYPE_ICONS: Record<ContentType, React.ComponentType<{ className?: string }
 
 export function getDefaultRuntime(type: string): number {
   return type === "movie" ? 100 : type === "special" || type === "ova" ? 45 : 25
-}
-
-/** 4239 minutes → "70h 39m" */
-export function formatHours(minutes: number): string {
-  const h = Math.floor(minutes / 60)
-  const m = Math.round(minutes % 60)
-  if (h === 0) return `${m}m`
-  return m > 0 ? `${h}h ${m}m` : `${h}h`
 }
 
 export interface SeriesTotals {
@@ -92,10 +85,14 @@ export function computePersonalStats(
   entries: ContentEntry[],
   userStatuses?: Map<string, WatchStatus>
 ): PersonalStats {
-  const watched = entries.filter((e) => userStatuses?.get(e.id) === "watched").length
+  const isWatched = (e: ContentEntry) => {
+    const s = userStatuses?.get(e.id)
+    return s === "watched" || s === "rewatched"
+  }
+  const watched = entries.filter(isWatched).length
   const percent = entries.length > 0 ? Math.round((watched / entries.length) * 100) : 0
   const minutesWatched = entries
-    .filter((e) => userStatuses?.get(e.id) === "watched")
+    .filter(isWatched)
     .reduce((acc, e) => acc + (e.runtime_minutes ?? getDefaultRuntime(e.type)), 0)
   const perType = (Object.keys(CONTENT_TYPE_LABELS) as ContentType[])
     .map((type) => {
@@ -103,7 +100,7 @@ export function computePersonalStats(
       return {
         type,
         label: CONTENT_TYPE_LABELS[type],
-        watched: list.filter((e) => userStatuses?.get(e.id) === "watched").length,
+        watched: list.filter(isWatched).length,
         total: list.length,
       }
     })
@@ -131,9 +128,13 @@ export function MotivationStats({ entries, userStatuses, userName }: MotivationS
 
   // "At 3 eps/day you'll finish by {date}"
   const finishDate = useMemo(() => {
+    const isWatched = (e: ContentEntry) => {
+      const s = userStatuses?.get(e.id)
+      return s === "watched" || s === "rewatched"
+    }
     const remainingEpisodes = Math.max(
       0,
-      series.episodes - entries.filter((e) => userStatuses?.get(e.id) === "watched" && e.type === "episode").length
+      series.episodes - entries.filter((e) => isWatched(e) && e.type === "episode").length
     )
     return computeProjection(remainingEpisodes)
   }, [series.episodes, entries, userStatuses])

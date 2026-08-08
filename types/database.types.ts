@@ -153,7 +153,9 @@ export interface Database {
           id: string;
           user_id: string;
           content_id: string;
-          status: "unwatched" | "watching" | "watched";
+          status: "unwatched" | "watched" | "rewatched";
+          watch_count: number;
+          favorite: boolean;
           rating: number | null;
           created_at: string;
           updated_at: string;
@@ -162,7 +164,9 @@ export interface Database {
           id?: string;
           user_id: string;
           content_id: string;
-          status?: "unwatched" | "watching" | "watched";
+          status?: "unwatched" | "watched" | "rewatched";
+          watch_count?: number;
+          favorite?: boolean;
           rating?: number | null;
           created_at?: string;
           updated_at?: string;
@@ -171,7 +175,9 @@ export interface Database {
           id?: string;
           user_id?: string;
           content_id?: string;
-          status?: "unwatched" | "watching" | "watched";
+          status?: "unwatched" | "watched" | "rewatched";
+          watch_count?: number;
+          favorite?: boolean;
           rating?: number | null;
           created_at?: string;
           updated_at?: string;
