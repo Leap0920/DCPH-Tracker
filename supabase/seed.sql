@@ -4,13 +4,16 @@
 -- ============================================================
 
 -- ─────────────────────────────────────────────────────────────
--- ARCS
+-- ARCS — 7 major story arcs (mirrors lib/arcs-guide.ts STORY_ARCS)
 -- ─────────────────────────────────────────────────────────────
 INSERT INTO arcs (slug, title, description, start_episode, end_episode) VALUES
-  ('introduction', 'Introduction Arc', 'Shinichi Kudo is transformed into Conan Edogawa and begins his double life.', 1, 5),
-  ('black-org-intro', 'Black Organization Introduction', 'The first encounters with members of the Black Organization.', 6, 13),
-  ('early-cases', 'Early Cases', 'Conan solves various cases while searching for the Black Organization.', 14, 50),
-  ('desperate-revival', 'Desperate Revival', 'A major case arc involving multiple murders and organization clues.', 188, 193)
+  ('conan-arc', 'Conan Arc', 'A shrunken detective builds a new life — and a secret mission.', 1, 128),
+  ('sherry-arc', 'Sherry Arc', 'A defector from the Organization joins Conan''s side.', 129, 178),
+  ('vermouth-arc', 'Vermouth Arc', 'A master of disguise who somehow knows Conan''s secret.', 179, 345),
+  ('cell-phone-arc', 'Cell Phone Arc', 'Conan gets dangerously close to the boss himself.', 346, 424),
+  ('kir-arc', 'Kir Arc', 'A three-way war between the FBI, the CIA, and the Organization.', 425, 508),
+  ('bourbon-arc', 'Bourbon Arc', 'Who is Bourbon? Three newcomers, one hidden agent.', 509, 783),
+  ('rum-arc', 'Rum Arc — Scarlet Series', 'The hunt for the No. 2 — and the boss is finally named.', 784, 1209)
 ON CONFLICT (slug) DO NOTHING;
 
 -- ─────────────────────────────────────────────────────────────
@@ -1383,6 +1386,44 @@ INSERT INTO content_entries (slug, title, type, episode_number, movie_number, ai
   ('ztt-05', 'Zero''s Tea Time 5', 'zero_tea_time', NULL, NULL, '2022-01-01', 1134, NULL, NULL, 'https://cdn.myanimelist.net/images/anime/7/75199l.jpg'),
   ('ztt-06', 'Zero''s Tea Time 6', 'zero_tea_time', NULL, NULL, '2022-01-01', 1136, NULL, NULL, 'https://cdn.myanimelist.net/images/anime/7/75199l.jpg')
 ON CONFLICT (slug) DO NOTHING;
+
+-- ─────────────────────────────────────────────────────────────
+-- ARC LINKING — assign each episode its story arc by episode range
+-- (idempotent: re-running re-links to the same arcs)
+-- ─────────────────────────────────────────────────────────────
+UPDATE content_entries
+SET arc_id = a.id
+FROM arcs a
+WHERE content_entries.type = 'episode'
+  AND content_entries.episode_number BETWEEN a.start_episode AND a.end_episode;
+
+-- ─────────────────────────────────────────────────────────────
+-- RUNTIMES — fill any entry still missing a runtime
+-- (idempotent: only touches NULL/0 rows; real movie runtimes)
+-- ─────────────────────────────────────────────────────────────
+UPDATE content_entries SET runtime_minutes = 25
+WHERE (runtime_minutes IS NULL OR runtime_minutes = 0)
+  AND type IN ('episode', 'live_action', 'magic_kaito', 'hanzawa', 'zero_tea_time');
+
+UPDATE content_entries SET runtime_minutes = 45
+WHERE (runtime_minutes IS NULL OR runtime_minutes = 0)
+  AND type IN ('special', 'ova');
+
+UPDATE content_entries SET runtime_minutes = CASE slug
+  WHEN 'mov-01' THEN 110 WHEN 'mov-02' THEN 99  WHEN 'mov-03' THEN 100
+  WHEN 'mov-04' THEN 99  WHEN 'mov-05' THEN 101 WHEN 'mov-06' THEN 107
+  WHEN 'mov-07' THEN 106 WHEN 'mov-08' THEN 107 WHEN 'mov-09' THEN 110
+  WHEN 'mov-10' THEN 112 WHEN 'mov-11' THEN 111 WHEN 'mov-12' THEN 112
+  WHEN 'mov-13' THEN 110 WHEN 'mov-14' THEN 112 WHEN 'mov-15' THEN 112
+  WHEN 'mov-16' THEN 110 WHEN 'mov-17' THEN 112 WHEN 'mov-18' THEN 110
+  WHEN 'mov-19' THEN 112 WHEN 'mov-20' THEN 111 WHEN 'mov-21' THEN 110
+  WHEN 'mov-22' THEN 111 WHEN 'mov-23' THEN 110 WHEN 'mov-24' THEN 109
+  WHEN 'mov-25' THEN 110 WHEN 'mov-26' THEN 110 WHEN 'mov-27' THEN 110
+  WHEN 'mov-28' THEN 112 WHEN 'mov-29' THEN 112
+  ELSE runtime_minutes
+END
+WHERE (runtime_minutes IS NULL OR runtime_minutes = 0)
+  AND type = 'movie';
 
 -- ─────────────────────────────────────────────────────────────
 -- COVERS — backfill the series image for any entry missing one
