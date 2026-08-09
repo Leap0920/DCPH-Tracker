@@ -1,24 +1,29 @@
 "use client"
 
-import { useState, useEffect, useRef, useCallback } from "react"
+import { useState, useEffect, useRef, useCallback, useMemo } from "react"
 import Link from "next/link"
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query"
 import { Send, Menu, ArrowDown, LogIn, UserPlus, MessagesSquare } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { createClient } from "@/utils/supabase/client"
 import { avatarUrl } from "@/lib/constants"
 import { cn } from "@/lib/utils"
+import { queryKeys } from "@/lib/queries/keys"
+import {
+  fetchChatMessages,
+  fetchOlderChatMessages,
+  fetchChatMessageById,
+  sendChatMessage,
+  CHAT_PAGE_SIZE,
+  type ChatMessage,
+} from "@/lib/queries/client/chat"
 import type { Database } from "@/types/database.types"
 
 type ChatRoom = Database["public"]["Tables"]["chat_rooms"]["Row"]
 type Profile = { username: string; display_name: string; avatar_url: string | null }
-type ChatMessage = Database["public"]["Tables"]["chat_messages"]["Row"] & {
-  profiles: Profile | null
-}
 
-const MESSAGE_QUERY = "*, profiles:user_id(username, display_name, avatar_url)"
 const GROUP_GAP_MS = 5 * 60 * 1000
-const PAGE_SIZE = 100
 
 function formatTime(iso: string) {
   return new Date(iso).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })
@@ -56,10 +61,7 @@ export function ChatWindow({
   room: ChatRoom
   onOpenRooms: () => void
 }) {
-  const [messages, setMessages] = useState<ChatMessage[]>([])
   const [newMessage, setNewMessage] = useState("")
-  const [sending, setSending] = useState(false)
-  const [loading, setLoading] = useState(true)
   const [loadingMore, setLoadingMore] = useState(false)
   const [hasMore, setHasMore] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -73,7 +75,139 @@ export function ChatWindow({
   const textareaRef = useRef<HTMLTextAreaElement>(null)
   const atBottomRef = useRef(true)
   const initialLoadRef = useRef(true)
+  const initialSyncRef = useRef(false)
   const supabase = createClient()
+  const queryClient = useQueryClient()
+
+  // Cache is newest-first (matches the fetch); rendering reverses to chronological.
+  const messagesKey = queryKeys.chat.messages(room.id)
+
+  // ── Auth + own profile (one-time, not cacheable data) ──
+  useEffect(() => {
+    let active = true
+    supabase.auth.getUser().then(({ data: authData }) => {
+      const user = authData.user
+      if (!user || !active) return
+      setUserId(user.id)
+
+      supabase
+        .from("profiles")
+        .select("username, display_name, avatar_url")
+        .eq("user_id", user.id)
+        .single()
+        .then(({ data: profileData }) => {
+          if (profileData && active) setMe(profileData as Profile)
+        })
+    })
+    return () => {
+      active = false
+    }
+  }, [supabase])
+
+  // ── Messages query (initial page, newest first) ──
+  const messagesQuery = useQuery({
+    queryKey: messagesKey,
+    queryFn: () => fetchChatMessages(room.id),
+    enabled: !!userId,
+  })
+  const messages = messagesQuery.data ?? []
+  const loading = !!userId && messagesQuery.isLoading
+  // Chronological order for rendering (cache is newest-first).
+  const ordered = useMemo(() => [...messages].reverse(), [messages])
+
+  // Sync `hasMore` from the initial page size exactly once.
+  useEffect(() => {
+    if (!initialSyncRef.current && messagesQuery.data) {
+      initialSyncRef.current = true
+      setHasMore(messagesQuery.data.length >= CHAT_PAGE_SIZE)
+    }
+  }, [messagesQuery.data])
+
+  useEffect(() => {
+    if (messagesQuery.isError) {
+      setError("Couldn't load messages. Check your connection and refresh.")
+    }
+  }, [messagesQuery.isError])
+
+  // ── Realtime (stays; appends into the react-query cache, deduped) ──
+  useEffect(() => {
+    if (!userId) return
+
+    const channel = supabase
+      .channel(`chat:${room.id}`)
+      .on(
+        "postgres_changes",
+        {
+          event: "INSERT",
+          schema: "public",
+          table: "chat_messages",
+          filter: `room_id=eq.${room.id}`,
+        },
+        async (payload) => {
+          const incoming = await fetchChatMessageById(
+            (payload.new as { id: string }).id
+          )
+          if (!incoming) return
+          queryClient.setQueryData<ChatMessage[]>(messagesKey, (old) => {
+            if (!old) return [incoming]
+            return old.some((m) => m.id === incoming.id) ? old : [incoming, ...old]
+          })
+        }
+      )
+      .subscribe((status) => {
+        if (status === "SUBSCRIBED") setConnected(true)
+        else if (status === "CHANNEL_ERROR" || status === "TIMED_OUT")
+          setConnected(false)
+      })
+
+    return () => {
+      supabase.removeChannel(channel)
+    }
+  }, [room.id, userId, supabase, queryClient, messagesKey])
+
+  // ── Send mutation (optimistic temp message, deduped against realtime echo) ──
+  const sendMutation = useMutation({
+    mutationFn: ({ content }: { content: string }) =>
+      sendChatMessage(room.id, userId as string, content, me),
+    onMutate: async ({ content }) => {
+      await queryClient.cancelQueries({ queryKey: messagesKey })
+      const tempId = `temp-${crypto.randomUUID()}`
+      const optimistic: ChatMessage = {
+        id: tempId,
+        room_id: room.id,
+        user_id: userId as string,
+        content,
+        created_at: new Date().toISOString(),
+        profiles: me,
+      }
+      queryClient.setQueryData<ChatMessage[]>(messagesKey, (old) => [
+        optimistic,
+        ...(old ?? []),
+      ])
+      return { tempId, content }
+    },
+    onError: (_err, _vars, ctx) => {
+      if (ctx) {
+        queryClient.setQueryData<ChatMessage[]>(messagesKey, (old) =>
+          old ? old.filter((m) => m.id !== ctx.tempId) : old
+        )
+      }
+      setError("Message failed to send. Try again.")
+      if (ctx) setNewMessage(ctx.content)
+    },
+    onSuccess: (data, _vars, ctx) => {
+      if (!ctx) return
+      queryClient.setQueryData<ChatMessage[]>(messagesKey, (old) => {
+        if (!old) return [data]
+        // Realtime echo may have delivered the real row already — drop temp only.
+        if (old.some((m) => m.id === data.id)) {
+          return old.filter((m) => m.id !== ctx.tempId)
+        }
+        return old.map((m) => (m.id === ctx.tempId ? data : m))
+      })
+      setError(null)
+    },
+  })
 
   const scrollToBottom = useCallback((smooth = true) => {
     const el = scrollRef.current
@@ -86,117 +220,27 @@ export function ChatWindow({
   const loadEarlier = useCallback(async () => {
     if (loadingMore || messages.length === 0) return
     setLoadingMore(true)
-    const oldest = messages[0].created_at
+    const oldest = messages[messages.length - 1].created_at
     const el = scrollRef.current
     const prevScrollHeight = el?.scrollHeight ?? 0
 
-    const { data, error: moreError } = await supabase
-      .from("chat_messages")
-      .select(MESSAGE_QUERY)
-      .eq("room_id", room.id)
-      .lt("created_at", oldest)
-      .order("created_at", { ascending: false })
-      .limit(PAGE_SIZE)
-
-    if (!moreError && data) {
-      const older = (data as ChatMessage[]).slice().reverse()
-      setMessages((prev) => {
-        const existing = new Set(prev.map((m) => m.id))
-        return [...older.filter((m) => !existing.has(m.id)), ...prev]
+    try {
+      const older = await fetchOlderChatMessages(room.id, oldest)
+      queryClient.setQueryData<ChatMessage[]>(messagesKey, (old) => {
+        const existing = new Set((old ?? []).map((m) => m.id))
+        return [...(old ?? []), ...older.filter((m) => !existing.has(m.id))]
       })
-      setHasMore(data.length === PAGE_SIZE)
+      setHasMore(older.length >= CHAT_PAGE_SIZE)
       // Preserve scroll position so the view doesn't jump.
       requestAnimationFrame(() => {
         const node = scrollRef.current
         if (node) node.scrollTop = node.scrollHeight - prevScrollHeight
       })
+    } catch {
+      setError("Couldn't load earlier messages. Try again.")
     }
     setLoadingMore(false)
-  }, [loadingMore, messages, room.id, supabase])
-
-  useEffect(() => {
-    let active = true
-
-    async function init() {
-      const { data: authData } = await supabase.auth.getUser()
-      const user = authData.user
-      if (!user) {
-        setLoading(false)
-        return
-      }
-      if (active) setUserId(user.id)
-
-      const { data: profileData } = await supabase
-        .from("profiles")
-        .select("username, display_name, avatar_url")
-        .eq("user_id", user.id)
-        .single()
-
-      if (profileData && active) setMe(profileData as Profile)
-
-      // Load the most recent page of messages (newest first), then flip to
-      // chronological order for rendering.
-      const { data, error: loadError } = await supabase
-        .from("chat_messages")
-        .select(MESSAGE_QUERY)
-        .eq("room_id", room.id)
-        .order("created_at", { ascending: false })
-        .limit(PAGE_SIZE)
-
-      if (active) {
-        if (loadError) {
-          setError("Couldn't load messages. Check your connection and refresh.")
-        } else if (data) {
-          const ordered = (data as ChatMessage[]).slice().reverse()
-          setMessages(ordered)
-          setHasMore(data.length === PAGE_SIZE)
-        }
-        setLoading(false)
-        initialLoadRef.current = true
-        requestAnimationFrame(() => scrollToBottom(false))
-      }
-
-      const channel = supabase
-        .channel(`chat:${room.id}`)
-        .on(
-          "postgres_changes",
-          {
-            event: "INSERT",
-            schema: "public",
-            table: "chat_messages",
-            filter: `room_id=eq.${room.id}`,
-          },
-          async (payload) => {
-            const { data: full } = await supabase
-              .from("chat_messages")
-              .select(MESSAGE_QUERY)
-              .eq("id", (payload.new as { id: string }).id)
-              .single()
-            if (!full) return
-            setMessages((prev) =>
-              prev.some((m) => m.id === (full as ChatMessage).id)
-                ? prev
-                : [...prev, full as ChatMessage]
-            )
-          }
-        )
-        .subscribe((status) => {
-          if (status === "SUBSCRIBED") setConnected(true)
-          else if (status === "CHANNEL_ERROR" || status === "TIMED_OUT")
-            setConnected(false)
-        })
-
-      return () => {
-        supabase.removeChannel(channel)
-      }
-    }
-
-    const cleanup = init()
-    return () => {
-      active = false
-      cleanup.then((fn) => fn && fn())
-    }
-  }, [room.id, scrollToBottom, supabase])
+  }, [loadingMore, messages, room.id, queryClient, messagesKey])
 
   // New-message scroll handling: snap to bottom if user is at bottom,
   // otherwise surface a "new messages" pill with an unread count.
@@ -228,45 +272,16 @@ export function ChatWindow({
     el.style.height = `${Math.min(el.scrollHeight, 160)}px`
   }
 
-  async function handleSend() {
+  function handleSend() {
     const content = newMessage.trim()
-    if (!content || !userId || sending) return
+    if (!content || !userId || sendMutation.isPending) return
 
-    setSending(true)
-    setError(null)
-
-    const tempId = `temp-${crypto.randomUUID()}`
-    const optimistic: ChatMessage = {
-      id: tempId,
-      room_id: room.id,
-      user_id: userId,
-      content,
-      created_at: new Date().toISOString(),
-      profiles: me,
-    }
-    setMessages((prev) => [...prev, optimistic])
     setNewMessage("")
     requestAnimationFrame(() => {
       autoGrow()
       scrollToBottom(true)
     })
-
-    const { data, error: insertError } = await supabase
-      .from("chat_messages")
-      .insert({ room_id: room.id, user_id: userId, content })
-      .select(MESSAGE_QUERY)
-      .single()
-
-    if (insertError || !data) {
-      setMessages((prev) => prev.filter((m) => m.id !== tempId))
-      setNewMessage(content)
-      setError("Message failed to send. Try again.")
-    } else {
-      setMessages((prev) =>
-        prev.map((m) => (m.id === tempId ? (data as ChatMessage) : m))
-      )
-    }
-    setSending(false)
+    sendMutation.mutate({ content })
   }
 
   function handleKeyDown(e: React.KeyboardEvent<HTMLTextAreaElement>) {
@@ -365,8 +380,8 @@ export function ChatWindow({
                 </button>
               </div>
             )}
-            {messages.map((msg, i) => {
-              const prev = messages[i - 1]
+            {ordered.map((msg, i) => {
+              const prev = ordered[i - 1]
               const isOwn = msg.user_id === userId
               const showDay =
                 !prev || formatDay(prev.created_at) !== formatDay(msg.created_at)
@@ -504,7 +519,7 @@ export function ChatWindow({
               type="button"
               size="icon"
               onClick={handleSend}
-              disabled={!newMessage.trim() || sending}
+              disabled={!newMessage.trim() || sendMutation.isPending}
               aria-label="Send message"
               className="h-10 w-10 shrink-0 rounded-lg"
             >

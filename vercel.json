@@ -3,6 +3,10 @@
     {
       "path": "/api/sync?mode=airing",
       "schedule": "23 */6 * * *"
+    },
+    {
+      "path": "/api/sync?mode=seed",
+      "schedule": "0 3 * * 1"
     }
   ]
 }

@@ -53,3 +53,7 @@ Desktop.ini
 ehthumbs.db
 *.log
 logs/
+
+# Playwright MCP QA artifacts
+.playwright-mcp/
+

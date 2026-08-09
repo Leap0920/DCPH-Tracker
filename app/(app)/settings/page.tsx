@@ -2,12 +2,18 @@
 
 import { useState, useEffect, useRef } from "react"
 import { useRouter } from "next/navigation"
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { createClient } from "@/utils/supabase/client"
 import { avatarUrl } from "@/lib/constants"
+import { queryKeys } from "@/lib/queries/keys"
+import {
+  fetchProfileByUserId,
+  updateProfile,
+} from "@/lib/queries/client/profile"
 import { Camera, Trash2, Check, Loader2, LogOut } from "lucide-react"
 import type { Database } from "@/types/database.types"
 
@@ -16,10 +22,9 @@ type Profile = Database["public"]["Tables"]["profiles"]["Row"]
 const MAX_AVATAR_MB = 3
 
 export default function SettingsPage() {
-  const [profile, setProfile] = useState<Profile | null>(null)
+  const [userId, setUserId] = useState<string | null>(null)
   const [displayName, setDisplayName] = useState("")
   const [bio, setBio] = useState("")
-  const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
   const [uploading, setUploading] = useState(false)
   const [message, setMessage] = useState<{
@@ -37,32 +42,51 @@ export default function SettingsPage() {
 
   const router = useRouter()
   const supabase = createClient()
+  const queryClient = useQueryClient()
 
+  // Auth (one-time, not cacheable data) — gates the profile query.
   useEffect(() => {
-    async function loadProfile() {
-      const { data: { user } } = await supabase.auth.getUser()
-      if (!user) {
-        router.push("/login")
-        return
-      }
-
-      const { data } = await supabase
-        .from("profiles")
-        .select("*")
-        .eq("user_id", user.id)
-        .single()
-
-      if (data) {
-        setProfile(data)
-        setDisplayName(data.display_name)
-        setBio(data.bio ?? "")
-      }
-
-      setLoading(false)
-    }
-
-    loadProfile()
+    supabase.auth.getUser().then(({ data }) => {
+      if (data.user) setUserId(data.user.id)
+      else router.push("/login")
+    })
   }, [router, supabase])
+
+  // Profile query
+  const profileQuery = useQuery({
+    queryKey: queryKeys.profile.byId(userId ?? ""),
+    queryFn: () => fetchProfileByUserId(userId as string),
+    enabled: !!userId,
+  })
+  const profile = profileQuery.data ?? null
+
+  // Sync form fields once when the profile arrives.
+  useEffect(() => {
+    if (profile) {
+      setDisplayName(profile.display_name)
+      setBio(profile.bio ?? "")
+    }
+  }, [profile])
+
+  const updateProfileMutation = useMutation({
+    mutationFn: (updates: Database["public"]["Tables"]["profiles"]["Update"]) =>
+      updateProfile(userId as string, updates),
+    onSuccess: (data) => {
+      queryClient.setQueryData(queryKeys.profile.byId(userId as string), data)
+      resetAvatar()
+      setMessage({ type: "success", text: "Profile updated." })
+      router.refresh()
+    },
+    onError: (err) => {
+      setUploading(false)
+      setMessage({
+        type: "error",
+        text: err instanceof Error ? err.message : "Failed to save changes.",
+      })
+    },
+  })
+
+  const loading = !userId || profileQuery.isLoading
 
   const currentAvatarSrc =
     previewUrl ?? profile?.avatar_url ?? avatarUrl(displayName || "?")
@@ -154,36 +178,22 @@ export default function SettingsPage() {
         avatar_url = null
       }
 
-      const { error } = await supabase
-        .from("profiles")
-        .update({
-          display_name: displayName,
-          bio: bio || null,
-          avatar_url,
-          updated_at: new Date().toISOString(),
-        })
-        .eq("user_id", profile.user_id)
-
-      if (error) throw error
-
-      setProfile({
-        ...profile,
+      updateProfileMutation.mutate({
         display_name: displayName,
         bio: bio || null,
         avatar_url,
       })
-      resetAvatar()
-      setMessage({ type: "success", text: "Profile updated." })
-      router.refresh()
+      // The mutation's isPending now guards the button; `saving` only
+      // covers the sync avatar-upload phase above.
+      setSaving(false)
     } catch (err) {
       setUploading(false)
+      setSaving(false)
       setMessage({
         type: "error",
         text: err instanceof Error ? err.message : "Failed to save changes.",
       })
     }
-
-    setSaving(false)
   }
 
   async function handleSignOut() {
@@ -357,10 +367,10 @@ export default function SettingsPage() {
           <div className="flex justify-end">
             <Button
               type="submit"
-              disabled={saving || uploading}
+              disabled={saving || uploading || updateProfileMutation.isPending}
               className="min-w-[140px] rounded-lg"
             >
-              {saving ? (
+              {saving || updateProfileMutation.isPending ? (
                 <Loader2 className="h-4 w-4 animate-spin" />
               ) : (
                 "Save Changes"
