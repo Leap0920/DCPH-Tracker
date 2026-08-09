@@ -24,7 +24,7 @@ export async function getUserWatchStatuses(userId: string) {
 
   const { data, error } = await supabase
     .from("watch_status")
-    .select("content_id, status, watch_count, favorite")
+    .select("content_id, status, watch_count, favorite, rating")
     .eq("user_id", userId)
 
   if (error) throw error

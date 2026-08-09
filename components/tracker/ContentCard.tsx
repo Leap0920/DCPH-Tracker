@@ -1,7 +1,8 @@
 "use client"
 
+import { useState } from "react"
 import Link from "next/link"
-import { Eye, EyeOff, Check, RefreshCw, Heart } from "lucide-react"
+import { Eye, EyeOff, Check, RefreshCw, Heart, Star } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { padNumber } from "@/lib/utils"
 import { CONTENT_TYPE_LABELS, type ContentType, type WatchStatus } from "@/lib/constants"
@@ -18,6 +19,10 @@ interface ContentCardProps {
   /** Whether the user has favorited this entry. */
   favorite?: boolean
   onToggleFavorite?: (contentId: string, current: boolean) => void
+  /** User rating in DB units (2,4,6,8,10); 0 = unrated. Display = rating / 2. */
+  rating?: number
+  /** Called with the star value 1-5; pass 0 to clear. */
+  onSetRating?: (contentId: string, rating: number) => void
   /** Story arc for episodes, rendered as a badge linking to /arcs/[slug]. */
   arc?: { slug: string; title: string } | null
   /** Brief highlight ring, used by the jump-to-episode feature. */
@@ -49,12 +54,17 @@ export function ContentCard({
   watchCount = 0,
   favorite = false,
   onToggleFavorite,
+  rating = 0,
+  onSetRating,
   arc,
   flash = false,
 }: ContentCardProps) {
   const status = watchStatus ?? "none"
   const config = statusConfig[status]
   const StatusIcon = config.icon
+  const [hoverStar, setHoverStar] = useState(0)
+
+  const starValue = Math.round(rating / 2)
 
   const displayNumber = entry.type === "movie"
     ? `MOV ${padNumber(entry.movie_number ?? 0)}`
@@ -171,6 +181,39 @@ export function ContentCard({
             <span className="h-1 w-1 rounded-full bg-[#A5202D]" />
             {arc.title}
           </Link>
+        )}
+
+        {/* Star rating (signed-in only) */}
+        {onSetRating && (
+          <div
+            className="mt-1.5 flex items-center gap-0.5"
+            onMouseLeave={() => setHoverStar(0)}
+            aria-label={`Rated ${starValue} of 5 stars`}
+          >
+            {[1, 2, 3, 4, 5].map((star) => {
+              const active = (hoverStar > 0 ? hoverStar : starValue) >= star
+              return (
+                <button
+                  key={star}
+                  onClick={(e) => {
+                    e.preventDefault()
+                    onSetRating(entry.id, starValue === star ? 0 : star)
+                  }}
+                  onMouseEnter={() => setHoverStar(star)}
+                  className="p-0.5 transition-transform hover:scale-110"
+                  title={`${active ? "Clear" : "Rate"} ${star} star${star > 1 ? "s" : ""}`}
+                  aria-label={`Rate ${star} star${star > 1 ? "s" : ""}`}
+                >
+                  <Star
+                    className={cn(
+                      "h-3.5 w-3.5 transition-colors",
+                      active ? "text-[#A5202D] fill-current" : "text-gray-300"
+                    )}
+                  />
+                </button>
+              )
+            })}
+          </div>
         )}
 
         {entry.synopsis && (

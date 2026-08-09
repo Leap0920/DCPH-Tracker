@@ -46,6 +46,9 @@ interface ContentGridProps {
   /** favorite flag per content id. */
   favorites?: Map<string, boolean>
   onToggleFavorite?: (contentId: string, current: boolean) => void
+  /** rating (DB units 2..10) per content id, for the star input. */
+  ratings?: Map<string, number>
+  onSetRating?: (contentId: string, rating: number) => void
   onMarkAll?: (ids: string[], status: WatchStatus) => void
   /** Initial values for the view mode / filters. Used for URL persistence. */
   initialMode?: ViewMode
@@ -96,6 +99,8 @@ export function ContentGrid({
   watchCounts,
   favorites,
   onToggleFavorite,
+  ratings,
+  onSetRating,
   onMarkAll,
   initialMode = "year",
   initialStatusFilter = "all",
@@ -148,6 +153,7 @@ export function ContentGrid({
     if (statusFilter === "all") return true
     const s = userStatuses?.get(entry.id)
     if (statusFilter === "unwatched") return !s || s === "unwatched"
+    if (statusFilter === "watched") return s === "watched" || s === "rewatched"
     return s === statusFilter
   }
 
@@ -579,6 +585,8 @@ export function ContentGrid({
                       watchCount={watchCounts?.get(entry.id) ?? 0}
                       favorite={favorites?.get(entry.id) ?? false}
                       onToggleFavorite={onToggleFavorite}
+                      rating={ratings?.get(entry.id) ?? 0}
+                      onSetRating={onSetRating}
                       arc={getArcForEntry(entry)}
                     />
                   </div>
@@ -616,7 +624,10 @@ export function ContentGrid({
                     <button
                       onClick={(e) => {
                         e.stopPropagation()
-                        onMarkAll(section.entries.map((en) => en.id), "watched")
+                        onMarkAll(
+                          section.entries.filter((en) => !isWatched(en)).map((en) => en.id),
+                          "watched"
+                        )
                       }}
                       className="inline-flex items-center gap-1.5 h-7 px-2.5 rounded-sm border border-gray-300 text-[10px] font-mono uppercase tracking-wider text-gray-500 hover:text-gray-900 hover:border-gray-900 transition-colors"
                       title="Mark all as watched"
@@ -637,6 +648,8 @@ export function ContentGrid({
                       watchCount={watchCounts?.get(entry.id) ?? 0}
                       favorite={favorites?.get(entry.id) ?? false}
                       onToggleFavorite={onToggleFavorite}
+                      rating={ratings?.get(entry.id) ?? 0}
+                      onSetRating={onSetRating}
                       flash={flashId === entry.id}
                       arc={getArcForEntry(entry)}
                     />
