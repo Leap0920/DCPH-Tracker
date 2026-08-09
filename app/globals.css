@@ -1,90 +1,61 @@
-@import url('https://fonts.cdnfonts.com/css/google-sans');
+/*
+  Fonts (loaded via next/font in app/layout.tsx):
 
-@font-face {
-  font-family: 'Product Sans';
-  font-style: normal;
-  font-weight: 300;
-  src: local('Product Sans Light'), url('https://fonts.cdnfonts.com/s/14955/ProductSans-Light.woff') format('woff');
-}
-
-@font-face {
-  font-family: 'Product Sans';
-  font-style: normal;
-  font-weight: 500;
-  src: local('Product Sans Medium'), url('https://fonts.cdnfonts.com/s/14955/ProductSans-Medium.woff') format('woff');
-}
-
-@font-face {
-  font-family: 'Product Sans';
-  font-style: normal;
-  font-weight: 900;
-  src: local('Product Sans Black'), url('https://fonts.cdnfonts.com/s/14955/ProductSans-Black.woff') format('woff');
-}
+  --font-display : Plus Jakarta Sans (clean modern headings)
+  --font-body    : Inter (high legibility)
+  --font-mono    : JetBrains Mono (numbers, timestamps, stats)
+*/
 
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
 
-/*
-  Fonts (load via next/font in app/layout.tsx instead of @import for perf —
-  this file just documents the CSS var names they should map to):
-
-  --font-display : Oswald (condensed, bold, poster/WANTED-notice feel)
-  --font-body    : Inter (clean, high legibility)
-  --font-mono    : IBM Plex Mono (case numbers, timestamps, stats — typewriter/dossier feel)
-*/
-
 @layer base {
   body {
-    @apply bg-noir-black text-dossier-cream font-body antialiased;
-    background-image:
-      radial-gradient(circle at 20% 0%, rgba(122, 22, 32, 0.08), transparent 40%),
-      radial-gradient(circle at 100% 100%, rgba(168, 172, 179, 0.05), transparent 45%);
-    background-attachment: fixed;
+    @apply bg-page text-ink font-body antialiased;
   }
 
   h1,
   h2,
   h3,
   h4 {
-    @apply font-display uppercase tracking-wide text-dossier-cream;
+    @apply font-display text-ink tracking-tight;
   }
 
   ::selection {
-    @apply bg-poison-red text-dossier-cream;
+    @apply bg-accent text-white;
   }
 
   /* visible keyboard focus everywhere — non-negotiable a11y floor */
   :focus-visible {
-    outline: 2px solid theme("colors.gold-seal");
+    outline: 2px solid theme("colors.accent");
     outline-offset: 2px;
   }
 }
 
 @layer components {
 
-  /* Signature element: the "dossier card" used for profile cards,
-     episode/movie cards, and the screening announcement. A manila-folder
-     / redacted-file metaphor instead of a plain rounded card. */
+  /* Signature card surface: clean white card with a soft shadow
+     and a thin accent strip on the left edge. */
   .dossier-card {
-    @apply relative bg-case-file border border-white/5 shadow-dossier rounded-sm overflow-hidden;
+    @apply relative bg-surface border border-slate-200 shadow-card rounded-xl overflow-hidden;
   }
 
   .dossier-card::before {
     content: "";
-    @apply absolute top-0 left-0 h-full w-[3px] bg-poison-red;
+    @apply absolute top-0 left-0 h-full w-[3px] bg-accent;
   }
 
   .dossier-stamp {
-    @apply absolute top-3 right-3 rotate-6 border border-poison-red/60 text-poison-red/80 text-[10px] font-mono tracking-stamp uppercase px-2 py-1 rounded-sm;
+    @apply absolute top-3 right-3 rotate-6 border border-accent/40 text-accent text-[10px] font-mono tracking-stamp uppercase px-2 py-1 rounded-sm;
   }
 
   .redacted-bar {
-    @apply h-3 bg-redacted rounded-[2px];
+    @apply h-3 bg-slate-200 rounded-[2px];
   }
 
   .case-number {
-    @apply font-mono text-xs text-silver-steel tracking-wide;
+    @apply font-mono text-xs text-ink-faint tracking-wide;
   }
 }
 
@@ -94,103 +65,4 @@
     animation-iteration-count: 1 !important;
     transition-duration: 0.01ms !important;
   }
-}
-
-/* Homepage White Theme Overrides */
-.homepage-light-theme {
-  --font-display: 'Product Sans', sans-serif !important;
-  --font-body: 'Product Sans', sans-serif !important;
-  font-family: 'Product Sans', sans-serif !important;
-  background-color: #ffffff !important;
-  color: #1f2937 !important;
-  background-image: none !important;
-}
-
-.homepage-light-theme h1,
-.homepage-light-theme h2,
-.homepage-light-theme h3,
-.homepage-light-theme h4 {
-  font-family: 'Product Sans', sans-serif !important;
-  color: #111827 !important;
-}
-
-.homepage-light-theme button,
-.homepage-light-theme .button,
-.homepage-light-theme a button {
-  text-transform: none !important;
-  letter-spacing: normal !important;
-}
-
-.homepage-light-theme .text-dossier-cream {
-  color: #111827 !important;
-}
-
-.homepage-light-theme .text-dossier-cream-dim {
-  color: #4b5563 !important;
-}
-
-.homepage-light-theme .text-silver-steel {
-  color: #6b7280 !important;
-}
-
-.homepage-light-theme .case-number {
-  color: #6b7280 !important;
-}
-
-.homepage-light-theme .redacted-bar {
-  background-color: #e5e7eb !important;
-}
-
-.homepage-light-theme .dossier-card {
-  background-color: #ffffff !important;
-  border-color: #e5e7eb !important;
-  box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.05), 0 8px 10px -6px rgba(0, 0, 0, 0.05) !important;
-}
-
-.homepage-light-theme .dossier-card::before {
-  display: none !important;
-}
-
-.homepage-light-theme .dossier-stamp {
-  border-color: rgba(165, 32, 45, 0.3) !important;
-  color: rgba(165, 32, 45, 0.8) !important;
-}
-
-/* Hover effects for light cards */
-.homepage-light-theme .dossier-card.group:hover {
-  background-color: #f3f4f6 !important;
-  border-color: #d1d5db !important;
-}
-
-/* Footer light overrides */
-.homepage-light-theme footer {
-  background-color: #ffffff !important;
-  border-top: 1px solid #e5e7eb !important;
-}
-
-.homepage-light-theme footer .border-t,
-.homepage-light-theme footer .border-white\/5 {
-  border-color: #e5e7eb !important;
-}
-
-.homepage-light-theme footer .text-dossier-cream-dim {
-  color: #4b5563 !important;
-}
-
-.homepage-light-theme footer .text-dossier-cream-dim:hover {
-  color: #111827 !important;
-}
-
-.homepage-light-theme footer .text-silver-steel {
-  color: #6b7280 !important;
-}
-
-.homepage-light-theme footer .h-9 {
-  border-color: #e5e7eb !important;
-  color: #6b7280 !important;
-}
-
-.homepage-light-theme footer .h-9:hover {
-  color: #111827 !important;
-  border-color: #9ca3af !important;
 }

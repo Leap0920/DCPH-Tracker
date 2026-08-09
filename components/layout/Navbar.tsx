@@ -83,7 +83,7 @@ export function Navbar() {
 
   return (
     <header className={cn(
-      "sticky top-0 z-40 border-b border-gray-200 bg-white/80 backdrop-blur-md transition-transform duration-300",
+      "sticky top-0 z-40 border-b border-slate-200 bg-surface/80 backdrop-blur-md transition-transform duration-300",
       // Only auto-hide on desktop. On mobile the header must stay put so the
       // hamburger menu button is always reachable.
       navVisible ? "translate-y-0" : "translate-y-0 md:-translate-y-full"
@@ -96,8 +96,8 @@ export function Navbar() {
             alt="Detective Conan PH Logo"
             className="h-8 w-auto object-contain transition-transform duration-300 group-hover:scale-105"
           />
-          <span className="font-display text-lg uppercase tracking-wide text-gray-900 hidden sm:block">
-            Detective Conan <span className="text-gray-500">PH</span>
+          <span className="font-display text-lg text-ink hidden sm:block">
+            Detective Conan <span className="text-ink-dim">PH</span>
           </span>
         </Link>
 
@@ -111,10 +111,10 @@ export function Navbar() {
                 key={route.href}
                 href={route.href}
                 className={cn(
-                  "px-3 py-2 rounded-sm text-sm font-display uppercase tracking-wide transition-colors",
+                    "px-3 py-2 rounded-md text-sm font-display transition-colors",
                   isActive
-                    ? "text-gray-900 bg-gray-100"
-                    : "text-gray-500 hover:text-gray-900 hover:bg-gray-50"
+                    ? "text-ink bg-surface-muted"
+                    : "text-ink-dim hover:text-ink hover:bg-surface-muted"
                 )}
               >
                 {route.label}
@@ -131,31 +131,31 @@ export function Navbar() {
                 <div className="hidden md:flex items-center gap-2">
                   {profile?.role === "admin" && (
                     <Link href="/admin">
-                      <Button variant="ghost" size="sm" className="gap-2 text-gray-500 hover:text-gray-900 font-display uppercase tracking-wider text-xs">
+                      <Button variant="ghost" size="sm" className="gap-2 text-ink-dim hover:text-ink font-display text-xs">
                         <ShieldCheck className="h-4 w-4" />
                         Admin
                       </Button>
                     </Link>
                   )}
                   <Link href={profile ? `/profile/${profile.username}` : "#"}>
-                    <Button variant="ghost" size="sm" className="gap-2 text-gray-500 hover:text-gray-900 font-display uppercase tracking-wider text-xs">
+                    <Button variant="ghost" size="sm" className="gap-2 text-ink-dim hover:text-ink font-display text-xs">
                       <User className="h-4 w-4" />
                       {profile?.display_name || "Profile"}
                     </Button>
                   </Link>
                   <Link href="/settings">
-                    <Button variant="ghost" size="icon" aria-label="Settings" className="text-gray-400 hover:text-gray-900">
+                    <Button variant="ghost" size="icon" aria-label="Settings" className="text-ink-faint hover:text-ink">
                       <Settings className="h-4 w-4" />
                     </Button>
                   </Link>
-                  <Button variant="outline" size="sm" onClick={handleSignOut} className="gap-2 font-display uppercase tracking-wider text-xs border-gray-200 hover:border-gray-400 hover:bg-gray-50 text-gray-500 hover:text-gray-900">
+                  <Button variant="outline" size="sm" onClick={handleSignOut} className="gap-2 font-display text-xs border-slate-200 hover:border-slate-300 hover:bg-surface-muted text-ink-dim hover:text-ink">
                     <LogOut className="h-3.5 w-3.5" />
                     Sign Out
                   </Button>
                 </div>
               ) : (
                 <Link href="/login" className="hidden md:block">
-                  <Button variant="outline" size="sm" className="font-display uppercase tracking-wider text-xs border-gray-200 hover:border-gray-400 text-gray-600 hover:text-gray-900">
+                  <Button variant="outline" size="sm" className="font-display text-xs border-slate-200 hover:border-slate-300 text-ink-dim hover:text-ink">
                     Sign In
                   </Button>
                 </Link>
@@ -167,7 +167,7 @@ export function Navbar() {
           <Button
             variant="ghost"
             size="icon"
-            className="md:hidden text-gray-600"
+            className="md:hidden text-ink-dim"
             onClick={() => setMobileOpen(!mobileOpen)}
             aria-label="Toggle menu"
           >
@@ -178,7 +178,7 @@ export function Navbar() {
 
       {/* Mobile nav */}
       {mobileOpen && (
-        <div className="md:hidden border-t border-gray-200 bg-white/95 backdrop-blur-md">
+        <div className="md:hidden border-t border-slate-200 bg-surface/95 backdrop-blur-md">
           <div className="flex flex-col px-6 py-4 gap-1">
             {NAV_ROUTES.map((route) => {
               const isActive = pathname === route.href ||
@@ -189,49 +189,49 @@ export function Navbar() {
                   href={route.href}
                   onClick={() => setMobileOpen(false)}
                   className={cn(
-                    "px-3 py-2 rounded-sm text-sm font-display uppercase tracking-wide transition-colors",
+                  "px-3 py-2 rounded-md text-sm font-display transition-colors",
                     isActive
-                      ? "text-gray-900 bg-gray-100"
-                      : "text-gray-500 hover:text-gray-900 hover:bg-gray-50"
+                      ? "text-ink bg-surface-muted"
+                      : "text-ink-dim hover:text-ink hover:bg-surface-muted"
                   )}
                 >
                   {route.label}
                 </Link>
               )
             })}
-            <div className="mt-4 pt-4 border-t border-gray-200">
+            <div className="mt-4 pt-4 border-t border-slate-200">
               {!loading && (
                 <>
                   {user ? (
                     <div className="flex flex-col gap-2">
                       {profile?.role === "admin" && (
                         <Link href="/admin" onClick={() => setMobileOpen(false)}>
-                          <Button variant="ghost" className="w-full justify-start gap-2 font-display uppercase tracking-wider">
+                          <Button variant="ghost" className="w-full justify-start gap-2 font-display">
                             <ShieldCheck className="h-4 w-4" />
                             Admin Console
                           </Button>
                         </Link>
                       )}
                       <Link href={profile ? `/profile/${profile.username}` : "#"} onClick={() => setMobileOpen(false)}>
-                        <Button variant="ghost" className="w-full justify-start gap-2 font-display uppercase tracking-wider">
+                        <Button variant="ghost" className="w-full justify-start gap-2 font-display">
                           <User className="h-4 w-4" />
                           Profile ({profile?.display_name || "Detective"})
                         </Button>
                       </Link>
                       <Link href="/settings" onClick={() => setMobileOpen(false)}>
-                        <Button variant="ghost" className="w-full justify-start gap-2 font-display uppercase tracking-wider">
+                        <Button variant="ghost" className="w-full justify-start gap-2 font-display">
                           <Settings className="h-4 w-4" />
                           Settings
                         </Button>
                       </Link>
-                      <Button variant="outline" onClick={handleSignOut} className="w-full justify-start gap-2 border-gray-200 hover:border-gray-400 text-gray-500 hover:text-gray-900 font-display uppercase tracking-wider">
+                      <Button variant="outline" onClick={handleSignOut} className="w-full justify-start gap-2 border-slate-200 hover:border-slate-300 text-ink-dim hover:text-ink font-display">
                         <LogOut className="h-4 w-4" />
                         Sign Out
                       </Button>
                     </div>
                   ) : (
                     <Link href="/login" onClick={() => setMobileOpen(false)}>
-                      <Button variant="outline" size="sm" className="w-full font-display uppercase tracking-wider border-gray-200 text-gray-600">
+                      <Button variant="outline" size="sm" className="w-full font-display border-slate-200 text-ink-dim">
                         Sign In
                       </Button>
                     </Link>

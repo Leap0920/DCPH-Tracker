@@ -1,4 +1,4 @@
-import Link from "next/link"
+﻿import Link from "next/link"
 import { Plus } from "lucide-react"
 import { createClient } from "@/utils/supabase/server"
 import { ContentTable } from "@/components/admin/ContentTable"
@@ -48,12 +48,12 @@ export default async function AdminContentPage({
   return (
     <div className="space-y-5">
       <div className="flex items-center justify-between gap-4">
-        <h2 className="font-display text-sm uppercase tracking-widest text-gray-500">
+        <h2 className="font-display text-sm tracking-tight text-ink-dim">
           Content ({total})
         </h2>
         <Link
           href="/admin/content/new"
-          className="inline-flex items-center gap-2 h-10 px-4 rounded-lg bg-gray-900 text-sm font-display uppercase tracking-wide text-white hover:bg-gray-800"
+          className="inline-flex items-center gap-2 h-10 px-4 rounded-lg bg-accent text-sm font-display text-white hover:bg-accent-bright"
         >
           <Plus className="h-4 w-4" />
           New entry
@@ -67,23 +67,23 @@ export default async function AdminContentPage({
       {totalPages > 1 && (
         <div className="flex items-center justify-center gap-4 pt-2">
           {page > 1 ? (
-            <Link href={pageHref(page - 1)} className="h-9 px-3 inline-flex items-center rounded-lg border border-gray-200 text-xs font-mono uppercase text-gray-600 hover:border-gray-400">
+            <Link href={pageHref(page - 1)} className="h-9 px-3 inline-flex items-center rounded-lg border border-slate-200 text-xs font-mono text-ink-dim hover:border-slate-300">
               Prev
             </Link>
           ) : (
-            <span className="h-9 px-3 inline-flex items-center rounded-lg border border-gray-100 text-xs font-mono uppercase text-gray-300">
+            <span className="h-9 px-3 inline-flex items-center rounded-lg border border-slate-100 text-xs font-mono text-ink-faint">
               Prev
             </span>
           )}
-          <span className="font-mono text-xs text-gray-500">
+          <span className="font-mono text-xs text-ink-dim">
             Page {page} / {totalPages}
           </span>
           {page < totalPages ? (
-            <Link href={pageHref(page + 1)} className="h-9 px-3 inline-flex items-center rounded-lg border border-gray-200 text-xs font-mono uppercase text-gray-600 hover:border-gray-400">
+            <Link href={pageHref(page + 1)} className="h-9 px-3 inline-flex items-center rounded-lg border border-slate-200 text-xs font-mono text-ink-dim hover:border-slate-300">
               Next
             </Link>
           ) : (
-            <span className="h-9 px-3 inline-flex items-center rounded-lg border border-gray-100 text-xs font-mono uppercase text-gray-300">
+            <span className="h-9 px-3 inline-flex items-center rounded-lg border border-slate-100 text-xs font-mono text-ink-faint">
               Next
             </span>
           )}

@@ -19,12 +19,12 @@ export function ChatLayout({
   const [mobileOpen, setMobileOpen] = useState(false)
 
   const sidebar = (
-    <div className="flex h-full flex-col bg-white">
-      <div className="flex items-center justify-between border-b border-gray-200 px-4 py-4">
-        <span className="font-display text-sm uppercase tracking-wide text-gray-900">
+    <div className="flex h-full flex-col bg-surface">
+      <div className="flex items-center justify-between border-b border-slate-200 px-4 py-4">
+        <span className="font-display text-sm tracking-tight text-ink">
           Rooms
         </span>
-        <span className="rounded-sm bg-gray-100 px-2 py-0.5 font-mono text-xs text-gray-500">
+        <span className="rounded-md bg-surface-muted px-2 py-0.5 font-mono text-xs text-ink-dim">
           {rooms.length}
         </span>
       </div>
@@ -37,27 +37,27 @@ export function ChatLayout({
               href={`/community/chat/${r.slug}`}
               onClick={() => setMobileOpen(false)}
               className={cn(
-                "relative flex items-start gap-3 rounded-sm px-3 py-2.5 transition-colors",
+                "relative flex items-start gap-3 rounded-md px-3 py-2.5 transition-colors",
                 active
-                  ? "bg-gray-100 text-gray-900"
-                  : "text-gray-600 hover:bg-gray-50"
+                  ? "bg-surface-muted text-ink"
+                  : "text-ink-dim hover:bg-surface-muted"
               )}
             >
               {active && (
-                <span className="absolute left-0 top-1/2 h-6 w-[3px] -translate-y-1/2 rounded-full bg-[#7A1620]" />
+                <span className="absolute left-0 top-1/2 h-6 w-[3px] -translate-y-1/2 rounded-full bg-accent" />
               )}
               <MessagesSquare
                 className={cn(
                   "mt-0.5 h-4 w-4 shrink-0",
-                  active ? "text-[#7A1620]" : "text-gray-400"
+                  active ? "text-accent" : "text-ink-faint"
                 )}
               />
               <span className="min-w-0">
-                <span className="block truncate font-display text-sm uppercase tracking-wide">
+                <span className="block truncate font-display text-sm tracking-tight">
                   {r.name}
                 </span>
                 {r.description && (
-                  <span className="block truncate text-xs text-gray-400">
+                  <span className="block truncate text-xs text-ink-faint">
                     {r.description}
                   </span>
                 )}
@@ -72,7 +72,7 @@ export function ChatLayout({
   return (
     <div className="mx-auto flex h-[calc(100vh-4rem)] max-w-7xl">
       {/* Desktop sidebar */}
-      <aside className="hidden w-72 shrink-0 border-r border-gray-200 md:block">
+      <aside className="hidden w-72 shrink-0 border-r border-slate-200 md:block">
         {sidebar}
       </aside>
 
@@ -83,11 +83,11 @@ export function ChatLayout({
             className="absolute inset-0 bg-black/40"
             onClick={() => setMobileOpen(false)}
           />
-          <div className="absolute left-0 top-0 h-full w-72 max-w-[80%] border-r border-gray-200 shadow-xl">
+          <div className="absolute left-0 top-0 h-full w-72 max-w-[80%] border-r border-slate-200 shadow-xl">
             <button
               onClick={() => setMobileOpen(false)}
               aria-label="Close rooms"
-              className="absolute right-2 top-3 z-10 rounded-sm p-1 text-gray-400 hover:bg-gray-100 hover:text-gray-700"
+              className="absolute right-2 top-3 z-10 rounded-md p-1 text-ink-faint hover:bg-surface-muted hover:text-ink"
             >
               <X className="h-4 w-4" />
             </button>

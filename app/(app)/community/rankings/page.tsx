@@ -63,10 +63,10 @@ export default async function RankingsPage() {
           <span className="redacted-bar w-16" />
         </div>
 
-        <h1 className="font-display text-3xl sm:text-4xl uppercase tracking-wide text-gray-900">
+        <h1 className="font-display text-3xl sm:text-4xl tracking-tight text-ink">
           Agent Rankings
         </h1>
-        <p className="mt-2 max-w-xl text-gray-500">
+        <p className="mt-2 max-w-xl text-ink-dim">
           See how many episodes fellow agents have cracked. Climb the ranks by
           logging every case you watch.
         </p>
@@ -74,39 +74,39 @@ export default async function RankingsPage() {
         {/* Your standing */}
         <div className="mt-8">
           {currentUserId && you ? (
-            <div className="flex flex-wrap items-center gap-4 rounded-lg border border-[#7A1620]/30 bg-[#7A1620]/5 p-5">
-              <span className="flex h-11 w-11 items-center justify-center rounded-full bg-[#7A1620] text-white">
+            <div className="flex flex-wrap items-center gap-4 rounded-lg border border-accent/30 bg-accent/5 p-5">
+              <span className="flex h-11 w-11 items-center justify-center rounded-full bg-accent text-white">
                 <Trophy className="h-5 w-5" />
               </span>
               <div className="flex-1">
-                <p className="font-mono text-xs uppercase tracking-wide text-gray-500">
+                <p className="font-mono text-xs text-ink-faint">
                   Your standing
                 </p>
-                <p className="font-display text-lg uppercase tracking-wide text-gray-900">
+                <p className="font-display text-lg tracking-tight text-ink">
                   {you.watched_count} episodes watched
                   {you.rank > 0 && (
-                    <span className="ml-2 text-sm text-gray-500">
+                    <span className="ml-2 text-sm text-ink-dim">
                       · Rank #{you.rank}
                     </span>
                   )}
                 </p>
               </div>
               <Link href={`/profile/${you.username}`}>
-                <Button variant="outline" size="sm" className="rounded-lg border-gray-200">
+                <Button variant="outline" size="sm" className="rounded-lg border-slate-200">
                   View profile
                 </Button>
               </Link>
             </div>
           ) : currentUserId ? (
-            <div className="flex flex-wrap items-center gap-4 rounded-lg border border-gray-200 bg-white p-5">
-              <span className="flex h-11 w-11 items-center justify-center rounded-full bg-gray-100 text-gray-400">
+            <div className="flex flex-wrap items-center gap-4 rounded-lg border border-slate-200 bg-surface p-5 shadow-card">
+              <span className="flex h-11 w-11 items-center justify-center rounded-full bg-surface-muted text-ink-faint">
                 <Trophy className="h-5 w-5" />
               </span>
               <div className="flex-1">
-                <p className="font-display text-lg uppercase tracking-wide text-gray-900">
+                <p className="font-display text-lg tracking-tight text-ink">
                   You haven&apos;t watched any episodes yet
                 </p>
-                <p className="text-sm text-gray-500">
+                <p className="text-sm text-ink-dim">
                   Start tracking to claim your spot on the board.
                 </p>
               </div>
@@ -118,12 +118,12 @@ export default async function RankingsPage() {
               </Link>
             </div>
           ) : (
-            <div className="flex flex-wrap items-center gap-4 rounded-lg border border-gray-200 bg-white p-5">
+            <div className="flex flex-wrap items-center gap-4 rounded-lg border border-slate-200 bg-surface p-5 shadow-card">
               <div className="flex-1">
-                <p className="font-display text-lg uppercase tracking-wide text-gray-900">
+                <p className="font-display text-lg tracking-tight text-ink">
                   Sign in to track your rank
                 </p>
-                <p className="text-sm text-gray-500">
+                <p className="text-sm text-ink-dim">
                   Log in to see how many episodes you&apos;ve watched.
                 </p>
               </div>

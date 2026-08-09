@@ -36,7 +36,7 @@ export function DeleteContentButton({ id, title }: { id: string; title: string }
         <button
           onClick={() => setConfirming(false)}
           disabled={pending}
-          className="rounded-md border border-gray-200 px-2 py-1 text-[11px] text-gray-500 hover:text-gray-900"
+          className="rounded-md border border-slate-200 px-2 py-1 text-[11px] text-ink-dim hover:text-ink"
         >
           Cancel
         </button>
@@ -48,7 +48,7 @@ export function DeleteContentButton({ id, title }: { id: string; title: string }
     <button
       onClick={() => setConfirming(true)}
       aria-label={`Delete ${title}`}
-      className="inline-flex h-8 w-8 items-center justify-center rounded-md text-gray-400 hover:bg-red-50 hover:text-red-600 transition-colors"
+      className="inline-flex h-8 w-8 items-center justify-center rounded-md text-ink-faint hover:bg-red-50 hover:text-red-600 transition-colors"
     >
       <Trash2 className="h-4 w-4" />
     </button>

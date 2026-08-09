@@ -6,7 +6,7 @@ export default function AppLayout({
   children: React.ReactNode
 }) {
   return (
-    <div className="min-h-screen bg-white">
+    <div className="min-h-screen bg-page">
       <Navbar />
       <main className="min-h-[calc(100vh-4rem)]">
         {children}

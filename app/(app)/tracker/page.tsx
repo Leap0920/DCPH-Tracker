@@ -317,7 +317,7 @@ function TrackerPageContent() {
           <div className="text-center py-24">
             <div className="inline-flex items-center gap-3">
               <div className="h-2 w-2 bg-gray-900 rounded-full animate-pulse" />
-              <p className="font-display text-lg uppercase text-gray-500 animate-pulse tracking-widest">
+              <p className="font-display text-lg text-ink-faint animate-pulse tracking-tight">
                 Loading case files...
               </p>
               <div className="h-2 w-2 bg-gray-900 rounded-full animate-pulse" style={{ animationDelay: "0.3s" }} />
@@ -325,20 +325,20 @@ function TrackerPageContent() {
           </div>
         ) : error && entries.length === 0 ? (
           <div className="text-center py-24 px-6">
-            <p className="font-display text-lg uppercase tracking-widest text-gray-900 mb-2">
+            <p className="font-display text-lg tracking-tight text-ink mb-2">
               Investigation stalled
             </p>
-            <p className="text-sm text-gray-500 mb-6">{error}</p>
+            <p className="text-sm text-ink-dim mb-6">{error}</p>
             <Button onClick={loadData} className="rounded-lg">
               Try Again
             </Button>
           </div>
         ) : entries.length === 0 ? (
           <div className="text-center py-24 px-6">
-            <p className="font-display text-lg uppercase tracking-widest text-gray-900 mb-2">
+            <p className="font-display text-lg tracking-tight text-ink mb-2">
               No case files yet
             </p>
-            <p className="text-sm text-gray-500">
+            <p className="text-sm text-ink-dim">
               Content hasn&apos;t been added to the tracker yet. Check back soon.
             </p>
           </div>
@@ -352,12 +352,12 @@ function TrackerPageContent() {
             <MotivationStats entries={entries} userStatuses={userStatuses} userName={user} />
             <ProgressIndicator entries={entries} userStatuses={userStatuses} />
             {!user && (
-              <div className="flex flex-wrap items-center gap-4 rounded-lg border border-gray-200 bg-white p-5">
+              <div className="flex flex-wrap items-center gap-4 rounded-lg border border-slate-200 bg-surface p-5">
                 <div className="flex-1">
-                  <p className="font-display text-base uppercase tracking-wide text-gray-900">
+                  <p className="font-display text-base tracking-tight text-ink">
                     Sign in to track your progress
                   </p>
-                  <p className="text-sm text-gray-500">
+                  <p className="text-sm text-ink-dim">
                     Log in to mark episodes watched and climb the rankings.
                   </p>
                 </div>
@@ -368,7 +368,7 @@ function TrackerPageContent() {
                 </Link>
               </div>
             )}
-            <div className="bg-white border border-gray-200 rounded-lg overflow-hidden shadow-sm">
+            <div className="bg-surface border border-slate-200 rounded-lg overflow-hidden shadow-card">
               <ContentGrid
                 entries={entries}
                 userStatuses={userStatuses}
@@ -408,7 +408,7 @@ export default function TrackerPage() {
     <Suspense
       fallback={
         <div className="text-center py-24">
-          <p className="font-display text-lg uppercase text-gray-500 animate-pulse tracking-widest">
+          <p className="font-display text-lg text-ink-dim animate-pulse tracking-widest">
             Loading case files...
           </p>
         </div>

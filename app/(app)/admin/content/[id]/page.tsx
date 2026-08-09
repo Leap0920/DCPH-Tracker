@@ -1,4 +1,4 @@
-import { notFound } from "next/navigation"
+﻿import { notFound } from "next/navigation"
 import { createClient } from "@/utils/supabase/server"
 import { ContentForm } from "@/components/admin/ContentForm"
 import { updateContentEntry } from "@/lib/actions/admin-content"
@@ -27,7 +27,7 @@ export default async function EditContentPage({
 
   return (
     <div>
-      <h2 className="font-display text-sm uppercase tracking-widest text-gray-500 mb-5">
+      <h2 className="font-display text-sm tracking-tight text-ink-dim mb-5">
         Edit content entry
       </h2>
       <ContentForm entry={entry} action={action} />

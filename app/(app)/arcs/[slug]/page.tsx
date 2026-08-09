@@ -38,7 +38,7 @@ export default async function ArcDetailPage({
       <div className="mx-auto max-w-3xl">
         <Link
           href="/arcs"
-          className="mb-6 inline-flex items-center gap-2 text-sm text-gray-500 transition-colors hover:text-gray-900"
+          className="mb-6 inline-flex items-center gap-2 text-sm text-ink-dim transition-colors hover:text-ink"
         >
           <ArrowLeft className="h-4 w-4" />
           Back to Story Arcs
@@ -50,25 +50,25 @@ export default async function ArcDetailPage({
         </div>
 
         <div className="flex flex-wrap items-center gap-2">
-          <span className="font-mono text-xs uppercase tracking-wide text-gray-400">
+          <span className="font-mono text-xs text-ink-faint">
             {arc.era}
           </span>
           <span
-            className={`rounded-sm px-2 py-0.5 font-mono text-[10px] uppercase tracking-wide ${
+            className={`rounded-md px-2 py-0.5 font-mono text-[10px] ${
               arc.status === "ongoing"
                 ? "bg-green-50 text-green-600"
-                : "bg-gray-100 text-gray-500"
+                : "bg-surface-muted text-ink-dim"
             }`}
           >
             {arc.status === "ongoing" ? "Ongoing" : "Complete"}
           </span>
         </div>
 
-        <h1 className="mt-2 font-display text-3xl sm:text-4xl uppercase tracking-wide text-gray-900">
+        <h1 className="mt-2 font-display text-3xl sm:text-4xl tracking-tight text-ink">
           {arc.title}
         </h1>
 
-        <div className="mt-2 flex flex-wrap items-center gap-4 text-sm text-gray-500">
+        <div className="mt-2 flex flex-wrap items-center gap-4 text-sm text-ink-dim">
           <span className="flex items-center gap-1.5 font-mono">
             <BookOpen className="h-4 w-4" />
             {formatEpisodeRange(arc)}
@@ -77,31 +77,31 @@ export default async function ArcDetailPage({
             <Clock className="h-4 w-4" />
             {arc.years}
           </span>
-          <span className="font-mono text-xs text-gray-400">
+          <span className="font-mono text-xs text-ink-faint">
             {arc.mangaRange}
           </span>
         </div>
 
-        <p className="mt-3 text-base font-medium text-[#7A1620]">
+        <p className="mt-3 text-base font-medium text-accent">
           {arc.tagline}
         </p>
-        <p className="mt-4 text-sm leading-relaxed text-gray-600">
+        <p className="mt-4 text-sm leading-relaxed text-ink-dim">
           {arc.summary}
         </p>
 
         {/* Live per-arc progress */}
-        <div className="mt-6 rounded-lg border border-gray-200 bg-white p-5 shadow-sm">
+        <div className="mt-6 rounded-lg border border-slate-200 bg-surface p-5 shadow-card">
           <div className="flex items-center justify-between mb-2">
-            <span className="font-display text-sm uppercase tracking-wider text-gray-900">
+            <span className="font-display text-sm tracking-tight text-ink">
               Your progress in this arc
             </span>
-            <span className="font-mono text-xs text-gray-500">
+            <span className="font-mono text-xs text-ink-dim">
               {progress.watched} / {progress.total} · {progress.percent}%
             </span>
           </div>
           <div className="h-2 bg-gray-200 rounded-full overflow-hidden">
             <div
-              className="h-full bg-[#7A1620] rounded-full"
+              className="h-full bg-accent rounded-full"
               style={{ width: `${progress.percent}%` }}
             />
           </div>
@@ -109,19 +109,19 @@ export default async function ArcDetailPage({
             {signedIn && nextEpisode !== null ? (
               <Link
                 href={`/tracker?ep=${nextEpisode}`}
-                className="inline-flex items-center gap-1.5 rounded-sm bg-[#7A1620] px-3 py-1.5 text-xs font-mono uppercase tracking-wider text-white transition-colors hover:bg-[#5d0f17]"
+                className="inline-flex items-center gap-1.5 rounded-md bg-accent px-3 py-1.5 text-xs font-mono text-white transition-colors hover:bg-accent-bright"
               >
                 Continue at Ep {nextEpisode}
                 <ArrowRight className="h-3.5 w-3.5" />
               </Link>
             ) : signedIn && nextEpisode === null ? (
-              <span className="text-xs font-mono uppercase tracking-wider text-green-600">
+              <span className="text-xs font-mono text-green-600">
                 Arc complete — nice work!
               </span>
             ) : (
               <Link
                 href="/login"
-                className="inline-flex items-center gap-1.5 rounded-sm border border-gray-300 px-3 py-1.5 text-xs font-mono uppercase tracking-wider text-gray-600 transition-colors hover:border-gray-900 hover:text-gray-900"
+                className="inline-flex items-center gap-1.5 rounded-md border border-slate-300 px-3 py-1.5 text-xs font-mono text-ink-dim transition-colors hover:border-ink hover:text-ink"
               >
                 Sign in to track progress
                 <ArrowRight className="h-3.5 w-3.5" />
@@ -132,18 +132,18 @@ export default async function ArcDetailPage({
 
         {/* Key characters */}
         <section className="mt-10">
-          <h2 className="mb-3 flex items-center gap-2 font-display text-xl uppercase tracking-wide text-gray-900">
-            <Users className="h-4 w-4 text-[#7A1620]" />
+          <h2 className="mb-3 flex items-center gap-2 font-display text-xl tracking-tight text-ink">
+            <Users className="h-4 w-4 text-accent" />
             Key figures
           </h2>
           <div className="grid gap-3 sm:grid-cols-2">
             {arc.keyCharacters.map((c) => (
               <div
                 key={c.name}
-                className="rounded-lg border border-gray-200 bg-white p-4"
+                className="rounded-lg border border-slate-200 bg-surface p-4"
               >
-                <p className="font-medium text-gray-900">{c.name}</p>
-                <p className="text-xs text-gray-500">{c.role}</p>
+                <p className="font-medium text-ink">{c.name}</p>
+                <p className="text-xs text-ink-dim">{c.role}</p>
               </div>
             ))}
           </div>
@@ -151,7 +151,7 @@ export default async function ArcDetailPage({
 
         {/* Landmark episodes */}
         <section className="mt-10">
-          <h2 className="mb-3 flex items-center gap-2 font-display text-xl uppercase tracking-wide text-gray-900">
+          <h2 className="mb-3 flex items-center gap-2 font-display text-xl tracking-tight text-ink">
             <PlayIcon />
             Landmark episodes
           </h2>
@@ -159,15 +159,15 @@ export default async function ArcDetailPage({
             {arc.highlights.map((h) => (
               <div
                 key={h.title}
-                className="rounded-lg border-l-2 border-[#7A1620] bg-white p-4 shadow-sm"
+                className="rounded-lg border-l-2 border-accent bg-surface p-4 shadow-card"
               >
                 <div className="flex flex-wrap items-baseline justify-between gap-2">
-                  <p className="font-medium text-gray-900">{h.title}</p>
-                  <span className="font-mono text-xs text-gray-400">
+                  <p className="font-medium text-ink">{h.title}</p>
+                  <span className="font-mono text-xs text-ink-faint">
                     Ep {h.episodes}
                   </span>
                 </div>
-                <p className="mt-1 text-sm text-gray-500">{h.note}</p>
+                <p className="mt-1 text-sm text-ink-dim">{h.note}</p>
               </div>
             ))}
           </div>
@@ -178,13 +178,13 @@ export default async function ArcDetailPage({
           {prev ? (
             <Link
               href={`/arcs/${prev.slug}`}
-              className="group flex flex-col rounded-lg border border-gray-200 bg-white p-4 transition-colors hover:border-gray-300 hover:bg-gray-50"
+              className="group flex flex-col rounded-lg border border-slate-200 bg-surface p-4 transition-colors hover:border-slate-300 hover:bg-surface-muted"
             >
-              <span className="flex items-center gap-1 text-xs text-gray-400">
+              <span className="flex items-center gap-1 text-xs text-ink-faint">
                 <ArrowRightIcon className="h-3.5 w-3.5 rotate-180" />
                 Previous arc
               </span>
-              <span className="mt-1 font-display text-sm uppercase tracking-wide text-gray-900 group-hover:text-[#7A1620]">
+              <span className="mt-1 font-display text-sm tracking-tight text-ink group-hover:text-accent">
                 {prev.title}
               </span>
             </Link>
@@ -195,13 +195,13 @@ export default async function ArcDetailPage({
           {next ? (
             <Link
               href={`/arcs/${next.slug}`}
-              className="group flex flex-col items-end rounded-lg border border-gray-200 bg-white p-4 text-right transition-colors hover:border-gray-300 hover:bg-gray-50"
+              className="group flex flex-col items-end rounded-lg border border-slate-200 bg-surface p-4 text-right transition-colors hover:border-slate-300 hover:bg-surface-muted"
             >
-              <span className="flex items-center gap-1 text-xs text-gray-400">
+              <span className="flex items-center gap-1 text-xs text-ink-faint">
                 Next arc
                 <ArrowRightIcon className="h-3.5 w-3.5" />
               </span>
-              <span className="mt-1 font-display text-sm uppercase tracking-wide text-gray-900 group-hover:text-[#7A1620]">
+              <span className="mt-1 font-display text-sm tracking-tight text-ink group-hover:text-accent">
                 {next.title}
               </span>
             </Link>
@@ -218,7 +218,7 @@ function PlayIcon() {
   return (
     <svg
       viewBox="0 0 24 24"
-      className="h-4 w-4 text-[#7A1620]"
+      className="h-4 w-4 text-accent"
       fill="none"
       stroke="currentColor"
       strokeWidth="2"
