@@ -6,13 +6,15 @@ import {
   Play,
   Clock,
   Heart,
+  Star,
   BarChart3,
   Film,
   BookOpen,
+  GitBranch,
 } from "lucide-react"
 import { createClient } from "@/utils/supabase/server"
 import { getSelfAnalytics } from "@/lib/queries/analytics"
-import { cn, formatHours } from "@/lib/utils"
+import { cn, formatHours, timeAgo } from "@/lib/utils"
 
 export const metadata = {
   title: "Self Analytics — Detective Conan PH",
@@ -73,6 +75,13 @@ export default async function AnalyticsPage() {
       icon: Heart,
       color: "text-[#A5202D]",
     },
+    {
+      key: "avgRating",
+      label: "Avg Rating",
+      value: analytics.avgRating > 0 ? analytics.avgRating.toFixed(1) : "—",
+      icon: Star,
+      color: "text-[#A5202D]",
+    },
   ]
 
   return (
@@ -92,7 +101,7 @@ export default async function AnalyticsPage() {
         </p>
 
         {/* Stat tiles */}
-        <div className="mt-8 grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-5">
+        <div className="mt-8 grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-6">
           {stats.map((stat) => (
             <div
               key={stat.key}
@@ -189,6 +198,176 @@ export default async function AnalyticsPage() {
                   </Link>
                 ))}
               </div>
+            )}
+          </div>
+        </div>
+
+        {/* Top rated + most rewatched + recently watched */}
+        <div className="mt-8 grid gap-6 lg:grid-cols-3">
+          {/* Top Rated */}
+          <div className="rounded-lg border border-gray-200 bg-white p-6 shadow-sm">
+            <h2 className="mb-4 flex items-center gap-2 font-display text-sm uppercase tracking-widest text-gray-900">
+              <Star className="h-4 w-4 text-[#A5202D]" />
+              Top Rated
+            </h2>
+            {analytics.topRated.length === 0 ? (
+              <p className="py-8 text-center text-sm text-gray-500">
+                No ratings yet — rate episodes or movies with the stars on their cards.
+              </p>
+            ) : (
+              <ul className="space-y-3">
+                {analytics.topRated.map((item) => (
+                  <li key={item.id} className="flex items-center justify-between gap-2">
+                    <div className="min-w-0">
+                      <p className="truncate text-sm font-medium text-gray-900">{item.title}</p>
+                      <p className="mt-0.5 font-mono text-[10px] uppercase tracking-widest text-gray-500">
+                        {item.type === "episode"
+                          ? "Episode"
+                          : item.type === "movie"
+                            ? "Movie"
+                            : item.type.replace(/_/g, " ")}
+                        {item.views > 0 && ` · ×${item.views}`}
+                      </p>
+                    </div>
+                    <span className="shrink-0 font-mono text-xs font-semibold text-[#A5202D]">
+                      {(item.rating / 2).toFixed(1)}/5
+                    </span>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </div>
+
+          {/* Most Rewatched */}
+          <div className="rounded-lg border border-gray-200 bg-white p-6 shadow-sm">
+            <h2 className="mb-4 flex items-center gap-2 font-display text-sm uppercase tracking-widest text-gray-900">
+              <RefreshCw className="h-4 w-4 text-gray-900" />
+              Most Rewatched
+            </h2>
+            {analytics.mostRewatched.length === 0 ? (
+              <p className="py-8 text-center text-sm text-gray-500">No rewatches yet.</p>
+            ) : (
+              <ul className="space-y-3">
+                {analytics.mostRewatched.map((item) => (
+                  <li key={item.id} className="flex items-center justify-between gap-2">
+                    <div className="min-w-0">
+                      <p className="truncate text-sm font-medium text-gray-900">{item.title}</p>
+                      <p className="mt-0.5 font-mono text-[10px] uppercase tracking-widest text-gray-500">
+                        {item.type === "episode"
+                          ? "Episode"
+                          : item.type === "movie"
+                            ? "Movie"
+                            : item.type.replace(/_/g, " ")}
+                      </p>
+                    </div>
+                    <span className="shrink-0 inline-flex items-center gap-1 rounded bg-gray-900 px-1.5 py-0.5 font-mono text-[10px] text-white">
+                      <RefreshCw className="h-2.5 w-2.5" />
+                      ×{item.watch_count}
+                    </span>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </div>
+
+          {/* Recently Watched */}
+          <div className="rounded-lg border border-gray-200 bg-white p-6 shadow-sm">
+            <h2 className="mb-4 flex items-center gap-2 font-display text-sm uppercase tracking-widest text-gray-900">
+              <Clock className="h-4 w-4 text-gray-500" />
+              Recently Watched
+            </h2>
+            {analytics.recentlyWatched.length === 0 ? (
+              <p className="py-8 text-center text-sm text-gray-500">Nothing watched recently.</p>
+            ) : (
+              <ul className="space-y-3">
+                {analytics.recentlyWatched.map((item) => (
+                  <li key={item.id} className="flex items-center justify-between gap-2">
+                    <div className="min-w-0">
+                      <p className="truncate text-sm font-medium text-gray-900">{item.title}</p>
+                      <p className="mt-0.5 font-mono text-[10px] uppercase tracking-widest text-gray-500">
+                        {item.status === "rewatched" ? "Rewatched" : "Watched"} ·{" "}
+                        <span className="text-gray-400">{timeAgo(item.updated_at)}</span>
+                      </p>
+                    </div>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </div>
+        </div>
+
+        {/* By release year + arc completion */}
+        <div className="mt-8 grid gap-6 lg:grid-cols-2">
+          {/* By Release Year */}
+          <div className="rounded-lg border border-gray-200 bg-white p-6 shadow-sm">
+            <h2 className="mb-4 flex items-center gap-2 font-display text-sm uppercase tracking-widest text-gray-900">
+              <BarChart3 className="h-4 w-4 text-[#A5202D]" />
+              Watched by Release Year
+            </h2>
+            {analytics.perYear.length === 0 ? (
+              <p className="py-8 text-center text-sm text-gray-500">No watch data yet.</p>
+            ) : (
+              <div className="space-y-2.5">
+                {analytics.perYear.map((row) => {
+                  const maxViews = Math.max(1, ...analytics.perYear.map((y) => y.views))
+                  return (
+                    <div key={row.year} className="flex items-center gap-3">
+                      <span className="w-10 shrink-0 font-mono text-[10px] text-gray-500">
+                        {row.year}
+                      </span>
+                      <div className="flex-1">
+                        <div className="h-1.5 overflow-hidden rounded-full bg-gray-200">
+                          <div
+                            className="h-full rounded-full bg-[#A5202D]"
+                            style={{ width: `${(row.views / maxViews) * 100}%` }}
+                          />
+                        </div>
+                      </div>
+                      <span className="w-24 shrink-0 text-right font-mono text-[10px] text-gray-500">
+                        {row.views} view{row.views === 1 ? "" : "s"} · {row.watched} seen
+                      </span>
+                    </div>
+                  )
+                })}
+              </div>
+            )}
+          </div>
+
+          {/* Arc Completion */}
+          <div className="rounded-lg border border-gray-200 bg-white p-6 shadow-sm">
+            <h2 className="mb-4 flex items-center gap-2 font-display text-sm uppercase tracking-widest text-gray-900">
+              <GitBranch className="h-4 w-4 text-[#A5202D]" />
+              Arc Completion
+            </h2>
+            {analytics.perArc.length === 0 ? (
+              <p className="py-8 text-center text-sm text-gray-500">No arc progress yet.</p>
+            ) : (
+              <ul className="space-y-3">
+                {analytics.perArc.map((arc) => {
+                  const complete = arc.total > 0 && arc.watched >= arc.total
+                  return (
+                    <li key={arc.id}>
+                      <div className="mb-1 flex items-center justify-between gap-2">
+                        <span className="truncate text-sm font-medium text-gray-900">
+                          {arc.title}
+                        </span>
+                        <span className="shrink-0 font-mono text-[10px] text-gray-500">
+                          {arc.watched}/{arc.total} · {arc.progress}%
+                        </span>
+                      </div>
+                      <div className="h-1.5 overflow-hidden rounded-full bg-gray-200">
+                        <div
+                          className={cn(
+                            "h-full rounded-full transition-all",
+                            complete ? "bg-green-500" : "bg-gray-900"
+                          )}
+                          style={{ width: `${arc.progress}%` }}
+                        />
+                      </div>
+                    </li>
+                  )
+                })}
+              </ul>
             )}
           </div>
         </div>

@@ -36,6 +36,7 @@ function TrackerPageContent() {
   const [userStatuses, setUserStatuses] = useState<Map<string, WatchStatus>>(new Map())
   const [watchCounts, setWatchCounts] = useState<Map<string, number>>(new Map())
   const [favorites, setFavorites] = useState<Map<string, boolean>>(new Map())
+  const [ratings, setRatings] = useState<Map<string, number>>(new Map())
   const [arcMap, setArcMap] = useState<Map<string, { slug: string; title: string }> | null>(null)
   const [user, setUser] = useState<string | null>(null)
   const [loading, setLoading] = useState(true)
@@ -116,21 +117,24 @@ function TrackerPageContent() {
     if (user) {
       const { data: statusData } = await supabase
         .from("watch_status")
-        .select("content_id, status, watch_count, favorite")
+        .select("content_id, status, watch_count, favorite, rating")
         .eq("user_id", user.id)
 
       if (statusData) {
         const statusMap = new Map<string, WatchStatus>()
         const countMap = new Map<string, number>()
         const favMap = new Map<string, boolean>()
+        const ratingMap = new Map<string, number>()
         statusData.forEach((s) => {
           statusMap.set(s.content_id, s.status as WatchStatus)
           countMap.set(s.content_id, s.watch_count ?? 0)
           favMap.set(s.content_id, s.favorite ?? false)
+          ratingMap.set(s.content_id, s.rating ?? 0)
         })
         setUserStatuses(statusMap)
         setWatchCounts(countMap)
         setFavorites(favMap)
+        setRatings(ratingMap)
       }
     }
 
@@ -175,7 +179,13 @@ function TrackerPageContent() {
     const { error } = await supabase
       .from("watch_status")
       .upsert(
-        { user_id: user.id, content_id: contentId, status: nextStatus, watch_count: nextCount },
+        {
+          user_id: user.id,
+          content_id: contentId,
+          status: nextStatus,
+          watch_count: nextCount,
+          updated_at: new Date().toISOString(),
+        },
         { onConflict: "user_id,content_id" }
       )
 
@@ -208,7 +218,12 @@ function TrackerPageContent() {
     const { error } = await supabase
       .from("watch_status")
       .upsert(
-        { user_id: user.id, content_id: contentId, favorite: nextFavorite },
+        {
+          user_id: user.id,
+          content_id: contentId,
+          favorite: nextFavorite,
+          updated_at: new Date().toISOString(),
+        },
         { onConflict: "user_id,content_id" }
       )
 
@@ -220,6 +235,41 @@ function TrackerPageContent() {
     setFavorites((prev) => {
       const next = new Map(prev)
       next.set(contentId, nextFavorite)
+      return next
+    })
+  }
+
+  async function handleSetRating(contentId: string, starValue: number) {
+    const { data: { user } } = await supabase.auth.getUser()
+    if (!user) {
+      window.location.href = "/login"
+      return
+    }
+
+    // Schema check constraint is rating 1-10; star UI is 1-5, so store star × 2.
+    const dbRating = starValue === 0 ? null : starValue * 2
+
+    const { error } = await supabase
+      .from("watch_status")
+      .upsert(
+        {
+          user_id: user.id,
+          content_id: contentId,
+          rating: dbRating,
+          updated_at: new Date().toISOString(),
+        },
+        { onConflict: "user_id,content_id" }
+      )
+
+    if (error) {
+      setError("Couldn't save your rating. Please try again.")
+      return
+    }
+
+    setRatings((prev) => {
+      const next = new Map(prev)
+      if (dbRating === null) next.delete(contentId)
+      else next.set(contentId, dbRating)
       return next
     })
   }
@@ -236,6 +286,7 @@ function TrackerPageContent() {
       content_id: id,
       status,
       watch_count: Math.max(watchCounts.get(id) ?? 0, 1),
+      updated_at: new Date().toISOString(),
     }))
 
     const { error } = await supabase
@@ -323,8 +374,10 @@ function TrackerPageContent() {
                 userStatuses={userStatuses}
                 watchCounts={watchCounts}
                 favorites={favorites}
+                ratings={ratings}
                 onToggleStatus={user ? handleToggleStatus : undefined}
                 onToggleFavorite={user ? handleToggleFavorite : undefined}
+                onSetRating={user ? handleSetRating : undefined}
                 onMarkAll={user ? handleMarkAll : undefined}
                 initialMode={initialMode}
                 initialStatusFilter={initialStatus}
