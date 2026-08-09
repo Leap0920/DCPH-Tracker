@@ -3,12 +3,23 @@
 import { useState, useEffect, useRef, Suspense, useCallback } from "react"
 import Link from "next/link"
 import { useRouter, useSearchParams } from "next/navigation"
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query"
 import { ContentGrid, type StatusFilter } from "@/components/tracker/ContentGrid"
 import { ProgressIndicator } from "@/components/tracker/ProgressIndicator"
 import { MotivationStats } from "@/components/tracker/MotivationStats"
 import { Button } from "@/components/ui/button"
 import { createClient } from "@/utils/supabase/client"
-import type { Database } from "@/types/database.types"
+import { fetchContentEntries } from "@/lib/queries/client/content"
+import {
+  fetchUserWatchStatuses,
+  nextWatchState,
+  toggleWatchStatus,
+  toggleFavorite,
+  setRating,
+  markAll,
+  type UserWatchStatuses,
+} from "@/lib/queries/client/watch-status"
+import { queryKeys } from "@/lib/queries/keys"
 import {
   WATCH_STATUSES,
   VIEW_MODES,
@@ -17,8 +28,6 @@ import {
   type ViewMode,
   type ContentType,
 } from "@/lib/constants"
-
-type ContentEntry = Database["public"]["Tables"]["content_entries"]["Row"]
 
 const VALID_TYPES = new Set<string>([CONTENT_TYPES.EPISODE, CONTENT_TYPES.MOVIE, CONTENT_TYPES.SPECIAL, CONTENT_TYPES.OVA, CONTENT_TYPES.LIVE_ACTION, CONTENT_TYPES.MAGIC_KAITO, CONTENT_TYPES.HANZAWA, CONTENT_TYPES.ZERO_TEA_TIME])
 const VALID_STATUS = new Set<string>([WATCH_STATUSES.UNWATCHED, WATCH_STATUSES.WATCHED, WATCH_STATUSES.REWATCHED])
@@ -32,19 +41,13 @@ function clampInt(value: string | null, min: number, max: number): number | null
 }
 
 function TrackerPageContent() {
-  const [entries, setEntries] = useState<ContentEntry[]>([])
-  const [userStatuses, setUserStatuses] = useState<Map<string, WatchStatus>>(new Map())
-  const [watchCounts, setWatchCounts] = useState<Map<string, number>>(new Map())
-  const [favorites, setFavorites] = useState<Map<string, boolean>>(new Map())
-  const [ratings, setRatings] = useState<Map<string, number>>(new Map())
-  const [arcMap, setArcMap] = useState<Map<string, { slug: string; title: string }> | null>(null)
   const [user, setUser] = useState<string | null>(null)
-  const [loading, setLoading] = useState(true)
-  const [error, setError] = useState<string | null>(null)
+  const [mutationError, setMutationError] = useState<string | null>(null)
   const supabase = createClient()
   const router = useRouter()
   const searchParams = useSearchParams()
   const searchTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const queryClient = useQueryClient()
 
   // ── URL param parsing (invalid values fall back to defaults) ──
   const qParam = searchParams.get("q")?.slice(0, 100) ?? ""
@@ -84,231 +87,194 @@ function TrackerPageContent() {
     }
   }, [])
 
-  async function loadData() {
-    setLoading(true)
-    setError(null)
-
-    // PostgREST caps responses at 1,000 rows per request (server max-rows),
-    // so fetch all entries in paginated chunks of 1,000.
-    const PAGE_SIZE = 1000
-    const allEntries: ContentEntry[] = []
-    for (let offset = 0; ; offset += PAGE_SIZE) {
-      const { data: chunk, error: chunkError } = await supabase
-        .from("content_entries")
-        .select("*")
-        .order("air_date", { ascending: true })
-        .range(offset, offset + PAGE_SIZE - 1)
-
-      if (chunkError) {
-        setError("We couldn't load the case files. Please try again.")
-        setLoading(false)
-        return
-      }
-
-      if (!chunk || chunk.length === 0) break
-      allEntries.push(...chunk)
-      if (chunk.length < PAGE_SIZE) break
-    }
-
-    setEntries(allEntries)
-
-    const { data: { user } } = await supabase.auth.getUser()
-    setUser(user?.id ?? null)
-    if (user) {
-      const { data: statusData } = await supabase
-        .from("watch_status")
-        .select("content_id, status, watch_count, favorite, rating")
-        .eq("user_id", user.id)
-
-      if (statusData) {
-        const statusMap = new Map<string, WatchStatus>()
-        const countMap = new Map<string, number>()
-        const favMap = new Map<string, boolean>()
-        const ratingMap = new Map<string, number>()
-        statusData.forEach((s) => {
-          statusMap.set(s.content_id, s.status as WatchStatus)
-          countMap.set(s.content_id, s.watch_count ?? 0)
-          favMap.set(s.content_id, s.favorite ?? false)
-          ratingMap.set(s.content_id, s.rating ?? 0)
-        })
-        setUserStatuses(statusMap)
-        setWatchCounts(countMap)
-        setFavorites(favMap)
-        setRatings(ratingMap)
-      }
-    }
-
-    // Fetch arcs once (id, slug, title) for episode arc badges.
-    const { data: arcsData } = await supabase.from("arcs").select("id, slug, title")
-    if (arcsData) {
-      const map = new Map<string, { slug: string; title: string }>()
-      arcsData.forEach((a) => map.set(a.id, { slug: a.slug, title: a.title }))
-      setArcMap(map)
-    }
-
-    setLoading(false)
-  }
-
+  // ── Auth (non-react-query: auth state is not cacheable data) ──
   useEffect(() => {
-    loadData()
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [])
-
-  async function handleToggleStatus(contentId: string, currentStatus: WatchStatus | null) {
-    const { data: { user } } = await supabase.auth.getUser()
-    if (!user) {
-      window.location.href = "/login"
-      return
-    }
-
-    const nextStatus =
-      currentStatus === "rewatched"
-        ? "unwatched"
-        : currentStatus === "watched"
-          ? "rewatched"
-          : "watched"
-
-    const existingCount = watchCounts.get(contentId) ?? 0
-    const nextCount =
-      nextStatus === "unwatched"
-        ? existingCount
-        : nextStatus === "rewatched"
-          ? existingCount + 1
-          : Math.max(existingCount, 1)
-
-    const { error } = await supabase
-      .from("watch_status")
-      .upsert(
-        {
-          user_id: user.id,
-          content_id: contentId,
-          status: nextStatus,
-          watch_count: nextCount,
-          updated_at: new Date().toISOString(),
-        },
-        { onConflict: "user_id,content_id" }
-      )
-
-    if (error) {
-      setError("Couldn't update your progress. Please try again.")
-      return
-    }
-
-    setUserStatuses((prev) => {
-      const next = new Map(prev)
-      next.set(contentId, nextStatus)
-      return next
+    let active = true
+    supabase.auth.getUser().then(({ data }) => {
+      if (active) setUser(data.user?.id ?? null)
     })
-    setWatchCounts((prev) => {
-      const next = new Map(prev)
-      next.set(contentId, nextCount)
-      return next
-    })
-  }
-
-  async function handleToggleFavorite(contentId: string, current: boolean) {
-    const { data: { user } } = await supabase.auth.getUser()
-    if (!user) {
-      window.location.href = "/login"
-      return
+    return () => {
+      active = false
     }
+  }, [supabase])
 
-    const nextFavorite = !current
+  // ── Queries ──
+  const contentQuery = useQuery({
+    queryKey: queryKeys.content.all(),
+    queryFn: fetchContentEntries,
+  })
+  const entries = contentQuery.data?.entries ?? []
+  const arcMap = contentQuery.data?.arcMap ?? null
 
-    const { error } = await supabase
-      .from("watch_status")
-      .upsert(
-        {
-          user_id: user.id,
-          content_id: contentId,
-          favorite: nextFavorite,
-          updated_at: new Date().toISOString(),
-        },
-        { onConflict: "user_id,content_id" }
-      )
+  const watchStatusQuery = useQuery({
+    queryKey: queryKeys.watchStatus.all(user ?? ""),
+    queryFn: () => fetchUserWatchStatuses(user as string),
+    enabled: !!user,
+  })
+  const userStatuses = watchStatusQuery.data?.statuses ?? new Map<string, WatchStatus>()
+  const watchCounts = watchStatusQuery.data?.counts ?? new Map<string, number>()
+  const favorites = watchStatusQuery.data?.favorites ?? new Map<string, boolean>()
+  const ratings = watchStatusQuery.data?.ratings ?? new Map<string, number>()
 
-    if (error) {
-      setError("Couldn't update your favorites. Please try again.")
-      return
-    }
+  const statusKey = () => queryKeys.watchStatus.all(user as string)
 
-    setFavorites((prev) => {
-      const next = new Map(prev)
-      next.set(contentId, nextFavorite)
-      return next
-    })
-  }
+  // ── Mutations (optimistic with rollback) ──
+  const toggleStatusMutation = useMutation({
+    mutationFn: ({
+      contentId,
+      currentStatus,
+      existingCount,
+    }: {
+      contentId: string
+      currentStatus: WatchStatus | null
+      existingCount: number
+    }) => toggleWatchStatus(user as string, contentId, currentStatus, existingCount),
+    onMutate: async ({ contentId, currentStatus, existingCount }) => {
+      await queryClient.cancelQueries({ queryKey: statusKey() })
+      const prev = queryClient.getQueryData<UserWatchStatuses>(statusKey())
+      if (prev) {
+        const { nextStatus, nextCount } = nextWatchState(currentStatus, existingCount)
+        queryClient.setQueryData<UserWatchStatuses>(statusKey(), {
+          statuses: new Map(prev.statuses).set(contentId, nextStatus),
+          counts: new Map(prev.counts).set(contentId, nextCount),
+          favorites: prev.favorites,
+          ratings: prev.ratings,
+        })
+      }
+      return { prev }
+    },
+    onError: (_err, _vars, ctx) => {
+      if (ctx?.prev) queryClient.setQueryData(statusKey(), ctx.prev)
+      setMutationError("Couldn't update your progress. Please try again.")
+    },
+    onSuccess: () => setMutationError(null),
+    onSettled: () => {
+      queryClient.invalidateQueries({ queryKey: statusKey() })
+    },
+  })
 
-  async function handleSetRating(contentId: string, starValue: number) {
-    const { data: { user } } = await supabase.auth.getUser()
-    if (!user) {
-      window.location.href = "/login"
-      return
-    }
+  const toggleFavoriteMutation = useMutation({
+    mutationFn: ({ contentId, current }: { contentId: string; current: boolean }) =>
+      toggleFavorite(user as string, contentId, current),
+    onMutate: async ({ contentId, current }) => {
+      await queryClient.cancelQueries({ queryKey: statusKey() })
+      const prev = queryClient.getQueryData<UserWatchStatuses>(statusKey())
+      if (prev) {
+        queryClient.setQueryData<UserWatchStatuses>(statusKey(), {
+          ...prev,
+          favorites: new Map(prev.favorites).set(contentId, !current),
+        })
+      }
+      return { prev }
+    },
+    onError: (_err, _vars, ctx) => {
+      if (ctx?.prev) queryClient.setQueryData(statusKey(), ctx.prev)
+      setMutationError("Couldn't update your favorites. Please try again.")
+    },
+    onSuccess: () => setMutationError(null),
+    onSettled: () => {
+      queryClient.invalidateQueries({ queryKey: statusKey() })
+    },
+  })
 
-    // Schema check constraint is rating 1-10; star UI is 1-5, so store star × 2.
-    const dbRating = starValue === 0 ? null : starValue * 2
+  const setRatingMutation = useMutation({
+    mutationFn: ({ contentId, starValue }: { contentId: string; starValue: number }) =>
+      setRating(user as string, contentId, starValue),
+    onMutate: async ({ contentId, starValue }) => {
+      await queryClient.cancelQueries({ queryKey: statusKey() })
+      const prev = queryClient.getQueryData<UserWatchStatuses>(statusKey())
+      if (prev) {
+        const dbRating = starValue === 0 ? null : starValue * 2
+        const ratings = new Map(prev.ratings)
+        if (dbRating === null) ratings.delete(contentId)
+        else ratings.set(contentId, dbRating)
+        queryClient.setQueryData<UserWatchStatuses>(statusKey(), {
+          ...prev,
+          ratings,
+        })
+      }
+      return { prev }
+    },
+    onError: (_err, _vars, ctx) => {
+      if (ctx?.prev) queryClient.setQueryData(statusKey(), ctx.prev)
+      setMutationError("Couldn't save your rating. Please try again.")
+    },
+    onSuccess: () => setMutationError(null),
+    onSettled: () => {
+      queryClient.invalidateQueries({ queryKey: statusKey() })
+    },
+  })
 
-    const { error } = await supabase
-      .from("watch_status")
-      .upsert(
-        {
-          user_id: user.id,
-          content_id: contentId,
-          rating: dbRating,
-          updated_at: new Date().toISOString(),
-        },
-        { onConflict: "user_id,content_id" }
-      )
-
-    if (error) {
-      setError("Couldn't save your rating. Please try again.")
-      return
-    }
-
-    setRatings((prev) => {
-      const next = new Map(prev)
-      if (dbRating === null) next.delete(contentId)
-      else next.set(contentId, dbRating)
-      return next
-    })
-  }
-
-  async function handleMarkAll(ids: string[], status: WatchStatus) {
-    const { data: { user } } = await supabase.auth.getUser()
-    if (!user) {
-      window.location.href = "/login"
-      return
-    }
-
-    const rows = ids.map((id) => ({
-      user_id: user.id,
-      content_id: id,
+  const markAllMutation = useMutation({
+    mutationFn: ({
+      ids,
       status,
-      watch_count: Math.max(watchCounts.get(id) ?? 0, 1),
-      updated_at: new Date().toISOString(),
-    }))
+      countByContent,
+    }: {
+      ids: string[]
+      status: WatchStatus
+      countByContent: Map<string, number>
+    }) => markAll(user as string, ids, status, countByContent),
+    onMutate: async ({ ids, status }) => {
+      await queryClient.cancelQueries({ queryKey: statusKey() })
+      const prev = queryClient.getQueryData<UserWatchStatuses>(statusKey())
+      if (prev) {
+        const statuses = new Map(prev.statuses)
+        const counts = new Map(prev.counts)
+        ids.forEach((id) => {
+          statuses.set(id, status)
+          counts.set(id, Math.max(counts.get(id) ?? 0, 1))
+        })
+        queryClient.setQueryData<UserWatchStatuses>(statusKey(), {
+          ...prev,
+          statuses,
+          counts,
+        })
+      }
+      return { prev }
+    },
+    onError: (_err, _vars, ctx) => {
+      if (ctx?.prev) queryClient.setQueryData(statusKey(), ctx.prev)
+      setMutationError("Couldn't update the section. Please try again.")
+    },
+    onSuccess: () => setMutationError(null),
+    onSettled: () => {
+      queryClient.invalidateQueries({ queryKey: statusKey() })
+    },
+  })
 
-    const { error } = await supabase
-      .from("watch_status")
-      .upsert(rows, { onConflict: "user_id,content_id" })
+  function requireUser(): boolean {
+    if (user) return true
+    window.location.href = "/login"
+    return false
+  }
 
-    if (error) {
-      setError("Couldn't update the section. Please try again.")
-      return
-    }
-
-    setUserStatuses((prev) => {
-      const next = new Map(prev)
-      ids.forEach((id) => next.set(id, status))
-      return next
-    })
-    setWatchCounts((prev) => {
-      const next = new Map(prev)
-      ids.forEach((id) => next.set(id, Math.max(next.get(id) ?? 0, 1)))
-      return next
+  function handleToggleStatus(contentId: string, currentStatus: WatchStatus | null) {
+    if (!requireUser()) return
+    toggleStatusMutation.mutate({
+      contentId,
+      currentStatus,
+      existingCount: watchCounts.get(contentId) ?? 0,
     })
   }
+
+  function handleToggleFavorite(contentId: string, current: boolean) {
+    if (!requireUser()) return
+    toggleFavoriteMutation.mutate({ contentId, current })
+  }
+
+  function handleSetRating(contentId: string, starValue: number) {
+    if (!requireUser()) return
+    setRatingMutation.mutate({ contentId, starValue })
+  }
+
+  function handleMarkAll(ids: string[], status: WatchStatus) {
+    if (!requireUser()) return
+    markAllMutation.mutate({ ids, status, countByContent: watchCounts })
+  }
+
+  const loading = contentQuery.isLoading
+  const error = contentQuery.isError ? "We couldn't load the case files. Please try again." : mutationError
 
   return (
     <div className="px-0 sm:px-6 py-6 sm:py-10">
@@ -329,7 +295,7 @@ function TrackerPageContent() {
               Investigation stalled
             </p>
             <p className="text-sm text-ink-dim mb-6">{error}</p>
-            <Button onClick={loadData} className="rounded-lg">
+            <Button onClick={() => contentQuery.refetch()} className="rounded-lg">
               Try Again
             </Button>
           </div>
