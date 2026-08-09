@@ -49,13 +49,13 @@ export function HeroSection() {
 
     return (
       <>
-        <span className="text-3xl sm:text-5xl font-bold text-gray-900">
+        <span className="text-3xl sm:text-5xl font-bold text-ink">
           {line1Chars}
         </span>
         {line2Chars.length > 0 && (
           <>
             <br />
-            <span className="text-3xl sm:text-5xl font-bold text-gray-900">
+            <span className="text-3xl sm:text-5xl font-bold text-ink">
               {line2Chars}
             </span>
           </>
@@ -87,7 +87,7 @@ export function HeroSection() {
   }, [])
 
   return (
-    <section className="relative min-h-[160vh] flex flex-col items-center bg-white overflow-hidden pb-24">
+    <section className="relative min-h-[160vh] flex flex-col items-center bg-surface overflow-hidden pb-24">
       {/* Light minimalist grid pattern */}
       <div className="absolute inset-0 -z-10 bg-[linear-gradient(to_right,#f3f4f6_1px,transparent_1px),linear-gradient(to_bottom,#f3f4f6_1px,transparent_1px)] bg-[size:4rem_4rem] [mask-image:radial-gradient(ellipse_60%_50%_at_50%_0%,#000_70%,transparent_100%)]" />
 
@@ -108,9 +108,9 @@ export function HeroSection() {
                 <img
                   src="/img/logo_DCPH.png"
                   alt="Detective Conan PH Logo"
-                  className="h-10 w-auto object-contain drop-shadow-sm hover:scale-105 transition-transform duration-300 pointer-events-none"
+                  className="h-10 w-auto object-contain drop-shadow-card hover:scale-105 transition-transform duration-300 pointer-events-none"
                 />
-                <h1 className="text-sm sm:text-base font-display font-semibold tracking-widest text-gray-900 leading-tight uppercase">
+                <h1 className="text-sm sm:text-base font-display font-semibold tracking-widest text-ink leading-tight">
                   Detective Conan PH: Anime and Manga
                 </h1>
               </div>
@@ -120,7 +120,7 @@ export function HeroSection() {
 
         {/* Subtitle / Typewriter block */}
         <div className="min-h-16 flex items-center justify-center mt-4 mb-10">
-          <p className="font-body text-gray-900 max-w-5xl mx-auto font-medium">
+          <p className="font-body text-ink max-w-5xl mx-auto font-medium">
             {renderTypedText(typedText)}
             {/* Blinking typewriter cursor */}
             <motion.span
@@ -153,7 +153,7 @@ export function HeroSection() {
                 variant="outline"
                 size="lg"
                 onClick={scrollToContent}
-                className="border-gray-300 hover:border-gray-400 bg-white hover:bg-gray-50 text-gray-700 hover:text-gray-900 px-8 h-11 text-sm font-semibold rounded-full transition-all"
+                className="border-slate-300 hover:border-slate-300 bg-surface hover:bg-surface-muted text-ink-dim hover:text-ink px-8 h-11 text-sm font-semibold rounded-full transition-all"
               >
                 Explore Now
               </Button>
@@ -178,10 +178,10 @@ export function HeroSection() {
               transition={{ duration: 2, repeat: Infinity, ease: "easeInOut" }}
               className="flex flex-col items-center gap-2 hover:opacity-100 transition-opacity"
             >
-              <span className="text-[10px] font-mono uppercase tracking-widest text-gray-500">
+              <span className="text-[10px] font-mono  text-ink-dim">
                 Scroll Down
               </span>
-              <ChevronDown className="h-5 w-5 text-gray-500" />
+              <ChevronDown className="h-5 w-5 text-ink-dim" />
             </motion.div>
           </motion.div>
         )}
@@ -198,7 +198,7 @@ export function HeroSection() {
             borderRadius,
             opacity,
           }}
-          className="w-full aspect-video overflow-hidden shadow-2xl bg-gray-100 border border-gray-200/50"
+          className="w-full aspect-video overflow-hidden shadow-2xl bg-surface-muted border border-slate-200/50"
         >
           <video
             src="/img/Banner.mp4"

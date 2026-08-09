@@ -1,9 +1,9 @@
-import { requireAdmin } from "@/lib/auth/admin"
+﻿import { requireAdmin } from "@/lib/auth/admin"
 import { AdminNav } from "@/components/admin/AdminNav"
 import { ShieldCheck } from "lucide-react"
 
 export const metadata = {
-  title: "Admin — Detective Conan PH",
+  title: "Admin â€” Detective Conan PH",
   robots: { index: false, follow: false },
 }
 
@@ -22,10 +22,10 @@ export default async function AdminLayout({
           <ShieldCheck className="h-4 w-4" />
         </span>
         <div>
-          <h1 className="font-display text-xl uppercase tracking-wider text-gray-900">
+          <h1 className="font-display text-xl tracking-tight text-ink">
             Admin Console
           </h1>
-          <p className="text-xs text-gray-500">
+          <p className="text-xs text-ink-dim">
             Signed in as {profile.display_name}
           </p>
         </div>

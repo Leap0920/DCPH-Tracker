@@ -40,16 +40,16 @@ const features = [
 
 export default function HomePage() {
   return (
-    <div className="homepage-light-theme bg-white text-gray-900 flex min-h-screen flex-col">
+    <div className="bg-page text-ink flex min-h-screen flex-col">
       <Navbar />
       <main className="flex-1">
         <HeroSection />
 
         <section className="mx-auto max-w-5xl px-6 pb-20">
-          <h2 className="font-display text-2xl sm:text-3xl uppercase tracking-wide text-gray-900 text-center">
+          <h2 className="font-display text-2xl sm:text-3xl text-ink text-center">
             What you can do
           </h2>
-          <p className="mt-2 text-center text-gray-500 max-w-xl mx-auto">
+          <p className="mt-2 text-center text-ink-dim max-w-xl mx-auto">
             Everything you need to follow the case, all in one place.
           </p>
 
@@ -60,25 +60,25 @@ export default function HomePage() {
                 <Link
                   key={f.href}
                   href={f.href}
-                  className="group rounded-lg border border-gray-200 bg-white p-6 shadow-sm transition-colors hover:border-gray-300 hover:bg-gray-50"
+                  className="group rounded-lg border border-slate-200 bg-surface p-6 shadow-card transition-colors hover:border-slate-300 hover:bg-surface-muted"
                 >
-                  <span className="flex h-10 w-10 items-center justify-center rounded-sm bg-[#7A1620]/10 text-[#7A1620]">
+                  <span className="flex h-10 w-10 items-center justify-center rounded-md bg-accent-soft text-accent">
                     <Icon className="h-5 w-5" />
                   </span>
-                  <h3 className="mt-4 font-display text-lg uppercase tracking-wide text-gray-900">
+                  <h3 className="mt-4 font-display text-lg text-ink">
                     {f.title}
                   </h3>
-                  <p className="mt-2 text-sm text-gray-500">{f.body}</p>
+                  <p className="mt-2 text-sm text-ink-dim">{f.body}</p>
                 </Link>
               )
             })}
           </div>
 
-          <div className="mt-12 rounded-lg border border-gray-200 bg-gray-50 p-8 text-center">
-            <h3 className="font-display text-xl uppercase tracking-wide text-gray-900">
+          <div className="mt-12 rounded-lg border border-slate-200 bg-surface-muted p-8 text-center">
+            <h3 className="font-display text-xl text-ink">
               Ready to start tracking?
             </h3>
-            <p className="mt-2 text-sm text-gray-500">
+            <p className="mt-2 text-sm text-ink-dim">
               Create a free account and pick up where Conan left off.
             </p>
             <div className="mt-5 flex items-center justify-center gap-3">
@@ -86,7 +86,7 @@ export default function HomePage() {
                 <Button className="rounded-lg">Start Tracking</Button>
               </Link>
               <Link href="/signup">
-                <Button variant="outline" className="rounded-lg border-gray-200">
+                <Button variant="outline" className="rounded-lg border-slate-200">
                   Sign Up
                 </Button>
               </Link>

@@ -154,9 +154,9 @@ export function MotivationStats({ entries, userStatuses, userName }: MotivationS
   return (
     <div className="grid gap-6 md:grid-cols-3">
       {/* ── Series Totals (static) ── */}
-      <div className="bg-white border border-gray-200 rounded-lg p-6 shadow-sm md:col-span-1">
-        <h3 className="font-display text-sm uppercase tracking-widest text-gray-900 mb-4 flex items-center gap-2">
-          <span className="h-1.5 w-1.5 rounded-full bg-[#A5202D]" />
+      <div className="bg-surface border border-slate-200 rounded-lg p-6 shadow-card md:col-span-1">
+        <h3 className="font-display text-sm tracking-tight text-ink mb-4 flex items-center gap-2">
+          <span className="h-1.5 w-1.5 rounded-full bg-accent" />
           Series Totals
         </h3>
         <div className="grid grid-cols-2 gap-3">
@@ -166,54 +166,54 @@ export function MotivationStats({ entries, userStatuses, userName }: MotivationS
               initial={{ opacity: 0, y: 12 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.35, delay: 0.1 + i * 0.08 }}
-              className="text-center p-3 bg-gray-50 rounded-lg"
+              className="text-center p-3 bg-surface-muted rounded-lg"
             >
-              <tile.icon className="h-4 w-4 text-[#A5202D] mx-auto mb-1" />
-              <div className="font-display text-lg text-gray-900 leading-tight">{tile.value}</div>
-              <div className="font-mono text-[9px] uppercase tracking-widest text-gray-500">
+              <tile.icon className="h-4 w-4 text-accent mx-auto mb-1" />
+              <div className="font-display text-lg text-ink leading-tight">{tile.value}</div>
+              <div className="font-mono text-[9px] text-ink-faint">
                 {tile.label}
               </div>
             </motion.div>
           ))}
         </div>
-        <p className="mt-4 text-[11px] text-gray-500 leading-relaxed">
+        <p className="mt-4 text-[11px] text-ink-dim leading-relaxed">
           Every case file in the tracker. The truth is out there — one episode at a time.
         </p>
       </div>
 
       {/* ── Personal Progress ── */}
-      <div className="bg-white border border-gray-200 rounded-lg p-6 shadow-sm md:col-span-1">
-        <h3 className="font-display text-sm uppercase tracking-widest text-gray-900 mb-4 flex items-center gap-2">
-          <span className="h-1.5 w-1.5 rounded-full bg-[#A5202D]" />
+      <div className="bg-surface border border-slate-200 rounded-lg p-6 shadow-card md:col-span-1">
+        <h3 className="font-display text-sm tracking-tight text-ink mb-4 flex items-center gap-2">
+          <span className="h-1.5 w-1.5 rounded-full bg-accent" />
           Your Progress
         </h3>
         {!hasUser ? (
           <div className="py-8 text-center">
-            <p className="font-display text-sm uppercase tracking-wider text-gray-400 mb-1">
+            <p className="font-display text-sm text-ink-faint mb-1">
               Sign in to track
             </p>
-            <p className="text-xs text-gray-500">
+            <p className="text-xs text-ink-dim">
               Your watched list, minutes, and finish date will show up here.
             </p>
           </div>
         ) : (
           <>
             <div className="flex items-center gap-4 mb-4">
-              <div className="font-display text-4xl text-gray-900">{personal.percent}%</div>
+              <div className="font-display text-4xl text-ink">{personal.percent}%</div>
               <div className="flex-1 space-y-1">
-                <div className="flex justify-between font-mono text-[10px] text-gray-500">
+                <div className="flex justify-between font-mono text-[10px] text-ink-dim">
                   <span>{personal.watched} watched</span>
                   <span>{personal.remaining} remaining</span>
                 </div>
                 <div className="h-2 bg-gray-200 rounded-full overflow-hidden">
                   <motion.div
-                    className="h-full bg-[#A5202D] rounded-full"
+                    className="h-full bg-accent rounded-full"
                     initial={{ width: 0 }}
                     animate={{ width: `${personal.percent}%` }}
                     transition={{ duration: 0.8, ease: "easeOut" }}
                   />
                 </div>
-                <div className="font-mono text-[10px] text-gray-500">
+                <div className="font-mono text-[10px] text-ink-dim">
                   {formatHours(personal.minutesWatched)} spent
                 </div>
               </div>
@@ -224,11 +224,11 @@ export function MotivationStats({ entries, userStatuses, userName }: MotivationS
                 const Icon = TYPE_ICONS[stat.type]
                 return (
                   <div key={stat.type} className="flex items-center gap-2.5">
-                    <Icon className="h-3.5 w-3.5 text-gray-400 flex-shrink-0" />
+                    <Icon className="h-3.5 w-3.5 text-ink-faint flex-shrink-0" />
                     <div className="flex-1">
                       <div className="flex items-center justify-between mb-0.5">
-                        <span className="text-[11px] text-gray-600">{stat.label}</span>
-                        <span className="font-mono text-[10px] text-gray-500">
+                        <span className="text-[11px] text-ink-dim">{stat.label}</span>
+                        <span className="font-mono text-[10px] text-ink-dim">
                           {stat.watched}/{stat.total}
                         </span>
                       </div>
@@ -250,33 +250,33 @@ export function MotivationStats({ entries, userStatuses, userName }: MotivationS
       </div>
 
       {/* ── Finish Projection ── */}
-      <div className="bg-white border border-gray-200 rounded-lg p-6 shadow-sm md:col-span-1">
-        <h3 className="font-display text-sm uppercase tracking-widest text-gray-900 mb-4 flex items-center gap-2">
-          <span className="h-1.5 w-1.5 rounded-full bg-[#A5202D]" />
+      <div className="bg-surface border border-slate-200 rounded-lg p-6 shadow-card md:col-span-1">
+        <h3 className="font-display text-sm tracking-tight text-ink mb-4 flex items-center gap-2">
+          <span className="h-1.5 w-1.5 rounded-full bg-accent" />
           Finish Line
         </h3>
         {!hasUser ? (
           <div className="py-8 text-center">
-            <CalendarClock className="h-8 w-8 text-gray-300 mx-auto mb-2" />
-            <p className="font-display text-sm uppercase tracking-wider text-gray-400 mb-1">
+            <CalendarClock className="h-8 w-8 text-ink-faint mx-auto mb-2" />
+            <p className="font-display text-sm text-ink-faint mb-1">
               No projection yet
             </p>
-            <p className="text-xs text-gray-500">
+            <p className="text-xs text-ink-dim">
               Sign in and start watching to see your estimated completion date.
             </p>
           </div>
         ) : finishDate ? (
           <>
             <div className="text-center py-3">
-              <p className="font-mono text-[10px] uppercase tracking-widest text-gray-500 mb-1">
+              <p className="font-mono text-[10px] text-ink-faint mb-1">
                 At {DEFAULT_RATE_PER_DAY} eps/day you&apos;ll finish by
               </p>
-              <p className="font-display text-2xl text-gray-900">{formatDate(finishDate)}</p>
+              <p className="font-display text-2xl text-ink">{formatDate(finishDate)}</p>
             </div>
             {nextMilestone !== null && (
-              <div className="mt-3 rounded-lg border border-[#A5202D]/20 bg-[#A5202D]/5 p-3 flex items-center gap-3">
-                <Target className="h-4 w-4 text-[#A5202D] flex-shrink-0" />
-                <p className="text-xs text-gray-600">
+              <div className="mt-3 rounded-lg border border-accent/20 bg-accent/5 p-3 flex items-center gap-3">
+                <Target className="h-4 w-4 text-accent flex-shrink-0" />
+                <p className="text-xs text-ink-dim">
                   {toMilestone > 0
                     ? `${toMilestone}% to your next milestone — ${nextMilestone}% complete. Keep going!`
                     : `You hit the ${nextMilestone}% milestone. Nice work!`}
@@ -286,10 +286,10 @@ export function MotivationStats({ entries, userStatuses, userName }: MotivationS
           </>
         ) : (
           <div className="py-8 text-center">
-            <p className="font-display text-sm uppercase tracking-wider text-gray-900 mb-1">
+            <p className="font-display text-sm text-ink mb-1">
               All caught up!
             </p>
-            <p className="text-xs text-gray-500">
+            <p className="text-xs text-ink-dim">
               You&apos;ve watched every episode in the tracker. Now wait for the next case...
             </p>
           </div>

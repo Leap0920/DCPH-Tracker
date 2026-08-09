@@ -196,7 +196,7 @@ export default function SettingsPage() {
     return (
       <div className="px-6 py-10">
         <div className="mx-auto max-w-2xl text-center py-16">
-          <p className="font-display text-lg uppercase text-gray-400 animate-pulse">
+          <p className="font-display text-lg tracking-tight text-ink-faint animate-pulse">
             Loading settings...
           </p>
         </div>
@@ -212,7 +212,7 @@ export default function SettingsPage() {
           <span className="redacted-bar w-16" />
         </div>
 
-        <h1 className="font-display text-3xl uppercase tracking-wide text-gray-900 mb-8">
+        <h1 className="font-display text-3xl tracking-tight text-ink mb-8">
           Settings
         </h1>
 
@@ -231,18 +231,18 @@ export default function SettingsPage() {
 
         <form onSubmit={handleSave} className="space-y-6">
           {/* Profile picture */}
-          <div className="rounded-lg border border-gray-200 bg-white p-6">
-            <h2 className="font-display text-base uppercase tracking-wide text-gray-900">
+          <div className="rounded-lg border border-slate-200 bg-surface p-6 shadow-card">
+            <h2 className="font-display text-base tracking-tight text-ink">
               Profile picture
             </h2>
-            <p className="mt-1 text-sm text-gray-500">
+            <p className="mt-1 text-sm text-ink-dim">
               Upload your own photo. JPG, PNG or GIF, up to {MAX_AVATAR_MB}MB.
             </p>
 
             <div className="mt-4 flex items-center gap-5">
-              <Avatar className="h-20 w-20 shrink-0 ring-2 ring-gray-200">
+              <Avatar className="h-20 w-20 shrink-0 ring-2 ring-slate-200">
                 <AvatarImage src={currentAvatarSrc} />
-                <AvatarFallback className="bg-[#7A1620] text-lg font-display text-white">
+                <AvatarFallback className="bg-accent text-lg font-display text-white">
                   {(displayName || "?").slice(0, 2).toUpperCase()}
                 </AvatarFallback>
               </Avatar>
@@ -259,7 +259,7 @@ export default function SettingsPage() {
                   type="button"
                   variant="outline"
                   size="sm"
-                  className="gap-1.5 rounded-lg border-gray-200"
+                  className="gap-1.5 rounded-lg border-slate-200"
                   onClick={() => fileInputRef.current?.click()}
                   disabled={uploading}
                 >
@@ -276,7 +276,7 @@ export default function SettingsPage() {
                     type="button"
                     variant="ghost"
                     size="sm"
-                    className="text-gray-500 hover:text-gray-900"
+                    className="text-ink-dim hover:text-ink"
                     onClick={resetAvatar}
                   >
                     Cancel
@@ -288,7 +288,7 @@ export default function SettingsPage() {
                     type="button"
                     variant="ghost"
                     size="sm"
-                    className="gap-1.5 text-gray-500 hover:text-red-600"
+                    className="gap-1.5 text-ink-dim hover:text-red-600"
                     onClick={onRemoveAvatar}
                   >
                     <Trash2 className="h-4 w-4" />
@@ -299,15 +299,15 @@ export default function SettingsPage() {
             </div>
 
             {avatarAction === "remove" && (
-              <p className="mt-3 text-xs text-gray-400">
+              <p className="mt-3 text-xs text-ink-faint">
                 Your photo will be removed when you save.
               </p>
             )}
           </div>
 
           {/* Identity */}
-          <div className="rounded-lg border border-gray-200 bg-white p-6">
-            <h2 className="font-display text-base uppercase tracking-wide text-gray-900">
+          <div className="rounded-lg border border-slate-200 bg-surface p-6 shadow-card">
+            <h2 className="font-display text-base tracking-tight text-ink">
               Identity
             </h2>
 
@@ -318,9 +318,9 @@ export default function SettingsPage() {
                   id="username"
                   value={profile?.username ?? ""}
                   disabled
-                  className="bg-gray-50 opacity-70"
+                  className="bg-surface-muted opacity-70"
                 />
-                <p className="text-xs text-gray-400">
+                <p className="text-xs text-ink-faint">
                   Codename cannot be changed.
                 </p>
               </div>
@@ -345,9 +345,9 @@ export default function SettingsPage() {
                   placeholder="Tell us about yourself..."
                   rows={3}
                   maxLength={280}
-                  className="w-full resize-none rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm text-gray-900 placeholder:text-gray-400 focus-visible:border-[#7A1620] focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-[#7A1620]"
+                  className="w-full resize-none rounded-lg border border-slate-200 bg-surface px-3 py-2 text-sm text-ink placeholder:text-ink-faint focus-visible:border-accent focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-accent"
                 />
-                <p className="text-right text-xs text-gray-400">
+                <p className="text-right text-xs text-ink-faint">
                   {bio.length}/280
                 </p>
               </div>
@@ -370,15 +370,15 @@ export default function SettingsPage() {
         </form>
 
         {/* Account */}
-        <div className="mt-6 rounded-lg border border-gray-200 bg-white p-6">
-          <h2 className="font-display text-base uppercase tracking-wide text-gray-900">
+        <div className="mt-6 rounded-lg border border-slate-200 bg-surface p-6 shadow-card">
+          <h2 className="font-display text-base tracking-tight text-ink">
             Account
           </h2>
           <div className="mt-4">
             <Button
               variant="outline"
               onClick={handleSignOut}
-              className="gap-1.5 rounded-lg border-gray-200 text-gray-600 hover:text-gray-900"
+              className="gap-1.5 rounded-lg border-slate-200 text-ink-dim hover:text-ink"
             >
               <LogOut className="h-4 w-4" />
               Sign Out

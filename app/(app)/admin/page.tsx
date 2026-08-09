@@ -1,4 +1,4 @@
-import Link from "next/link"
+﻿import Link from "next/link"
 import { createClient } from "@/utils/supabase/server"
 import { Film, Users, MessagesSquare, Image as ImageIcon, RefreshCw, ArrowRight } from "lucide-react"
 
@@ -44,7 +44,7 @@ export default async function AdminOverviewPage() {
   return (
     <div className="space-y-8">
       <section>
-        <h2 className="font-display text-sm uppercase tracking-widest text-gray-500 mb-4">
+        <h2 className="font-display text-sm tracking-tight text-ink-dim mb-4">
           At a glance
         </h2>
         <div className="grid grid-cols-2 lg:grid-cols-3 gap-4">
@@ -53,18 +53,18 @@ export default async function AdminOverviewPage() {
             return (
               <div
                 key={c.label}
-                className="rounded-lg border border-gray-200 bg-white p-5 shadow-sm"
+                className="rounded-lg border border-slate-200 bg-surface p-5 shadow-card"
               >
-                <div className="flex items-center gap-2 text-gray-400 mb-2">
+                <div className="flex items-center gap-2 text-ink-faint mb-2">
                   <Icon className="h-4 w-4" />
-                  <span className="font-mono text-[10px] uppercase tracking-widest">
+                  <span className="font-mono text-[10px]">
                     {c.label}
                   </span>
                 </div>
                 <div
                   className={
                     "font-display text-3xl " +
-                    (c.warn ? "text-red-600" : "text-gray-900")
+                    (c.warn ? "text-red-600" : "text-ink")
                   }
                 >
                   {c.value}
@@ -76,7 +76,7 @@ export default async function AdminOverviewPage() {
       </section>
 
       <section>
-        <h2 className="font-display text-sm uppercase tracking-widest text-gray-500 mb-4">
+        <h2 className="font-display text-sm tracking-tight text-ink-dim mb-4">
           Quick actions
         </h2>
         <div className="grid gap-4 sm:grid-cols-2">
@@ -124,17 +124,17 @@ function QuickLink({
   return (
     <Link
       href={href}
-      className="group flex items-start gap-4 rounded-lg border border-gray-200 bg-white p-5 shadow-sm transition-colors hover:border-gray-300 hover:bg-gray-50"
+      className="group flex items-start gap-4 rounded-lg border border-slate-200 bg-surface p-5 shadow-card transition-colors hover:border-slate-300 hover:bg-surface-muted"
     >
       <span className="flex h-10 w-10 items-center justify-center rounded-md bg-gray-900 text-white shrink-0">
         <Icon className="h-5 w-5" />
       </span>
       <div className="min-w-0 flex-1">
-        <div className="flex items-center gap-1 font-display uppercase tracking-wide text-gray-900">
+        <div className="flex items-center gap-1 font-display tracking-tight text-ink">
           {title}
           <ArrowRight className="h-4 w-4 opacity-0 -translate-x-1 transition-all group-hover:opacity-100 group-hover:translate-x-0" />
         </div>
-        <p className="mt-0.5 text-sm text-gray-500">{desc}</p>
+        <p className="mt-0.5 text-sm text-ink-dim">{desc}</p>
       </div>
     </Link>
   )

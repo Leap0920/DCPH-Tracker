@@ -1,4 +1,4 @@
-import Link from "next/link"
+﻿import Link from "next/link"
 import { createClient } from "@/utils/supabase/server"
 import { requireAdmin } from "@/lib/auth/admin"
 import { RoleSelect } from "@/components/admin/RoleSelect"
@@ -34,7 +34,7 @@ export default async function AdminUsersPage({
 
   return (
     <div className="space-y-5">
-      <h2 className="font-display text-sm uppercase tracking-widest text-gray-500">
+      <h2 className="font-display text-sm tracking-tight text-ink-dim">
         Users ({total})
       </h2>
 
@@ -42,30 +42,30 @@ export default async function AdminUsersPage({
         <input
           name="q"
           defaultValue={q}
-          placeholder="Search username or display name…"
-          className="h-10 w-full rounded-lg border border-gray-200 bg-white px-3 text-sm text-gray-900 placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-gray-900/20 focus:border-gray-900"
+          placeholder="Search username or display nameâ€¦"
+          className="h-10 w-full rounded-lg border border-slate-200 bg-surface px-3 text-sm text-ink placeholder:text-ink-faint focus:outline-none focus:ring-2 focus:ring-accent/20 focus:border-accent"
         />
       </form>
 
-      <div className="overflow-x-auto rounded-lg border border-gray-200 bg-white shadow-sm">
+      <div className="overflow-x-auto rounded-lg border border-slate-200 bg-surface shadow-card">
         <table className="w-full text-sm">
           <thead>
-            <tr className="border-b border-gray-200 text-left">
-              <th className="p-3 font-mono text-[10px] uppercase tracking-widest text-gray-400">User</th>
-              <th className="p-3 font-mono text-[10px] uppercase tracking-widest text-gray-400">Joined</th>
-              <th className="p-3 font-mono text-[10px] uppercase tracking-widest text-gray-400">Role</th>
+            <tr className="border-b border-slate-200 text-left">
+              <th className="p-3 font-mono text-[10px] text-ink-faint">User</th>
+              <th className="p-3 font-mono text-[10px] text-ink-faint">Joined</th>
+              <th className="p-3 font-mono text-[10px] text-ink-faint">Role</th>
             </tr>
           </thead>
           <tbody>
             {(users ?? []).map((u) => (
-              <tr key={u.user_id} className="border-b border-gray-100 last:border-0 hover:bg-gray-50">
+              <tr key={u.user_id} className="border-b border-slate-100 last:border-0 hover:bg-surface-muted">
                 <td className="p-3">
-                  <Link href={`/profile/${u.username}`} className="font-medium text-gray-900 hover:underline">
+                  <Link href={`/profile/${u.username}`} className="font-medium text-ink hover:underline">
                     {u.display_name}
                   </Link>
-                  <span className="block font-mono text-[11px] text-gray-400">@{u.username}</span>
+                  <span className="block font-mono text-[11px] text-ink-faint">@{u.username}</span>
                 </td>
-                <td className="p-3 font-mono text-xs text-gray-500">
+                <td className="p-3 font-mono text-xs text-ink-dim">
                   {new Date(u.created_at).toLocaleDateString()}
                 </td>
                 <td className="p-3">
@@ -79,7 +79,7 @@ export default async function AdminUsersPage({
             ))}
             {(users ?? []).length === 0 && (
               <tr>
-                <td colSpan={3} className="p-10 text-center text-sm text-gray-500">
+                <td colSpan={3} className="p-10 text-center text-sm text-ink-dim">
                   No users found.
                 </td>
               </tr>
@@ -90,7 +90,7 @@ export default async function AdminUsersPage({
 
       {totalPages > 1 && (
         <div className="flex items-center justify-center gap-4 pt-2">
-          <span className="font-mono text-xs text-gray-500">
+          <span className="font-mono text-xs text-ink-dim">
             Page {page} / {totalPages}
           </span>
         </div>

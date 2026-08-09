@@ -77,7 +77,7 @@ export default function ResetPasswordPage() {
 
   if (isSessionValid === false) {
     return (
-      <Card className="w-full max-w-md bg-white border border-gray-200 shadow-xl shadow-gray-100/50 rounded-2xl relative overflow-hidden">
+      <Card className="w-full max-w-md bg-surface border border-slate-200 shadow-card rounded-2xl relative overflow-hidden">
         <CardHeader className="text-center pb-4 pt-6">
           <div className="flex justify-center mb-4">
             <img
@@ -86,19 +86,19 @@ export default function ResetPasswordPage() {
               className="h-14 w-auto object-contain transition-transform duration-300 hover:scale-105"
             />
           </div>
-          <CardTitle className="font-display text-2xl font-bold tracking-tight text-gray-900">
+          <CardTitle className="font-display text-2xl font-bold tracking-tight text-ink">
             Invalid Recovery Link
           </CardTitle>
-          <CardDescription className="text-gray-500 text-sm mt-1.5">
+          <CardDescription className="text-ink-dim text-sm mt-1.5">
             Your recovery session has expired or the token is invalid.
           </CardDescription>
         </CardHeader>
         <CardContent className="text-center px-6 pb-8">
-          <p className="text-sm text-gray-500 mb-6">
+          <p className="text-sm text-ink-dim mb-6">
             Please request a new password recovery link from the recovery page.
           </p>
           <Link href="/forgot-password">
-            <Button className="w-full bg-gray-950 hover:bg-gray-800 text-white font-semibold text-sm h-11 rounded-full transition-all shadow-sm">
+            <Button className="w-full bg-accent hover:bg-accent-bright text-white font-semibold text-sm h-11 rounded-full transition-all shadow-card">
               Request New Link
             </Button>
           </Link>
@@ -108,7 +108,7 @@ export default function ResetPasswordPage() {
   }
 
   return (
-    <Card className="w-full max-w-md bg-white border border-gray-200 shadow-xl shadow-gray-100/50 rounded-2xl relative overflow-hidden">
+    <Card className="w-full max-w-md bg-surface border border-slate-200 shadow-card rounded-2xl relative overflow-hidden">
       
       <CardHeader className="text-center pb-4 pt-6">
         <div className="flex justify-center mb-4">
@@ -118,10 +118,10 @@ export default function ResetPasswordPage() {
             className="h-14 w-auto object-contain transition-transform duration-300 hover:scale-105"
           />
         </div>
-        <CardTitle className="font-display text-2xl font-bold tracking-tight text-gray-900">
+        <CardTitle className="font-display text-2xl font-bold tracking-tight text-ink">
           Reset Password
         </CardTitle>
-        <CardDescription className="text-gray-500 text-sm mt-1.5">
+        <CardDescription className="text-ink-dim text-sm mt-1.5">
           Set a new password for your account to restore access.
         </CardDescription>
       </CardHeader>
@@ -147,7 +147,7 @@ export default function ResetPasswordPage() {
             )}
 
             {isSessionValid === null && (
-              <div className="text-center font-display text-xs text-gray-400 animate-pulse py-4 font-medium uppercase tracking-wider">
+              <div className="text-center font-display text-xs text-ink-faint animate-pulse py-4 font-medium">
                 Validating recovery link...
               </div>
             )}
@@ -155,11 +155,11 @@ export default function ResetPasswordPage() {
             {isSessionValid && (
               <>
                 <div className="space-y-1.5">
-                  <Label htmlFor="password" className="font-display text-xs font-semibold uppercase tracking-wider text-gray-500">
+                  <Label htmlFor="password" className="font-display text-xs font-semibold text-ink-dim">
                     New Password
                   </Label>
                   <div className="relative">
-                    <Lock className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
+                    <Lock className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-ink-faint" />
                     <Input
                       id="password"
                       type={showPassword ? "text" : "password"}
@@ -168,12 +168,12 @@ export default function ResetPasswordPage() {
                       onChange={(e) => setPassword(e.target.value)}
                       required
                       minLength={6}
-                      className="pl-10 pr-10 bg-white border border-gray-200 focus:border-gray-400 focus:ring-1 focus:ring-gray-400 rounded-lg text-gray-900 placeholder:text-gray-400/50 text-sm h-11 transition-colors"
+                      className="pl-10 pr-10 bg-surface border border-slate-200 focus:border-accent focus:ring-1 focus:ring-accent rounded-lg text-ink placeholder:text-ink-faint text-sm h-11 transition-colors"
                     />
                     <button
                       type="button"
                       onClick={() => setShowPassword(!showPassword)}
-                      className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 transition-colors"
+                      className="absolute right-3 top-1/2 -translate-y-1/2 text-ink-faint hover:text-ink-dim transition-colors"
                       aria-label={showPassword ? "Hide password" : "Show password"}
                     >
                       {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
@@ -182,11 +182,11 @@ export default function ResetPasswordPage() {
                 </div>
 
                 <div className="space-y-1.5">
-                  <Label htmlFor="confirmPassword" className="font-display text-xs font-semibold uppercase tracking-wider text-gray-500">
+                  <Label htmlFor="confirmPassword" className="font-display text-xs font-semibold text-ink-dim">
                     Confirm New Password
                   </Label>
                   <div className="relative">
-                    <Lock className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
+                    <Lock className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-ink-faint" />
                     <Input
                       id="confirmPassword"
                       type={showConfirmPassword ? "text" : "password"}
@@ -194,12 +194,12 @@ export default function ResetPasswordPage() {
                       value={confirmPassword}
                       onChange={(e) => setConfirmPassword(e.target.value)}
                       required
-                      className="pl-10 pr-10 bg-white border border-gray-200 focus:border-gray-400 focus:ring-1 focus:ring-gray-400 rounded-lg text-gray-900 placeholder:text-gray-400/50 text-sm h-11 transition-colors"
+                      className="pl-10 pr-10 bg-surface border border-slate-200 focus:border-accent focus:ring-1 focus:ring-accent rounded-lg text-ink placeholder:text-ink-faint text-sm h-11 transition-colors"
                     />
                     <button
                       type="button"
                       onClick={() => setShowConfirmPassword(!showConfirmPassword)}
-                      className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 transition-colors"
+                      className="absolute right-3 top-1/2 -translate-y-1/2 text-ink-faint hover:text-ink-dim transition-colors"
                       aria-label={showConfirmPassword ? "Hide confirm password" : "Show confirm password"}
                     >
                       {showConfirmPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
@@ -209,7 +209,7 @@ export default function ResetPasswordPage() {
 
                 <Button 
                   type="submit" 
-                  className="w-full bg-gray-950 hover:bg-gray-800 text-white font-semibold text-sm h-11 rounded-full transition-all shadow-sm hover:scale-[1.01] mt-2" 
+                  className="w-full bg-accent hover:bg-accent-bright text-white font-semibold text-sm h-11 rounded-full transition-all shadow-card hover:scale-[1.01] mt-2" 
                   disabled={loading}
                 >
                   {loading ? "Updating password..." : "Reset Password"}

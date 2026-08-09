@@ -56,7 +56,7 @@ export function ProgressIndicator({ entries, userStatuses }: ProgressIndicatorPr
   ]
 
   return (
-    <div className="bg-white border border-gray-200 rounded-lg p-6 shadow-sm">
+    <div className="bg-surface border border-slate-200 rounded-lg p-6 shadow-card">
       <div className="flex flex-col sm:flex-row items-center gap-8">
         {/* Circular Progress Ring */}
         <div className="relative flex-shrink-0">
@@ -88,14 +88,14 @@ export function ProgressIndicator({ entries, userStatuses }: ProgressIndicatorPr
           {/* Center text */}
           <div className="absolute inset-0 flex flex-col items-center justify-center">
             <motion.span
-              className="font-display text-3xl text-gray-900 font-bold"
+              className="font-display text-3xl text-ink font-bold"
               initial={{ opacity: 0, scale: 0.8 }}
               animate={{ opacity: 1, scale: 1 }}
               transition={{ duration: 0.5, delay: 0.3 }}
             >
               {progressPercent}%
             </motion.span>
-            <span className="font-mono text-[10px] uppercase tracking-widest text-gray-500">
+            <span className="font-mono text-[10px] text-ink-faint">
               Complete
             </span>
           </div>
@@ -103,28 +103,28 @@ export function ProgressIndicator({ entries, userStatuses }: ProgressIndicatorPr
 
         {/* Stats Section */}
         <div className="flex-1 w-full">
-          <h3 className="font-display text-sm uppercase tracking-widest text-gray-900 mb-4">
+          <h3 className="font-display text-sm tracking-tight text-ink mb-4">
             Your Progress
           </h3>
 
           {/* Main stats row */}
           <div className="grid grid-cols-3 gap-4 mb-6">
-            <div className="text-center p-3 bg-gray-50 rounded-lg">
-              <Eye className="h-4 w-4 text-gray-900 mx-auto mb-1" />
-              <div className="font-display text-xl text-gray-900">{totalWatched}</div>
-              <div className="font-mono text-[10px] uppercase tracking-widest text-gray-500">Watched</div>
+            <div className="text-center p-3 bg-surface-muted rounded-lg">
+              <Eye className="h-4 w-4 text-ink mx-auto mb-1" />
+              <div className="font-display text-xl text-ink">{totalWatched}</div>
+              <div className="font-mono text-[10px] text-ink-faint">Watched</div>
             </div>
-            <div className="text-center p-3 bg-gray-50 rounded-lg">
-              <EyeOff className="h-4 w-4 text-gray-400 mx-auto mb-1" />
-              <div className="font-display text-xl text-gray-900">{totalEntries - totalWatched}</div>
-              <div className="font-mono text-[10px] uppercase tracking-widest text-gray-500">Remaining</div>
+            <div className="text-center p-3 bg-surface-muted rounded-lg">
+              <EyeOff className="h-4 w-4 text-ink-faint mx-auto mb-1" />
+              <div className="font-display text-xl text-ink">{totalEntries - totalWatched}</div>
+              <div className="font-mono text-[10px] text-ink-faint">Remaining</div>
             </div>
-            <div className="text-center p-3 bg-gray-50 rounded-lg">
-              <Clock className="h-4 w-4 text-gray-900 mx-auto mb-1" />
-              <div className="font-display text-xl text-gray-900">
+            <div className="text-center p-3 bg-surface-muted rounded-lg">
+              <Clock className="h-4 w-4 text-ink mx-auto mb-1" />
+              <div className="font-display text-xl text-ink">
                 {hoursWatched > 0 ? `${hoursWatched}h` : ""}{remainingMinutes > 0 ? `${remainingMinutes}m` : hoursWatched === 0 ? "0m" : ""}
               </div>
-              <div className="font-mono text-[10px] uppercase tracking-widest text-gray-500">Time Spent</div>
+              <div className="font-mono text-[10px] text-ink-faint">Time Spent</div>
             </div>
           </div>
 
@@ -138,11 +138,11 @@ export function ProgressIndicator({ entries, userStatuses }: ProgressIndicatorPr
                 transition={{ duration: 0.4, delay: 0.2 + i * 0.1 }}
                 className="flex items-center gap-3"
               >
-                <stat.icon className="h-4 w-4 text-gray-400 flex-shrink-0" />
+                <stat.icon className="h-4 w-4 text-ink-faint flex-shrink-0" />
                 <div className="flex-1">
                   <div className="flex items-center justify-between mb-1">
-                    <span className="text-xs text-gray-600">{stat.label}</span>
-                    <span className="font-mono text-[10px] text-gray-500">
+                    <span className="text-xs text-ink-dim">{stat.label}</span>
+                    <span className="font-mono text-[10px] text-ink-dim">
                       {stat.watched}/{stat.total}
                     </span>
                   </div>

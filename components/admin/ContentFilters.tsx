@@ -29,18 +29,18 @@ export function ContentFilters() {
   return (
     <div className="flex flex-wrap items-center gap-3">
       <form onSubmit={onSearch} className="relative flex-1 min-w-[200px]">
-        <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
+        <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-ink-faint" />
         <input
           value={q}
           onChange={(e) => setQ(e.target.value)}
           placeholder="Search title or slug…"
-          className="h-10 w-full rounded-lg border border-gray-200 bg-white pl-10 pr-3 text-sm text-gray-900 placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-gray-900/20 focus:border-gray-900"
+          className="h-10 w-full rounded-lg border border-slate-200 bg-surface pl-10 pr-3 text-sm text-ink placeholder:text-ink-faint focus:outline-none focus:ring-2 focus:ring-accent/20 focus:border-accent"
         />
       </form>
       <select
         value={type}
         onChange={(e) => apply({ type: e.target.value })}
-        className="h-10 rounded-lg border border-gray-200 bg-white px-3 text-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-gray-900/20"
+        className="h-10 rounded-lg border border-slate-200 bg-surface px-3 text-sm text-ink focus:outline-none focus:ring-2 focus:ring-accent/20"
       >
         <option value="all">All types</option>
         {Object.entries(CONTENT_TYPE_LABELS).map(([value, label]) => (

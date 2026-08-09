@@ -29,16 +29,16 @@ export function ContentDetail({ entry }: { entry: ContentEntry }) {
 
   return (
     <div>
-      <Link href="/tracker" className="inline-flex items-center gap-2 text-sm text-gray-500 hover:text-gray-900 transition-colors mb-6">
+      <Link href="/tracker" className="inline-flex items-center gap-2 text-sm text-ink-dim hover:text-ink transition-colors mb-6">
         <ArrowLeft className="h-4 w-4" />
         Back to Case Files
       </Link>
 
-      <div className="relative bg-white border border-gray-200 rounded-lg overflow-hidden shadow-sm">
+      <div className="relative bg-surface border border-slate-200 rounded-lg overflow-hidden shadow-card">
         <span className="absolute top-2 right-2 z-10 bg-gray-900 text-white text-[10px] font-mono px-2 py-0.5 rounded">{displayNumber}</span>
 
         {/* Image */}
-        <div className="relative aspect-video bg-gray-100">
+        <div className="relative aspect-video bg-surface-muted">
           {entry.image_url ? (
             <img
               src={entry.image_url}
@@ -60,23 +60,23 @@ export function ContentDetail({ entry }: { entry: ContentEntry }) {
             <Badge variant={typeBadgeVariant[entry.type] ?? "outline"}>
               {CONTENT_TYPE_LABELS[entry.type as ContentType]}
             </Badge>
-            <span className="text-xs text-gray-500 font-mono">
+            <span className="text-xs text-ink-dim font-mono">
               CANON #{padNumber(entry.canon_order, 3)}
             </span>
           </div>
 
-          <h1 className="font-display text-2xl sm:text-4xl uppercase tracking-wide text-gray-900 mb-4">
+          <h1 className="font-display text-2xl sm:text-4xl  text-ink mb-4">
             {entry.title}
           </h1>
 
-          <div className="flex flex-wrap gap-6 mb-6 text-sm text-gray-600">
+          <div className="flex flex-wrap gap-6 mb-6 text-sm text-ink-dim">
             <div className="flex items-center gap-2">
-              <Calendar className="h-4 w-4 text-gray-900" />
+              <Calendar className="h-4 w-4 text-ink" />
               <span>{formatDate(entry.air_date)}</span>
             </div>
             {entry.runtime_minutes && (
               <div className="flex items-center gap-2">
-                <Clock className="h-4 w-4 text-gray-900" />
+                <Clock className="h-4 w-4 text-ink" />
                 <span>{entry.runtime_minutes} min</span>
               </div>
             )}
@@ -88,10 +88,10 @@ export function ContentDetail({ entry }: { entry: ContentEntry }) {
               if (!arc) return null
               return (
                 <div className="flex items-center gap-2">
-                  <Film className="h-4 w-4 text-gray-900" />
+                  <Film className="h-4 w-4 text-ink" />
                   <Link
                     href={`/arcs/${arc.slug}`}
-                    className="hover:text-gray-900 transition-colors"
+                    className="hover:text-ink transition-colors"
                   >
                     {arc.title}
                   </Link>
@@ -101,11 +101,11 @@ export function ContentDetail({ entry }: { entry: ContentEntry }) {
           </div>
 
           {entry.synopsis && (
-            <div className="border-t border-gray-200 pt-6">
-              <h2 className="font-display text-sm uppercase tracking-wide text-gray-500 mb-3">
+            <div className="border-t border-slate-200 pt-6">
+              <h2 className="font-display text-sm  text-ink-dim mb-3">
                 Synopsis
               </h2>
-              <p className="font-body text-gray-600 leading-relaxed">
+              <p className="font-body text-ink-dim leading-relaxed">
                 {entry.synopsis}
               </p>
             </div>

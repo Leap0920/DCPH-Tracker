@@ -25,7 +25,7 @@ export function ProfileCard({
   isOwn?: boolean
 }) {
   return (
-    <div className="relative rounded-lg border border-gray-200 bg-white p-6 shadow-sm sm:p-8">
+    <div className="relative rounded-lg border border-slate-200 bg-surface p-6 shadow-card sm:p-8">
       <span className="dossier-stamp">Agent</span>
 
       <div className="flex flex-col gap-6 sm:flex-row sm:items-start">
@@ -33,14 +33,14 @@ export function ProfileCard({
           <AvatarImage
             src={profile.avatar_url ?? avatarUrl(profile.display_name)}
           />
-          <AvatarFallback className="bg-[#7A1620] text-xl font-display text-white">
+          <AvatarFallback className="bg-accent text-xl font-display text-white">
             {profile.display_name.slice(0, 2).toUpperCase()}
           </AvatarFallback>
         </Avatar>
 
         <div className="flex-1">
           <div className="flex flex-wrap items-center gap-3">
-            <h1 className="font-display text-2xl uppercase tracking-wide text-gray-900">
+            <h1 className="font-display text-2xl tracking-tight text-ink">
               {profile.display_name}
             </h1>
             <Badge variant={roleColors[profile.role] ?? "secondary"}>
@@ -51,7 +51,7 @@ export function ProfileCard({
                 <Button
                   variant="outline"
                   size="sm"
-                  className="gap-1.5 rounded-lg border-gray-200 text-gray-600 hover:text-gray-900"
+                  className="gap-1.5 rounded-lg border-slate-200 text-ink-dim hover:text-ink"
                 >
                   <Pencil className="h-3.5 w-3.5" />
                   Edit
@@ -60,17 +60,17 @@ export function ProfileCard({
             )}
           </div>
 
-          <p className="mt-1 font-mono text-sm text-gray-400">
+          <p className="mt-1 font-mono text-sm text-ink-faint">
             @{profile.username}
           </p>
 
           {profile.bio && (
-            <p className="mt-4 max-w-lg text-sm text-gray-600">
+            <p className="mt-4 max-w-lg text-sm text-ink-dim">
               {profile.bio}
             </p>
           )}
 
-          <p className="mt-4 font-mono text-xs uppercase tracking-wide text-gray-400">
+          <p className="mt-4 font-mono text-xs text-ink-faint">
             Joined {formatDate(profile.created_at)}
           </p>
         </div>

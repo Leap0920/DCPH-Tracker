@@ -22,13 +22,13 @@ const statItems = [
     key: "rewatchedCount" as const,
     icon: RefreshCw,
     label: "Rewatched",
-    color: "text-[#A5202D]",
+    color: "text-accent",
   },
   {
     key: "totalMinutes" as const,
     icon: Clock,
     label: "Hours Watched",
-    color: "text-gray-500",
+    color: "text-ink-dim",
     format: (v: number) => `${Math.floor(v / 60)}h ${v % 60}m`,
   },
   {
@@ -49,10 +49,10 @@ export function StatsGrid({ stats }: StatsGridProps) {
         return (
           <div
             key={item.key}
-            className="rounded-lg border border-gray-200 bg-white p-4 text-center shadow-sm"
+            className="rounded-lg border border-slate-200 bg-surface p-4 text-center shadow-card"
           >
             <item.icon className={`mx-auto mb-2 h-6 w-6 ${item.color}`} />
-            <div className="font-display text-2xl text-gray-900">{display}</div>
+            <div className="font-display text-2xl text-ink">{display}</div>
             <div className="case-number mt-1">{item.label}</div>
           </div>
         )

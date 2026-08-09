@@ -14,9 +14,9 @@ type ContentEntry = Database["public"]["Tables"]["content_entries"]["Row"]
 const TYPE_OPTIONS = Object.entries(CONTENT_TYPE_LABELS) as [ContentType, string][]
 
 const inputCls =
-  "w-full h-10 rounded-lg border border-gray-200 bg-white px-3 text-sm text-gray-900 placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-gray-900/20 focus:border-gray-900"
+  "w-full h-10 rounded-lg border border-slate-200 bg-surface px-3 text-sm text-ink placeholder:text-ink-faint focus:outline-none focus:ring-2 focus:ring-accent/20 focus:border-accent"
 const labelCls =
-  "block font-display text-xs font-semibold uppercase tracking-wider text-gray-500 mb-1.5"
+  "block font-display text-xs font-semibold  text-ink-dim mb-1.5"
 
 export function ContentForm({
   entry,
@@ -64,7 +64,7 @@ export function ContentForm({
     <div className="max-w-2xl">
       <Link
         href="/admin/content"
-        className="inline-flex items-center gap-2 text-sm text-gray-500 hover:text-gray-900 mb-4"
+        className="inline-flex items-center gap-2 text-sm text-ink-dim hover:text-ink mb-4"
       >
         <ArrowLeft className="h-4 w-4" />
         Back to content
@@ -150,15 +150,15 @@ export function ContentForm({
         </div>
 
         {/* Cover image */}
-        <div className="rounded-lg border border-gray-200 bg-gray-50 p-4 space-y-3">
+        <div className="rounded-lg border border-slate-200 bg-surface-muted p-4 space-y-3">
           <label className={labelCls}>Cover image</label>
           <div className="flex items-start gap-4">
-            <div className="h-24 w-36 shrink-0 overflow-hidden rounded-md border border-gray-200 bg-white flex items-center justify-center">
+            <div className="h-24 w-36 shrink-0 overflow-hidden rounded-md border border-slate-200 bg-surface flex items-center justify-center">
               {preview ? (
                 // eslint-disable-next-line @next/next/no-img-element
                 <img src={preview} alt="" className="h-full w-full object-cover" />
               ) : (
-                <span className="text-[10px] font-mono uppercase text-gray-300">No cover</span>
+                <span className="text-[10px] font-mono text-ink-faint">No cover</span>
               )}
             </div>
             <div className="min-w-0 flex-1 space-y-2">
@@ -173,7 +173,7 @@ export function ContentForm({
                 <button
                   type="button"
                   onClick={() => fileRef.current?.click()}
-                  className="inline-flex items-center gap-1.5 h-8 px-3 rounded-lg border border-gray-300 text-xs font-medium text-gray-600 hover:text-gray-900 hover:border-gray-400"
+                  className="inline-flex items-center gap-1.5 h-8 px-3 rounded-lg border border-slate-300 text-xs font-medium text-ink-dim hover:text-ink hover:border-slate-300"
                 >
                   <Upload className="h-3.5 w-3.5" />
                   Upload file
@@ -182,7 +182,7 @@ export function ContentForm({
                   <button
                     type="button"
                     onClick={clearFile}
-                    className="inline-flex items-center gap-1 text-xs text-gray-400 hover:text-gray-700"
+                    className="inline-flex items-center gap-1 text-xs text-ink-faint hover:text-ink-dim"
                   >
                     <X className="h-3.5 w-3.5" />
                     Clear
@@ -197,7 +197,7 @@ export function ContentForm({
                   className="hidden"
                 />
               </div>
-              <p className="text-[11px] text-gray-400">
+              <p className="text-[11px] text-ink-faint">
                 Uploading a file overrides the URL. Max 5 MB (JPEG, PNG, WEBP, GIF).
               </p>
             </div>
@@ -208,14 +208,14 @@ export function ContentForm({
           <button
             type="submit"
             disabled={pending}
-            className="inline-flex items-center gap-2 h-10 px-5 rounded-lg bg-gray-900 text-sm font-display uppercase tracking-wide text-white hover:bg-gray-800 disabled:opacity-60"
+            className="inline-flex items-center gap-2 h-10 px-5 rounded-lg bg-accent text-sm font-display text-white hover:bg-accent-bright disabled:opacity-60"
           >
             {pending && <Loader2 className="h-4 w-4 animate-spin" />}
             {entry ? "Save changes" : "Create entry"}
           </button>
           <Link
             href="/admin/content"
-            className="h-10 inline-flex items-center px-5 rounded-lg border border-gray-200 text-sm font-display uppercase tracking-wide text-gray-500 hover:text-gray-900"
+            className="h-10 inline-flex items-center px-5 rounded-lg border border-slate-200 text-sm font-display  text-ink-dim hover:text-ink"
           >
             Cancel
           </Link>

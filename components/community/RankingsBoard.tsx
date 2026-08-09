@@ -10,7 +10,7 @@ function formatHours(minutes: number) {
 
 const podiumStyles: Record<number, { ring: string; medal: string; label: string }> = {
   1: { ring: "ring-[#9C7A2E]", medal: "text-[#9C7A2E]", label: "1st" },
-  2: { ring: "ring-gray-300", medal: "text-gray-400", label: "2nd" },
+  2: { ring: "ring-slate-300", medal: "text-ink-faint", label: "2nd" },
   3: { ring: "ring-[#b08d57]", medal: "text-[#b08d57]", label: "3rd" },
 }
 
@@ -24,7 +24,7 @@ function PodiumCard({
   const style = podiumStyles[row.rank] ?? podiumStyles[3]
   return (
     <div
-      className={`flex flex-col items-center rounded-lg border border-gray-200 bg-white p-5 text-center shadow-sm ${
+      className={`flex flex-col items-center rounded-lg border border-slate-200 bg-surface p-5 text-center shadow-card ${
         featured ? `ring-2 ${style.ring}` : ""
       }`}
     >
@@ -34,31 +34,31 @@ function PodiumCard({
         ) : (
           <Medal className={`h-5 w-5 ${style.medal}`} />
         )}
-        <span className="font-mono text-xs uppercase tracking-wide text-gray-400">
+        <span className="font-mono text-xs text-ink-faint">
           {style.label}
         </span>
       </div>
 
       <Avatar className={`${featured ? "h-20 w-20" : "h-16 w-16"} ring-2 ${style.ring}`}>
         <AvatarImage src={row.avatar_url ?? avatarUrl(row.display_name)} />
-        <AvatarFallback className="bg-[#7A1620] font-display text-white">
+        <AvatarFallback className="bg-accent font-display text-white">
           {row.display_name.slice(0, 2).toUpperCase()}
         </AvatarFallback>
       </Avatar>
 
       <Link
         href={`/profile/${row.username}`}
-        className="mt-3 font-display text-base uppercase tracking-wide text-gray-900 hover:text-[#7A1620]"
+        className="mt-3 font-display text-base tracking-tight text-ink hover:text-accent"
       >
         {row.display_name}
       </Link>
-      <p className="font-mono text-xs text-gray-400">@{row.username}</p>
+      <p className="font-mono text-xs text-ink-faint">@{row.username}</p>
 
-      <p className="mt-3 font-display text-2xl text-gray-900">
+      <p className="mt-3 font-display text-2xl text-ink">
         {row.watched_count}
       </p>
       <p className="case-number">episodes</p>
-      <p className="mt-1 text-xs text-gray-400">{formatHours(row.total_minutes)}</p>
+      <p className="mt-1 text-xs text-ink-faint">{formatHours(row.total_minutes)}</p>
     </div>
   )
 }
@@ -72,12 +72,12 @@ export function RankingsBoard({
 }) {
   if (rankings.length === 0) {
     return (
-      <div className="rounded-lg border border-gray-200 bg-white p-12 text-center">
-        <Trophy className="mx-auto h-8 w-8 text-gray-300" />
-        <p className="mt-4 font-display text-sm uppercase tracking-wide text-gray-500">
+      <div className="rounded-lg border border-slate-200 bg-surface p-12 text-center shadow-card">
+        <Trophy className="mx-auto h-8 w-8 text-ink-faint" />
+        <p className="mt-4 font-display text-sm text-ink-dim">
           No rankings yet
         </p>
-        <p className="mt-1 text-xs text-gray-400">
+        <p className="mt-1 text-xs text-ink-faint">
           Start watching episodes to appear on the leaderboard.
         </p>
       </div>
@@ -102,8 +102,8 @@ export function RankingsBoard({
 
       {/* Full list */}
       {rest.length > 0 && (
-        <div className="overflow-hidden rounded-lg border border-gray-200 bg-white">
-          <div className="divide-y divide-gray-100">
+        <div className="overflow-hidden rounded-lg border border-slate-200 bg-surface shadow-card">
+          <div className="divide-y divide-slate-100">
             {rest.map((row) => {
               const isYou = row.user_id === currentUserId
               const pct = Math.max(
@@ -114,16 +114,16 @@ export function RankingsBoard({
                 <div
                   key={row.user_id}
                   className={`flex items-center gap-3 px-4 py-3 ${
-                    isYou ? "bg-[#7A1620]/5 ring-1 ring-inset ring-[#7A1620]/30" : ""
+                    isYou ? "bg-accent/5 ring-1 ring-inset ring-accent/30" : ""
                   }`}
                 >
-                  <span className="w-7 shrink-0 text-center font-mono text-sm text-gray-400">
+                  <span className="w-7 shrink-0 text-center font-mono text-sm text-ink-faint">
                     {row.rank}
                   </span>
 
                   <Avatar className="h-9 w-9 shrink-0">
                     <AvatarImage src={row.avatar_url ?? avatarUrl(row.display_name)} />
-                    <AvatarFallback className="bg-[#7A1620] text-xs font-display text-white">
+                    <AvatarFallback className="bg-accent text-xs font-display text-white">
                       {row.display_name.slice(0, 2).toUpperCase()}
                     </AvatarFallback>
                   </Avatar>
@@ -132,29 +132,29 @@ export function RankingsBoard({
                     <div className="flex items-center gap-2">
                       <Link
                         href={`/profile/${row.username}`}
-                        className="truncate font-display text-sm uppercase tracking-wide text-gray-900 hover:text-[#7A1620]"
+                        className="truncate font-display text-sm tracking-tight text-ink hover:text-accent"
                       >
                         {row.display_name}
                       </Link>
                       {isYou && (
-                        <span className="rounded-sm bg-[#7A1620] px-1.5 py-0.5 font-mono text-[10px] uppercase tracking-wide text-white">
+                        <span className="rounded-md bg-accent px-1.5 py-0.5 font-mono text-[10px] text-white">
                           You
                         </span>
                       )}
                     </div>
-                    <div className="mt-1 h-1.5 w-full overflow-hidden rounded-full bg-gray-100">
+                    <div className="mt-1 h-1.5 w-full overflow-hidden rounded-full bg-surface-muted">
                       <div
-                        className="h-full rounded-full bg-[#7A1620]"
+                        className="h-full rounded-full bg-accent"
                         style={{ width: `${pct}%` }}
                       />
                     </div>
                   </div>
 
                   <div className="shrink-0 text-right">
-                    <p className="font-mono text-sm text-gray-900">
+                    <p className="font-mono text-sm text-ink">
                       {row.watched_count}
                     </p>
-                    <p className="font-mono text-[10px] uppercase tracking-wide text-gray-400">
+                    <p className="font-mono text-[10px] text-ink-faint">
                       eps
                     </p>
                   </div>

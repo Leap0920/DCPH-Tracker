@@ -277,27 +277,27 @@ export function ChatWindow({
   }
 
   return (
-    <div className="flex min-w-0 flex-1 flex-col bg-white">
+    <div className="flex min-w-0 flex-1 flex-col bg-surface">
       {/* Header */}
-      <header className="flex items-center gap-3 border-b border-gray-200 bg-white px-4 py-3">
+      <header className="flex items-center gap-3 border-b border-slate-200 bg-surface px-4 py-3">
         <button
           onClick={onOpenRooms}
           aria-label="Open rooms"
-          className="-ml-1 rounded-sm p-1.5 text-gray-500 hover:bg-gray-100 md:hidden"
+          className="-ml-1 rounded-md p-1.5 text-ink-dim hover:bg-surface-muted md:hidden"
         >
           <Menu className="h-5 w-5" />
         </button>
         <div className="min-w-0 flex-1">
           <div className="flex items-center gap-2">
-            <h1 className="truncate font-display text-lg uppercase tracking-wide text-gray-900">
+            <h1 className="truncate font-display text-lg tracking-tight text-ink">
               {room.name}
             </h1>
             <span
               className={cn(
-                "flex items-center gap-1 rounded-sm px-1.5 py-0.5 font-mono text-[10px] uppercase tracking-wide",
+                "flex items-center gap-1 rounded-md px-1.5 py-0.5 font-mono text-[10px]",
                 connected
                   ? "bg-green-50 text-green-600"
-                  : "bg-gray-100 text-gray-400"
+                  : "bg-surface-muted text-ink-faint"
               )}
             >
               <span
@@ -310,7 +310,7 @@ export function ChatWindow({
             </span>
           </div>
           {room.description && (
-            <p className="truncate text-xs text-gray-400">{room.description}</p>
+            <p className="truncate text-xs text-ink-faint">{room.description}</p>
           )}
         </div>
       </header>
@@ -325,8 +325,8 @@ export function ChatWindow({
           <ChatSkeleton />
         ) : !userId ? (
           <div className="flex h-full flex-col items-center justify-center text-center">
-            <MessagesSquare className="h-8 w-8 text-gray-300" />
-            <p className="mt-4 font-display text-sm uppercase tracking-wide text-gray-500">
+            <MessagesSquare className="h-8 w-8 text-ink-faint" />
+            <p className="mt-4 font-display text-sm text-ink-dim">
               Sign in to read the conversation
             </p>
             <div className="mt-3 flex items-center gap-2">
@@ -336,7 +336,7 @@ export function ChatWindow({
                 </Button>
               </Link>
               <Link href="/signup">
-                <Button size="sm" variant="outline" className="rounded-lg border-gray-200">
+                <Button size="sm" variant="outline" className="rounded-lg border-slate-200">
                   Sign Up
                 </Button>
               </Link>
@@ -344,11 +344,11 @@ export function ChatWindow({
           </div>
         ) : messages.length === 0 ? (
           <div className="flex h-full flex-col items-center justify-center text-center">
-            <MessagesSquare className="h-8 w-8 text-gray-300" />
-            <p className="mt-4 font-display text-sm uppercase tracking-wide text-gray-500">
+            <MessagesSquare className="h-8 w-8 text-ink-faint" />
+            <p className="mt-4 font-display text-sm text-ink-dim">
               No messages yet
             </p>
-            <p className="mt-1 text-xs text-gray-400">
+            <p className="mt-1 text-xs text-ink-faint">
               Be the first to break the silence.
             </p>
           </div>
@@ -359,7 +359,7 @@ export function ChatWindow({
                 <button
                   onClick={loadEarlier}
                   disabled={loadingMore}
-                  className="rounded-full border border-gray-200 bg-white px-4 py-1.5 font-mono text-[11px] uppercase tracking-wide text-gray-500 hover:text-gray-900 hover:border-gray-300 disabled:opacity-50 transition-colors"
+                  className="rounded-full border border-slate-200 bg-surface px-4 py-1.5 font-mono text-[11px] text-ink-dim hover:text-ink hover:border-slate-300 disabled:opacity-50 transition-colors"
                 >
                   {loadingMore ? "Loading…" : "Load earlier messages"}
                 </button>
@@ -383,7 +383,7 @@ export function ChatWindow({
                 <div key={msg.id}>
                   {showDay && (
                     <div className="my-4 flex items-center justify-center">
-                      <span className="rounded-full border border-gray-200 bg-white px-3 py-0.5 font-mono text-[11px] uppercase tracking-wide text-gray-400">
+                      <span className="rounded-full border border-slate-200 bg-surface px-3 py-0.5 font-mono text-[11px] text-ink-faint">
                         {formatDay(msg.created_at)}
                       </span>
                     </div>
@@ -407,7 +407,7 @@ export function ChatWindow({
                           avatarUrl(msg.profiles?.display_name ?? "?")
                         }
                       />
-                      <AvatarFallback className="bg-[#7A1620] text-xs text-white">
+                      <AvatarFallback className="bg-accent text-xs text-white">
                         {initials(msg.profiles?.display_name ?? "?")}
                       </AvatarFallback>
                     </Avatar>
@@ -425,12 +425,12 @@ export function ChatWindow({
                             isOwn && "flex-row-reverse"
                           )}
                         >
-                          <span className="truncate text-sm font-medium text-gray-900">
+                          <span className="truncate text-sm font-medium text-ink">
                             {msg.profiles?.display_name ||
                               msg.profiles?.username ||
                               "Unknown"}
                           </span>
-                          <span className="shrink-0 font-mono text-[11px] text-gray-400">
+                          <span className="shrink-0 font-mono text-[11px] text-ink-faint">
                             {formatTime(msg.created_at)}
                           </span>
                         </div>
@@ -441,8 +441,8 @@ export function ChatWindow({
                           className={cn(
                             "whitespace-pre-wrap break-words rounded-lg px-3 py-2 text-sm",
                             isOwn
-                              ? "bg-[#7A1620] text-white"
-                              : "bg-gray-100 text-gray-900",
+                              ? "bg-accent text-white"
+                              : "bg-surface-muted text-ink",
                             pending && "opacity-60"
                           )}
                         >
@@ -451,7 +451,7 @@ export function ChatWindow({
                         {grouped && (
                           <span
                             className={cn(
-                              "mb-0.5 shrink-0 font-mono text-[10px] text-gray-400 opacity-0 transition-opacity group-hover:opacity-100",
+                              "mb-0.5 shrink-0 font-mono text-[10px] text-ink-faint opacity-0 transition-opacity group-hover:opacity-100",
                               isOwn ? "order-first pr-1" : "pl-1"
                             )}
                           >
@@ -472,7 +472,7 @@ export function ChatWindow({
         {unread > 0 && (
           <button
             onClick={() => scrollToBottom(true)}
-            className="absolute bottom-4 left-1/2 flex -translate-x-1/2 items-center gap-1.5 rounded-full bg-[#7A1620] px-3 py-1.5 text-xs font-medium text-white shadow-lg transition-colors hover:bg-[#A5202D]"
+            className="absolute bottom-4 left-1/2 flex -translate-x-1/2 items-center gap-1.5 rounded-full bg-accent px-3 py-1.5 text-xs font-medium text-white shadow-lg transition-colors hover:bg-accent-bright"
           >
             <ArrowDown className="h-3.5 w-3.5" />
             {unread} new message{unread > 1 ? "s" : ""}
@@ -481,9 +481,9 @@ export function ChatWindow({
       </div>
 
       {/* Composer */}
-      <div className="border-t border-gray-200 bg-white p-3">
+      <div className="border-t border-slate-200 bg-surface p-3">
         {error && (
-          <p className="mb-2 px-1 text-xs text-[#A5202D]">{error}</p>
+          <p className="mb-2 px-1 text-xs text-accent">{error}</p>
         )}
 
         {userId ? (
@@ -498,7 +498,7 @@ export function ChatWindow({
               }}
               onKeyDown={handleKeyDown}
               placeholder={`Message ${room.name}…`}
-              className="max-h-40 min-h-[40px] flex-1 resize-none rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm text-gray-900 placeholder:text-gray-400 focus-visible:border-[#7A1620] focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-[#7A1620]"
+              className="max-h-40 min-h-[40px] flex-1 resize-none rounded-lg border border-slate-200 bg-surface px-3 py-2 text-sm text-ink placeholder:text-ink-faint focus-visible:border-accent focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-accent"
             />
             <Button
               type="button"
@@ -512,8 +512,8 @@ export function ChatWindow({
             </Button>
           </div>
         ) : (
-          <div className="flex flex-col items-center gap-3 rounded-lg border border-dashed border-gray-200 bg-gray-50 px-4 py-6 text-center sm:flex-row sm:justify-center">
-            <p className="text-sm text-gray-500">
+          <div className="flex flex-col items-center gap-3 rounded-lg border border-dashed border-slate-200 bg-surface-muted px-4 py-6 text-center sm:flex-row sm:justify-center">
+            <p className="text-sm text-ink-dim">
               Sign in to join the conversation.
             </p>
             <div className="flex items-center gap-2">
@@ -527,7 +527,7 @@ export function ChatWindow({
                 <Button
                   size="sm"
                   variant="outline"
-                  className="gap-1.5 rounded-lg border-gray-200"
+                  className="gap-1.5 rounded-lg border-slate-200"
                 >
                   <UserPlus className="h-4 w-4" />
                   Sign Up
@@ -538,7 +538,7 @@ export function ChatWindow({
         )}
 
         {userId && (
-          <p className="mt-1.5 px-1 text-[11px] text-gray-400">
+          <p className="mt-1.5 px-1 text-[11px] text-ink-faint">
             <kbd className="font-mono">Enter</kbd> to send ·{" "}
             <kbd className="font-mono">Shift + Enter</kbd> for a new line
           </p>
@@ -560,7 +560,7 @@ function ChatSkeleton() {
           <div className="h-8 w-8 shrink-0 animate-pulse rounded-full bg-gray-200" />
           <div
             className={cn(
-              "h-10 animate-pulse rounded-lg bg-gray-100",
+              "h-10 animate-pulse rounded-lg bg-surface-muted",
               i % 2 === 0 ? "self-start" : "self-end"
             )}
             style={{ width: `${w}%` }}

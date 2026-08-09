@@ -40,7 +40,7 @@ export default function ForgotPasswordPage() {
   }
 
   return (
-    <Card className="w-full max-w-md bg-white border border-gray-200 shadow-xl shadow-gray-100/50 rounded-2xl relative overflow-hidden">
+    <Card className="w-full max-w-md bg-surface border border-slate-200 shadow-card rounded-2xl relative overflow-hidden">
       
       <CardHeader className="text-center pb-4 pt-6">
         <div className="flex justify-center mb-4">
@@ -50,10 +50,10 @@ export default function ForgotPasswordPage() {
             className="h-14 w-auto object-contain transition-transform duration-300 hover:scale-105"
           />
         </div>
-        <CardTitle className="font-display text-2xl font-bold tracking-tight text-gray-900">
+        <CardTitle className="font-display text-2xl font-bold tracking-tight text-ink">
           Reset Password
         </CardTitle>
-        <CardDescription className="text-gray-500 text-sm mt-1.5">
+        <CardDescription className="text-ink-dim text-sm mt-1.5">
           Enter your email address to receive a password recovery link.
         </CardDescription>
       </CardHeader>
@@ -66,7 +66,7 @@ export default function ForgotPasswordPage() {
               <p>Check your email for the password recovery link. Follow the instructions in the email to reset your password.</p>
             </div>
             <Link href="/login" className="block">
-              <Button variant="outline" className="w-full gap-2 border-gray-200 text-gray-700 hover:bg-gray-50 rounded-full h-11 text-sm font-semibold transition-all">
+              <Button variant="outline" className="w-full gap-2 border-slate-200 text-ink-dim hover:bg-surface-muted rounded-full h-11 text-sm font-semibold transition-all">
                 <ArrowLeft className="h-4 w-4" />
                 Return to Sign In
               </Button>
@@ -82,11 +82,11 @@ export default function ForgotPasswordPage() {
             )}
 
             <div className="space-y-1.5">
-              <Label htmlFor="email" className="font-display text-xs font-semibold uppercase tracking-wider text-gray-500">
+              <Label htmlFor="email" className="font-display text-xs font-semibold text-ink-dim">
                 Email Address
               </Label>
               <div className="relative">
-                <Mail className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
+                <Mail className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-ink-faint" />
                 <Input
                   id="email"
                   type="email"
@@ -94,14 +94,14 @@ export default function ForgotPasswordPage() {
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
                   required
-                  className="pl-10 bg-white border border-gray-200 focus:border-gray-400 focus:ring-1 focus:ring-gray-400 rounded-lg text-gray-900 placeholder:text-gray-400/50 text-sm h-11 transition-colors"
+                  className="pl-10 bg-surface border border-slate-200 focus:border-accent focus:ring-1 focus:ring-accent rounded-lg text-ink placeholder:text-ink-faint text-sm h-11 transition-colors"
                 />
               </div>
             </div>
 
             <Button 
               type="submit" 
-              className="w-full bg-gray-950 hover:bg-gray-800 text-white font-semibold text-sm h-11 rounded-full transition-all shadow-sm hover:scale-[1.01]" 
+              className="w-full bg-accent hover:bg-accent-bright text-white font-semibold text-sm h-11 rounded-full transition-all shadow-card hover:scale-[1.01]" 
               disabled={loading}
             >
               {loading ? "Sending..." : "Send Reset Link"}
@@ -110,8 +110,8 @@ export default function ForgotPasswordPage() {
         )}
 
         {!success && (
-          <div className="mt-8 pt-6 border-t border-gray-100 text-center">
-            <Link href="/login" className="inline-flex items-center gap-2 text-sm text-gray-500 hover:text-gray-900 hover:underline transition-colors">
+          <div className="mt-8 pt-6 border-t border-slate-100 text-center">
+            <Link href="/login" className="inline-flex items-center gap-2 text-sm text-ink-dim hover:text-ink hover:underline transition-colors">
               <ArrowLeft className="h-3.5 w-3.5" />
               Back to Sign In
             </Link>

@@ -4,22 +4,22 @@ import { cva, type VariantProps } from "class-variance-authority"
 import { cn } from "@/lib/utils"
 
 const buttonVariants = cva(
-  "inline-flex items-center justify-center gap-2 whitespace-nowrap font-display uppercase tracking-wide text-sm transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-gold-seal focus-visible:ring-offset-2 focus-visible:ring-offset-noir-black disabled:pointer-events-none disabled:opacity-50",
+  "inline-flex items-center justify-center gap-2 whitespace-nowrap font-display text-sm transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2 focus-visible:ring-offset-white disabled:pointer-events-none disabled:opacity-50",
   {
     variants: {
       variant: {
         default:
-          "bg-poison-red text-dossier-cream hover:bg-[#630f18]",
+          "bg-accent text-white hover:bg-accent-bright",
         destructive:
-          "bg-poison-red text-dossier-cream hover:bg-[#630f18]",
+          "bg-accent text-white hover:bg-accent-bright",
         outline:
-          "border border-white/10 bg-transparent text-dossier-cream hover:bg-case-file-raised",
+          "border border-slate-200 bg-transparent text-ink hover:bg-surface-muted",
         secondary:
-          "bg-case-file-raised text-dossier-cream hover:bg-case-file",
+          "bg-surface-muted text-ink hover:bg-slate-100",
         ghost:
-          "text-silver-steel hover:bg-case-file-raised hover:text-dossier-cream",
+          "text-ink-faint hover:bg-surface-muted hover:text-ink",
         link:
-          "text-poison-red-bright underline-offset-4 hover:underline",
+          "text-accent underline-offset-4 hover:underline",
       },
       size: {
         default: "h-10 px-4 py-2",
