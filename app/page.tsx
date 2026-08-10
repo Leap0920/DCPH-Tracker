@@ -2,6 +2,9 @@ import Link from "next/link"
 import { Navbar } from "@/components/layout/Navbar"
 import { Footer } from "@/components/layout/Footer"
 import { HeroSection } from "@/components/marketing/HeroSection"
+import { HowItWorks } from "@/components/marketing/HowItWorks"
+import { LatestContent } from "@/components/marketing/LatestContent"
+import { FaqSection } from "@/components/marketing/FaqSection"
 import { Button } from "@/components/ui/button"
 import { BookOpen, Trophy, MessagesSquare, ListChecks } from "lucide-react"
 
@@ -45,7 +48,7 @@ export default function HomePage() {
       <main className="flex-1">
         <HeroSection />
 
-        <section className="mx-auto max-w-5xl px-6 pb-20">
+        <section className="mx-auto max-w-5xl px-6 py-16">
           <h2 className="font-display text-2xl sm:text-3xl text-ink text-center">
             What you can do
           </h2>
@@ -73,26 +76,51 @@ export default function HomePage() {
               )
             })}
           </div>
+        </section>
 
-          <div className="mt-12 rounded-lg border border-slate-200 bg-surface-muted p-8 text-center">
-            <h3 className="font-display text-xl text-ink">
+        <div className="border-t border-slate-200/70">
+          <div className="py-16">
+            <HowItWorks />
+          </div>
+        </div>
+
+        <div className="border-t border-slate-200/70">
+          <div className="py-16">
+            <LatestContent />
+          </div>
+        </div>
+
+        <div className="border-t border-slate-200/70">
+          <div className="py-16">
+            <FaqSection />
+          </div>
+        </div>
+
+        <div className="border-t border-slate-200/70">
+          <section className="mx-auto max-w-5xl px-6 py-16 text-center">
+            <h3 className="font-display text-xl sm:text-2xl text-ink">
               Ready to start tracking?
             </h3>
             <p className="mt-2 text-sm text-ink-dim">
               Create a free account and pick up where Conan left off.
             </p>
-            <div className="mt-5 flex items-center justify-center gap-3">
-              <Link href="/tracker">
-                <Button className="rounded-lg">Start Tracking</Button>
+            <div className="mt-6 flex flex-col items-stretch justify-center gap-3 sm:flex-row sm:items-center">
+              <Link href="/tracker" className="sm:w-auto">
+                <Button className="h-11 w-full rounded-lg">
+                  Start Tracking
+                </Button>
               </Link>
-              <Link href="/signup">
-                <Button variant="outline" className="rounded-lg border-slate-200">
+              <Link href="/signup" className="sm:w-auto">
+                <Button
+                  variant="outline"
+                  className="h-11 w-full rounded-lg border-slate-200"
+                >
                   Sign Up
                 </Button>
               </Link>
             </div>
-          </div>
-        </section>
+          </section>
+        </div>
       </main>
       <Footer />
     </div>

@@ -121,8 +121,10 @@ export function ProgressIndicator({ entries, userStatuses }: ProgressIndicatorPr
             </div>
             <div className="text-center p-3 bg-surface-muted rounded-lg">
               <Clock className="h-4 w-4 text-ink mx-auto mb-1" />
-              <div className="font-display text-xl text-ink">
-                {hoursWatched > 0 ? `${hoursWatched}h` : ""}{remainingMinutes > 0 ? `${remainingMinutes}m` : hoursWatched === 0 ? "0m" : ""}
+              <div className="font-display text-base sm:text-xl text-ink whitespace-nowrap">
+                {hoursWatched > 0
+                  ? `${hoursWatched}h${remainingMinutes > 0 ? ` ${remainingMinutes}m` : ""}`
+                  : `${remainingMinutes}m`}
               </div>
               <div className="font-mono text-[10px] text-ink-faint">Time Spent</div>
             </div>

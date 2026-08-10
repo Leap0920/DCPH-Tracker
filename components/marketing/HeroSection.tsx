@@ -8,15 +8,25 @@ import { useEffect, useState, useCallback, useRef } from "react"
 export function HeroSection() {
   const [typedText, setTypedText] = useState("")
   const [typingCompleted, setTypingCompleted] = useState(false)
+  // Scroll-driven video transforms only apply on md+ screens — on phones the
+  // scale/border-radius animation causes layout jank and squished video.
+  const [isDesktop, setIsDesktop] = useState(false)
   const fullText = "Your ultimate Detective Conan tracking platform"
 
-  // Typewriter effect with 2-second delay
+  useEffect(() => {
+    const mq = window.matchMedia("(min-width: 768px)")
+    setIsDesktop(mq.matches)
+    const handler = (e: MediaQueryListEvent) => setIsDesktop(e.matches)
+    mq.addEventListener("change", handler)
+    return () => mq.removeEventListener("change", handler)
+  }, [])
+
+  // Typewriter effect with a quick initial delay
   useEffect(() => {
     let index = 0
     let interval: NodeJS.Timeout | null = null
     let timeout: NodeJS.Timeout | null = null
 
-    // Wait 2 seconds before starting to type
     timeout = setTimeout(() => {
       interval = setInterval(() => {
         if (index < fullText.length) {
@@ -24,13 +34,13 @@ export function HeroSection() {
           index++
         } else {
           if (interval) clearInterval(interval)
-          // Delay a bit before revealing logo/title and buttons
+          // Delay a bit before revealing logo/title
           setTimeout(() => {
             setTypingCompleted(true)
           }, 250)
         }
-      }, 35) // typing speed: 35ms per character
-    }, 1000) // 1 second initial delay
+      }, 22) // typing speed: 22ms per character
+    }, 300) // 300ms initial delay
 
     return () => {
       if (interval) clearInterval(interval)
@@ -49,13 +59,13 @@ export function HeroSection() {
 
     return (
       <>
-        <span className="text-3xl sm:text-5xl font-bold text-ink">
+        <span className="text-2xl min-[421px]:text-3xl sm:text-5xl font-bold text-ink">
           {line1Chars}
         </span>
         {line2Chars.length > 0 && (
           <>
             <br />
-            <span className="text-3xl sm:text-5xl font-bold text-ink">
+            <span className="text-2xl min-[421px]:text-3xl sm:text-5xl font-bold text-ink">
               {line2Chars}
             </span>
           </>
@@ -87,7 +97,7 @@ export function HeroSection() {
   }, [])
 
   return (
-    <section className="relative min-h-[160vh] flex flex-col items-center bg-surface overflow-hidden pb-24">
+    <section className="relative min-h-[100vh] flex flex-col items-center bg-surface overflow-hidden pb-12">
       {/* Hero Content Area — full-bleed image banner with left-aligned text */}
       <div className="relative min-h-[92vh] w-full flex flex-col items-start justify-center px-6 sm:px-12 lg:px-24 text-left">
         {/* Hero background image */}
@@ -97,6 +107,11 @@ export function HeroSection() {
             alt=""
             aria-hidden
             className="h-full w-full object-cover"
+          />
+          {/* Subtle left-to-right scrim so the dark text stays readable over the photo */}
+          <div
+            aria-hidden
+            className="absolute inset-0 bg-gradient-to-r from-white/85 via-white/40 to-transparent"
           />
         </div>
 
@@ -139,35 +154,31 @@ export function HeroSection() {
           </p>
         </div>
 
-        {/* CTA Buttons */}
-        <AnimatePresence>
-          {typingCompleted && (
-            <motion.div
-              initial={{ opacity: 0, y: 30 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ duration: 0.7, delay: 0.2, ease: [0.16, 1, 0.3, 1] }}
-              className="flex flex-col sm:flex-row items-start gap-4"
+        {/* CTA Buttons — always visible, not gated behind the typewriter */}
+        <motion.div
+          initial={{ opacity: 0, y: 30 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.7, delay: 0.3, ease: [0.16, 1, 0.3, 1] }}
+          className="flex flex-col sm:flex-row items-start gap-4"
+        >
+          <a href="/tracker">
+            <Button
+              size="lg"
+              className="bg-gray-950 hover:bg-gray-800 text-white px-8 h-11 text-sm font-semibold rounded-full shadow-md hover:shadow-lg transition-all hover:scale-[1.02]"
             >
-              <a href="/tracker">
-                <Button
-                  size="lg"
-                  className="bg-gray-950 hover:bg-gray-800 text-white px-8 h-11 text-sm font-semibold rounded-full shadow-md hover:shadow-lg transition-all hover:scale-[1.02]"
-                >
-                  Track Now
-                  <ArrowRight className="ml-2 h-4 w-4" />
-                </Button>
-              </a>
-              <Button
-                variant="outline"
-                size="lg"
-                onClick={scrollToContent}
-                className="border-slate-300 hover:border-slate-300 bg-surface hover:bg-surface-muted text-ink-dim hover:text-ink px-8 h-11 text-sm font-semibold rounded-full transition-all"
-              >
-                Explore Now
-              </Button>
-            </motion.div>
-          )}
-        </AnimatePresence>
+              Track Now
+              <ArrowRight className="ml-2 h-4 w-4" />
+            </Button>
+          </a>
+          <Button
+            variant="outline"
+            size="lg"
+            onClick={scrollToContent}
+            className="border-slate-300 hover:border-slate-300 bg-surface hover:bg-surface-muted text-ink-dim hover:text-ink px-8 h-11 text-sm font-semibold rounded-full transition-all"
+          >
+            Explore Now
+          </Button>
+        </motion.div>
         </div>
 
         {/* Scroll indicator at the bottom of the banner */}
@@ -199,14 +210,10 @@ export function HeroSection() {
       {/* Scroll-driven Video Section */}
       <div
         ref={scrollRef}
-        className="w-full max-w-[95vw] mx-auto mt-24 flex items-center justify-center relative z-10"
+        className="w-full max-w-[95vw] mx-auto mt-8 sm:mt-16 flex items-center justify-center relative z-10"
       >
         <motion.div
-          style={{
-            scale,
-            borderRadius,
-            opacity,
-          }}
+          style={isDesktop ? { scale, borderRadius, opacity } : undefined}
           className="w-full aspect-video overflow-hidden shadow-2xl bg-surface-muted border border-slate-200/50"
         >
           <video

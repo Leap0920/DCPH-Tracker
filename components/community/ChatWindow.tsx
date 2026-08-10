@@ -374,7 +374,7 @@ export function ChatWindow({
                 <button
                   onClick={loadEarlier}
                   disabled={loadingMore}
-                  className="rounded-full border border-slate-200 bg-surface px-4 py-1.5 font-mono text-[11px] text-ink-dim hover:text-ink hover:border-slate-300 disabled:opacity-50 transition-colors"
+                  className="rounded-full border border-slate-200 bg-surface px-4 py-2 font-mono text-[11px] text-ink-dim hover:text-ink hover:border-slate-300 disabled:opacity-50 transition-colors"
                 >
                   {loadingMore ? "Loading…" : "Load earlier messages"}
                 </button>

@@ -422,7 +422,7 @@ export function ContentGrid({
                   onModeChange?.(opt.value)
                 }}
                 className={cn(
-                  "px-3 py-1.5 text-[11px] font-mono transition-colors",
+                  "inline-flex items-center px-3 min-h-10 text-[11px] font-mono transition-colors",
                   mode === opt.value
                     ? "bg-gray-900 text-white"
                     : "bg-surface text-ink-dim hover:text-ink"
@@ -475,7 +475,7 @@ export function ContentGrid({
             />
             <button
               onClick={() => handleJump(jumpInput)}
-              className="inline-flex items-center gap-1 h-7 px-2.5 rounded-md border border-slate-300 text-[10px] font-mono text-ink-faint hover:text-ink hover:border-ink transition-colors"
+              className="inline-flex items-center gap-1 h-8 px-3 rounded-md border border-slate-300 text-[10px] font-mono text-ink-faint hover:text-ink hover:border-ink transition-colors"
               title="Jump to episode"
             >
               Jump
@@ -501,7 +501,7 @@ export function ContentGrid({
             <button
               onClick={() => handleMarkUpTo(markInput)}
               disabled={!onMarkAll}
-              className="inline-flex items-center gap-1 h-7 px-2.5 rounded-md border border-slate-300 text-[10px] font-mono text-ink-faint hover:text-ink hover:border-ink disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+              className="inline-flex items-center gap-1 h-8 px-3 rounded-md border border-slate-300 text-[10px] font-mono text-ink-faint hover:text-ink hover:border-ink disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
               title={onMarkAll ? "Mark episodes up to N as watched" : "Sign in to mark episodes"}
             >
               <Check className="h-3.5 w-3.5" />
@@ -631,7 +631,7 @@ export function ContentGrid({
                           "watched"
                         )
                       }}
-                      className="inline-flex items-center gap-1.5 h-7 px-2.5 rounded-md border border-slate-300 text-[10px] font-mono text-ink-faint hover:text-ink hover:border-ink transition-colors"
+                      className="inline-flex items-center gap-1.5 h-8 px-3 rounded-md border border-slate-300 text-[10px] font-mono text-ink-faint hover:text-ink hover:border-ink transition-colors"
                       title="Mark all as watched"
                     >
                       <Check className="h-3.5 w-3.5" />
@@ -663,7 +663,7 @@ export function ContentGrid({
                     <button
                       onClick={() => setPage(section.key, Math.max(0, page - 1))}
                       disabled={page === 0}
-                      className="inline-flex items-center gap-1.5 h-8 px-3 rounded-md border border-slate-300 text-[11px] font-mono text-ink-dim transition-colors hover:text-ink hover:border-ink disabled:opacity-30 disabled:cursor-not-allowed disabled:hover:border-slate-300 disabled:hover:text-ink-dim"
+                      className="inline-flex items-center gap-1.5 h-9 px-3 rounded-md border border-slate-300 text-[11px] font-mono text-ink-dim transition-colors hover:text-ink hover:border-ink disabled:opacity-30 disabled:cursor-not-allowed disabled:hover:border-slate-300 disabled:hover:text-ink-dim"
                     >
                       <ChevronLeft className="h-4 w-4" />
                       Prev
@@ -674,7 +674,7 @@ export function ContentGrid({
                     <button
                       onClick={() => setPage(section.key, Math.min(totalPages - 1, page + 1))}
                       disabled={page >= totalPages - 1}
-                      className="inline-flex items-center gap-1.5 h-8 px-3 rounded-md border border-slate-300 text-[11px] font-mono text-ink-dim transition-colors hover:text-ink hover:border-ink disabled:opacity-30 disabled:cursor-not-allowed disabled:hover:border-slate-300 disabled:hover:text-ink-dim"
+                      className="inline-flex items-center gap-1.5 h-9 px-3 rounded-md border border-slate-300 text-[11px] font-mono text-ink-dim transition-colors hover:text-ink hover:border-ink disabled:opacity-30 disabled:cursor-not-allowed disabled:hover:border-slate-300 disabled:hover:text-ink-dim"
                     >
                       Next
                       <ChevronRight className="h-4 w-4" />
@@ -843,7 +843,7 @@ function FilterPill({
     <button
       onClick={onClick}
       className={cn(
-        "shrink-0 px-3 py-1.5 rounded-full text-[11px] font-mono transition-colors border",
+        "shrink-0 inline-flex items-center min-h-10 px-3.5 rounded-full text-[11px] font-mono transition-colors border",
         active
           ? "bg-gray-900 text-white border-gray-900"
           : "bg-surface text-ink-dim border-slate-200 hover:text-ink hover:border-slate-300"

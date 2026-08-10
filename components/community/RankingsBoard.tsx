@@ -24,7 +24,7 @@ function PodiumCard({
   const style = podiumStyles[row.rank] ?? podiumStyles[3]
   return (
     <div
-      className={`flex flex-col items-center rounded-lg border border-slate-200 bg-surface p-5 text-center shadow-card ${
+      className={`flex flex-col items-center rounded-lg border border-slate-200 bg-surface p-3 sm:p-5 text-center shadow-card ${
         featured ? `ring-2 ${style.ring}` : ""
       }`}
     >
@@ -39,7 +39,7 @@ function PodiumCard({
         </span>
       </div>
 
-      <Avatar className={`${featured ? "h-20 w-20" : "h-16 w-16"} ring-2 ${style.ring}`}>
+      <Avatar className={`${featured ? "h-16 w-16 sm:h-20 sm:w-20" : "h-14 w-14 sm:h-16 sm:w-16"} ring-2 ${style.ring}`}>
         <AvatarImage src={row.avatar_url ?? avatarUrl(row.display_name)} />
         <AvatarFallback className="bg-accent font-display text-white">
           {row.display_name.slice(0, 2).toUpperCase()}
@@ -48,7 +48,7 @@ function PodiumCard({
 
       <Link
         href={`/profile/${row.username}`}
-        className="mt-3 font-display text-base tracking-tight text-ink hover:text-accent"
+        className="mt-3 font-display text-sm sm:text-base tracking-tight text-ink hover:text-accent break-words"
       >
         {row.display_name}
       </Link>
