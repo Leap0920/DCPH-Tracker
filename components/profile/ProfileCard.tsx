@@ -26,7 +26,7 @@ export function ProfileCard({
 }) {
   return (
     <div className="relative rounded-lg border border-slate-200 bg-surface p-6 shadow-card sm:p-8">
-      <span className="dossier-stamp">Agent</span>
+      <span className="dossier-stamp">Detective</span>
 
       <div className="flex flex-col gap-6 sm:flex-row sm:items-start">
         <Avatar className="h-24 w-24 shrink-0 ring-2 ring-gray-200">

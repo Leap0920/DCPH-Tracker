@@ -8,6 +8,7 @@ import { Button } from "@/components/ui/button"
 import { NAV_ROUTES } from "@/lib/constants"
 import { cn } from "@/lib/utils"
 import { createClient } from "@/utils/supabase/client"
+import { openAuthModal } from "@/lib/auth-modal"
 import type { User as SupabaseUser } from "@supabase/supabase-js"
 
 type NavProfile = { username: string; display_name: string; role: "member" | "moderator" | "admin" }
@@ -15,6 +16,7 @@ type NavProfile = { username: string; display_name: string; role: "member" | "mo
 export function Navbar() {
   const pathname = usePathname()
   const router = useRouter()
+  const isHome = pathname === "/"
   const [mobileOpen, setMobileOpen] = useState(false)
   const [user, setUser] = useState<SupabaseUser | null>(null)
   const [profile, setProfile] = useState<NavProfile | null>(null)
@@ -153,6 +155,14 @@ export function Navbar() {
                     Sign Out
                   </Button>
                 </div>
+              ) : isHome ? (
+                <button
+                  type="button"
+                  onClick={() => openAuthModal("signin")}
+                  className="hidden md:inline-flex items-center justify-center rounded-md border border-slate-200 bg-surface px-3 h-9 text-xs font-display text-ink-dim hover:text-ink hover:border-slate-300 transition-colors"
+                >
+                  Sign In
+                </button>
               ) : (
                 <Link href="/login" className="hidden md:block">
                   <Button variant="outline" size="sm" className="font-display text-xs border-slate-200 hover:border-slate-300 text-ink-dim hover:text-ink">
@@ -229,6 +239,17 @@ export function Navbar() {
                         Sign Out
                       </Button>
                     </div>
+                  ) : isHome ? (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setMobileOpen(false)
+                        openAuthModal("signin")
+                      }}
+                      className="w-full inline-flex items-center justify-center rounded-md border border-slate-200 bg-surface px-3 py-2 text-sm font-display text-ink-dim hover:text-ink transition-colors"
+                    >
+                      Sign In
+                    </button>
                   ) : (
                     <Link href="/login" onClick={() => setMobileOpen(false)}>
                       <Button variant="outline" size="sm" className="w-full font-display border-slate-200 text-ink-dim">

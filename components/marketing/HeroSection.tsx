@@ -89,7 +89,6 @@ export function HeroSection() {
 
   // Smooth scroll animations for the video banner (scales to 95% full screen width) mapped to spring physics
   const scale = useTransform(smoothProgress, [0, 0.45, 0.55, 1], [0.72, 1.0, 1.0, 0.72])
-  const borderRadius = useTransform(smoothProgress, [0, 0.45, 0.55, 1], ["2.5rem", "0.75rem", "0.75rem", "2.5rem"])
   const opacity = useTransform(smoothProgress, [0, 0.2, 0.8, 1], [0.8, 1, 1, 0.8])
 
   const scrollToContent = useCallback(() => {
@@ -189,7 +188,7 @@ export function HeroSection() {
               animate={{ opacity: 0.4 }}
               exit={{ opacity: 0 }}
               transition={{ delay: 0.6, duration: 0.8 }}
-              className="absolute bottom-8 left-6 sm:left-12 lg:left-24 cursor-pointer z-20"
+              className="absolute bottom-8 left-1/2 -translate-x-1/2 cursor-pointer z-20"
               onClick={scrollToContent}
             >
               <motion.div
@@ -207,14 +206,14 @@ export function HeroSection() {
         </AnimatePresence>
       </div>
 
-      {/* Scroll-driven Video Section */}
+      {/* Scroll-driven Video Section — fullscreen, fills the device viewport */}
       <div
         ref={scrollRef}
-        className="w-full max-w-[95vw] mx-auto mt-8 sm:mt-16 flex items-center justify-center relative z-10"
+        className="relative w-full h-[100vh] supports-[height:100svh]:h-[100svh] overflow-hidden z-10 mt-16 sm:mt-24"
       >
         <motion.div
-          style={isDesktop ? { scale, borderRadius, opacity } : undefined}
-          className="w-full aspect-video overflow-hidden shadow-2xl bg-surface-muted border border-slate-200/50"
+          style={isDesktop ? { scale, opacity } : undefined}
+          className="absolute inset-0"
         >
           <video
             src="/img/Banner.mp4"
