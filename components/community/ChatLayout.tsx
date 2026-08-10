@@ -70,7 +70,7 @@ export function ChatLayout({
   )
 
   return (
-    <div className="mx-auto flex h-[calc(100vh-4rem)] max-w-7xl">
+    <div className="mx-auto flex h-[calc(100vh-4rem)] supports-[height:100dvh]:h-[calc(100dvh-4rem)] max-w-7xl">
       {/* Desktop sidebar */}
       <aside className="hidden w-72 shrink-0 border-r border-slate-200 md:block">
         {sidebar}

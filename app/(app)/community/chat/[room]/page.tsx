@@ -21,7 +21,7 @@ export default async function ChatRoomPage({
   }
 
   return (
-    <div className="h-[calc(100vh-4rem)]">
+    <div className="h-[calc(100vh-4rem)] supports-[height:100dvh]:h-[calc(100dvh-4rem)]">
       <ChatLayout rooms={rooms} room={room} />
     </div>
   )
