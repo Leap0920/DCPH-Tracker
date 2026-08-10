@@ -2,7 +2,7 @@
   "crons": [
     {
       "path": "/api/sync?mode=airing",
-      "schedule": "23 */6 * * *"
+      "schedule": "23 0 * * *"
     },
     {
       "path": "/api/sync?mode=seed",
