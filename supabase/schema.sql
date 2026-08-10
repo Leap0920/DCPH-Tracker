@@ -20,6 +20,7 @@
 -- ─────────────────────────────────────────────────────────────
 create extension if not exists "uuid-ossp";
 create extension if not exists pgcrypto with schema extensions;
+create extension if not exists pg_net;
 
 -- ─────────────────────────────────────────────────────────────
 -- PROFILES
@@ -62,7 +63,7 @@ create table if not exists content_entries (
   id               uuid primary key default uuid_generate_v4(),
   slug             text unique not null,
   title            text not null,
-  type             text not null check (type in ('episode', 'movie', 'special', 'ova', 'live_action', 'magic_kaito', 'hanzawa', 'zero_tea_time')),
+  type             text not null check (type in ('episode', 'movie', 'special', 'ova', 'live_action', 'magic_kaito', 'hanzawa', 'zero_tea_time', 'yaiba')),
   episode_number   integer,
   movie_number     integer,
   air_date         date not null,
@@ -78,6 +79,12 @@ create table if not exists content_entries (
 -- Heal pre-existing databases where content_entries predates the
 -- release_order column. No-op on a fresh CREATE TABLE above.
 alter table content_entries add column if not exists release_order integer;
+
+-- Heal pre-existing databases whose type CHECK predates the 'yaiba'
+-- type. No-op on a fresh CREATE TABLE above.
+alter table content_entries drop constraint if exists content_entries_type_check;
+alter table content_entries add constraint content_entries_type_check
+  check (type in ('episode', 'movie', 'special', 'ova', 'live_action', 'magic_kaito', 'hanzawa', 'zero_tea_time', 'yaiba'));
 
 create index if not exists idx_content_air_date on content_entries(air_date);
 create index if not exists idx_content_canon_order on content_entries(canon_order);
