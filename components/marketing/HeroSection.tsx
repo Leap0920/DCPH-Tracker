@@ -27,10 +27,10 @@ export function HeroSection() {
           // Delay a bit before revealing logo/title and buttons
           setTimeout(() => {
             setTypingCompleted(true)
-          }, 400)
+          }, 250)
         }
-      }, 65) // slower typing speed: 65ms per character
-    }, 2000) // 2 second initial delay
+      }, 35) // typing speed: 35ms per character
+    }, 1000) // 1 second initial delay
 
     return () => {
       if (interval) clearInterval(interval)
@@ -88,12 +88,20 @@ export function HeroSection() {
 
   return (
     <section className="relative min-h-[160vh] flex flex-col items-center bg-surface overflow-hidden pb-24">
-      {/* Light minimalist grid pattern */}
-      <div className="absolute inset-0 -z-10 bg-[linear-gradient(to_right,#f3f4f6_1px,transparent_1px),linear-gradient(to_bottom,#f3f4f6_1px,transparent_1px)] bg-[size:4rem_4rem] [mask-image:radial-gradient(ellipse_60%_50%_at_50%_0%,#000_70%,transparent_100%)]" />
+      {/* Hero Content Area — full-bleed image banner with left-aligned text */}
+      <div className="relative min-h-[92vh] w-full flex flex-col items-start justify-center px-6 sm:px-12 lg:px-24 text-left">
+        {/* Hero background image */}
+        <div className="absolute inset-0 z-0">
+          <img
+            src="/hero-image.jpg"
+            alt=""
+            aria-hidden
+            className="h-full w-full object-cover"
+          />
+        </div>
 
-      {/* Hero Content Area */}
-      <div className="min-h-[72vh] flex flex-col items-center justify-start px-6 text-center w-full max-w-4xl mx-auto pt-32 pb-6">
-
+        {/* Left-aligned content above the image */}
+        <div className="relative z-10 flex flex-col items-start w-full max-w-3xl">
         {/* Animated container for Logo and Main Heading */}
         <AnimatePresence>
           {typingCompleted && (
@@ -119,8 +127,8 @@ export function HeroSection() {
         </AnimatePresence>
 
         {/* Subtitle / Typewriter block */}
-        <div className="min-h-16 flex items-center justify-center mt-4 mb-10">
-          <p className="font-body text-ink max-w-5xl mx-auto font-medium">
+        <div className="min-h-16 flex items-center justify-start mt-4 mb-10">
+          <p className="font-body text-ink max-w-5xl font-medium">
             {renderTypedText(typedText)}
             {/* Blinking typewriter cursor */}
             <motion.span
@@ -138,7 +146,7 @@ export function HeroSection() {
               initial={{ opacity: 0, y: 30 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.7, delay: 0.2, ease: [0.16, 1, 0.3, 1] }}
-              className="flex flex-col sm:flex-row items-center gap-4"
+              className="flex flex-col sm:flex-row items-start gap-4"
             >
               <a href="/tracker">
                 <Button
@@ -160,32 +168,33 @@ export function HeroSection() {
             </motion.div>
           )}
         </AnimatePresence>
-      </div>
+        </div>
 
-      {/* Scroll indicator (visible when loading is complete) */}
-      <AnimatePresence>
-        {typingCompleted && (
-          <motion.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 0.4 }}
-            exit={{ opacity: 0 }}
-            transition={{ delay: 0.6, duration: 0.8 }}
-            className="absolute bottom-12 left-1/2 -translate-x-1/2 cursor-pointer z-20"
-            onClick={scrollToContent}
-          >
+        {/* Scroll indicator at the bottom of the banner */}
+        <AnimatePresence>
+          {typingCompleted && (
             <motion.div
-              animate={{ y: [0, 8, 0] }}
-              transition={{ duration: 2, repeat: Infinity, ease: "easeInOut" }}
-              className="flex flex-col items-center gap-2 hover:opacity-100 transition-opacity"
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 0.4 }}
+              exit={{ opacity: 0 }}
+              transition={{ delay: 0.6, duration: 0.8 }}
+              className="absolute bottom-8 left-6 sm:left-12 lg:left-24 cursor-pointer z-20"
+              onClick={scrollToContent}
             >
-              <span className="text-[10px] font-mono  text-ink-dim">
-                Scroll Down
-              </span>
-              <ChevronDown className="h-5 w-5 text-ink-dim" />
+              <motion.div
+                animate={{ y: [0, 8, 0] }}
+                transition={{ duration: 2, repeat: Infinity, ease: "easeInOut" }}
+                className="flex flex-col items-center gap-2 hover:opacity-100 transition-opacity"
+              >
+                <span className="text-[10px] font-mono text-ink-dim">
+                  Scroll Down
+                </span>
+                <ChevronDown className="h-5 w-5 text-ink-dim" />
+              </motion.div>
             </motion.div>
-          </motion.div>
-        )}
-      </AnimatePresence>
+          )}
+        </AnimatePresence>
+      </div>
 
       {/* Scroll-driven Video Section */}
       <div
