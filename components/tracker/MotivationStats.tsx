@@ -14,6 +14,7 @@ import {
   Flame,
   CalendarClock,
   Target,
+  Swords,
 } from "lucide-react"
 import type { Database } from "@/types/database.types"
 import type { WatchStatus } from "@/lib/constants"
@@ -39,6 +40,7 @@ const TYPE_ICONS: Record<ContentType, React.ComponentType<{ className?: string }
   magic_kaito: Sparkles,
   hanzawa: CircleDot,
   zero_tea_time: Coffee,
+  yaiba: Swords,
 }
 
 export function getDefaultRuntime(type: string): number {

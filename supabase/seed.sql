@@ -1435,3 +1435,89 @@ WHERE image_url IS NULL;
 
 -- VERIFY: expected 1323 total entries (episode=1209, movie=29, special=12, ova=23, live_action=10, magic_kaito=22, hanzawa=12, zero_tea_time=6)
 select type, count(*) from content_entries group by type order by type;
+
+-- ─────────────────────────────────────────────────────────────
+-- DEMO ACCOUNTS (idempotent — re-creates demo users after a reset)
+-- Admin:  admin@dcph.ph  / DcphDemo2026!  (demo_admin,  role admin)
+-- Member: member@dcph.ph / DcphDemo2026!  (demo_member, role member)
+--
+-- NOTE: auth.admin.create_user() called from the SQL editor fails on
+-- newer Supabase projects with:
+--   0A000: cross-database references are not implemented
+-- so we call the GoTrue Admin API over HTTP via pg_net instead
+-- (net.http_post → POST /auth/v1/admin/users) — the same endpoint
+-- that admin.auth.admin.createUser() hits in the SDK.
+--
+-- ⚠️  REPLACE {{SERVICE_ROLE_KEY}} with your real key from
+--     Dashboard → Project Settings → API → service_role.
+--     (The SQL editor runs as postgres; keep the key in the editor
+--      buffer — do NOT commit it to this repo file.)
+--
+-- The wait loop below (step 2) gives the async HTTP call up to 30s
+-- to land, so the profile re-assert always runs after the users exist.
+-- ─────────────────────────────────────────────────────────────
+
+-- 1) Create the demo users via the GoTrue Admin API (async, idempotent)
+create extension if not exists pg_net;
+
+select net.http_post(
+  url := 'https://hgwtlbbbkxppbasbhvlo.supabase.co/auth/v1/admin/users',
+  headers := jsonb_build_object(
+    'Content-Type', 'application/json',
+    'apikey', '{{SERVICE_ROLE_KEY}}',
+    'Authorization', 'Bearer {{SERVICE_ROLE_KEY}}'
+  ),
+  body := jsonb_build_object(
+    'email', 'admin@dcph.ph',
+    'password', 'DcphDemo2026!',
+    'email_confirm', true,
+    'user_metadata', jsonb_build_object('username', 'demo_admin', 'display_name', 'Demo Admin')
+  )
+)
+where not exists (select 1 from auth.users where email = 'admin@dcph.ph');
+
+select net.http_post(
+  url := 'https://hgwtlbbbkxppbasbhvlo.supabase.co/auth/v1/admin/users',
+  headers := jsonb_build_object(
+    'Content-Type', 'application/json',
+    'apikey', '{{SERVICE_ROLE_KEY}}',
+    'Authorization', 'Bearer {{SERVICE_ROLE_KEY}}'
+  ),
+  body := jsonb_build_object(
+    'email', 'member@dcph.ph',
+    'password', 'DcphDemo2026!',
+    'email_confirm', true,
+    'user_metadata', jsonb_build_object('username', 'demo_member', 'display_name', 'Demo Member')
+  )
+)
+where not exists (select 1 from auth.users where email = 'member@dcph.ph');
+
+-- 2) Wait for the async admin-user creation to land (max 30s)
+do $$
+begin
+  for i in 1..30 loop
+    exit when exists (select 1 from auth.users where email in ('admin@dcph.ph', 'member@dcph.ph'));
+    perform pg_sleep(1);
+  end loop;
+end $$;
+
+-- 2) Re-assert profile roles (drop the trigger-created 'member' rows, re-insert correct roles)
+delete from public.profiles
+where user_id in (select id from auth.users where email in ('admin@dcph.ph', 'member@dcph.ph'));
+
+insert into public.profiles (user_id, username, display_name, role)
+select
+  u.id,
+  coalesce(u.raw_user_meta_data ->> 'username', split_part(u.email, '@', 1)),
+  coalesce(u.raw_user_meta_data ->> 'display_name', split_part(u.email, '@', 1)),
+  case when u.email = 'admin@dcph.ph' then 'admin' else 'member' end
+from auth.users u
+where u.email in ('admin@dcph.ph', 'member@dcph.ph');
+
+-- 3) VERIFY: expect 2 rows — admin@dcph.ph (demo_admin/admin),
+--            member@dcph.ph (demo_member/member)
+select u.email, p.username, p.role
+from auth.users u
+left join public.profiles p on p.user_id = u.id
+where u.email in ('admin@dcph.ph', 'member@dcph.ph')
+order by u.email;

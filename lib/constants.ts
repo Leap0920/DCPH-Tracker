@@ -8,6 +8,7 @@ export const CONTENT_TYPES = {
   MAGIC_KAITO: "magic_kaito",
   HANZAWA: "hanzawa",
   ZERO_TEA_TIME: "zero_tea_time",
+  YAIBA: "yaiba",
 } as const;
 
 export type ContentType = (typeof CONTENT_TYPES)[keyof typeof CONTENT_TYPES];
@@ -21,6 +22,7 @@ export const CONTENT_TYPE_LABELS: Record<ContentType, string> = {
   magic_kaito: "Magic Kaito",
   hanzawa: "The Culprit Hanzawa",
   zero_tea_time: "Zero's Tea Time",
+  yaiba: "Yaiba",
 };
 
 /** Glyph used next to each content type in the tracker UI */
@@ -33,6 +35,7 @@ export const CONTENT_TYPE_ICONS: Record<ContentType, string> = {
   magic_kaito: "🎩",
   hanzawa: "⚫",
   zero_tea_time: "🥤",
+  yaiba: "🗡️",
 };
 
 /** Tracker grouping modes */
@@ -79,6 +82,7 @@ export const FILTER_OPTIONS = {
     { value: "magic_kaito", label: "Magic Kaito" },
     { value: "hanzawa", label: "Hanzawa" },
     { value: "zero_tea_time", label: "Zero's Tea Time" },
+    { value: "yaiba", label: "Yaiba" },
   ] as const,
   STATUS: [
     { value: "all", label: "All Status" },

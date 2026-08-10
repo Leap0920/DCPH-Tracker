@@ -1322,3 +1322,46 @@ INSERT INTO content_entries (slug, title, type, episode_number, movie_number, ai
 ('ep-1204', 'Who Kidnapped Conan and Azusa? (Part 1)', 'episode', 1204, NULL, '2026-06-20', 1316, NULL, NULL, 'https://cdn.myanimelist.net/images/anime/7/75199l.jpg', NULL, 1316),
 ('ep-1205', 'Who Kidnapped Conan and Azusa? (Part 2)', 'episode', 1205, NULL, '2026-06-27', 1317, NULL, NULL, 'https://cdn.myanimelist.net/images/anime/7/75199l.jpg', NULL, 1317)
 ON CONFLICT (slug) DO UPDATE SET release_order = EXCLUDED.release_order;
+
+-- ─────────────────────────────────────────────────────────────
+-- Append: Yaiba (1993/2025) + Shogakukan Encyclopedia OVAs + Lupin 2009
+-- canon_order/release_order continue from MAX(canon_order) via CTE.
+-- Idempotent: ON CONFLICT (slug) DO NOTHING. Safe to re-run.
+-- ─────────────────────────────────────────────────────────────
+alter table content_entries drop constraint if exists content_entries_type_check;
+alter table content_entries add constraint content_entries_type_check
+  check (type in ('episode', 'movie', 'special', 'ova', 'live_action', 'magic_kaito', 'hanzawa', 'zero_tea_time', 'yaiba'));
+
+with last as (
+  select coalesce(max(canon_order), 0) as m from content_entries
+)
+insert into content_entries
+  (slug, title, type, episode_number, movie_number, air_date,
+   canon_order, arc_id, synopsis, image_url, runtime_minutes, release_order)
+select
+  slug, title, type,
+  episode_number::int,
+  movie_number::int,
+  air_date::date,
+  (last.m + n) as canon_order, arc_id::uuid, synopsis, image_url,
+  runtime_minutes::int,
+  (last.m + n) as release_order
+from (
+  values
+    ('yaiba-swordsman-legend-1993','Swordsman Legend Yaiba (1993)','yaiba',NULL,NULL,'1993-04-09',1,NULL,'Kenyu Densetsu Yaiba (1993), 52 eps, Pastel studio. MAL reference.','https://cdn.myanimelist.net/images/anime/7/75199l.jpg',NULL),
+    ('ova-shogakukan-01','[OVA] Shogakukan Illustrated Encyclopedia #01 - Let''s Try a Curious Experiment!','ova',1,NULL,'1998-07-26',2,NULL,'Appendix VHS bundled with the 21st Century Children''s Encyclopedia Science Museum set.','https://cdn.myanimelist.net/images/anime/7/75199l.jpg',NULL),
+    ('ova-shogakukan-02','[OVA] Shogakukan Illustrated Encyclopedia #02 - The Mysterious Written Invitation Case','ova',1,NULL,'1998-09-09',3,NULL,NULL,'https://cdn.myanimelist.net/images/anime/7/75199l.jpg',NULL),
+    ('ova-shogakukan-03','[OVA] Shogakukan Illustrated Encyclopedia #03 - Let''s Experience the Jomon Period!','ova',1,NULL,'1999-06-25',4,NULL,'History Museum tie-in.','https://cdn.myanimelist.net/images/anime/7/75199l.jpg',NULL),
+    ('ova-shogakukan-04','[OVA] Shogakukan Illustrated Encyclopedia #04 - The Internet: The Mysterious E-mail Case','ova',1,NULL,'2000-06-23',5,NULL,'2nd Edition (WOW!) release.','https://cdn.myanimelist.net/images/anime/7/75199l.jpg',NULL),
+    ('ova-shogakukan-05','[OVA] Shogakukan Illustrated Encyclopedia #05 - A Written Challenge from the Pyramids!','ova',1,NULL,'2001-06-22',6,NULL,'World Heritage Wonder Expedition Encyclopedia WONDER-PAL.','https://cdn.myanimelist.net/images/anime/7/75199l.jpg',NULL),
+    ('ova-shogakukan-06','[OVA] Shogakukan Illustrated Encyclopedia #06 - Chase the Mysterious Comet Monster!','ova',1,NULL,'2001-11-09',7,NULL,NULL,'https://cdn.myanimelist.net/images/anime/7/75199l.jpg',NULL),
+    ('ova-shogakukan-07','[OVA] Shogakukan Illustrated Encyclopedia #07 - Approaching the Mystery of the Ancient Dinosaurs!','ova',1,NULL,'2002-06-21',8,NULL,'Shogakukan Illustrated Book NEO 4-Volume Set.','https://cdn.myanimelist.net/images/anime/7/75199l.jpg',NULL),
+    ('ova-shogakukan-08','[OVA] Shogakukan Illustrated Encyclopedia #08 - Solve the Mystery of Heatstroke','ova',1,NULL,'2002-09-01',9,NULL,'Educational promotional VHS, not for sale.','https://cdn.myanimelist.net/images/anime/7/75199l.jpg',NULL),
+    ('ova-shogakukan-09','[OVA] Shogakukan Illustrated Encyclopedia #09 - City Exploration! Get the Animal Mark!','ova',1,NULL,'2003-06-20',10,NULL,'Free Research & Exciting Expedition Encyclopedia.','https://cdn.myanimelist.net/images/anime/7/75199l.jpg',NULL),
+    ('ova-shogakukan-10','[OVA] Shogakukan Illustrated Encyclopedia #10 - Crime Prevention Guide','ova',1,NULL,'2008-06-01',11,NULL,'Not for sale.','https://cdn.myanimelist.net/images/anime/7/75199l.jpg',NULL),
+    ('ova-shogakukan-11','[OVA] Shogakukan Illustrated Encyclopedia #11 - A Large Collection of Surprising Creatures!','ova',1,NULL,'2013-06-15',12,NULL,'Illustrated Book NEO series.','https://cdn.myanimelist.net/images/anime/7/75199l.jpg',NULL),
+    ('special-lupin-vs-conan-2009','Lupin III vs Detective Conan (2009 TV Special)','special',1,NULL,'2009-03-27',13,NULL,'104-min TV special, TMS Entertainment. MAL 6115 / AniList 6115.','https://cdn.myanimelist.net/images/anime/7/75199l.jpg',104),
+    ('yaiba-samurai-legend-2025','Yaiba: Samurai Legend (2025)','yaiba',NULL,NULL,'2025-04-05',14,NULL,'2025-04-05 - 2025-09-27, 24 eps, Wit Studio. MAL 58812.','https://cdn.myanimelist.net/images/anime/7/75199l.jpg',24)
+  ) as v(slug,title,type,episode_number,movie_number,air_date,n,arc_id,synopsis,image_url,runtime_minutes)
+  cross join last
+on conflict (slug) do nothing;

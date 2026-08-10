@@ -19,6 +19,7 @@ import {
   Sparkles,
   CircleDot,
   Coffee,
+  Swords,
   ArrowDownToLine,
 } from "lucide-react"
 import { cn } from "@/lib/utils"
@@ -82,6 +83,7 @@ const SECTION_ORDER: {
   { type: "magic_kaito", icon: Sparkles },
   { type: "hanzawa", icon: CircleDot },
   { type: "zero_tea_time", icon: Coffee },
+  { type: "yaiba", icon: Swords },
 ]
 
 const MAX_EPISODE = 1209
