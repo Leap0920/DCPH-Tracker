@@ -5,8 +5,8 @@ import { createClient } from "@/utils/supabase/server"
 import { notFound } from "next/navigation"
 
 export const metadata = {
-  title: "Agent Dossier — Detective Conan PH",
-  description: "View an agent's watch stats, badges, and profile.",
+  title: "Detective Dossier — Detective Conan PH",
+  description: "View a detective's watch stats, badges, and profile.",
 }
 
 export default async function ProfilePage({
@@ -33,7 +33,7 @@ export default async function ProfilePage({
     <div className="px-6 py-10">
       <div className="mx-auto max-w-3xl">
         <div className="mb-6 flex items-center gap-3">
-          <span className="case-number">FILE NO. 007 — AGENT DOSSIER</span>
+          <span className="case-number">FILE NO. 007 — DETECTIVE DOSSIER</span>
           <span className="redacted-bar w-16" />
         </div>
 

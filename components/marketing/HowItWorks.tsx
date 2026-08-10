@@ -21,8 +21,8 @@ const steps = [
   {
     number: "03",
     icon: Trophy,
-    title: "Compete with fellow agents",
-    body: "Climb the agent rankings and talk cases with the community in themed chat rooms.",
+    title: "Compete with fellow detectives",
+    body: "Climb the detective rankings and talk cases with the community in themed chat rooms.",
     cta: "See rankings",
     href: "/community/rankings",
   },

@@ -323,7 +323,7 @@ export default function SettingsPage() {
 
             <div className="mt-4 space-y-4">
               <div className="space-y-2">
-                <Label htmlFor="username">Agent Codename</Label>
+                <Label htmlFor="username">Detective Codename</Label>
                 <Input
                   id="username"
                   value={profile?.username ?? ""}

@@ -1,5 +1,5 @@
 import Link from "next/link"
-import { Facebook, Instagram, Youtube, MessageCircle } from "lucide-react"
+import { Facebook, Instagram, Youtube, Twitter } from "lucide-react"
 
 const footerLinks = [
   { label: "Tracker", href: "/tracker" },
@@ -9,10 +9,10 @@ const footerLinks = [
 ]
 
 const socialLinks = [
-  { icon: Facebook, href: "https://facebook.com/DetectiveConanPH", label: "Facebook" },
-  { icon: Instagram, href: "https://instagram.com/detectiveconan.ph", label: "Instagram" },
-  { icon: Youtube, href: "https://youtube.com/@DetectiveConanPH", label: "YouTube" },
-  { icon: MessageCircle, href: "https://discord.gg/your-invite", label: "Discord" },
+  { icon: Facebook, href: "https://www.facebook.com/conanph0304", label: "Facebook" },
+  { icon: Instagram, href: "https://www.instagram.com/conanph0304/", label: "Instagram" },
+  { icon: Youtube, href: "https://www.youtube.com/@conanph0304", label: "YouTube" },
+  { icon: Twitter, href: "https://x.com/conanph0304", label: "X" },
 ]
 
 export function Footer() {

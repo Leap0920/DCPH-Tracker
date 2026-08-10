@@ -8,9 +8,9 @@ import { Button } from "@/components/ui/button"
 export const dynamic = "force-dynamic"
 
 export const metadata = {
-  title: "Agent Rankings — Detective Conan PH",
+  title: "Detective Rankings — Detective Conan PH",
   description:
-    "See how many episodes fellow agents have watched and climb the community leaderboard.",
+    "See how many episodes fellow detectives have watched and climb the community leaderboard.",
 }
 
 export default async function RankingsPage() {
@@ -64,10 +64,10 @@ export default async function RankingsPage() {
         </div>
 
         <h1 className="font-display text-3xl sm:text-4xl tracking-tight text-ink">
-          Agent Rankings
+          Detective Rankings
         </h1>
         <p className="mt-2 max-w-xl text-ink-dim">
-          See how many episodes fellow agents have cracked. Climb the ranks by
+          See how many episodes fellow detectives have cracked. Climb the ranks by
           logging every case you watch.
         </p>
 
