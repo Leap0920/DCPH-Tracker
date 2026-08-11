@@ -1,5 +1,6 @@
 import { createClient } from "@/utils/supabase/server"
 import { CONTENT_TYPE_LABELS, type ContentType } from "@/lib/constants"
+import { getDefaultRuntime } from "@/lib/utils"
 
 export interface PerTypeAnalytics {
   type: ContentType
@@ -168,11 +169,21 @@ export async function getSelfAnalytics(userId: string): Promise<SelfAnalytics> {
   if (error) throw error
 
   // 2. Total catalog count & content type breakdown in DB
-  const { data: catalogEntries } = await supabase
-    .from("content_entries")
-    .select("id, type, arc_id")
+  // PostgREST caps a single request at 1000 rows — paginate to count the full catalog.
+  const catalogEntries: { id: string; type: string; arc_id: string | null }[] = []
+  const PAGE_SIZE = 1000
+  for (let offset = 0; ; offset += PAGE_SIZE) {
+    const { data: page, error: pageError } = await supabase
+      .from("content_entries")
+      .select("id, type, arc_id")
+      .range(offset, offset + PAGE_SIZE - 1)
+    if (pageError) throw pageError
+    if (!page || page.length === 0) break
+    catalogEntries.push(...page)
+    if (page.length < PAGE_SIZE) break
+  }
 
-  const totalCatalogCount = catalogEntries?.length ?? 0
+  const totalCatalogCount = catalogEntries.length
 
   const catalogTypeCounts = new Map<ContentType, number>()
   const catalogArcCounts = new Map<string, number>()
@@ -222,7 +233,7 @@ export async function getSelfAnalytics(userId: string): Promise<SelfAnalytics> {
     const views = row.watch_count ?? 0
     if (views > 0) {
       totalViews += views
-      minutesWatched += (entry.runtime_minutes ?? 25) * views
+      minutesWatched += (entry.runtime_minutes ?? getDefaultRuntime(entry.type)) * views
     }
 
     const type = entry.type as ContentType

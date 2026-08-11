@@ -27,6 +27,11 @@ export function formatHours(minutes: number): string {
   return m > 0 ? `${h}h ${m}m` : `${h}h`;
 }
 
+/** Default runtime (minutes) for a content type when the DB has no runtime stored. */
+export function getDefaultRuntime(type: string): number {
+  return type === "movie" ? 100 : type === "special" || type === "ova" ? 45 : 25
+}
+
 /** Format an ISO timestamp as a compact relative time (e.g. "just now", "3h ago", "5d ago") */
 export function timeAgo(iso: string): string {
   const then = new Date(iso).getTime();

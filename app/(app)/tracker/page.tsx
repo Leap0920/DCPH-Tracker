@@ -5,7 +5,6 @@ import Link from "next/link"
 import { useRouter, useSearchParams } from "next/navigation"
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query"
 import { ContentGrid, type StatusFilter } from "@/components/tracker/ContentGrid"
-import { ProgressIndicator } from "@/components/tracker/ProgressIndicator"
 import { MotivationStats } from "@/components/tracker/MotivationStats"
 import { Button } from "@/components/ui/button"
 import { createClient } from "@/utils/supabase/client"
@@ -316,7 +315,6 @@ function TrackerPageContent() {
               </div>
             )}
             <MotivationStats entries={entries} userStatuses={userStatuses} userName={user} />
-            <ProgressIndicator entries={entries} userStatuses={userStatuses} />
             {!user && (
               <div className="flex flex-wrap items-center gap-4 rounded-lg border border-slate-200 bg-surface p-5">
                 <div className="flex-1">
