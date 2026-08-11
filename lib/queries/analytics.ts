@@ -1,6 +1,7 @@
 import { createClient } from "@/utils/supabase/server"
 import { CONTENT_TYPE_LABELS, type ContentType } from "@/lib/constants"
 import { getDefaultRuntime } from "@/lib/utils"
+import { isOtherMovie, MAINLINE_MOVIES } from "@/lib/movies-guide"
 
 export interface PerTypeAnalytics {
   type: ContentType
@@ -169,13 +170,13 @@ export async function getSelfAnalytics(userId: string): Promise<SelfAnalytics> {
   if (error) throw error
 
   // 2. Total catalog count & content type breakdown in DB
-  // PostgREST caps a single request at 1000 rows — paginate to count the full catalog.
-  const catalogEntries: { id: string; type: string; arc_id: string | null }[] = []
+  // PostgREST caps a single request at 1000 rows �?" paginate to count the full catalog.
+  const catalogEntries: { id: string; type: string; slug: string | null; arc_id: string | null }[] = []
   const PAGE_SIZE = 1000
   for (let offset = 0; ; offset += PAGE_SIZE) {
     const { data: page, error: pageError } = await supabase
       .from("content_entries")
-      .select("id, type, arc_id")
+      .select("id, type, slug, arc_id")
       .range(offset, offset + PAGE_SIZE - 1)
     if (pageError) throw pageError
     if (!page || page.length === 0) break
@@ -183,14 +184,27 @@ export async function getSelfAnalytics(userId: string): Promise<SelfAnalytics> {
     if (page.length < PAGE_SIZE) break
   }
 
-  const totalCatalogCount = catalogEntries.length
+  // Non-mainline movies (Lupin III crossover, TV specials, manner short) live in
+  // the catalog but do not count toward the mainline movie totals (29 films).
+  const catalogEntriesExcludingOtherMovies = catalogEntries.filter(
+    (e) => !(e.type === "movie" && isOtherMovie(e.slug))
+  )
+
+  // 29 canonical mainline films: 27 rows in the DB + 2 upcoming films
+  // (One-eyed Flashback 2025, Fallen Angel of the Highway 2026).
+  const mainlineMovieCount = catalogEntriesExcludingOtherMovies.filter(
+    (e) => e.type === "movie"
+  ).length
+  const totalCatalogCount =
+    catalogEntriesExcludingOtherMovies.length - mainlineMovieCount + MAINLINE_MOVIES.length
 
   const catalogTypeCounts = new Map<ContentType, number>()
   const catalogArcCounts = new Map<string, number>()
 
-  for (const entry of catalogEntries ?? []) {
+  for (const entry of catalogEntriesExcludingOtherMovies ?? []) {
     const t = entry.type as ContentType
-    catalogTypeCounts.set(t, (catalogTypeCounts.get(t) ?? 0) + 1)
+    const add = t === "movie" ? MAINLINE_MOVIES.length : 1
+    catalogTypeCounts.set(t, (catalogTypeCounts.get(t) ?? 0) + add)
     if (entry.arc_id) {
       catalogArcCounts.set(entry.arc_id, (catalogArcCounts.get(entry.arc_id) ?? 0) + 1)
     }

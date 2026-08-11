@@ -39,6 +39,16 @@ create table if not exists profiles (
 );
 
 -- ─────────────────────────────────────────────────────────────
+-- PROFILES MODERATION (apply in Supabase Dashboard SQL Editor)
+-- Idempotent — safe to re-run.
+-- ─────────────────────────────────────────────────────────────
+alter table profiles add column if not exists status text not null default 'active' check (status in ('active', 'suspended', 'banned'));
+alter table profiles add column if not exists ban_reason text;
+alter table profiles add column if not exists banned_at timestamptz;
+alter table profiles add column if not exists suspended_until timestamptz;
+create index if not exists idx_profiles_status on profiles(status);
+
+-- ─────────────────────────────────────────────────────────────
 -- ARCS (Story Arcs)
 -- ─────────────────────────────────────────────────────────────
 create table if not exists arcs (
