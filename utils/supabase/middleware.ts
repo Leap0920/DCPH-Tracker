@@ -44,6 +44,36 @@ export async function updateSession(request: NextRequest) {
     return NextResponse.redirect(redirectUrl);
   }
 
+  // Enforce moderation status on protected routes (banned accounts are locked
+  // out entirely; suspended accounts keep basic browsing but lose chat/admin).
+  if (isProtected && user) {
+    const { data: profile, error: profileError } = await supabase
+      .from("profiles")
+      .select("status, role")
+      .eq("user_id", user.id)
+      .maybeSingle();
+
+    // If the status column hasn't been migrated yet, the query fails — treat
+    // the profile as active so the app keeps working until the migration runs.
+    if (!profileError && profile) {
+      const status = profile.status ?? "active";
+
+      if (status === "banned") {
+        const redirectUrl = request.nextUrl.clone();
+        redirectUrl.pathname = "/login";
+        redirectUrl.searchParams.set("error", "banned");
+        return NextResponse.redirect(redirectUrl);
+      }
+
+      if (status === "suspended" && ["/community/chat", "/admin"].some((p) => request.nextUrl.pathname.startsWith(p))) {
+        const redirectUrl = request.nextUrl.clone();
+        redirectUrl.pathname = "/tracker";
+        redirectUrl.searchParams.set("error", "suspended");
+        return NextResponse.redirect(redirectUrl);
+      }
+    }
+  }
+
   // Admin area additionally requires the 'admin' role.
   if (request.nextUrl.pathname.startsWith("/admin") && user) {
     const { data: profile } = await supabase

@@ -26,6 +26,10 @@ export interface Database {
           avatar_url: string | null;
           bio: string | null;
           role: "member" | "moderator" | "admin";
+          status: "active" | "suspended" | "banned";
+          ban_reason: string | null;
+          banned_at: string | null;
+          suspended_until: string | null;
           birthday: string | null;
           created_at: string;
           updated_at: string;
@@ -38,6 +42,10 @@ export interface Database {
           avatar_url?: string | null;
           bio?: string | null;
           role?: "member" | "moderator" | "admin";
+          status?: "active" | "suspended" | "banned";
+          ban_reason?: string | null;
+          banned_at?: string | null;
+          suspended_until?: string | null;
           birthday?: string | null;
           created_at?: string;
           updated_at?: string;
@@ -50,6 +58,10 @@ export interface Database {
           avatar_url?: string | null;
           bio?: string | null;
           role?: "member" | "moderator" | "admin";
+          status?: "active" | "suspended" | "banned";
+          ban_reason?: string | null;
+          banned_at?: string | null;
+          suspended_until?: string | null;
           birthday?: string | null;
           created_at?: string;
           updated_at?: string;

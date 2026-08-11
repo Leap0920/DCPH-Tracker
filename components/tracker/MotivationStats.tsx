@@ -20,6 +20,7 @@ import type { Database } from "@/types/database.types"
 import type { WatchStatus } from "@/lib/constants"
 import { CONTENT_TYPE_LABELS, type ContentType } from "@/lib/constants"
 import { formatHours } from "@/lib/utils"
+import { isOtherMovie, MAINLINE_MOVIES } from "@/lib/movies-guide"
 
 type ContentEntry = Database["public"]["Tables"]["content_entries"]["Row"]
 
@@ -56,16 +57,23 @@ export interface SeriesTotals {
 }
 
 export function computeSeriesTotals(entries: ContentEntry[]): SeriesTotals {
-  const episodes = entries.filter((e) => e.type === "episode").length
-  const movies = entries.filter((e) => e.type === "movie").length
-  const totalMinutes = entries.reduce(
+  // Non-mainline movies (crossovers, TV specials, manner short) exist in the
+  // catalog but don't count toward the 29 mainline films.
+  const mainlineEntries = entries.filter((e) => !(e.type === "movie" && isOtherMovie(e.slug)))
+  const episodes = mainlineEntries.filter((e) => e.type === "episode").length
+  // 29 canonical mainline films: 27 rows in the DB + 2 upcoming films
+  // (One-eyed Flashback 2025, Fallen Angel of the Highway 2026).
+  const movies = MAINLINE_MOVIES.length
+  const mainlineMovieCount = mainlineEntries.filter((e) => e.type === "movie").length
+  const total = mainlineEntries.length - mainlineMovieCount + MAINLINE_MOVIES.length
+  const totalMinutes = mainlineEntries.reduce(
     (acc, e) => acc + (e.runtime_minutes ?? getDefaultRuntime(e.type)),
     0
   )
   const years = new Set(
-    entries.map((e) => e.air_date?.slice(0, 4)).filter((y): y is string => Boolean(y))
+    mainlineEntries.map((e) => e.air_date?.slice(0, 4)).filter((y): y is string => Boolean(y))
   ).size
-  return { episodes, movies, total: entries.length, totalMinutes, years }
+  return { episodes, movies, total, totalMinutes, years }
 }
 
 export interface PerTypeStat {
@@ -91,23 +99,33 @@ export function computePersonalStats(
     const s = userStatuses?.get(e.id)
     return s === "watched" || s === "rewatched"
   }
+  const mainlineEntries = entries.filter((e) => !(e.type === "movie" && isOtherMovie(e.slug)))
+  const mainlineMovieCount = mainlineEntries.filter((e) => e.type === "movie").length
+  // Canonical total: 1337 = 1209 episodes + 29 mainline films + 99 other entries.
+  const adjustedTotal = mainlineEntries.length - mainlineMovieCount + MAINLINE_MOVIES.length
   const watched = entries.filter(isWatched).length
-  const percent = entries.length > 0 ? Math.round((watched / entries.length) * 100) : 0
+  const percent = adjustedTotal > 0 ? Math.round((watched / adjustedTotal) * 100) : 0
   const minutesWatched = entries
     .filter(isWatched)
     .reduce((acc, e) => acc + (e.runtime_minutes ?? getDefaultRuntime(e.type)), 0)
   const perType = (Object.keys(CONTENT_TYPE_LABELS) as ContentType[])
     .map((type) => {
-      const list = entries.filter((e) => e.type === type)
+      // Mainline movies are the canonical 29 (incl. 2 upcoming films with no
+      // DB row); non-mainline movies (crossovers/specials) are excluded.
+      const list =
+        type === "movie"
+          ? entries.filter((e) => e.type === "movie" && !isOtherMovie(e.slug))
+          : entries.filter((e) => e.type === type)
+      const total = type === "movie" ? MAINLINE_MOVIES.length : list.length
       return {
         type,
         label: CONTENT_TYPE_LABELS[type],
         watched: list.filter(isWatched).length,
-        total: list.length,
+        total,
       }
     })
     .filter((s) => s.total > 0)
-  return { watched, percent, remaining: entries.length - watched, minutesWatched, perType }
+  return { watched, percent, remaining: adjustedTotal - watched, minutesWatched, perType }
 }
 
 /** Finish date assuming `ratePerDay` episodes per day. Null when nothing left to watch. */

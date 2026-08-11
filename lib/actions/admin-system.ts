@@ -88,3 +88,89 @@ export async function updateUserRole(userId: string, role: Role): Promise<Action
   revalidatePath("/admin/users")
   return { ok: true, message: "Role updated." }
 }
+
+// ─────────────────────────────────────────────────────────────
+// User moderation (ban / suspend / reactivate).
+// ─────────────────────────────────────────────────────────────
+
+export type UserStatus = "active" | "suspended" | "banned"
+const STATUSES: UserStatus[] = ["active", "suspended", "banned"]
+
+// Suspension duration when no explicit end date is provided (7 days).
+const DEFAULT_SUSPENSION_MS = 7 * 24 * 60 * 60 * 1000
+
+export async function setUserStatus(
+  userId: string,
+  status: UserStatus,
+  reason?: string
+): Promise<ActionResult> {
+  const me = await requireAdmin()
+  const admin = createAdminClient()
+  if (!admin) return { ok: false, error: "Service role key not configured." }
+
+  if (!STATUSES.includes(status)) return { ok: false, error: "Invalid status." }
+  if (!userId) return { ok: false, error: "Missing user id." }
+
+  // Like the role guard: an admin can't moderate their own account.
+  if (userId === me.user_id) {
+    return { ok: false, error: "You can't change your own account status." }
+  }
+
+  const now = new Date().toISOString()
+  const patch: {
+    status: UserStatus
+    updated_at: string
+    banned_at?: string | null
+    ban_reason?: string | null
+    suspended_until?: string | null
+  } = { status, updated_at: now }
+
+  if (status === "banned") {
+    patch.banned_at = now
+    patch.ban_reason = reason?.trim() || null
+    patch.suspended_until = null
+  } else if (status === "suspended") {
+    patch.banned_at = null
+    patch.ban_reason = null
+    patch.suspended_until = new Date(Date.now() + DEFAULT_SUSPENSION_MS).toISOString()
+  } else {
+    // active — clear all moderation fields.
+    patch.banned_at = null
+    patch.ban_reason = null
+    patch.suspended_until = null
+  }
+
+  const { error } = await admin
+    .from("profiles")
+    .update(patch)
+    .eq("user_id", userId)
+
+  if (error) return { ok: false, error: error.message }
+
+  revalidatePath("/admin/users")
+  return { ok: true, message: `User ${status}.` }
+}
+
+// ─────────────────────────────────────────────────────────────
+// Account deletion (permanent).
+// ─────────────────────────────────────────────────────────────
+
+export async function deleteUserAccount(userId: string): Promise<ActionResult> {
+  const me = await requireAdmin()
+  const admin = createAdminClient()
+  if (!admin) return { ok: false, error: "Service role key not configured." }
+
+  if (!userId) return { ok: false, error: "Missing user id." }
+  if (userId === me.user_id) {
+    return { ok: false, error: "You can't delete your own account." }
+  }
+
+  // Deleting from auth.users cascades to profiles (on delete cascade) and
+  // any FK-cascading dependents; watch_status rows carry user FK references.
+  const { error } = await admin.auth.admin.deleteUser(userId)
+
+  if (error) return { ok: false, error: error.message }
+
+  revalidatePath("/admin/users")
+  return { ok: true, message: "Account deleted." }
+}

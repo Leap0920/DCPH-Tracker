@@ -33,6 +33,7 @@ import {
 } from "@/lib/constants"
 import type { Database } from "@/types/database.types"
 import { ContentCard } from "@/components/tracker/ContentCard"
+import { MAINLINE_MOVIES, isOtherMovie } from "@/lib/movies-guide"
 import {
   Select,
   SelectContent,
@@ -610,15 +611,35 @@ export function ContentGrid({
             const totalPages = Math.max(1, Math.ceil(section.entries.length / PAGE_SIZE))
             const page = Math.min(pages[section.key] ?? 0, totalPages - 1)
             const pageItems = section.entries.slice(page * PAGE_SIZE, (page + 1) * PAGE_SIZE)
+
+            // When the user filters to movies only, show the two labeled boxes:
+            // mainline films (1–29) as a table + other non-mainline movies as cards.
+            const movieFocused = section.type === "movie" && typeFilter === "movie"
+            const otherMovies = movieFocused
+              ? section.entries.filter((e) => isOtherMovie(e.slug))
+              : []
+            const mainlineMatches = movieFocused
+              ? MAINLINE_MOVIES.map((movie) => {
+                  const entry = section.entries.find(
+                    (e) => !isOtherMovie(e.slug) && e.air_date?.slice(0, 4) === String(movie.year)
+                  )
+                  return { movie, entry: entry ?? null }
+                })
+              : []
+            const mainlineWatched = mainlineMatches.filter(
+              ({ entry }) => entry !== null && isWatched(entry)
+            ).length
             return (
               <Section
                 key={section.key}
                 icon={Icon}
                 title={section.title}
-                count={section.total}
-                watched={section.watched}
+                count={movieFocused ? MAINLINE_MOVIES.length : section.total}
+                watched={movieFocused ? mainlineWatched : section.watched}
                 progressColor={progressColor}
-                progressPercent={section.total > 0 ? (section.watched / section.total) * 100 : 0}
+                progressPercent={movieFocused
+                  ? (mainlineWatched / MAINLINE_MOVIES.length) * 100
+                  : section.total > 0 ? (section.watched / section.total) * 100 : 0}
                 isOpen={isOpen}
                 onToggle={() => setExpandedType(isOpen ? null : section.key)}
                 action={
@@ -640,46 +661,158 @@ export function ContentGrid({
                   ) : null
                 }
               >
-                <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4 pt-1">
-                  {pageItems.map((entry) => (
-                    <ContentCard
-                      key={entry.id}
-                      entry={entry}
-                      watchStatus={getStatusForEntry(entry.id)}
-                      onToggleStatus={onToggleStatus}
-                      watchCount={watchCounts?.get(entry.id) ?? 0}
-                      favorite={favorites?.get(entry.id) ?? false}
-                      onToggleFavorite={onToggleFavorite}
-                      rating={ratings?.get(entry.id) ?? 0}
-                      onSetRating={onSetRating}
-                      flash={flashId === entry.id}
-                      arc={getArcForEntry(entry)}
-                    />
-                  ))}
-                </div>
+                {movieFocused ? (
+                  <div className="space-y-6 pt-1">
+                    {/* Box 1 — mainline movies table */}
+                    <div className="rounded-lg border border-slate-200 bg-surface">
+                      <div className="flex items-center gap-2 border-b border-slate-100 px-4 py-3">
+                        <Film className="h-3.5 w-3.5 text-ink-dim" />
+                        <h3 className="font-display text-xs tracking-tight text-ink">Movie</h3>
+                        <span className="font-mono text-xs text-ink-dim">
+                          {MAINLINE_MOVIES.length}
+                        </span>
+                      </div>
+                      <div className="overflow-x-auto">
+                        <table className="w-full text-left">
+                          <thead>
+                            <tr className="border-b border-slate-100 font-mono text-[10px] uppercase tracking-wider text-ink-faint">
+                              <th className="w-10 px-4 py-2">#</th>
+                              <th className="px-2 py-2">English Title</th>
+                              <th className="hidden px-2 py-2 sm:table-cell">
+                                Japanese Title (Rōmaji)
+                              </th>
+                              <th className="px-2 py-2">Release Year</th>
+                              <th className="w-12 px-4 py-2">Status</th>
+                            </tr>
+                          </thead>
+                          <tbody>
+                            {mainlineMatches.map(({ movie, entry }) => {
+                              const watched = entry !== null && isWatched(entry)
+                              return (
+                                <tr
+                                  key={movie.number}
+                                  className="border-b border-slate-50 last:border-0"
+                                >
+                                  <td className="px-4 py-2.5 font-mono text-xs text-ink-dim">
+                                    {movie.number}
+                                  </td>
+                                  <td className="px-2 py-2.5">
+                                    <p className="text-sm font-medium text-ink">{movie.english}</p>
+                                    {!entry && (
+                                      <span className="mt-0.5 inline-block rounded bg-gray-100 px-1.5 py-0.5 font-mono text-[10px] text-ink-faint">
+                                        Coming soon
+                                      </span>
+                                    )}
+                                  </td>
+                                  <td className="hidden px-2 py-2.5 text-sm text-ink-dim sm:table-cell">
+                                    {movie.japanese}
+                                  </td>
+                                  <td className="px-2 py-2.5 font-mono text-xs text-ink-dim">
+                                    {movie.year}
+                                  </td>
+                                  <td className="px-4 py-2.5">
+                                    {entry ? (
+                                      <button
+                                        onClick={() =>
+                                          onToggleStatus?.(entry.id, getStatusForEntry(entry.id))
+                                        }
+                                        title={watched ? "Mark unwatched" : "Mark watched"}
+                                        className={
+                                          watched
+                                            ? "inline-flex h-7 w-7 items-center justify-center rounded-full bg-gray-900 text-white transition-colors hover:bg-gray-700"
+                                            : "inline-flex h-7 w-7 items-center justify-center rounded-full border border-slate-300 text-transparent transition-colors hover:border-gray-900 hover:text-ink-faint"
+                                        }
+                                      >
+                                        <Check className="h-3.5 w-3.5" />
+                                      </button>
+                                    ) : (
+                                      <span className="font-mono text-xs text-ink-faint">—</span>
+                                    )}
+                                  </td>
+                                </tr>
+                              )
+                            })}
+                          </tbody>
+                        </table>
+                      </div>
+                    </div>
 
-                {totalPages > 1 && (
-                  <div className="flex items-center justify-center gap-4 mt-5">
-                    <button
-                      onClick={() => setPage(section.key, Math.max(0, page - 1))}
-                      disabled={page === 0}
-                      className="inline-flex items-center gap-1.5 h-9 px-3 rounded-md border border-slate-300 text-[11px] font-mono text-ink-dim transition-colors hover:text-ink hover:border-ink disabled:opacity-30 disabled:cursor-not-allowed disabled:hover:border-slate-300 disabled:hover:text-ink-dim"
-                    >
-                      <ChevronLeft className="h-4 w-4" />
-                      Prev
-                    </button>
-                    <span className="font-mono text-xs text-ink-dim">
-                      Page {page + 1} / {totalPages}
-                    </span>
-                    <button
-                      onClick={() => setPage(section.key, Math.min(totalPages - 1, page + 1))}
-                      disabled={page >= totalPages - 1}
-                      className="inline-flex items-center gap-1.5 h-9 px-3 rounded-md border border-slate-300 text-[11px] font-mono text-ink-dim transition-colors hover:text-ink hover:border-ink disabled:opacity-30 disabled:cursor-not-allowed disabled:hover:border-slate-300 disabled:hover:text-ink-dim"
-                    >
-                      Next
-                      <ChevronRight className="h-4 w-4" />
-                    </button>
+                    {/* Box 2 — other movies */}
+                    {otherMovies.length > 0 && (
+                      <div className="rounded-lg border border-slate-200 bg-surface p-4">
+                        <div className="mb-3 flex items-center gap-2">
+                          <Film className="h-3.5 w-3.5 text-ink-dim" />
+                          <h3 className="font-display text-xs tracking-tight text-ink">
+                            Other movies
+                          </h3>
+                          <span className="font-mono text-xs text-ink-dim">
+                            {otherMovies.length}
+                          </span>
+                        </div>
+                        <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5">
+                          {otherMovies.map((entry) => (
+                            <ContentCard
+                              key={entry.id}
+                              entry={entry}
+                              watchStatus={getStatusForEntry(entry.id)}
+                              onToggleStatus={onToggleStatus}
+                              watchCount={watchCounts?.get(entry.id) ?? 0}
+                              favorite={favorites?.get(entry.id) ?? false}
+                              onToggleFavorite={onToggleFavorite}
+                              rating={ratings?.get(entry.id) ?? 0}
+                              onSetRating={onSetRating}
+                              flash={flashId === entry.id}
+                              arc={getArcForEntry(entry)}
+                            />
+                          ))}
+                        </div>
+                      </div>
+                    )}
                   </div>
+                ) : (
+                  <>
+                    <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4 pt-1">
+                      {pageItems.map((entry) => (
+                        <ContentCard
+                          key={entry.id}
+                          entry={entry}
+                          watchStatus={getStatusForEntry(entry.id)}
+                          onToggleStatus={onToggleStatus}
+                          watchCount={watchCounts?.get(entry.id) ?? 0}
+                          favorite={favorites?.get(entry.id) ?? false}
+                          onToggleFavorite={onToggleFavorite}
+                          rating={ratings?.get(entry.id) ?? 0}
+                          onSetRating={onSetRating}
+                          flash={flashId === entry.id}
+                          arc={getArcForEntry(entry)}
+                        />
+                      ))}
+                    </div>
+
+                    {totalPages > 1 && (
+                      <div className="flex items-center justify-center gap-4 mt-5">
+                        <button
+                          onClick={() => setPage(section.key, Math.max(0, page - 1))}
+                          disabled={page === 0}
+                          className="inline-flex items-center gap-1.5 h-9 px-3 rounded-md border border-slate-300 text-[11px] font-mono text-ink-dim transition-colors hover:text-ink hover:border-ink disabled:opacity-30 disabled:cursor-not-allowed disabled:hover:border-slate-300 disabled:hover:text-ink-dim"
+                        >
+                          <ChevronLeft className="h-4 w-4" />
+                          Prev
+                        </button>
+                        <span className="font-mono text-xs text-ink-dim">
+                          Page {page + 1} / {totalPages}
+                        </span>
+                        <button
+                          onClick={() => setPage(section.key, Math.min(totalPages - 1, page + 1))}
+                          disabled={page >= totalPages - 1}
+                          className="inline-flex items-center gap-1.5 h-9 px-3 rounded-md border border-slate-300 text-[11px] font-mono text-ink-dim transition-colors hover:text-ink hover:border-ink disabled:opacity-30 disabled:cursor-not-allowed disabled:hover:border-slate-300 disabled:hover:text-ink-dim"
+                        >
+                          Next
+                          <ChevronRight className="h-4 w-4" />
+                        </button>
+                      </div>
+                    )}
+                  </>
                 )}
               </Section>
             )

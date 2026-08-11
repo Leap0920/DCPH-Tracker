@@ -45,6 +45,15 @@ function LoginForm() {
       ? redirectToRaw
       : "/tracker"
 
+  // Moderation banners come from middleware redirects (?error=banned|suspended).
+  const modError = searchParams ? searchParams.get("error") : null
+  const moderationNotice =
+    modError === "banned"
+      ? { title: "Account banned", body: "This account has been banned. Contact an administrator if you believe this is a mistake." }
+      : modError === "suspended"
+        ? { title: "Account suspended", body: "Your account is temporarily suspended. It may still be used for basic browsing, but community features are disabled until the suspension ends." }
+        : null
+
   async function handleLogin(e: React.FormEvent) {
     e.preventDefault()
     setLoading(true)
@@ -138,6 +147,22 @@ function LoginForm() {
             >
               <Loader2 className="h-4 w-4 shrink-0 mt-0.5 animate-spin" />
               <span>Still connecting… please wait.</span>
+            </div>
+          )}
+
+          {/* Moderation banner (banned / suspended redirect from middleware) */}
+          {moderationNotice && (
+            <div
+              role="alert"
+              className="bg-red-50 border border-red-200 rounded-lg p-3.5 text-xs text-red-600"
+            >
+              <div className="flex gap-2 items-start">
+                <ShieldAlert className="h-4 w-4 shrink-0 mt-0.5 text-red-500" />
+                <div className="space-y-1">
+                  <p className="font-semibold">{moderationNotice.title}</p>
+                  <p>{moderationNotice.body}</p>
+                </div>
+              </div>
             </div>
           )}
 
