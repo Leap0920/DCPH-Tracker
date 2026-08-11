@@ -106,13 +106,13 @@ export function AnalyticsDashboard({ analytics }: AnalyticsDashboardProps) {
         <div className="relative z-10 flex flex-col justify-between gap-6 p-6 text-white sm:p-8 lg:flex-row lg:items-center">
           <div className="space-y-3 max-w-2xl">
             <div className="flex flex-wrap items-center gap-2">
-              <span className="inline-flex items-center gap-1.5 rounded-full border border-white/20 bg-white/10 px-3 py-0.5 text-xs font-semibold text-white backdrop-blur-sm">
+              <span className="inline-flex items-center gap-1.5 rounded-full border border-white/20 bg-white/10 px-3 py-0.5 text-xs text-white backdrop-blur-sm">
                 <Award className="h-3.5 w-3.5 text-amber-400" />
                 {detectiveRank.title}
               </span>
             </div>
 
-            <h1 className="font-display text-3xl font-bold tracking-tight text-white sm:text-4xl">
+            <h1 className="font-display text-3xl tracking-tight text-white sm:text-4xl">
               Self Analytics
             </h1>
             <p className="text-sm text-slate-200 sm:text-base">
@@ -123,7 +123,7 @@ export function AnalyticsDashboard({ analytics }: AnalyticsDashboardProps) {
             {detectiveRank.nextRankTitle && (
               <div className="pt-1 max-w-md">
                 <div className="mb-1 flex items-center justify-between text-xs text-slate-300">
-                  <span>Next Rank: <strong className="text-white">{detectiveRank.nextRankTitle}</strong></span>
+                  <span>Next Rank: <span className="text-white">{detectiveRank.nextRankTitle}</span></span>
                   <span>{detectiveRank.progressToNext}%</span>
                 </div>
                 <div className="h-2 w-full overflow-hidden rounded-full bg-slate-800/80 border border-white/10">
@@ -141,7 +141,7 @@ export function AnalyticsDashboard({ analytics }: AnalyticsDashboardProps) {
             <div className="font-display text-4xl font-extrabold text-white sm:text-5xl">
               {analytics.catalogCompletionProgress}%
             </div>
-            <div className="mt-1 text-xs font-semibold tracking-wider text-slate-300 uppercase">
+            <div className="mt-1 text-xs tracking-wider text-slate-300 uppercase">
               Franchise Solved
             </div>
             <div className="mt-1 text-xs text-slate-400">
@@ -166,7 +166,7 @@ export function AnalyticsDashboard({ analytics }: AnalyticsDashboardProps) {
               {stat.value}
             </div>
 
-            <div className="mt-0.5 text-xs font-medium text-ink">{stat.label}</div>
+            <div className="mt-0.5 text-xs text-ink">{stat.label}</div>
             <div className="mt-1 truncate font-mono text-[10px] text-ink-dim">{stat.sub}</div>
           </div>
         ))}
@@ -178,7 +178,7 @@ export function AnalyticsDashboard({ analytics }: AnalyticsDashboardProps) {
           <button
             onClick={() => setActiveTab("overview")}
             className={cn(
-              "flex items-center gap-2 border-b-2 px-4 py-2.5 text-sm font-semibold transition-colors",
+              "flex items-center gap-2 border-b-2 px-4 py-2.5 text-sm transition-colors",
               activeTab === "overview"
                 ? "border-accent text-accent"
                 : "border-transparent text-ink-dim hover:text-ink"
@@ -191,7 +191,7 @@ export function AnalyticsDashboard({ analytics }: AnalyticsDashboardProps) {
           <button
             onClick={() => setActiveTab("breakdown")}
             className={cn(
-              "flex items-center gap-2 border-b-2 px-4 py-2.5 text-sm font-semibold transition-colors",
+              "flex items-center gap-2 border-b-2 px-4 py-2.5 text-sm transition-colors",
               activeTab === "breakdown"
                 ? "border-accent text-accent"
                 : "border-transparent text-ink-dim hover:text-ink"
@@ -204,7 +204,7 @@ export function AnalyticsDashboard({ analytics }: AnalyticsDashboardProps) {
           <button
             onClick={() => setActiveTab("arcs")}
             className={cn(
-              "flex items-center gap-2 border-b-2 px-4 py-2.5 text-sm font-semibold transition-colors",
+              "flex items-center gap-2 border-b-2 px-4 py-2.5 text-sm transition-colors",
               activeTab === "arcs"
                 ? "border-accent text-accent"
                 : "border-transparent text-ink-dim hover:text-ink"
@@ -217,7 +217,7 @@ export function AnalyticsDashboard({ analytics }: AnalyticsDashboardProps) {
           <button
             onClick={() => setActiveTab("top")}
             className={cn(
-              "flex items-center gap-2 border-b-2 px-4 py-2.5 text-sm font-semibold transition-colors",
+              "flex items-center gap-2 border-b-2 px-4 py-2.5 text-sm transition-colors",
               activeTab === "top"
                 ? "border-accent text-accent"
                 : "border-transparent text-ink-dim hover:text-ink"
@@ -235,7 +235,7 @@ export function AnalyticsDashboard({ analytics }: AnalyticsDashboardProps) {
           <div className="grid gap-6 lg:grid-cols-3">
             {/* Overall Franchise Progress */}
             <div className="rounded-xl border border-slate-200 bg-surface p-6 shadow-card lg:col-span-2">
-              <h2 className="mb-4 flex items-center justify-between font-display text-base font-bold text-ink">
+              <h2 className="mb-4 flex items-center justify-between font-display text-base tracking-tight text-ink">
                 <span className="flex items-center gap-2">
                   <TrendingUp className="h-4 w-4 text-accent" />
                   Franchise Progress
@@ -256,19 +256,19 @@ export function AnalyticsDashboard({ analytics }: AnalyticsDashboardProps) {
                 <div className="grid grid-cols-2 gap-4 text-center sm:grid-cols-4 pt-2">
                   <div className="rounded-lg bg-slate-50 p-3 border border-slate-100">
                     <div className="text-xs text-ink-dim">Total Entries</div>
-                    <div className="font-display text-xl font-bold text-ink">{analytics.totalCatalogCount}</div>
+                    <div className="font-display text-xl text-ink">{analytics.totalCatalogCount}</div>
                   </div>
                   <div className="rounded-lg bg-slate-50 p-3 border border-slate-100">
                     <div className="text-xs text-ink-dim">Unique Watched</div>
-                    <div className="font-display text-xl font-bold text-ink">{analytics.watchedCount + analytics.rewatchedCount}</div>
+                    <div className="font-display text-xl text-ink">{analytics.watchedCount + analytics.rewatchedCount}</div>
                   </div>
                   <div className="rounded-lg bg-slate-50 p-3 border border-slate-100">
                     <div className="text-xs text-ink-dim">Rewatched</div>
-                    <div className="font-display text-xl font-bold text-ink">{analytics.rewatchedCount}</div>
+                    <div className="font-display text-xl text-ink">{analytics.rewatchedCount}</div>
                   </div>
                   <div className="rounded-lg bg-slate-50 p-3 border border-slate-100">
                     <div className="text-xs text-ink-dim">Completed Arcs</div>
-                    <div className="font-display text-xl font-bold text-ink">{completedArcsCount}</div>
+                    <div className="font-display text-xl text-ink">{completedArcsCount}</div>
                   </div>
                 </div>
               </div>
@@ -276,7 +276,7 @@ export function AnalyticsDashboard({ analytics }: AnalyticsDashboardProps) {
 
             {/* Rating Distribution */}
             <div className="rounded-xl border border-slate-200 bg-surface p-6 shadow-card">
-              <h2 className="mb-4 flex items-center gap-2 font-display text-base font-bold text-ink">
+              <h2 className="mb-4 flex items-center gap-2 font-display text-base tracking-tight text-ink">
                 <Star className="h-4 w-4 text-ink-dim" />
                 Rating Breakdown
               </h2>
@@ -314,7 +314,7 @@ export function AnalyticsDashboard({ analytics }: AnalyticsDashboardProps) {
           <div className="grid gap-6 lg:grid-cols-2">
             {/* Release Years */}
             <div className="flex flex-col rounded-xl border border-slate-200 bg-surface p-6 shadow-card">
-              <h2 className="mb-4 flex items-center justify-between font-display text-base font-bold text-ink">
+              <h2 className="mb-4 flex items-center justify-between font-display text-base tracking-tight text-ink">
                 <span className="flex items-center gap-2">
                   <Calendar className="h-4 w-4 text-ink-dim" />
                   Watched by Release Year
@@ -332,7 +332,7 @@ export function AnalyticsDashboard({ analytics }: AnalyticsDashboardProps) {
                     const maxViews = Math.max(1, ...analytics.perYear.map((y) => y.views))
                     return (
                       <div key={row.year} className="flex items-center gap-3">
-                        <span className="w-12 shrink-0 font-mono text-xs font-medium text-ink">
+                        <span className="w-12 shrink-0 font-mono text-xs text-ink">
                           {row.year}
                         </span>
                         <div className="flex-1">
@@ -355,7 +355,7 @@ export function AnalyticsDashboard({ analytics }: AnalyticsDashboardProps) {
 
             {/* Recently Watched Logs */}
             <div className="rounded-xl border border-slate-200 bg-surface p-6 shadow-card">
-              <h2 className="mb-4 flex items-center justify-between font-display text-base font-bold text-ink">
+              <h2 className="mb-4 flex items-center justify-between font-display text-base tracking-tight text-ink">
                 <span className="flex items-center gap-2">
                   <Clock className="h-4 w-4 text-ink-dim" />
                   Recent Activity Logs
@@ -375,14 +375,14 @@ export function AnalyticsDashboard({ analytics }: AnalyticsDashboardProps) {
                       className="flex items-center justify-between gap-3 rounded-lg border border-slate-100 bg-slate-50/50 p-3"
                     >
                       <div className="min-w-0 flex-1">
-                        <p className="truncate text-sm font-semibold text-ink">{item.title}</p>
+                        <p className="truncate text-sm text-ink">{item.title}</p>
                         <p className="mt-0.5 flex items-center gap-2 font-mono text-xs text-ink-dim">
                           <span className="capitalize text-accent">{item.type.replace(/_/g, " ")}</span>
                           <span>·</span>
                           <span className="text-ink-faint">{timeAgo(item.updated_at)}</span>
                         </p>
                       </div>
-                      <span className="shrink-0 rounded bg-slate-200 px-2 py-0.5 font-mono text-[10px] font-medium text-slate-700">
+                      <span className="shrink-0 rounded bg-slate-200 px-2 py-0.5 font-mono text-[10px] text-slate-700">
                         {item.status === "rewatched" ? "Rewatched" : "Watched"}
                       </span>
                     </div>
@@ -410,14 +410,14 @@ export function AnalyticsDashboard({ analytics }: AnalyticsDashboardProps) {
                       <Icon className="h-5 w-5" />
                     </div>
                     <div>
-                      <h3 className="font-display text-base font-bold text-ink">{stat.label}</h3>
+                      <h3 className="font-display text-base tracking-tight text-ink">{stat.label}</h3>
                       <p className="font-mono text-xs text-ink-dim">
                         {stat.totalInCatalog} Total in Catalog
                       </p>
                     </div>
                   </div>
 
-                  <span className="font-mono text-sm font-bold text-accent">
+                  <span className="font-mono text-sm text-accent">
                     {stat.completionProgress}%
                   </span>
                 </div>
@@ -432,15 +432,15 @@ export function AnalyticsDashboard({ analytics }: AnalyticsDashboardProps) {
                 <div className="mt-4 grid grid-cols-3 gap-2 text-center text-xs">
                   <div className="rounded bg-slate-50 p-2 border border-slate-100">
                     <div className="font-mono text-ink-dim">Watched</div>
-                    <div className="font-bold text-ink mt-0.5">{stat.watched}</div>
+                    <div className="text-ink mt-0.5">{stat.watched}</div>
                   </div>
                   <div className="rounded bg-slate-50 p-2 border border-slate-100">
                     <div className="font-mono text-ink-dim">Rewatched</div>
-                    <div className="font-bold text-ink mt-0.5">{stat.rewatched}</div>
+                    <div className="text-ink mt-0.5">{stat.rewatched}</div>
                   </div>
                   <div className="rounded bg-slate-50 p-2 border border-slate-100">
                     <div className="font-mono text-ink-dim">Total Views</div>
-                    <div className="font-bold text-ink mt-0.5">{stat.totalViews}</div>
+                    <div className="text-ink mt-0.5">{stat.totalViews}</div>
                   </div>
                 </div>
               </div>
@@ -479,10 +479,10 @@ export function AnalyticsDashboard({ analytics }: AnalyticsDashboardProps) {
                 >
                   <div>
                     <div className="flex items-start justify-between gap-2">
-                      <h3 className="font-display text-base font-bold text-ink">{arc.title}</h3>
+                      <h3 className="font-display text-base tracking-tight text-ink">{arc.title}</h3>
                       <span
                         className={cn(
-                          "shrink-0 rounded px-2 py-0.5 font-mono text-[10px] font-semibold border",
+                          "shrink-0 rounded px-2 py-0.5 font-mono text-[10px] border",
                           isComplete
                             ? "bg-emerald-50 text-emerald-700 border-emerald-200"
                             : isInProgress
@@ -508,7 +508,7 @@ export function AnalyticsDashboard({ analytics }: AnalyticsDashboardProps) {
                       <span className="font-mono text-ink-dim">
                         {arc.watched} / {arc.total} Solved
                       </span>
-                      <span className="font-mono font-bold text-ink">{arc.progress}%</span>
+                      <span className="font-mono text-ink">{arc.progress}%</span>
                     </div>
                     <div className="h-2 w-full overflow-hidden rounded-full bg-slate-100">
                       <div
@@ -532,7 +532,7 @@ export function AnalyticsDashboard({ analytics }: AnalyticsDashboardProps) {
         <div className="space-y-8">
           {/* Favorites */}
           <div>
-            <h2 className="mb-4 flex items-center gap-2 font-display text-lg font-bold text-ink">
+            <h2 className="mb-4 flex items-center gap-2 font-display text-lg tracking-tight text-ink">
               <Heart className="h-5 w-5 text-accent fill-accent" />
               Favorited Case Files ({analytics.favorites.length})
             </h2>
@@ -557,7 +557,7 @@ export function AnalyticsDashboard({ analytics }: AnalyticsDashboardProps) {
                     className="group flex items-center justify-between rounded-xl border border-slate-200 bg-surface p-4 transition-all hover:border-accent/40 shadow-card"
                   >
                     <div className="min-w-0 flex-1">
-                      <p className="truncate text-sm font-semibold text-ink group-hover:text-accent">
+                      <p className="truncate text-sm text-ink group-hover:text-accent">
                         {fav.title}
                       </p>
                       <p className="mt-0.5 font-mono text-xs text-ink-dim">
@@ -579,7 +579,7 @@ export function AnalyticsDashboard({ analytics }: AnalyticsDashboardProps) {
           <div className="grid gap-6 lg:grid-cols-2">
             {/* Top Rated */}
             <div className="rounded-xl border border-slate-200 bg-surface p-6 shadow-card">
-              <h2 className="mb-4 flex items-center justify-between font-display text-base font-bold text-ink">
+              <h2 className="mb-4 flex items-center justify-between font-display text-base tracking-tight text-ink">
                 <span className="flex items-center gap-2">
                   <Star className="h-4 w-4 text-ink-dim" />
                   Top Rated Cases
@@ -596,17 +596,17 @@ export function AnalyticsDashboard({ analytics }: AnalyticsDashboardProps) {
                       className="flex items-center justify-between gap-3 rounded-lg border border-slate-100 bg-slate-50/50 p-3"
                     >
                       <div className="flex items-center gap-3 min-w-0">
-                        <span className="font-mono text-xs font-bold text-ink-dim">
+                        <span className="font-mono text-xs text-ink-dim">
                           #{idx + 1}
                         </span>
                         <div className="min-w-0">
-                          <p className="truncate text-sm font-semibold text-ink">{item.title}</p>
+                          <p className="truncate text-sm text-ink">{item.title}</p>
                           <p className="font-mono text-xs text-ink-dim capitalize">
                             {item.type.replace(/_/g, " ")}
                           </p>
                         </div>
                       </div>
-                      <span className="shrink-0 font-mono text-sm font-bold text-ink">
+                      <span className="shrink-0 font-mono text-sm text-ink">
                         {(item.rating / 2).toFixed(1)} ★
                       </span>
                     </div>
@@ -617,7 +617,7 @@ export function AnalyticsDashboard({ analytics }: AnalyticsDashboardProps) {
 
             {/* Most Rewatched */}
             <div className="rounded-xl border border-slate-200 bg-surface p-6 shadow-card">
-              <h2 className="mb-4 flex items-center justify-between font-display text-base font-bold text-ink">
+              <h2 className="mb-4 flex items-center justify-between font-display text-base tracking-tight text-ink">
                 <span className="flex items-center gap-2">
                   <RefreshCw className="h-4 w-4 text-ink-dim" />
                   Most Rewatched Cases
@@ -634,17 +634,17 @@ export function AnalyticsDashboard({ analytics }: AnalyticsDashboardProps) {
                       className="flex items-center justify-between gap-3 rounded-lg border border-slate-100 bg-slate-50/50 p-3"
                     >
                       <div className="flex items-center gap-3 min-w-0">
-                        <span className="font-mono text-xs font-bold text-ink-dim">
+                        <span className="font-mono text-xs text-ink-dim">
                           #{idx + 1}
                         </span>
                         <div className="min-w-0">
-                          <p className="truncate text-sm font-semibold text-ink">{item.title}</p>
+                          <p className="truncate text-sm text-ink">{item.title}</p>
                           <p className="font-mono text-xs text-ink-dim capitalize">
                             {item.type.replace(/_/g, " ")}
                           </p>
                         </div>
                       </div>
-                      <span className="shrink-0 font-mono text-xs font-semibold text-ink">
+                      <span className="shrink-0 font-mono text-xs text-ink">
                         ×{item.watch_count} views
                       </span>
                     </div>
