@@ -6,6 +6,8 @@ import {
   PlayCircle,
   ArrowRight,
   Compass,
+  Clock,
+  Users,
 } from "lucide-react"
 import {
   SERIES_PREMISE,
@@ -100,14 +102,15 @@ export default async function ArcsPage() {
             Episode ranges use the original Japanese numbering.
           </p>
 
-          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+          <ol className="relative space-y-4 border-l border-slate-200 pl-6">
             {STORY_ARCS.map((arc) => {
               const progress = progressBySlug.get(arc.slug)!
               return (
+              <li key={arc.slug} className="relative">
+                <span className="absolute -left-[31px] top-5 h-3 w-3 rounded-full border-2 border-accent bg-surface" />
                 <Link
-                  key={arc.slug}
                   href={`/arcs/${arc.slug}`}
-                  className="group flex flex-col rounded-lg border border-slate-200 bg-surface p-5 shadow-card transition-colors hover:border-slate-300 hover:bg-surface-muted"
+                  className="group block rounded-lg border border-slate-200 bg-surface p-5 shadow-card transition-colors hover:border-slate-300 hover:bg-surface-muted"
                 >
                   <div className="flex flex-wrap items-center gap-2">
                     <span className="font-mono text-xs text-ink-faint">
@@ -136,9 +139,12 @@ export default async function ArcsPage() {
                   <p className="mt-1 text-sm font-medium text-accent">
                     {arc.tagline}
                   </p>
+                  <p className="mt-2 line-clamp-2 text-sm text-ink-dim">
+                    {arc.summary}
+                  </p>
 
                   {/* Live per-arc progress */}
-                  <div className="mt-auto pt-3">
+                  <div className="mt-3">
                     <div className="flex items-center justify-between mb-1">
                       <span className="font-mono text-[10px] text-ink-faint">
                         {signedIn
@@ -156,10 +162,26 @@ export default async function ArcsPage() {
                       />
                     </div>
                   </div>
+
+                  <div className="mt-3 flex items-center gap-4 text-xs text-ink-faint">
+                    <span className="flex items-center gap-1">
+                      <Clock className="h-3.5 w-3.5" />
+                      {arc.years}
+                    </span>
+                    <span className="flex items-center gap-1">
+                      <Users className="h-3.5 w-3.5" />
+                      {arc.keyCharacters.length} key figures
+                    </span>
+                    <span className="flex items-center gap-1">
+                      <PlayCircle className="h-3.5 w-3.5" />
+                      {arc.highlights.length} landmark eps
+                    </span>
+                  </div>
                 </Link>
+              </li>
               )
             })}
-          </div>
+          </ol>
         </section>
 
         {/* Recurring threads */}
