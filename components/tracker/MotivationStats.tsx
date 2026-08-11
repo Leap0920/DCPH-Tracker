@@ -1,6 +1,6 @@
 "use client"
 
-import { useMemo } from "react"
+import { useMemo, useState } from "react"
 import { motion } from "framer-motion"
 import {
   BookOpen,
@@ -128,7 +128,28 @@ export function MotivationStats({ entries, userStatuses, userName }: MotivationS
   const personal = useMemo(() => computePersonalStats(entries, userStatuses), [entries, userStatuses])
   const hasUser = typeof userName === "string" && userName.length > 0
 
-  // "At 3 eps/day you'll finish by {date}"
+  // User-adjustable eps-per-day rate for the finish projection, persisted client-side.
+  const [ratePerDay, setRatePerDay] = useState<number>(() => {
+    if (typeof window === "undefined") return DEFAULT_RATE_PER_DAY
+    const saved = Number(window.localStorage.getItem("dcph-eps-per-day"))
+    return Number.isFinite(saved) && saved >= 1 && saved <= 50 ? saved : DEFAULT_RATE_PER_DAY
+  })
+
+  const handleRateChange = (raw: string) => {
+    const value = Number(raw)
+    if (raw === "") {
+      setRatePerDay(DEFAULT_RATE_PER_DAY)
+      return
+    }
+    if (!Number.isFinite(value)) return
+    const clamped = Math.min(50, Math.max(1, value))
+    setRatePerDay(clamped)
+    if (typeof window !== "undefined") {
+      window.localStorage.setItem("dcph-eps-per-day", String(clamped))
+    }
+  }
+
+  // "At N eps/day you'll finish by {date}"
   const finishDate = useMemo(() => {
     const isWatched = (e: ContentEntry) => {
       const s = userStatuses?.get(e.id)
@@ -138,8 +159,8 @@ export function MotivationStats({ entries, userStatuses, userName }: MotivationS
       0,
       series.episodes - entries.filter((e) => isWatched(e) && e.type === "episode").length
     )
-    return computeProjection(remainingEpisodes)
-  }, [series.episodes, entries, userStatuses])
+    return computeProjection(remainingEpisodes, ratePerDay)
+  }, [series.episodes, entries, userStatuses, ratePerDay])
 
   // Next milestone callout: first of 25/50/75/100 above the current %
   const nextMilestone = [25, 50, 75, 100].find((m) => personal.percent < m) ?? null
@@ -270,9 +291,29 @@ export function MotivationStats({ entries, userStatuses, userName }: MotivationS
         ) : finishDate ? (
           <>
             <div className="text-center py-3">
-              <p className="font-mono text-[10px] text-ink-faint mb-1">
-                At {DEFAULT_RATE_PER_DAY} eps/day you&apos;ll finish by
-              </p>
+              <div className="flex items-center justify-center gap-1.5 mb-1.5">
+                <label
+                  htmlFor="finish-rate"
+                  className="font-mono text-[10px] text-ink-faint"
+                >
+                  At
+                </label>
+                <input
+                  id="finish-rate"
+                  type="number"
+                  min={1}
+                  max={50}
+                  value={ratePerDay}
+                  onChange={(e) => handleRateChange(e.target.value)}
+                  className="w-14 h-7 rounded-md border border-slate-200 bg-surface-muted px-2 text-center text-xs text-ink font-mono focus:outline-none focus:ring-2 focus:ring-accent/20 focus:border-accent"
+                />
+                <label
+                  htmlFor="finish-rate"
+                  className="font-mono text-[10px] text-ink-faint"
+                >
+                  eps/day you&apos;ll finish by
+                </label>
+              </div>
               <p className="font-display text-2xl text-ink">{formatDate(finishDate)}</p>
             </div>
             {nextMilestone !== null && (

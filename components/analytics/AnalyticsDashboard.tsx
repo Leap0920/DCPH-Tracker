@@ -313,7 +313,7 @@ export function AnalyticsDashboard({ analytics }: AnalyticsDashboardProps) {
           {/* Timeline & Release Years */}
           <div className="grid gap-6 lg:grid-cols-2">
             {/* Release Years */}
-            <div className="rounded-xl border border-slate-200 bg-surface p-6 shadow-card">
+            <div className="flex flex-col rounded-xl border border-slate-200 bg-surface p-6 shadow-card">
               <h2 className="mb-4 flex items-center justify-between font-display text-base font-bold text-ink">
                 <span className="flex items-center gap-2">
                   <Calendar className="h-4 w-4 text-ink-dim" />
@@ -327,7 +327,7 @@ export function AnalyticsDashboard({ analytics }: AnalyticsDashboardProps) {
               {analytics.perYear.length === 0 ? (
                 <p className="py-12 text-center text-sm text-ink-dim">No watch history by release year.</p>
               ) : (
-                <div className="max-h-80 overflow-y-auto pr-2 space-y-3 no-scrollbar">
+                <div className="flex flex-1 flex-col justify-between gap-4">
                   {analytics.perYear.map((row) => {
                     const maxViews = Math.max(1, ...analytics.perYear.map((y) => y.views))
                     return (

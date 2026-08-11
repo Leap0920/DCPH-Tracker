@@ -33,6 +33,13 @@ import {
 } from "@/lib/constants"
 import type { Database } from "@/types/database.types"
 import { ContentCard } from "@/components/tracker/ContentCard"
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select"
 
 type ContentEntry = Database["public"]["Tables"]["content_entries"]["Row"]
 
@@ -411,50 +418,66 @@ export function ContentGrid({
           />
         </div>
 
-        <div className="flex items-center gap-1.5 overflow-x-auto scrollbar-thin scrollbar-thumb-gray-300 scrollbar-track-transparent -mx-1 px-1">
-          {/* View mode toggle */}
-          <div className="flex shrink-0 rounded-md border border-slate-200 overflow-hidden">
-            {VIEW_MODE_OPTIONS.map((opt) => (
-              <button
-                key={opt.value}
-                onClick={() => {
-                  setMode(opt.value)
-                  onModeChange?.(opt.value)
-                }}
-                className={cn(
-                  "inline-flex items-center px-3 min-h-10 text-[11px] font-mono transition-colors",
-                  mode === opt.value
-                    ? "bg-gray-900 text-white"
-                    : "bg-surface text-ink-dim hover:text-ink"
-                )}
-              >
-                {opt.label}
-              </button>
-            ))}
-          </div>
-
-          <span className="h-4 w-px bg-gray-200 mx-1 shrink-0" />
-
-          {/* Status filter pills */}
-          <FilterPill
-            label="All"
-            active={statusFilter === "all"}
-            onClick={() => {
-              setStatusFilter("all")
-              onStatusFilterChange?.("all")
+        {/* Dropdown filters: view mode / status / type */}
+        <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
+          <Select
+            value={mode}
+            onValueChange={(v) => {
+              setMode(v as ViewMode)
+              onModeChange?.(v as ViewMode)
             }}
-          />
-          {(Object.keys(WATCH_STATUS_LABELS) as WatchStatus[]).map((s) => (
-            <FilterPill
-              key={s}
-              label={WATCH_STATUS_LABELS[s]}
-              active={statusFilter === s}
-              onClick={() => {
-                setStatusFilter(s)
-                onStatusFilterChange?.(s)
-              }}
-            />
-          ))}
+          >
+            <SelectTrigger className="h-9 text-xs font-mono">
+              <SelectValue placeholder="View mode" />
+            </SelectTrigger>
+            <SelectContent>
+              {VIEW_MODE_OPTIONS.map((opt) => (
+                <SelectItem key={opt.value} value={opt.value}>
+                  {opt.label}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+
+          <Select
+            value={statusFilter}
+            onValueChange={(v) => {
+              setStatusFilter(v as StatusFilter)
+              onStatusFilterChange?.(v as StatusFilter)
+            }}
+          >
+            <SelectTrigger className="h-9 text-xs font-mono">
+              <SelectValue placeholder="Status" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">All</SelectItem>
+              {(Object.keys(WATCH_STATUS_LABELS) as WatchStatus[]).map((s) => (
+                <SelectItem key={s} value={s}>
+                  {WATCH_STATUS_LABELS[s]}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+
+          <Select
+            value={typeFilter}
+            onValueChange={(v) => {
+              setTypeFilter(v as ContentType | "all")
+              onTypeChange?.(v as ContentType | "all")
+            }}
+          >
+            <SelectTrigger className="h-9 text-xs font-mono col-span-2 sm:col-span-1">
+              <SelectValue placeholder="Type" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">All</SelectItem>
+              {pillTypes.map((t) => (
+                <SelectItem key={t} value={t}>
+                  {CONTENT_TYPE_LABELS[t]}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
         </div>
 
         {/* Jump-to-episode + mark-up-to-N */}
@@ -511,29 +534,6 @@ export function ContentGrid({
 
           {jumpError && <span className="text-[11px] text-red-600">{jumpError}</span>}
           {markError && <span className="text-[11px] text-red-600">{markError}</span>}
-        </div>
-
-        {/* Type filter pills */}
-        <div className="flex items-center gap-1.5 overflow-x-auto scrollbar-thin scrollbar-thumb-gray-300 scrollbar-track-transparent -mx-1 px-1">
-          <FilterPill
-            label="All"
-            active={typeFilter === "all"}
-            onClick={() => {
-              setTypeFilter("all")
-              onTypeChange?.("all")
-            }}
-          />
-          {pillTypes.map((t) => (
-            <FilterPill
-              key={t}
-              label={CONTENT_TYPE_LABELS[t]}
-              active={typeFilter === t}
-              onClick={() => {
-                setTypeFilter(typeFilter === t ? "all" : t)
-                onTypeChange?.(typeFilter === t ? "all" : t)
-              }}
-            />
-          ))}
         </div>
       </div>
 
@@ -829,30 +829,6 @@ function Section({
 }
 
 /* ──────────────────────── Small helpers ──────────────────────── */
-
-function FilterPill({
-  label,
-  active,
-  onClick,
-}: {
-  label: string
-  active: boolean
-  onClick: () => void
-}) {
-  return (
-    <button
-      onClick={onClick}
-      className={cn(
-        "shrink-0 inline-flex items-center min-h-10 px-3.5 rounded-full text-[11px] font-mono transition-colors border",
-        active
-          ? "bg-gray-900 text-white border-gray-900"
-          : "bg-surface text-ink-dim border-slate-200 hover:text-ink hover:border-slate-300"
-      )}
-    >
-      {label}
-    </button>
-  )
-}
 
 function Detail({ term, value }: { term: string; value: string }) {
   return (
