@@ -20,7 +20,7 @@ import {
 import { computeArcProgress, getArcProgressData } from "@/lib/arcs-progress"
 
 export const metadata = {
-  title: "Story Arcs & Watch Guide — Detective Conan PH",
+  title: "Story Arcs & Watch Guide · Detective Conan PH",
   description:
     "The full Detective Conan main plot from Season 1 to the latest episode, plus a newcomer watch guide.",
 }
@@ -38,15 +38,15 @@ export default async function ArcsPage() {
       <div className="mx-auto max-w-5xl">
         {/* Header */}
         <div className="mb-6 flex items-center gap-3">
-          <span className="case-number">FILE NO. 004 — STORY ARCS</span>
+          <span className="case-number">FILE NO. 004 STORY ARCS</span>
           <span className="redacted-bar w-16" />
         </div>
         <h1 className="font-display text-3xl sm:text-4xl tracking-tight text-ink">
           Story Arcs &amp; Watch Guide
         </h1>
         <p className="mt-2 max-w-2xl text-ink-dim">
-          The full main plot of Detective Conan — from Season 1 to the latest
-          episode — and how to actually watch it without drowning in 1,100+
+          The full main plot of Detective Conan from Season 1 to the latest
+          episode and how to actually watch it without drowning in 1,100+
           episodes.
         </p>
 
@@ -94,7 +94,7 @@ export default async function ArcsPage() {
           <div className="mb-4 flex items-center gap-2">
             <Layers className="h-5 w-5 text-accent" />
             <h2 className="font-display text-2xl tracking-tight text-ink">
-              The main plot — S1 to latest
+              The main plot: S1 to latest
             </h2>
           </div>
           <p className="mb-6 text-sm text-ink-dim">

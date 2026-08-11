@@ -45,7 +45,7 @@ export default async function ArcDetailPage({
         </Link>
 
         <div className="mb-6 flex items-center gap-3">
-          <span className="case-number">FILE NO. 004 — ARC {String(arc.order).padStart(2, "0")}</span>
+          <span className="case-number">FILE NO. 004 ARC {String(arc.order).padStart(2, "0")}</span>
           <span className="redacted-bar w-16" />
         </div>
 
@@ -116,7 +116,7 @@ export default async function ArcDetailPage({
               </Link>
             ) : signedIn && nextEpisode === null ? (
               <span className="text-xs font-mono text-green-600">
-                Arc complete — nice work!
+                Arc complete! Nice work!
               </span>
             ) : (
               <Link
