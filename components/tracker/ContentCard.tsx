@@ -67,7 +67,7 @@ export function ContentCard({
   const starValue = Math.round(rating / 2)
 
   const displayNumber = entry.type === "movie"
-    ? `MOV ${padNumber(entry.movie_number ?? 0)}`
+    ? "MOVIE"
     : entry.type === "episode"
       ? `EP ${padNumber(entry.episode_number ?? 0)}`
       : entry.type.toUpperCase()
@@ -82,7 +82,9 @@ export function ContentCard({
           : "border-slate-200 hover:shadow-md"
       )}
     >
-      <span className="absolute top-2 right-2 z-10 bg-gray-900 text-white text-[10px] font-mono px-2 py-0.5 rounded">{displayNumber}</span>
+      {entry.type !== "movie" && (
+        <span className="absolute top-2 right-2 z-10 bg-gray-900 text-white text-[10px] font-mono px-2 py-0.5 rounded">{displayNumber}</span>
+      )}
 
       {/* Rewatch count badge */}
       {watchCount > 1 && (

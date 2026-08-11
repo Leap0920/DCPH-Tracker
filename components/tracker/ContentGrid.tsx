@@ -682,12 +682,10 @@ export function ContentGrid({
                                 Japanese Title (Rōmaji)
                               </th>
                               <th className="px-2 py-2">Release Year</th>
-                              <th className="w-12 px-4 py-2">Status</th>
                             </tr>
                           </thead>
                           <tbody>
                             {mainlineMatches.map(({ movie, entry }) => {
-                              const watched = entry !== null && isWatched(entry)
                               return (
                                 <tr
                                   key={movie.number}
@@ -709,25 +707,6 @@ export function ContentGrid({
                                   </td>
                                   <td className="px-2 py-2.5 font-mono text-xs text-ink-dim">
                                     {movie.year}
-                                  </td>
-                                  <td className="px-4 py-2.5">
-                                    {entry ? (
-                                      <button
-                                        onClick={() =>
-                                          onToggleStatus?.(entry.id, getStatusForEntry(entry.id))
-                                        }
-                                        title={watched ? "Mark unwatched" : "Mark watched"}
-                                        className={
-                                          watched
-                                            ? "inline-flex h-7 w-7 items-center justify-center rounded-full bg-gray-900 text-white transition-colors hover:bg-gray-700"
-                                            : "inline-flex h-7 w-7 items-center justify-center rounded-full border border-slate-300 text-transparent transition-colors hover:border-gray-900 hover:text-ink-faint"
-                                        }
-                                      >
-                                        <Check className="h-3.5 w-3.5" />
-                                      </button>
-                                    ) : (
-                                      <span className="font-mono text-xs text-ink-faint">—</span>
-                                    )}
                                   </td>
                                 </tr>
                               )
