@@ -114,69 +114,69 @@ export function HeroSection() {
         </div>
 
         {/* Left-aligned content above the image */}
-        <div className="relative z-10 flex flex-col items-start w-full max-w-3xl">
-        {/* Animated container for Logo and Main Heading */}
-        <AnimatePresence>
-          {typingCompleted && (
-            <motion.div
-              initial={{ opacity: 0, y: -60 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ duration: 0.9, ease: [0.16, 1, 0.3, 1] }}
-              className="flex flex-col items-center"
-            >
-              {/* Logo and Title in same row */}
-              <div className="flex items-center gap-3 mb-6">
-                <img
-                  src="/img/logo_DCPH.png"
-                  alt="Detective Conan PH Logo"
-                  className="h-10 w-auto object-contain drop-shadow-card hover:scale-105 transition-transform duration-300 pointer-events-none"
-                />
-                <h1 className="text-sm sm:text-base font-display font-semibold tracking-widest text-ink leading-tight">
-                  Detective Conan PH: Anime and Manga
-                </h1>
-              </div>
-            </motion.div>
-          )}
-        </AnimatePresence>
+        <div className="relative z-10 flex flex-col items-start w-full max-w-3xl -mt-12 sm:-mt-24">
+          {/* Animated container for Logo and Main Heading */}
+          <AnimatePresence>
+            {typingCompleted && (
+              <motion.div
+                initial={{ opacity: 0, y: -60 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ duration: 0.9, ease: [0.16, 1, 0.3, 1] }}
+                className="flex flex-col items-center"
+              >
+                {/* Logo and Title in same row */}
+                <div className="flex items-center gap-3 mb-6">
+                  <img
+                    src="/img/logo_DCPH.png"
+                    alt="Detective Conan PH Logo"
+                    className="h-10 w-auto object-contain drop-shadow-card hover:scale-105 transition-transform duration-300 pointer-events-none"
+                  />
+                  <h1 className="text-sm sm:text-base font-display font-semibold tracking-widest text-ink leading-tight">
+                    Detective Conan PH: Anime and Manga
+                  </h1>
+                </div>
+              </motion.div>
+            )}
+          </AnimatePresence>
 
-        {/* Subtitle / Typewriter block */}
-        <div className="min-h-16 flex items-center justify-start mt-4 mb-10">
-          <p className="font-body text-ink max-w-5xl font-medium">
-            {renderTypedText(typedText)}
-            {/* Blinking typewriter cursor */}
-            <motion.span
-              animate={{ opacity: [1, 0] }}
-              transition={{ duration: 0.8, repeat: Infinity, repeatType: "reverse" }}
-              className="inline-block w-[3px] h-[1.1em] bg-gray-900 ml-1.5 align-middle"
-            />
-          </p>
-        </div>
+          {/* Subtitle / Typewriter block */}
+          <div className="min-h-16 flex items-center justify-start mt-4 mb-10">
+            <p className="font-body text-ink max-w-5xl font-medium">
+              {renderTypedText(typedText)}
+              {/* Blinking typewriter cursor */}
+              <motion.span
+                animate={{ opacity: [1, 0] }}
+                transition={{ duration: 0.8, repeat: Infinity, repeatType: "reverse" }}
+                className="inline-block w-[3px] h-[1.1em] bg-gray-900 ml-1.5 align-middle"
+              />
+            </p>
+          </div>
 
-        {/* CTA Buttons — always visible, not gated behind the typewriter */}
-        <motion.div
-          initial={{ opacity: 0, y: 30 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.7, delay: 0.3, ease: [0.16, 1, 0.3, 1] }}
-          className="flex flex-col sm:flex-row items-start gap-4"
-        >
-          <a href="/tracker">
-            <Button
-              size="lg"
-              className="bg-gray-950 hover:bg-gray-800 text-white px-8 h-11 text-sm font-semibold rounded-full shadow-md hover:shadow-lg transition-all hover:scale-[1.02]"
-            >
-              Track Now
-              <ArrowRight className="ml-2 h-4 w-4" />
-            </Button>
-          </a>
-          <Button
-            variant="outline"
-            size="lg"
-            onClick={scrollToContent}
-            className="border-slate-300 hover:border-slate-300 bg-surface hover:bg-surface-muted text-ink-dim hover:text-ink px-8 h-11 text-sm font-semibold rounded-full transition-all"
+          {/* CTA Buttons — always visible, not gated behind the typewriter */}
+          <motion.div
+            initial={{ opacity: 0, y: 30 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.7, delay: 0.3, ease: [0.16, 1, 0.3, 1] }}
+            className="flex flex-col sm:flex-row items-start gap-4"
           >
-            Explore Now
-          </Button>
-        </motion.div>
+            <a href="/tracker">
+              <Button
+                size="lg"
+                className="bg-gray-950 hover:bg-gray-800 text-white px-8 h-11 text-sm font-semibold rounded-full shadow-md hover:shadow-lg transition-all hover:scale-[1.02]"
+              >
+                Track Now
+                <ArrowRight className="ml-2 h-4 w-4" />
+              </Button>
+            </a>
+            <Button
+              variant="outline"
+              size="lg"
+              onClick={scrollToContent}
+              className="border-slate-300 hover:border-slate-300 bg-surface hover:bg-surface-muted text-ink-dim hover:text-ink px-8 h-11 text-sm font-semibold rounded-full transition-all"
+            >
+              Explore Now
+            </Button>
+          </motion.div>
         </div>
 
         {/* Scroll indicator at the bottom of the banner */}
