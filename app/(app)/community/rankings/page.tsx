@@ -1,7 +1,8 @@
 import Link from "next/link"
 import { Trophy, LogIn, ArrowRight } from "lucide-react"
 import { createClient } from "@/utils/supabase/server"
-import { getRankings } from "@/lib/queries/leaderboard"
+import { getRankings, getUserGlobalRank } from "@/lib/queries/leaderboard"
+import { getDetectiveRank } from "@/lib/ranks"
 import { RankingsBoard } from "@/components/community/RankingsBoard"
 import { Button } from "@/components/ui/button"
 
@@ -27,11 +28,13 @@ export default async function RankingsPage() {
   if (currentUserId && !you) {
     const { data: watched } = await supabase
       .from("watch_status")
-      .select("user_id, content_entries(runtime_minutes)")
+      .select("user_id, status, watch_count, content_entries(runtime_minutes)")
       .in("status", ["watched", "rewatched"])
       .eq("user_id", currentUserId)
     if (watched && watched.length > 0) {
       const count = watched.length
+      const rewatched = watched.filter((w) => w.status === "rewatched").length
+      const views = watched.reduce((acc, w) => acc + (w.watch_count ?? 0), 0)
       const minutes = watched.reduce(
         (acc, w) => acc + ((w.content_entries as { runtime_minutes: number | null } | null)?.runtime_minutes ?? 0),
         0
@@ -42,6 +45,8 @@ export default async function RankingsPage() {
         .eq("user_id", currentUserId)
         .single()
       if (profile) {
+        const globalRank = await getUserGlobalRank(currentUserId, count, minutes)
+        const detectiveRank = getDetectiveRank(count)
         you = {
           user_id: currentUserId,
           username: profile.username,
@@ -49,7 +54,10 @@ export default async function RankingsPage() {
           avatar_url: profile.avatar_url,
           watched_count: count,
           total_minutes: minutes,
-          rank: 0,
+          rewatched_count: rewatched,
+          total_views: views,
+          detectiveRank: { title: detectiveRank.title, level: detectiveRank.level },
+          rank: globalRank ?? 0,
         }
       }
     }
@@ -90,6 +98,9 @@ export default async function RankingsPage() {
                     </span>
                   )}
                 </p>
+                <span className="mt-1 inline-block rounded-md bg-accent/10 px-1.5 py-0.5 font-mono text-[10px] text-accent">
+                  {getDetectiveRank(you.watched_count).title}
+                </span>
               </div>
               <Link href={`/profile/${you.username}`}>
                 <Button variant="outline" size="sm" className="rounded-lg border-slate-200">
@@ -138,7 +149,7 @@ export default async function RankingsPage() {
         </div>
 
         <div className="mt-8">
-          <RankingsBoard rankings={rankings} currentUserId={currentUserId} />
+          <RankingsBoard rankings={rankings} currentUserId={currentUserId} you={you} />
         </div>
       </div>
     </div>

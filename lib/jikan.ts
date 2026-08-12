@@ -187,9 +187,12 @@ export async function getAllEpisodes(
 ): Promise<JikanEpisode[]> {
   const allEpisodes: JikanEpisode[] = []
   let page = 1
+  // Bound the loop: a malformed pagination response from the API must never
+  // turn this into an infinite request stream.
+  const MAX_PAGES = 200
   let hasNextPage = true
 
-  while (hasNextPage) {
+  while (hasNextPage && page <= MAX_PAGES) {
     const response = await getEpisodes(malId, page)
     allEpisodes.push(...response.data)
     hasNextPage = response.pagination.has_next_page

@@ -94,8 +94,6 @@ const SECTION_ORDER: {
   { type: "yaiba", icon: Swords },
 ]
 
-const MAX_EPISODE = 1209
-
 function getNumber(entry: ContentEntry): number {
   if (entry.type === "movie") return entry.movie_number ?? 0
   if (entry.type === "episode") return entry.episode_number ?? 0
@@ -141,6 +139,18 @@ export function ContentGrid({
   const flashTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
 
   const PAGE_SIZE = 30
+
+  // Highest episode number that actually exists in the tracker, so the
+  // "jump to" / "mark up to" UI never caps at a stale hardcoded ceiling.
+  const maxEpisode = useMemo(() => {
+    let max = 1209
+    for (const e of entries) {
+      if (e.type === "episode" && typeof e.episode_number === "number" && e.episode_number > max) {
+        max = e.episode_number
+      }
+    }
+    return max
+  }, [entries])
 
   function setPage(key: string, page: number) {
     setPages((prev) => ({ ...prev, [key]: page }))
@@ -297,8 +307,8 @@ export function ContentGrid({
 
   function handleJump(value: string) {
     const n = parseInt(value, 10)
-    if (!Number.isInteger(n) || n < 1 || n > MAX_EPISODE) {
-      setJumpError(`Enter an episode number between 1 and ${MAX_EPISODE}.`)
+    if (!Number.isInteger(n) || n < 1 || n > maxEpisode) {
+      setJumpError(`Enter an episode number between 1 and ${maxEpisode}.`)
       return
     }
     const ep = entries.find((e) => e.type === "episode" && e.episode_number === n)
@@ -338,7 +348,7 @@ export function ContentGrid({
 
   // External jump request (from the ?ep= URL param)
   useEffect(() => {
-    if (jumpTarget && Number.isInteger(jumpTarget) && jumpTarget >= 1 && jumpTarget <= MAX_EPISODE) {
+    if (jumpTarget && Number.isInteger(jumpTarget) && jumpTarget >= 1 && jumpTarget <= maxEpisode) {
       handleJump(String(jumpTarget))
       onJumped?.()
     }
@@ -347,8 +357,8 @@ export function ContentGrid({
 
   function handleMarkUpTo(value: string) {
     const n = parseInt(value, 10)
-    if (!Number.isInteger(n) || n < 1 || n > MAX_EPISODE) {
-      setMarkError(`Enter a valid episode number (1–${MAX_EPISODE}).`)
+    if (!Number.isInteger(n) || n < 1 || n > maxEpisode) {
+      setMarkError(`Enter a valid episode number (1–${maxEpisode}).`)
       return
     }
     if (!onMarkAll) return
@@ -488,7 +498,7 @@ export function ContentGrid({
             <input
               type="number"
               min={1}
-              max={MAX_EPISODE}
+              max={maxEpisode}
               placeholder="EP no."
               value={jumpInput}
               onChange={(e) => setJumpInput(e.target.value)}
@@ -513,7 +523,7 @@ export function ContentGrid({
             <input
               type="number"
               min={1}
-              max={MAX_EPISODE}
+              max={maxEpisode}
               placeholder="EP no."
               value={markInput}
               onChange={(e) => setMarkInput(e.target.value)}
