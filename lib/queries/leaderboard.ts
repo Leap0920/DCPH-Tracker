@@ -1,5 +1,18 @@
 import { createClient } from "@/utils/supabase/server"
 import type { Database } from "@/types/database.types"
+import { getDetectiveRank } from "@/lib/ranks"
+
+type WatchStatusRow = {
+  user_id: string
+  status: string
+  watch_count: number | null
+  content_entries: { runtime_minutes: number | null } | null
+}
+
+type WatchCountRow = {
+  user_id: string
+  content_entries: { runtime_minutes: number | null } | null
+}
 
 export interface RankingRow {
   user_id: string
@@ -8,6 +21,9 @@ export interface RankingRow {
   avatar_url: string | null
   watched_count: number
   total_minutes: number
+  rewatched_count: number
+  total_views: number
+  detectiveRank: { title: string; level: number }
   rank: number
 }
 
@@ -19,22 +35,33 @@ export interface RankingRow {
 export async function getRankings(limit = 100): Promise<RankingRow[]> {
   const supabase = await createClient()
 
-  const { data: watched, error } = await supabase
-    .from("watch_status")
-    .select("user_id, content_entries(runtime_minutes)")
-    .in("status", ["watched", "rewatched"])
+  // PostgREST caps each request at 1,000 rows; paginate so the leaderboard
+  // stays correct once the community has more than 1,000 watch rows.
+  const PAGE_SIZE = 1000
+  const watched: WatchStatusRow[] = []
+  for (let from = 0; ; from += PAGE_SIZE) {
+    const { data: chunk, error } = await supabase
+      .from("watch_status")
+      .select("user_id, status, watch_count, content_entries(runtime_minutes)")
+      .in("status", ["watched", "rewatched"])
+      .range(from, from + PAGE_SIZE - 1)
+    if (error) throw error
+    if (!chunk || chunk.length === 0) break
+    watched.push(...(chunk as WatchStatusRow[]))
+    if (chunk.length < PAGE_SIZE) break
+  }
+  if (watched.length === 0) return []
 
-  if (error) throw error
-  if (!watched || watched.length === 0) return []
-
-  const agg = new Map<string, { count: number; minutes: number }>()
+  const agg = new Map<string, { count: number; minutes: number; rewatched: number; views: number }>()
   for (const row of watched) {
     const uid = row.user_id
     const rel = row.content_entries as { runtime_minutes: number | null } | null
     const mins = rel?.runtime_minutes ?? 0
-    const cur = agg.get(uid) ?? { count: 0, minutes: 0 }
+    const cur = agg.get(uid) ?? { count: 0, minutes: 0, rewatched: 0, views: 0 }
     cur.count += 1
     cur.minutes += mins
+    if (row.status === "rewatched") cur.rewatched += 1
+    cur.views += row.watch_count ?? 0
     agg.set(uid, cur)
   }
 
@@ -48,7 +75,8 @@ export async function getRankings(limit = 100): Promise<RankingRow[]> {
 
   return (profiles ?? [])
     .map((p) => {
-      const a = agg.get(p.user_id) ?? { count: 0, minutes: 0 }
+      const a = agg.get(p.user_id) ?? { count: 0, minutes: 0, rewatched: 0, views: 0 }
+      const detectiveRank = getDetectiveRank(a.count)
       return {
         user_id: p.user_id,
         username: p.username,
@@ -56,6 +84,9 @@ export async function getRankings(limit = 100): Promise<RankingRow[]> {
         avatar_url: p.avatar_url,
         watched_count: a.count,
         total_minutes: a.minutes,
+        rewatched_count: a.rewatched,
+        total_views: a.views,
+        detectiveRank: { title: detectiveRank.title, level: detectiveRank.level },
         rank: 0,
       }
     })
@@ -65,4 +96,55 @@ export async function getRankings(limit = 100): Promise<RankingRow[]> {
     )
     .slice(0, limit)
     .map((r, i) => ({ ...r, rank: i + 1 }))
+}
+
+/**
+ * Global rank (1-based) for a single user, counting everyone whose
+ * (watched_count, total_minutes) sorts strictly above. Mirrors
+ * getRankings' ordering: watched_count desc, then total_minutes desc.
+ * Returns null when the user has no watch rows or the provided counts
+ * no longer match the live data.
+ */
+export async function getUserGlobalRank(
+  userId: string,
+  watchedCount: number,
+  minutes: number
+): Promise<number | null> {
+  const supabase = await createClient()
+
+  // PostgREST caps each request at 1,000 rows; paginate so the global rank
+  // stays correct once the community has more than 1,000 watch rows.
+  const PAGE_SIZE = 1000
+  const watched: WatchCountRow[] = []
+  for (let from = 0; ; from += PAGE_SIZE) {
+    const { data: chunk, error } = await supabase
+      .from("watch_status")
+      .select("user_id, content_entries(runtime_minutes)")
+      .in("status", ["watched", "rewatched"])
+      .range(from, from + PAGE_SIZE - 1)
+    if (error) throw error
+    if (!chunk || chunk.length === 0) break
+    watched.push(...(chunk as WatchCountRow[]))
+    if (chunk.length < PAGE_SIZE) break
+  }
+  if (watched.length === 0) return null
+
+  const counts = new Map<string, number>()
+  const minutesByUser = new Map<string, number>()
+  for (const row of watched) {
+    const uid = row.user_id
+    const rel = row.content_entries as { runtime_minutes: number | null } | null
+    const mins = rel?.runtime_minutes ?? 0
+    counts.set(uid, (counts.get(uid) ?? 0) + 1)
+    minutesByUser.set(uid, (minutesByUser.get(uid) ?? 0) + mins)
+  }
+
+  if ((counts.get(userId) ?? 0) !== watchedCount) return null
+
+  let above = 0
+  for (const [uid, c] of counts) {
+    if (c > watchedCount) above++
+    else if (c === watchedCount && (minutesByUser.get(uid) ?? 0) > minutes) above++
+  }
+  return above + 1
 }

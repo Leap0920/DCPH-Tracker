@@ -30,7 +30,6 @@ import {
 
 const VALID_TYPES = new Set<string>([CONTENT_TYPES.EPISODE, CONTENT_TYPES.MOVIE, CONTENT_TYPES.SPECIAL, CONTENT_TYPES.OVA, CONTENT_TYPES.LIVE_ACTION, CONTENT_TYPES.MAGIC_KAITO, CONTENT_TYPES.HANZAWA, CONTENT_TYPES.ZERO_TEA_TIME, CONTENT_TYPES.YAIBA])
 const VALID_STATUS = new Set<string>([WATCH_STATUSES.UNWATCHED, WATCH_STATUSES.WATCHED, WATCH_STATUSES.REWATCHED])
-const MAX_EPISODE = 1209
 
 function clampInt(value: string | null, min: number, max: number): number | null {
   if (!value) return null
@@ -53,7 +52,6 @@ function TrackerPageContent() {
   const typeParam = searchParams.get("type") ?? "all"
   const modeParam = searchParams.get("mode") ?? VIEW_MODES.YEAR
   const statusParam = searchParams.get("status") ?? "all"
-  const epParam = clampInt(searchParams.get("ep"), 1, MAX_EPISODE)
   const pageParam = clampInt(searchParams.get("page"), 1, 1000)
 
   const initialMode: ViewMode = modeParam === VIEW_MODES.CHRONOLOGICAL ? VIEW_MODES.CHRONOLOGICAL : VIEW_MODES.YEAR
@@ -104,6 +102,19 @@ function TrackerPageContent() {
   })
   const entries = contentQuery.data?.entries ?? []
   const arcMap = contentQuery.data?.arcMap ?? null
+
+  // Highest episode number that exists, so the ?ep= jump param is never
+  // rejected by a stale hardcoded ceiling.
+  const maxEpisode = (() => {
+    let max = 1209
+    for (const e of entries) {
+      if (e.type === "episode" && typeof e.episode_number === "number" && e.episode_number > max) {
+        max = e.episode_number
+      }
+    }
+    return max
+  })()
+  const epParam = clampInt(searchParams.get("ep"), 1, maxEpisode)
 
   const watchStatusQuery = useQuery({
     queryKey: queryKeys.watchStatus.all(user ?? ""),

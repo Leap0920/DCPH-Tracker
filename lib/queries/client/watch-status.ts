@@ -22,12 +22,28 @@ export interface UserWatchStatuses {
 export async function fetchUserWatchStatuses(userId: string): Promise<UserWatchStatuses> {
   const supabase = createClient()
 
-  const { data, error } = await supabase
-    .from("watch_status")
-    .select("content_id, status, watch_count, favorite, rating")
-    .eq("user_id", userId)
-
-  if (error) throw error
+  // PostgREST caps each request at 1,000 rows; paginate so power users with
+  // more than 1,000 watch-status rows don't silently lose tracker state.
+  const PAGE_SIZE = 1000
+  const rows: {
+    content_id: string
+    status: string
+    watch_count: number | null
+    favorite: boolean | null
+    rating: number | null
+  }[] = []
+  for (let from = 0; ; from += PAGE_SIZE) {
+    const { data: chunk, error: chunkErr } = await supabase
+      .from("watch_status")
+      .select("content_id, status, watch_count, favorite, rating")
+      .eq("user_id", userId)
+      .range(from, from + PAGE_SIZE - 1)
+    if (chunkErr) throw chunkErr
+    if (!chunk || chunk.length === 0) break
+    rows.push(...(chunk as typeof rows))
+    if (chunk.length < PAGE_SIZE) break
+  }
+  const data = rows
 
   const statuses = new Map<string, WatchStatus>()
   const counts = new Map<string, number>()

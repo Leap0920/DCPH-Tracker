@@ -257,15 +257,25 @@ async function syncAiring(
   supabase: SyncClient,
   dryRun: boolean
 ): Promise<SyncResult> {
-  // Current max episode we have.
-  const { data } = await supabase
-    .from("content_entries")
-    .select("episode_number")
-    .eq("type", "episode")
-  const nums = (data ?? [])
-    .map((d) => d.episode_number)
-    .filter((n): n is number => n !== null)
-  const dbMax = nums.length ? Math.max(...nums) : 0
+  // Current max episode we have. PostgREST caps each request at 1,000 rows,
+  // so paginate to avoid a truncated dbMax once DC has 1,000+ episodes.
+  const PAGE_SIZE = 1000
+  const nums: number[] = []
+  for (let from = 0; ; from += PAGE_SIZE) {
+    const { data: chunk, error: chunkErr } = await supabase
+      .from("content_entries")
+      .select("episode_number")
+      .eq("type", "episode")
+      .range(from, from + PAGE_SIZE - 1)
+    if (chunkErr) throw chunkErr
+    if (!chunk || chunk.length === 0) break
+    for (const d of chunk) {
+      if (typeof d.episode_number === "number") nums.push(d.episode_number)
+    }
+    if (chunk.length < PAGE_SIZE) break
+  }
+  let dbMax = 0
+  for (const n of nums) if (n > dbMax) dbMax = n
 
   // AniList: next scheduled episode; everything before it has aired.
   let latestAired = Number.MAX_SAFE_INTEGER

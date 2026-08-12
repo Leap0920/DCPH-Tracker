@@ -340,13 +340,19 @@ create unique index if not exists idx_leaderboard_user on leaderboard(user_id);
 -- RLS policies below still gate which rows each role can touch.
 -- ─────────────────────────────────────────────────────────────
 grant usage on schema public to anon, authenticated, service_role;
-grant all on all tables in schema public to anon, authenticated, service_role;
-grant all on all sequences in schema public to anon, authenticated, service_role;
-grant all on all functions in schema public to anon, authenticated, service_role;
+-- anon is read-only; all writes happen as authenticated (user sessions) or
+-- service_role (cron/admin), both of which retain full grants below.
+grant select on all tables in schema public to anon;
+grant all on all tables in schema public to authenticated, service_role;
+grant usage on all sequences in schema public to authenticated, service_role;
+grant execute on all functions in schema public to anon;
+grant all on all functions in schema public to authenticated, service_role;
 
-alter default privileges in schema public grant all on tables to anon, authenticated, service_role;
-alter default privileges in schema public grant all on sequences to anon, authenticated, service_role;
-alter default privileges in schema public grant all on functions to anon, authenticated, service_role;
+alter default privileges in schema public grant select on tables to anon;
+alter default privileges in schema public grant all on tables to authenticated, service_role;
+alter default privileges in schema public grant usage on sequences to authenticated, service_role;
+alter default privileges in schema public grant execute on functions to anon;
+alter default privileges in schema public grant all on functions to authenticated, service_role;
 
 -- ─────────────────────────────────────────────────────────────
 -- ROW LEVEL SECURITY
@@ -369,7 +375,8 @@ create policy "Profiles are publicly readable"
 
 drop policy if exists "Users can update own profile" on profiles;
 create policy "Users can update own profile"
-  on profiles for update using (auth.uid() = user_id);
+  on profiles for update using (auth.uid() = user_id)
+  with check (auth.uid() = user_id);
 
 drop policy if exists "Users can insert own profile" on profiles;
 create policy "Users can insert own profile"
