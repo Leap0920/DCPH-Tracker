@@ -16,6 +16,10 @@ export function HeroSection() {
     setIsAndroid(/android/i.test(navigator.userAgent))
   }, [])
 
+  // Measure the promo video's true aspect ratio so it shows the full scene (no crop) while staying rounded
+  const videoRef = useRef<HTMLVideoElement>(null)
+  const [videoAspect, setVideoAspect] = useState<number | null>(null)
+
   // Typewriter effect with a quick initial delay
   useEffect(() => {
     let index = 0
@@ -204,10 +208,11 @@ export function HeroSection() {
       {/* Hero media — Android banner image (full, natural size) on Android; scroll-driven video elsewhere */}
       <div
         ref={scrollRef}
+        style={!isAndroid ? { aspectRatio: videoAspect ? String(videoAspect) : "16 / 9" } : undefined}
         className={
           isAndroid
             ? "relative w-full overflow-hidden rounded-2xl z-10 mt-16 sm:mt-24"
-            : "relative w-full h-[45vh] supports-[height:100svh]:h-[45svh] sm:h-[75vh] sm:supports-[height:100svh]:h-[75svh] overflow-hidden rounded-2xl z-10 mt-16 sm:mt-24"
+            : "relative w-full overflow-hidden rounded-2xl z-10 mt-16 sm:mt-24 border-2 border-white/40"
         }
       >
         {isAndroid ? (
@@ -219,9 +224,14 @@ export function HeroSection() {
         ) : (
           <motion.div
             style={{ scale, opacity }}
-            className="absolute inset-y-0 inset-x-3 sm:inset-x-6 rounded-2xl overflow-hidden"
+            className="absolute inset-0 rounded-2xl overflow-hidden border-2 border-white/40"
           >
             <video
+              ref={videoRef}
+              onLoadedMetadata={(e) => {
+                const v = e.currentTarget
+                if (v.videoWidth && v.videoHeight) setVideoAspect(v.videoWidth / v.videoHeight)
+              }}
               src="/img/Banner.mp4"
               autoPlay
               loop
