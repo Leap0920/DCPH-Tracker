@@ -8,17 +8,12 @@ import { useEffect, useState, useCallback, useRef } from "react"
 export function HeroSection() {
   const [typedText, setTypedText] = useState("")
   const [typingCompleted, setTypingCompleted] = useState(false)
-  // Scroll-driven video transforms only apply on md+ screens — on phones the
-  // scale/border-radius animation causes layout jank and squished video.
-  const [isDesktop, setIsDesktop] = useState(false)
   const fullText = "Your ultimate Detective Conan tracking platform"
 
+  // Show the static Android banner on Android devices; keep the video everywhere else
+  const [isAndroid, setIsAndroid] = useState(false)
   useEffect(() => {
-    const mq = window.matchMedia("(min-width: 768px)")
-    setIsDesktop(mq.matches)
-    const handler = (e: MediaQueryListEvent) => setIsDesktop(e.matches)
-    mq.addEventListener("change", handler)
-    return () => mq.removeEventListener("change", handler)
+    setIsAndroid(/android/i.test(navigator.userAgent))
   }, [])
 
   // Typewriter effect with a quick initial delay
@@ -206,25 +201,37 @@ export function HeroSection() {
         </AnimatePresence>
       </div>
 
-      {/* Scroll-driven Video Section — fullscreen, fills the device viewport */}
+      {/* Hero media — Android banner image (full, natural size) on Android; scroll-driven video elsewhere */}
       <div
         ref={scrollRef}
-        className="relative w-full h-[100vh] supports-[height:100svh]:h-[100svh] overflow-hidden z-10 mt-16 sm:mt-24"
+        className={
+          isAndroid
+            ? "relative w-full overflow-hidden rounded-2xl z-10 mt-16 sm:mt-24"
+            : "relative w-full h-[45vh] supports-[height:100svh]:h-[45svh] sm:h-[75vh] sm:supports-[height:100svh]:h-[75svh] overflow-hidden rounded-2xl z-10 mt-16 sm:mt-24"
+        }
       >
-        <motion.div
-          style={isDesktop ? { scale, opacity } : undefined}
-          className="absolute inset-0"
-        >
-          <video
-            src="/img/Banner.mp4"
-            autoPlay
-            loop
-            muted
-            playsInline
-            controls={false}
-            className="w-full h-full object-cover pointer-events-none"
+        {isAndroid ? (
+          <img
+            src="/heroBanner-Android.jpg"
+            alt="Detective Conan PH"
+            className="w-full h-auto object-contain rounded-2xl"
           />
-        </motion.div>
+        ) : (
+          <motion.div
+            style={{ scale, opacity }}
+            className="absolute inset-y-0 inset-x-3 sm:inset-x-6 rounded-2xl overflow-hidden"
+          >
+            <video
+              src="/img/Banner.mp4"
+              autoPlay
+              loop
+              muted
+              playsInline
+              controls={false}
+              className="w-full h-full object-contain pointer-events-none rounded-2xl"
+            />
+          </motion.div>
+        )}
       </div>
     </section>
   )
