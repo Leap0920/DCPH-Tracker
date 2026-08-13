@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from "react"
 import Link from "next/link"
-import { useRouter } from "next/navigation"
+import { useRouter, usePathname } from "next/navigation"
 import {
   Eye,
   EyeOff,
@@ -45,6 +45,7 @@ export function AuthModal() {
   const [open, setOpen] = useState(false)
   const [mode, setMode] = useState<AuthModalMode>("signin")
   const router = useRouter()
+  const pathname = usePathname()
   const supabase = createClient()
 
   // Shared across both tabs so switching keeps the email typed
@@ -83,6 +84,8 @@ export function AuthModal() {
 
   // Auto-open when the URL carries ?auth=signin|signup (middleware redirects
   // from protected routes to "/?auth=signin" now that /login is gone).
+  // Depends on pathname so it also fires on client-side navigations (e.g. the
+  // reset-password page doing router.push("/?auth=signin")) — not just mounts.
   useEffect(() => {
     const params = new URLSearchParams(window.location.search)
     const authMode = params.get("auth")
@@ -101,7 +104,7 @@ export function AuthModal() {
     } else if (errorParam === "admin_only") {
       setUrlError("This area is restricted to administrators.")
     }
-  }, [])
+  }, [pathname])
 
   // Reset transient state every time the modal opens
   useEffect(() => {
