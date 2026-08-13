@@ -1,9 +1,9 @@
 // Canonical movie guide for the DCPH tracker.
-// Mainline films 1–29 follow the official Detective Conan movie numbering.
+// Mainline films 1-29 follow the official Detective Conan movie numbering.
 // Sources:
-//   - 1–27: user-provided canonical table (English / Japanese romaji / release year)
-//   - 28–29: upcoming films announced by the franchise (One-eyed Flashback 2025,
-//     Fallen Angel of the Highway 2026) — rendered as "Coming soon" in the tracker.
+//   - 1-27: user-provided canonical table (English / Japanese romaji / release year)
+//   - 28: One-eyed Flashback (theatrical release April 2025) - already released
+//   - 29: Fallen Angel of the Highway (theatrical release April 2026) - upcoming
 // Non-mainline slugs reference content_entries rows that exist in the DB.
 
 export interface MainlineMovie {
