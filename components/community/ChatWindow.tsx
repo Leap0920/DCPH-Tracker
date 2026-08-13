@@ -1,12 +1,12 @@
 "use client"
 
 import { useState, useEffect, useRef, useCallback, useMemo } from "react"
-import Link from "next/link"
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query"
 import { Send, Menu, ArrowDown, LogIn, UserPlus, MessagesSquare } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { createClient } from "@/utils/supabase/client"
+import { openAuthModal } from "@/lib/auth-modal"
 import { avatarUrl } from "@/lib/constants"
 import { cn } from "@/lib/utils"
 import { queryKeys } from "@/lib/queries/keys"
@@ -345,16 +345,12 @@ export function ChatWindow({
               Sign in to read the conversation
             </p>
             <div className="mt-3 flex items-center gap-2">
-              <Link href="/login">
-                <Button size="sm" className="rounded-lg">
-                  Sign In
-                </Button>
-              </Link>
-              <Link href="/signup">
-                <Button size="sm" variant="outline" className="rounded-lg border-slate-200">
-                  Sign Up
-                </Button>
-              </Link>
+              <Button size="sm" className="rounded-lg" onClick={() => openAuthModal("signin")}>
+                Sign In
+              </Button>
+              <Button size="sm" variant="outline" className="rounded-lg border-slate-200" onClick={() => openAuthModal("signup")}>
+                Sign Up
+              </Button>
             </div>
           </div>
         ) : messages.length === 0 ? (
@@ -532,22 +528,19 @@ export function ChatWindow({
               Sign in to join the conversation.
             </p>
             <div className="flex items-center gap-2">
-              <Link href="/login">
-                <Button size="sm" className="gap-1.5 rounded-lg">
-                  <LogIn className="h-4 w-4" />
-                  Sign In
-                </Button>
-              </Link>
-              <Link href="/signup">
-                <Button
-                  size="sm"
-                  variant="outline"
-                  className="gap-1.5 rounded-lg border-slate-200"
-                >
-                  <UserPlus className="h-4 w-4" />
-                  Sign Up
-                </Button>
-              </Link>
+              <Button size="sm" className="gap-1.5 rounded-lg" onClick={() => openAuthModal("signin")}>
+                <LogIn className="h-4 w-4" />
+                Sign In
+              </Button>
+              <Button
+                size="sm"
+                variant="outline"
+                className="gap-1.5 rounded-lg border-slate-200"
+                onClick={() => openAuthModal("signup")}
+              >
+                <UserPlus className="h-4 w-4" />
+                Sign Up
+              </Button>
             </div>
           </div>
         )}
