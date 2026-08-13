@@ -14,6 +14,7 @@ import {
   formatEpisodeRange,
 } from "@/lib/arcs-guide"
 import { computeArcProgress, getArcProgressData } from "@/lib/arcs-progress"
+import { AuthModalButton } from "@/components/auth/AuthModalButton"
 
 export default async function ArcDetailPage({
   params,
@@ -119,13 +120,13 @@ export default async function ArcDetailPage({
                 Arc complete! Nice work!
               </span>
             ) : (
-              <Link
-                href="/login"
-                className="inline-flex items-center gap-1.5 rounded-md border border-slate-300 px-3 py-1.5 text-xs font-mono text-ink-dim transition-colors hover:border-ink hover:text-ink"
+              <AuthModalButton
+                mode="signin"
+                className="inline-flex items-center gap-1.5 rounded-md border border-slate-300 px-3 py-1.5 h-auto text-xs font-mono text-ink-dim transition-colors hover:border-ink hover:text-ink"
               >
                 Sign in to track progress
                 <ArrowRight className="h-3.5 w-3.5" />
-              </Link>
+              </AuthModalButton>
             )}
           </div>
         </div>

@@ -5,6 +5,7 @@ import { getRankings, getUserGlobalRank } from "@/lib/queries/leaderboard"
 import { getDetectiveRank } from "@/lib/ranks"
 import { RankingsBoard } from "@/components/community/RankingsBoard"
 import { Button } from "@/components/ui/button"
+import { AuthModalButton } from "@/components/auth/AuthModalButton"
 
 export const dynamic = "force-dynamic"
 
@@ -138,12 +139,10 @@ export default async function RankingsPage() {
                   Log in to see how many episodes you&apos;ve watched.
                 </p>
               </div>
-              <Link href="/login">
-                <Button size="sm" className="gap-1.5 rounded-lg">
-                  <LogIn className="h-4 w-4" />
-                  Sign In
-                </Button>
-              </Link>
+              <AuthModalButton mode="signin" size="sm" className="gap-1.5 rounded-lg">
+                <LogIn className="h-4 w-4" />
+                Sign In
+              </AuthModalButton>
             </div>
           )}
         </div>
