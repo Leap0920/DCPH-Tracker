@@ -11,7 +11,7 @@
  * Rate limit: ~60 requests/min. We space requests and honor `Retry-After` on 429.
  * Note: Kitsu reserves episode numbers beyond the real TV count (placeholders with no
  * airdate). Only episodes that have an `airdate` have actually aired — callers must
- * filter on `attributes.airdate` before persisting.
+ * filter on `attributes.airdate` before persisting. hehehh
  */
 
 const KITSU_BASE_URL = "https://kitsu.io/api/edge"
