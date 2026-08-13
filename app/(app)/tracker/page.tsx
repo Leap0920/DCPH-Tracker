@@ -1,13 +1,13 @@
 "use client"
 
 import { useState, useEffect, useRef, Suspense, useCallback } from "react"
-import Link from "next/link"
 import { useRouter, useSearchParams } from "next/navigation"
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query"
 import { ContentGrid, type StatusFilter } from "@/components/tracker/ContentGrid"
 import { MotivationStats } from "@/components/tracker/MotivationStats"
 import { Button } from "@/components/ui/button"
 import { createClient } from "@/utils/supabase/client"
+import { openAuthModal } from "@/lib/auth-modal"
 import { fetchContentEntries } from "@/lib/queries/client/content"
 import {
   fetchUserWatchStatuses,
@@ -255,7 +255,7 @@ function TrackerPageContent() {
 
   function requireUser(): boolean {
     if (user) return true
-    window.location.href = "/login"
+    openAuthModal("signin")
     return false
   }
 
@@ -336,11 +336,9 @@ function TrackerPageContent() {
                     Log in to mark episodes watched and climb the rankings.
                   </p>
                 </div>
-                <Link href="/login">
-                  <Button size="sm" className="rounded-lg">
-                    Sign In
-                  </Button>
-                </Link>
+                <Button size="sm" className="rounded-lg" onClick={() => openAuthModal("signin")}>
+                  Sign In
+                </Button>
               </div>
             )}
             <div className="bg-surface border border-slate-200 rounded-lg overflow-hidden shadow-card">
