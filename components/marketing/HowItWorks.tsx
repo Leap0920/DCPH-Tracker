@@ -1,7 +1,18 @@
+"use client"
+
 import Link from "next/link"
 import { UserPlus, ListChecks, Trophy } from "lucide-react"
+import { openAuthModal, type AuthModalMode } from "@/lib/auth-modal"
 
-const steps = [
+const steps: Array<{
+  number: string
+  icon: typeof UserPlus
+  title: string
+  body: string
+  cta: string
+  href: string
+  modalMode?: AuthModalMode
+}> = [
   {
     number: "01",
     icon: UserPlus,
@@ -9,6 +20,7 @@ const steps = [
     body: "Sign up in under a minute with just an email — no credit card, no fuss.",
     cta: "Create account",
     href: "/signup",
+    modalMode: "signup",
   },
   {
     number: "02",
@@ -41,6 +53,8 @@ export function HowItWorks() {
       <div className="mt-10 grid gap-6 sm:grid-cols-3">
         {steps.map((step) => {
           const Icon = step.icon
+          const linkClasses =
+            "mt-4 inline-block text-sm font-semibold text-accent hover:text-accent-bright"
           return (
             <div
               key={step.number}
@@ -54,12 +68,19 @@ export function HowItWorks() {
               </span>
               <h3 className="mt-4 font-display text-lg text-ink">{step.title}</h3>
               <p className="mt-2 text-sm text-ink-dim">{step.body}</p>
-              <Link
-                href={step.href}
-                className="mt-4 inline-block text-sm font-semibold text-accent hover:text-accent-bright"
-              >
-                {step.cta} →
-              </Link>
+              {step.modalMode ? (
+                <button
+                  type="button"
+                  onClick={() => openAuthModal(step.modalMode!)}
+                  className={linkClasses}
+                >
+                  {step.cta} →
+                </button>
+              ) : (
+                <Link href={step.href} className={linkClasses}>
+                  {step.cta} →
+                </Link>
+              )}
             </div>
           )
         })}
