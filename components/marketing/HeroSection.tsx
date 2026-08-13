@@ -2,8 +2,11 @@
 
 import { motion, AnimatePresence, useScroll, useTransform, useSpring } from "framer-motion"
 import { ArrowRight, ChevronDown } from "lucide-react"
+import { useRouter } from "next/navigation"
 import { Button } from "@/components/ui/button"
 import { useEffect, useState, useCallback, useRef } from "react"
+import { createClient } from "@/utils/supabase/client"
+import { openAuthModal } from "@/lib/auth-modal"
 
 export function HeroSection() {
   const [typedText, setTypedText] = useState("")
@@ -94,6 +97,22 @@ export function HeroSection() {
     window.scrollBy({ top: window.innerHeight * 0.9, behavior: "smooth" })
   }, [])
 
+  const router = useRouter()
+  const supabase = createClient()
+
+  // Track Now: signed-in users go straight to the tracker; everyone else gets
+  // the sign-in modal.
+  async function handleTrackNow() {
+    const {
+      data: { user },
+    } = await supabase.auth.getUser()
+    if (user) {
+      router.push("/tracker")
+    } else {
+      openAuthModal("signin")
+    }
+  }
+
   return (
     <section className="relative min-h-[100vh] flex flex-col items-center bg-surface overflow-hidden pb-12">
       {/* Hero Content Area — full-bleed image banner with left-aligned text */}
@@ -159,22 +178,13 @@ export function HeroSection() {
             transition={{ duration: 0.7, delay: 0.3, ease: [0.16, 1, 0.3, 1] }}
             className="flex flex-col sm:flex-row items-start gap-4"
           >
-            <a href="/tracker">
-              <Button
-                size="lg"
-                className="bg-gray-950 hover:bg-gray-800 text-white px-8 h-11 text-sm font-semibold rounded-full shadow-md hover:shadow-lg transition-all hover:scale-[1.02]"
-              >
-                Track Now
-                <ArrowRight className="ml-2 h-4 w-4" />
-              </Button>
-            </a>
             <Button
-              variant="outline"
               size="lg"
-              onClick={scrollToContent}
-              className="border-slate-300 hover:border-slate-300 bg-surface hover:bg-surface-muted text-ink-dim hover:text-ink px-8 h-11 text-sm font-semibold rounded-full transition-all"
+              onClick={handleTrackNow}
+              className="bg-gray-950 hover:bg-gray-800 text-white px-8 h-11 text-sm font-semibold rounded-full shadow-md hover:shadow-lg transition-all hover:scale-[1.02]"
             >
-              Explore Now
+              Track Now
+              <ArrowRight className="ml-2 h-4 w-4" />
             </Button>
           </motion.div>
         </div>
