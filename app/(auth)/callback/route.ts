@@ -27,7 +27,7 @@ export async function GET(request: NextRequest) {
       return NextResponse.redirect(`${origin}${next}`)
     }
     return NextResponse.redirect(
-      `${origin}/login?error=${encodeURIComponent(error.message)}`
+      `${origin}/?auth=signin&error=${encodeURIComponent(error.message)}`
     )
   }
 
@@ -39,12 +39,12 @@ export async function GET(request: NextRequest) {
       return NextResponse.redirect(`${origin}${dest}`)
     }
     return NextResponse.redirect(
-      `${origin}/login?error=${encodeURIComponent(error.message)}`
+      `${origin}/?auth=signin&error=${encodeURIComponent(error.message)}`
     )
   }
 
-  // Nothing to process — bounce to login with a generic message.
+  // Nothing to process — bounce to sign in with a generic message.
   return NextResponse.redirect(
-    `${origin}/login?error=${encodeURIComponent("Invalid or expired link")}`
+    `${origin}/?auth=signin&error=${encodeURIComponent("Invalid or expired link")}`
   )
 }
