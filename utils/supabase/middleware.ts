@@ -39,8 +39,8 @@ export async function updateSession(request: NextRequest) {
 
   if (isProtected && !user) {
     const redirectUrl = request.nextUrl.clone();
-    redirectUrl.pathname = "/login";
-    redirectUrl.searchParams.set("redirectTo", request.nextUrl.pathname);
+    redirectUrl.pathname = "/";
+    redirectUrl.searchParams.set("auth", "signin");
     return NextResponse.redirect(redirectUrl);
   }
 
@@ -60,7 +60,8 @@ export async function updateSession(request: NextRequest) {
 
       if (status === "banned") {
         const redirectUrl = request.nextUrl.clone();
-        redirectUrl.pathname = "/login";
+        redirectUrl.pathname = "/";
+        redirectUrl.searchParams.set("auth", "signin");
         redirectUrl.searchParams.set("error", "banned");
         return NextResponse.redirect(redirectUrl);
       }
