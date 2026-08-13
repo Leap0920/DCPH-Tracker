@@ -54,6 +54,9 @@ export function AuthModal() {
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [errorKind, setErrorKind] = useState<AuthErrorKind | null>(null)
+  // Banner message coming from a redirect query param (e.g. ?auth=signin&error=banned).
+  // Deliberately NOT reset when the modal opens/closes — it reflects the URL state.
+  const [urlError, setUrlError] = useState<string | null>(null)
   // Cold-start feedback: idle → connecting (2s) → slow (8s).
   const [connectStatus, setConnectStatus] = useState<"idle" | "connecting" | "slow">("idle")
   const [resendLoading, setResendLoading] = useState(false)
@@ -76,6 +79,28 @@ export function AuthModal() {
     }
     window.addEventListener("open-auth-modal", handler)
     return () => window.removeEventListener("open-auth-modal", handler)
+  }, [])
+
+  // Auto-open when the URL carries ?auth=signin|signup (middleware redirects
+  // from protected routes to "/?auth=signin" now that /login is gone).
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search)
+    const authMode = params.get("auth")
+    if (authMode === "signup") {
+      setMode("signup")
+      setOpen(true)
+    } else if (authMode === "signin") {
+      setMode("signin")
+      setOpen(true)
+    }
+    const errorParam = params.get("error")
+    if (errorParam === "banned") {
+      setUrlError("Your account has been banned. Contact support if you believe this is a mistake.")
+    } else if (errorParam === "suspended") {
+      setUrlError("Your account is temporarily suspended.")
+    } else if (errorParam === "admin_only") {
+      setUrlError("This area is restricted to administrators.")
+    }
   }, [])
 
   // Reset transient state every time the modal opens
@@ -267,6 +292,18 @@ export function AuthModal() {
               : "Join the Detective Conan PH community to start tracking."}
           </DialogDescription>
         </DialogHeader>
+
+        {/* Redirect-time banner (banned / suspended / admin_only) */}
+        {urlError && (
+          <div
+            role="status"
+            aria-live="polite"
+            className="bg-red-50 border border-red-200 rounded-lg p-3.5 flex gap-2 items-start text-xs text-red-600"
+          >
+            <ShieldAlert className="h-4 w-4 shrink-0 mt-0.5 text-red-500" />
+            <span>{urlError}</span>
+          </div>
+        )}
 
         {/* Mode tabs */}
         <div className="flex rounded-full border border-slate-200 bg-surface-muted p-1">
