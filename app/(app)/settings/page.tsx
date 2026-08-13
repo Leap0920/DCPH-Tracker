@@ -8,6 +8,7 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { createClient } from "@/utils/supabase/client"
+import { openAuthModal } from "@/lib/auth-modal"
 import { avatarUrl } from "@/lib/constants"
 import { queryKeys } from "@/lib/queries/keys"
 import {
@@ -48,7 +49,7 @@ export default function SettingsPage() {
   useEffect(() => {
     supabase.auth.getUser().then(({ data }) => {
       if (data.user) setUserId(data.user.id)
-      else router.push("/login")
+      else openAuthModal("signin")
     })
   }, [router, supabase])
 

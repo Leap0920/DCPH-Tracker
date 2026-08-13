@@ -15,7 +15,7 @@ export default async function AnalyticsPage() {
   } = await supabase.auth.getUser()
 
   if (!user) {
-    redirect("/login?redirectTo=/analytics")
+    redirect("/?auth=signin")
   }
 
   const analytics = await getSelfAnalytics(user.id)
