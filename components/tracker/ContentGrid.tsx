@@ -287,12 +287,22 @@ export function ContentGrid({
   const searchResults = useMemo(() => {
     if (!search.trim()) return null
     const q = search.toLowerCase()
+    const trimmed = q.trim()
+    const isNumericQuery = /^\d+$/.test(trimmed)
+    const qNum = Number(trimmed)
     return entries
-      .filter(
-        (e) =>
-          matchesStatus(e) &&
-          (e.title.toLowerCase().includes(q) || (e.synopsis ?? "").toLowerCase().includes(q))
-      )
+      .filter((e) => {
+        if (!matchesStatus(e)) return false
+        const titleHit = e.title.toLowerCase().includes(q)
+        const synopsisHit = (e.synopsis ?? "").toLowerCase().includes(q)
+        // Numeric fields so "50" finds episode 50 (whose title has no "50")
+        const numberHit = [e.episode_number, e.movie_number, e.release_order]
+          .filter((n): n is number => typeof n === "number")
+          .some((n) => String(n).includes(q))
+        // Exact number match (e.g. "28" → movie 28)
+        const exactNumberHit = isNumericQuery && getNumber(e) === qNum
+        return titleHit || synopsisHit || numberHit || exactNumberHit
+      })
       .sort((a, b) => getNumber(a) - getNumber(b))
   }, [search, entries, statusFilter])
 
