@@ -16,7 +16,6 @@ type NavProfile = { username: string; display_name: string; role: "member" | "mo
 export function Navbar() {
   const pathname = usePathname()
   const router = useRouter()
-  const isHome = pathname === "/"
   const [mobileOpen, setMobileOpen] = useState(false)
   const [user, setUser] = useState<SupabaseUser | null>(null)
   const [profile, setProfile] = useState<NavProfile | null>(null)
@@ -155,7 +154,7 @@ export function Navbar() {
                     Sign Out
                   </Button>
                 </div>
-              ) : isHome ? (
+              ) : (
                 <button
                   type="button"
                   onClick={() => openAuthModal("signin")}
@@ -163,12 +162,6 @@ export function Navbar() {
                 >
                   Sign In
                 </button>
-              ) : (
-                <Link href="/login" className="hidden md:block">
-                  <Button variant="outline" size="sm" className="font-display text-xs border-slate-200 hover:border-slate-300 text-ink-dim hover:text-ink">
-                    Sign In
-                  </Button>
-                </Link>
               )}
             </>
           )}
@@ -239,7 +232,7 @@ export function Navbar() {
                         Sign Out
                       </Button>
                     </div>
-                  ) : isHome ? (
+                  ) : (
                     <button
                       type="button"
                       onClick={() => {
@@ -250,12 +243,6 @@ export function Navbar() {
                     >
                       Sign In
                     </button>
-                  ) : (
-                    <Link href="/login" onClick={() => setMobileOpen(false)}>
-                      <Button variant="outline" size="sm" className="w-full font-display border-slate-200 text-ink-dim">
-                        Sign In
-                      </Button>
-                    </Link>
                   )}
                 </>
               )}
