@@ -68,9 +68,9 @@ export default function ResetPasswordPage() {
     setSuccess(true)
     setLoading(false)
     
-    // Redirect to login after 3 seconds
+    // Redirect to sign in after 3 seconds
     setTimeout(() => {
-      router.push("/login")
+      router.push("/?auth=signin")
       router.refresh()
     }, 3000)
   }
@@ -133,7 +133,7 @@ export default function ResetPasswordPage() {
               <CheckCircle2 className="h-8 w-8 text-green-600 shrink-0" />
               <div>
                 <p className="font-semibold mb-1">Password Reset Complete</p>
-                <p>Your password has been successfully updated. Redirecting to login...</p>
+                <p>Your password has been successfully updated. Redirecting to sign in...</p>
               </div>
             </div>
           </div>

@@ -1,13 +1,13 @@
 "use client"
 
 import { useState } from "react"
-import Link from "next/link"
 import { Mail, ShieldAlert, KeyRound, ArrowLeft } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { createClient } from "@/utils/supabase/client"
+import { openAuthModal } from "@/lib/auth-modal"
 
 export default function ForgotPasswordPage() {
   const [email, setEmail] = useState("")
@@ -65,12 +65,14 @@ export default function ForgotPasswordPage() {
               <p className="font-semibold mb-1">Recovery Email Sent</p>
               <p>Check your email for the password recovery link. Follow the instructions in the email to reset your password.</p>
             </div>
-            <Link href="/login" className="block">
-              <Button variant="outline" className="w-full gap-2 border-slate-200 text-ink-dim hover:bg-surface-muted rounded-full h-11 text-sm font-semibold transition-all">
-                <ArrowLeft className="h-4 w-4" />
-                Return to Sign In
-              </Button>
-            </Link>
+            <Button
+              variant="outline"
+              className="w-full gap-2 border-slate-200 text-ink-dim hover:bg-surface-muted rounded-full h-11 text-sm font-semibold transition-all"
+              onClick={() => openAuthModal("signin")}
+            >
+              <ArrowLeft className="h-4 w-4" />
+              Return to Sign In
+            </Button>
           </div>
         ) : (
           <form onSubmit={handleResetRequest} className="space-y-5">
@@ -111,10 +113,14 @@ export default function ForgotPasswordPage() {
 
         {!success && (
           <div className="mt-8 pt-6 border-t border-slate-100 text-center">
-            <Link href="/login" className="inline-flex items-center gap-2 text-sm text-ink-dim hover:text-ink hover:underline transition-colors">
+            <button
+              type="button"
+              onClick={() => openAuthModal("signin")}
+              className="inline-flex items-center gap-2 text-sm text-ink-dim hover:text-ink hover:underline transition-colors"
+            >
               <ArrowLeft className="h-3.5 w-3.5" />
               Back to Sign In
-            </Link>
+            </button>
           </div>
         )}
       </CardContent>
