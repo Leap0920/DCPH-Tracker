@@ -1,5 +1,6 @@
 import type { ContentType } from "@/lib/constants"
 import type { Database } from "@/types/database.types"
+import { isOtherMovie } from "@/lib/movies-guide"
 
 type ContentEntry = Database["public"]["Tables"]["content_entries"]["Row"]
 
@@ -25,16 +26,21 @@ export const SUBCATEGORY_CONFIGS: Partial<Record<ContentType, SubcategoryConfig>
     defaultKey: "official",
     groups: [
       {
+        key: "all",
+        label: "All Movies",
+        match: () => true,
+      },
+      {
         key: "official",
-        label: "Official Movie",
+        label: "Official Movies",
         match: (e) => typeof e.movie_number === "number" && e.movie_number >= 1 && e.movie_number <= 29,
       },
       { key: "lupin", label: "Lupin III vs Conan", match: (e) => e.slug === "mov-37" },
       { key: "kid", label: "Conan vs Kid", match: (e) => e.slug === "mov-19" || e.slug === "mov-22" },
       {
         key: "other",
-        label: "Other Movies",
-        match: () => true,
+        label: "Other Movies & Specials",
+        match: (e) => isOtherMovie(e.slug) || !e.movie_number,
       },
     ],
   },
