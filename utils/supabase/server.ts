@@ -18,8 +18,16 @@ export const createClient = async () => {
       },
       setAll(cookiesToSet) {
         try {
+          // Hardened cookie attributes: httpOnly blocks XSS token theft,
+          // sameSite=lax blocks cross-site CSRF, secure enforced in production.
           cookiesToSet.forEach(({ name, value, options }) =>
-            cookieStore.set(name, value, options)
+            cookieStore.set(name, value, {
+              ...options,
+              httpOnly: true,
+              secure: process.env.NODE_ENV === "production",
+              sameSite: "lax",
+              path: "/",
+            })
           );
         } catch {
           // Called from a Server Component — safe to ignore because

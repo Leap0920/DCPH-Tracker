@@ -15,12 +15,23 @@ export async function updateSession(request: NextRequest) {
         return request.cookies.getAll();
       },
       setAll(cookiesToSet) {
+        // Hardened cookie attributes: httpOnly blocks XSS token theft,
+        // sameSite=lax blocks cross-site CSRF, secure enforced in production.
+        const secureOptions = {
+          httpOnly: true,
+          secure: process.env.NODE_ENV === "production",
+          sameSite: "lax" as const,
+          path: "/",
+        };
         cookiesToSet.forEach(({ name, value }) =>
           request.cookies.set(name, value)
         );
         supabaseResponse = NextResponse.next({ request });
         cookiesToSet.forEach(({ name, value, options }) =>
-          supabaseResponse.cookies.set(name, value, options)
+          supabaseResponse.cookies.set(name, value, {
+            ...options,
+            ...secureOptions,
+          })
         );
       },
     },
