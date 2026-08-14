@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation"
 import { Image as ImageIcon, Upload, Check, Loader2, Link as LinkIcon } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { updateContentCover } from "@/lib/actions/admin-content"
+import { cleanImageUrl } from "@/lib/utils/image-url"
 import type { Database } from "@/types/database.types"
 
 type ContentEntry = Database["public"]["Tables"]["content_entries"]["Row"]
@@ -17,7 +18,8 @@ export function MissingCoversPanel({ entries }: { entries: ContentEntry[] }) {
 
   function handleUrlSubmit(e: React.FormEvent, id: string) {
     e.preventDefault()
-    const url = urlInputs[id]?.trim()
+    const rawUrl = urlInputs[id]?.trim()
+    const url = cleanImageUrl(rawUrl)
     if (!url) return
 
     setEditingId(id)
