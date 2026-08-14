@@ -118,17 +118,20 @@ export function HeroSection() {
       {/* Hero Content Area — full-bleed image banner with left-aligned text */}
       <div className="relative min-h-[92vh] w-full flex flex-col items-start justify-center px-6 sm:px-12 lg:px-24 text-left">
         {/* Hero background image */}
-        <div className="absolute inset-0 z-0">
-          <img
-            src="/hero-image.jpg"
-            alt=""
-            aria-hidden
-            className="h-full w-full object-cover"
-          />
-          {/* Subtle left-to-right scrim so the dark text stays readable over the photo */}
+        <div className="absolute inset-0 z-0 bg-white">
+          <picture className="absolute inset-0 h-full w-full">
+            <source media="(max-width: 639px)" srcSet="/heroBanner-Android.jpg" />
+            <img
+              src={isAndroid ? "/heroBanner-Android.jpg" : "/hero-image.jpg"}
+              alt=""
+              aria-hidden
+              className="h-full w-full object-cover object-right sm:object-right-bottom pointer-events-none"
+            />
+          </picture>
+          {/* Subtle left-to-right scrim so text stays readable over photo */}
           <div
             aria-hidden
-            className="absolute inset-0 bg-gradient-to-r from-white/85 via-white/40 to-transparent"
+            className="absolute inset-0 bg-gradient-to-r from-white/90 via-white/70 sm:via-white/40 to-transparent pointer-events-none"
           />
         </div>
 
