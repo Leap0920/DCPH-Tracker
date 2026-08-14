@@ -368,10 +368,29 @@ alter table user_badges enable row level security;
 alter table screening_events enable row level security;
 alter table social_links enable row level security;
 
--- Profiles: public read, owner write, self-heal insert
+-- Profiles: authenticated owner read, admin read/write, owner write, self-heal insert
 drop policy if exists "Profiles are publicly readable" on profiles;
-create policy "Profiles are publicly readable"
-  on profiles for select using (true);
+
+grant select on public.profiles to authenticated;
+
+drop policy if exists "Users can read own profile" on profiles;
+create policy "Users can read own profile"
+  on profiles for select
+  to authenticated
+  using (auth.uid() = user_id);
+
+drop policy if exists "Admins can read all profiles" on profiles;
+create policy "Admins can read all profiles"
+  on profiles for select
+  to authenticated
+  using (public.is_admin());
+
+drop policy if exists "Admins can update all profiles" on profiles;
+create policy "Admins can update all profiles"
+  on profiles for update
+  to authenticated
+  using (public.is_admin())
+  with check (public.is_admin());
 
 drop policy if exists "Users can update own profile" on profiles;
 create policy "Users can update own profile"

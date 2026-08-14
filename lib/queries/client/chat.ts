@@ -27,7 +27,7 @@ async function attachProfiles<T extends { user_id: string }>(
   const ids = [...new Set(rows.map((r) => r.user_id))]
   if (ids.length === 0) return rows as (T & { profiles: ChatProfile | null })[]
   const { data: profs } = await supabase
-    .from("profiles")
+    .from("public_profiles")
     .select("user_id, username, display_name, avatar_url")
     .in("user_id", ids)
   const byId = new Map((profs ?? []).map((p) => [p.user_id, p]))

@@ -37,15 +37,37 @@ from profiles;
 grant select on public_profiles to anon, authenticated;
 
 -- ─────────────────────────────────────────────────────────────────────
--- 2. REVOKE ANON READ ON BASE PROFILES TABLE
--- The base table still carries RLS for authenticated/owner writes, but
--- anonymous clients may no longer SELECT from it directly — the REST
+-- 2. REVOKE ANON READ ON BASE PROFILES TABLE & GRANT AUTHENTICATED READ
+-- Anonymous clients may no longer SELECT from profiles directly — the REST
 -- endpoint /rest/v1/profiles?select=* now returns an empty/denied result
--- instead of leaking birthday, bio, status, ban_reason, banned_at,
--- suspended_until, created_at, updated_at.
+-- for unauthenticated requests.
+-- Authenticated users can read their own profile (to get role/status),
+-- and admins can read all profiles (to manage users in admin console).
 -- ─────────────────────────────────────────────────────────────────────
 drop policy if exists "Profiles are publicly readable" on profiles;
 revoke select on profiles from anon;
+
+grant select on public.profiles to authenticated;
+
+drop policy if exists "Users can read own profile" on profiles;
+create policy "Users can read own profile"
+  on profiles for select
+  to authenticated
+  using (auth.uid() = user_id);
+
+drop policy if exists "Admins can read all profiles" on profiles;
+create policy "Admins can read all profiles"
+  on profiles for select
+  to authenticated
+  using (public.is_admin());
+
+drop policy if exists "Admins can update all profiles" on profiles;
+create policy "Admins can update all profiles"
+  on profiles for update
+  to authenticated
+  using (public.is_admin())
+  with check (public.is_admin());
+
 
 -- ─────────────────────────────────────────────────────────────────────
 -- 3. PRIVILEGE-ESCALATION TRIGGER FIX
