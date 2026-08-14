@@ -2,12 +2,15 @@
 
 import Link from "next/link"
 import { usePathname } from "next/navigation"
-import { LayoutDashboard, Film, RefreshCw, Users, ArrowLeft } from "lucide-react"
+import { LayoutDashboard, Film, Image as ImageIcon, BookOpen, Award, RefreshCw, Users, ArrowLeft } from "lucide-react"
 import { cn } from "@/lib/utils"
 
 const ADMIN_NAV = [
   { href: "/admin", label: "Overview", icon: LayoutDashboard, exact: true },
-  { href: "/admin/content", label: "Content", icon: Film },
+  { href: "/admin/content", label: "Content", icon: Film, exact: true },
+  { href: "/admin/content/covers", label: "Missing Covers", icon: ImageIcon },
+  { href: "/admin/arcs", label: "Story Arcs", icon: BookOpen },
+  { href: "/admin/badges", label: "Badges", icon: Award },
   { href: "/admin/sync", label: "Sync", icon: RefreshCw },
   { href: "/admin/users", label: "Users", icon: Users },
 ]

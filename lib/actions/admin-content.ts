@@ -19,6 +19,7 @@ const CONTENT_TYPES: ContentType[] = [
   "magic_kaito",
   "hanzawa",
   "zero_tea_time",
+  "yaiba",
 ]
 
 const ALLOWED_IMAGE_TYPES = ["image/jpeg", "image/png", "image/webp", "image/gif"]
@@ -203,6 +204,34 @@ export async function updateContentCover(
   if (error) return { ok: false, error: error.message }
 
   revalidatePath("/admin/content")
+  revalidatePath("/admin/content/covers")
   revalidatePath("/tracker")
   return { ok: true, message: "Cover updated." }
+}
+
+/**
+ * Updates only the content type (category) for an entry (quick relocation flow).
+ */
+export async function updateContentType(
+  id: string,
+  newType: ContentType
+): Promise<ActionResult> {
+  await requireAdmin()
+  const admin = createAdminClient()
+  if (!admin) return { ok: false, error: "Service role key not configured." }
+  if (!id) return { ok: false, error: "Missing entry id." }
+  if (!CONTENT_TYPES.includes(newType)) {
+    return { ok: false, error: "Invalid content type category." }
+  }
+
+  const { error } = await admin
+    .from("content_entries")
+    .update({ type: newType })
+    .eq("id", id)
+
+  if (error) return { ok: false, error: error.message }
+
+  revalidatePath("/admin/content")
+  revalidatePath("/tracker")
+  return { ok: true, message: `Category moved to ${newType}.` }
 }
