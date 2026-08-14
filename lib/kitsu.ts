@@ -209,6 +209,18 @@ export async function getFranchiseEntries(
       for (const anime of res.data) {
         if (anime.id === String(excludeId)) continue
         if (seenIds.has(anime.id)) continue
+
+        const titleLower = (
+          anime.attributes.canonicalTitle +
+          " " +
+          Object.values(anime.attributes.titles || {}).join(" ")
+        ).toLowerCase()
+
+        // Exclude Demon Slayer / Kimetsu no Yaiba matches
+        if (titleLower.includes("kimetsu no yaiba") || titleLower.includes("demon slayer")) {
+          continue
+        }
+
         if (wanted.includes(anime.attributes.subtype)) {
           seenIds.add(anime.id)
           all.push(anime)
