@@ -122,6 +122,70 @@ export async function toggleWatchStatus(
   return { nextStatus, nextCount }
 }
 
+/**
+ * Explicitly sets a watch status (used by the new two-button tracker UI).
+ * - nextStatus "watched"  → count at least 1 (max(existing, 1))
+ * - nextStatus "unwatched" → count preserved (does NOT reset)
+ * - nextStatus "rewatched" → count existing + 1
+ */
+export async function setWatchStatus(
+  userId: string,
+  contentId: string,
+  nextStatus: WatchStatus,
+  existingCount = 0
+) {
+  const supabase = createClient()
+
+  const nextCount =
+    nextStatus === "unwatched"
+      ? existingCount
+      : nextStatus === "rewatched"
+        ? existingCount + 1
+        : Math.max(existingCount, 1)
+
+  const { error } = await supabase
+    .from("watch_status")
+    .upsert(
+      {
+        user_id: userId,
+        content_id: contentId,
+        status: nextStatus,
+        watch_count: nextCount,
+        updated_at: new Date().toISOString(),
+      },
+      { onConflict: "user_id,content_id" }
+    )
+
+  if (error) throw error
+  return { nextStatus, nextCount }
+}
+
+/**
+ * Increments the rewatch counter: sets status to "rewatched" and bumps the
+ * total times-watched count by one (existing + 1).
+ */
+export async function incrementRewatch(userId: string, contentId: string, existingCount = 0) {
+  const supabase = createClient()
+
+  const nextCount = existingCount + 1
+
+  const { error } = await supabase
+    .from("watch_status")
+    .upsert(
+      {
+        user_id: userId,
+        content_id: contentId,
+        status: "rewatched",
+        watch_count: nextCount,
+        updated_at: new Date().toISOString(),
+      },
+      { onConflict: "user_id,content_id" }
+    )
+
+  if (error) throw error
+  return { nextCount }
+}
+
 export async function toggleFavorite(userId: string, contentId: string, current: boolean) {
   const supabase = createClient()
   const nextFavorite = !current

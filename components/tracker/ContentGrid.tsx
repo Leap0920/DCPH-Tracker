@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useMemo, useEffect, useRef } from "react"
+import { useState, useMemo, useEffect, useRef, useCallback } from "react"
 import { motion, AnimatePresence } from "framer-motion"
 import {
   Search,
@@ -48,7 +48,8 @@ export type StatusFilter = "all" | WatchStatus
 interface ContentGridProps {
   entries: ContentEntry[]
   userStatuses?: Map<string, WatchStatus>
-  onToggleStatus?: (contentId: string, currentStatus: WatchStatus | null) => void
+  onSetStatus?: (contentId: string, nextStatus: WatchStatus, currentCount: number) => void
+  onIncrementRewatch?: (contentId: string, currentCount: number) => void
   /** watch_count per content id, for rewatch badges. */
   watchCounts?: Map<string, number>
   /** favorite flag per content id. */
@@ -102,7 +103,8 @@ function getNumber(entry: ContentEntry): number {
 export function ContentGrid({
   entries,
   userStatuses,
-  onToggleStatus,
+  onSetStatus,
+  onIncrementRewatch,
   watchCounts,
   favorites,
   onToggleFavorite,
@@ -136,6 +138,12 @@ export function ContentGrid({
   const [flashId, setFlashId] = useState<string | null>(null)
   const didInit = useRef(false)
   const flashTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
+  // Resume-to-last-watched bookkeeping: skip when the user explicitly navigated
+  // with a ?page= / ?ep= intent; resume once on initial load, and again when the
+  // user switches INTO "Watch Order" (chronological) mode.
+  const hadNavIntent = useRef(initialPage != null || jumpTarget != null)
+  const didAutoJump = useRef(false)
+  const resumeOnModeSwitch = useRef(false)
 
   const PAGE_SIZE = 30
 
@@ -163,10 +171,15 @@ export function ContentGrid({
   useEffect(() => setStatusFilter(initialStatusFilter), [initialStatusFilter])
   useEffect(() => {
     if (initialPage === undefined) return
-    const key = typeFilter !== "all" ? sections.find((s) => s.type === typeFilter)?.key : null
+    const key =
+      typeFilter !== "all"
+        ? sections.find((s) => s.type === typeFilter)?.key
+        : mode === "chronological"
+          ? "episode"
+          : null
     if (key) setPages((prev) => ({ ...prev, [key]: initialPage }))
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [initialPage, typeFilter])
+  }, [initialPage, typeFilter, mode])
 
   function matchesStatus(entry: ContentEntry): boolean {
     if (statusFilter === "all") return true
@@ -364,6 +377,68 @@ export function ContentGrid({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [jumpTarget])
 
+  /**
+   * "Watch Order" resume: scroll the grid to the highest episode the user has
+   * watched (watched OR rewatched), so reopening /tracker in chronological
+   * mode lands near where they left off instead of page 1.
+   */
+  const resumeToLastWatched = useCallback(() => {
+    if (mode !== "chronological") return
+    if (statusFilter !== "all") return
+    if (!userStatuses || userStatuses.size === 0) return
+    const epSection = sections.find((s) => s.key === "episode")
+    if (!epSection || epSection.entries.length === 0) return
+    let target: ContentEntry | null = null
+    for (const e of epSection.entries) {
+      const s = userStatuses.get(e.id)
+      if (s === "watched" || s === "rewatched") {
+        if (!target || (e.episode_number ?? 0) > (target.episode_number ?? 0)) target = e
+      }
+    }
+    if (!target) return
+    const idx = Math.max(0, epSection.entries.findIndex((e) => e.id === target!.id))
+    const pageIdx = Math.floor(idx / PAGE_SIZE)
+    setPages((prev) => ({ ...prev, episode: pageIdx }))
+    setExpandedType("episode")
+    requestAnimationFrame(() => {
+      requestAnimationFrame(() => {
+        const el = document.getElementById(`card-${target!.id}`)
+        if (el) {
+          el.scrollIntoView({ behavior: "smooth", block: "center" })
+          setFlashId(target!.id)
+          if (flashTimer.current) clearTimeout(flashTimer.current)
+          flashTimer.current = setTimeout(() => setFlashId(null), 2000)
+        }
+      })
+    })
+  }, [mode, statusFilter, userStatuses, sections])
+
+  // Resume once on initial load, once statuses + sections are ready. Skip when
+  // the user explicitly navigated with ?page= or ?ep= intent.
+  useEffect(() => {
+    if (hadNavIntent.current) {
+      didAutoJump.current = true
+      return
+    }
+    if (didAutoJump.current) return
+    if (userStatuses && userStatuses.size > 0 && sections.length > 0) {
+      resumeToLastWatched()
+      didAutoJump.current = true
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [resumeToLastWatched, userStatuses, sections])
+
+  // Resume again when the user switches INTO chronological mode mid-session
+  // (fires after sections recompute for the new mode).
+  useEffect(() => {
+    if (!resumeOnModeSwitch.current) return
+    if (sections.find((s) => s.key === "episode")?.entries.length) {
+      resumeOnModeSwitch.current = false
+      resumeToLastWatched()
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [mode, sections, resumeToLastWatched])
+
   function handleMarkUpTo(value: string) {
     const n = parseInt(value, 10)
     if (!Number.isInteger(n) || n < 1 || n > maxEpisode) {
@@ -444,6 +519,9 @@ export function ContentGrid({
             value={mode}
             onValueChange={(v) => {
               setMode(v as ViewMode)
+              if (v === "chronological" && mode !== "chronological") {
+                resumeOnModeSwitch.current = true
+              }
               onModeChange?.(v as ViewMode)
             }}
           >
@@ -572,7 +650,9 @@ export function ContentGrid({
                   key={entry.id}
                   entry={entry}
                   watchStatus={getStatusForEntry(entry.id)}
-                  onToggleStatus={onToggleStatus}
+                  onSetStatus={onSetStatus}
+                  onIncrementRewatch={onIncrementRewatch}
+                  watchCount={watchCounts?.get(entry.id) ?? 0}
                   flash={flashId === entry.id}
                   arc={getArcForEntry(entry)}
                 />
@@ -603,7 +683,8 @@ export function ContentGrid({
                     <ContentCard
                       entry={entry}
                       watchStatus={getStatusForEntry(entry.id)}
-                      onToggleStatus={onToggleStatus}
+                      onSetStatus={onSetStatus}
+                      onIncrementRewatch={onIncrementRewatch}
                       watchCount={watchCounts?.get(entry.id) ?? 0}
                       favorite={favorites?.get(entry.id) ?? false}
                       onToggleFavorite={onToggleFavorite}
@@ -668,7 +749,8 @@ export function ContentGrid({
                         key={entry.id}
                         entry={entry}
                         watchStatus={getStatusForEntry(entry.id)}
-                        onToggleStatus={onToggleStatus}
+                        onSetStatus={onSetStatus}
+                        onIncrementRewatch={onIncrementRewatch}
                         watchCount={watchCounts?.get(entry.id) ?? 0}
                         favorite={favorites?.get(entry.id) ?? false}
                         onToggleFavorite={onToggleFavorite}

@@ -11,8 +11,8 @@ import { openAuthModal } from "@/lib/auth-modal"
 import { fetchContentEntries } from "@/lib/queries/client/content"
 import {
   fetchUserWatchStatuses,
-  nextWatchState,
-  toggleWatchStatus,
+  setWatchStatus,
+  incrementRewatch,
   toggleFavorite,
   setRating,
   markAll,
@@ -57,7 +57,7 @@ function TrackerPageContent() {
   const initialMode: ViewMode = modeParam === VIEW_MODES.CHRONOLOGICAL ? VIEW_MODES.CHRONOLOGICAL : VIEW_MODES.YEAR
   const initialStatus: StatusFilter = VALID_STATUS.has(statusParam) ? (statusParam as WatchStatus) : "all"
   const initialType: ContentType | "all" = VALID_TYPES.has(typeParam) ? (typeParam as ContentType) : "all"
-  const initialPage = pageParam && initialType !== "all" ? pageParam - 1 : undefined
+  const initialPage = pageParam ? pageParam - 1 : undefined
 
   const updateUrl = useCallback(
     (patch: Record<string, string | null>, debounceSearch = false) => {
@@ -129,21 +129,26 @@ function TrackerPageContent() {
   const statusKey = () => queryKeys.watchStatus.all(user as string)
 
   // ── Mutations (optimistic with rollback) ──
-  const toggleStatusMutation = useMutation({
+  const setStatusMutation = useMutation({
     mutationFn: ({
       contentId,
-      currentStatus,
+      nextStatus,
       existingCount,
     }: {
       contentId: string
-      currentStatus: WatchStatus | null
+      nextStatus: WatchStatus
       existingCount: number
-    }) => toggleWatchStatus(user as string, contentId, currentStatus, existingCount),
-    onMutate: async ({ contentId, currentStatus, existingCount }) => {
+    }) => setWatchStatus(user as string, contentId, nextStatus, existingCount),
+    onMutate: async ({ contentId, nextStatus, existingCount }) => {
       await queryClient.cancelQueries({ queryKey: statusKey() })
       const prev = queryClient.getQueryData<UserWatchStatuses>(statusKey())
       if (prev) {
-        const { nextStatus, nextCount } = nextWatchState(currentStatus, existingCount)
+        const nextCount =
+          nextStatus === "unwatched"
+            ? existingCount
+            : nextStatus === "rewatched"
+              ? existingCount + 1
+              : Math.max(existingCount, 1)
         queryClient.setQueryData<UserWatchStatuses>(statusKey(), {
           statuses: new Map(prev.statuses).set(contentId, nextStatus),
           counts: new Map(prev.counts).set(contentId, nextCount),
@@ -156,6 +161,37 @@ function TrackerPageContent() {
     onError: (_err, _vars, ctx) => {
       if (ctx?.prev) queryClient.setQueryData(statusKey(), ctx.prev)
       setMutationError("Couldn't update your progress. Please try again.")
+    },
+    onSuccess: () => setMutationError(null),
+    onSettled: () => {
+      queryClient.invalidateQueries({ queryKey: statusKey() })
+    },
+  })
+
+  const rewatchMutation = useMutation({
+    mutationFn: ({
+      contentId,
+      existingCount,
+    }: {
+      contentId: string
+      existingCount: number
+    }) => incrementRewatch(user as string, contentId, existingCount),
+    onMutate: async ({ contentId, existingCount }) => {
+      await queryClient.cancelQueries({ queryKey: statusKey() })
+      const prev = queryClient.getQueryData<UserWatchStatuses>(statusKey())
+      if (prev) {
+        queryClient.setQueryData<UserWatchStatuses>(statusKey(), {
+          statuses: new Map(prev.statuses).set(contentId, "rewatched"),
+          counts: new Map(prev.counts).set(contentId, existingCount + 1),
+          favorites: prev.favorites,
+          ratings: prev.ratings,
+        })
+      }
+      return { prev }
+    },
+    onError: (_err, _vars, ctx) => {
+      if (ctx?.prev) queryClient.setQueryData(statusKey(), ctx.prev)
+      setMutationError("Couldn't update your rewatch count. Please try again.")
     },
     onSuccess: () => setMutationError(null),
     onSettled: () => {
@@ -259,12 +295,20 @@ function TrackerPageContent() {
     return false
   }
 
-  function handleToggleStatus(contentId: string, currentStatus: WatchStatus | null) {
+  function handleSetStatus(contentId: string, nextStatus: WatchStatus, currentCount: number) {
     if (!requireUser()) return
-    toggleStatusMutation.mutate({
+    setStatusMutation.mutate({
       contentId,
-      currentStatus,
-      existingCount: watchCounts.get(contentId) ?? 0,
+      nextStatus,
+      existingCount: currentCount,
+    })
+  }
+
+  function handleRewatch(contentId: string, currentCount: number) {
+    if (!requireUser()) return
+    rewatchMutation.mutate({
+      contentId,
+      existingCount: currentCount,
     })
   }
 
@@ -348,7 +392,8 @@ function TrackerPageContent() {
                 watchCounts={watchCounts}
                 favorites={favorites}
                 ratings={ratings}
-                onToggleStatus={user ? handleToggleStatus : undefined}
+                onSetStatus={user ? handleSetStatus : undefined}
+                onIncrementRewatch={user ? handleRewatch : undefined}
                 onToggleFavorite={user ? handleToggleFavorite : undefined}
                 onSetRating={user ? handleSetRating : undefined}
                 onMarkAll={user ? handleMarkAll : undefined}
@@ -362,7 +407,12 @@ function TrackerPageContent() {
                 onSearchChange={(q) => updateUrl({ q: q.trim() || null }, true)}
                 onTypeChange={(t) => updateUrl({ type: t === "all" ? null : t, page: null })}
                 onPageChange={(_key, page) =>
-                  updateUrl({ page: initialType !== "all" && page > 0 ? String(page + 1) : null })
+                  updateUrl({
+                    page:
+                      (initialType !== "all" || initialMode === "chronological") && page > 0
+                        ? String(page + 1)
+                        : null,
+                  })
                 }
                 jumpTarget={epParam}
                 onJumped={() => updateUrl({ ep: null })}

@@ -208,6 +208,15 @@ async function syncSeedEpisodes(
 
 // ─── Seed: franchise (movies / specials / OVAs) from Kitsu ──────
 
+/**
+ * Normalizes a title for dedup/reuse lookups. Kitsu's text search returns the
+ * same film twice (JP + EN editions, identical canonicalTitle); two entries
+ * sharing a normalized title are treated as one film.
+ */
+function normalizeTitleForDedup(title: string): string {
+  return title.toLowerCase().replace(/\s+/g, " ").trim()
+}
+
 async function syncSeedFranchise(
   supabase: SyncClient,
   limit: number | undefined,
@@ -223,28 +232,97 @@ async function syncSeedFranchise(
     { subtype: "ONA", ctype: "ova", base: 3000 },
   ]
 
+  // Existing franchise rows → slug/movie_number/canon_order reuse keyed by
+  // `type|normalizedTitle`, so re-seeds update in place instead of creating
+  // duplicates or shifting slugs (keeps OTHER_MOVIE_SLUGS in movies-guide.ts
+  // stable). Falls back to fresh rows when the table is empty.
+  let existing: {
+    slug: string
+    title: string
+    type: string
+    movie_number: number | null
+    canon_order: number | null
+  }[] = []
+  if (!dryRun) {
+    const { data } = await supabase
+      .from("content_entries")
+      .select("slug, title, type, movie_number, canon_order")
+      .in("type", ["movie", "special", "ova"])
+    existing = (data ?? []) as typeof existing
+  }
+  const slugByKey = new Map<string, string>()
+  const movieNumberBySlug = new Map<string, number | null>()
+  const canonOrderBySlug = new Map<string, number | null>()
+  const usedSlugs = new Set<string>()
+  for (const row of existing) {
+    const key = `${row.type}|${normalizeTitleForDedup(row.title)}`
+    if (!slugByKey.has(key)) slugByKey.set(key, row.slug)
+    usedSlugs.add(row.slug)
+    movieNumberBySlug.set(row.slug, row.movie_number ?? null)
+    canonOrderBySlug.set(row.slug, row.canon_order ?? null)
+  }
+
   for (const g of groups) {
+    // 1. Dedup the Kitsu list by normalized title BEFORE assigning slugs, so
+    //    duplicate franchise entries (JP + EN editions) collapse into one row.
+    const seenTitles = new Set<string>()
     const entries = franchise
       .filter((a) => a.attributes.subtype === g.subtype)
       .sort((a, b) =>
         (a.attributes.startDate ?? "").localeCompare(b.attributes.startDate ?? "")
       )
+      .filter((a) => {
+        const title =
+          a.attributes.canonicalTitle ??
+          a.attributes.titles?.en_us ??
+          a.attributes.titles?.en ??
+          ""
+        const key = normalizeTitleForDedup(title)
+        if (seenTitles.has(key)) return false
+        seenTitles.add(key)
+        return true
+      })
+
     const limited = limit ? entries.slice(0, limit) : entries
-    limited.forEach((a, i) => {
-      const idx = i + 1
+
+    // 2. Allocate slugs: reuse an existing slug for a known title; otherwise
+    //    use the lowest free numeric slug for this type (no duplicates, no
+    //    shifting of already-referenced slugs).
+    let nextFree = 1
+    const allocateSlug = (): string => {
+      let candidate = kitsuContentSlug(g.ctype, nextFree)
+      while (usedSlugs.has(candidate)) {
+        nextFree += 1
+        candidate = kitsuContentSlug(g.ctype, nextFree)
+      }
+      nextFree += 1
+      usedSlugs.add(candidate)
+      return candidate
+    }
+
+    limited.forEach((a) => {
       const title =
         a.attributes.canonicalTitle ??
         a.attributes.titles?.en_us ??
         a.attributes.titles?.en ??
-        `Entry ${idx}`
+        `Entry ${nextFree}`
+      const titleKey = normalizeTitleForDedup(title)
+      const reusedSlug = slugByKey.get(`${g.ctype}|${titleKey}`)
+
+      const slug = reusedSlug ?? allocateSlug()
+      const slugNum = Number(slug.split("-")[1]) || 1
+      const movie_number =
+        g.ctype === "movie" ? movieNumberBySlug.get(slug) ?? null : null
+      const canon_order = canonOrderBySlug.get(slug) ?? g.base + slugNum
+
       rows.push({
-        slug: kitsuContentSlug(g.ctype, idx),
+        slug,
         title,
         type: g.ctype,
         episode_number: null,
-        movie_number: g.ctype === "movie" ? idx : null,
+        movie_number,
         air_date: a.attributes.startDate ?? "2000-01-01",
-        canon_order: g.base + idx,
+        canon_order,
         arc_id: null,
         synopsis: a.attributes.synopsis ?? null,
         image_url: a.attributes.posterImage?.original ?? "",
@@ -260,6 +338,7 @@ async function syncSeedFranchise(
       inserted: rows.length,
       skipped: 0,
       errors: [],
+      note: "dry run — no DB read for slug reuse",
     }
   }
 

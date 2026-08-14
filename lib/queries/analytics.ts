@@ -200,7 +200,9 @@ export async function getSelfAnalytics(userId: string): Promise<SelfAnalytics> {
     else if (status === "rewatched") rewatchedCount++
 
     const views = row.watch_count ?? 0
-    if (views > 0) {
+    // Only watched/rewatched rows count as views; an "unwatched" row keeps its
+    // historical watch_count but must not inflate stats (matches leaderboard).
+    if (isSeen && views > 0) {
       totalViews += views
       minutesWatched += (entry.runtime_minutes ?? getDefaultRuntime(entry.type)) * views
     }
@@ -218,7 +220,7 @@ export async function getSelfAnalytics(userId: string): Promise<SelfAnalytics> {
     }
     if (status === "watched") cur.watched++
     else if (status === "rewatched") cur.rewatched++
-    if (views > 0) cur.totalViews += views
+    if (isSeen && views > 0) cur.totalViews += views
     cur.completionProgress = cur.totalInCatalog > 0
       ? Math.min(100, Math.round(((cur.watched + cur.rewatched) / cur.totalInCatalog) * 100))
       : 0
@@ -287,7 +289,7 @@ export async function getSelfAnalytics(userId: string): Promise<SelfAnalytics> {
     if (year) {
       const py = perYearMap.get(year) ?? { year, watched: 0, views: 0 }
       if (isSeen) py.watched++
-      if (views > 0) py.views += views
+      if (isSeen && views > 0) py.views += views
       perYearMap.set(year, py)
     }
 

@@ -2,7 +2,7 @@
 
 import { useState } from "react"
 import Link from "next/link"
-import { Eye, EyeOff, Check, RefreshCw, Heart, Star } from "lucide-react"
+import { EyeOff, Check, RefreshCw, Heart, Star } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { padNumber } from "@/lib/utils"
 import { CONTENT_TYPE_LABELS, type ContentType, type WatchStatus } from "@/lib/constants"
@@ -13,8 +13,11 @@ type ContentEntry = Database["public"]["Tables"]["content_entries"]["Row"]
 interface ContentCardProps {
   entry: ContentEntry
   watchStatus?: WatchStatus | null
-  onToggleStatus?: (contentId: string, currentStatus: WatchStatus | null) => void
-  /** Total times watched; shows a badge when > 1. */
+  /** Called with the explicit next status (watched/unwatched). */
+  onSetStatus?: (contentId: string, nextStatus: WatchStatus, currentCount: number) => void
+  /** Called to increment the rewatch counter (+1, status → rewatched). */
+  onIncrementRewatch?: (contentId: string, currentCount: number) => void
+  /** Total times watched; shows a badge when > 1 (only while watched/rewatched). */
   watchCount?: number
   /** Whether the user has favorited this entry. */
   favorite?: boolean
@@ -27,13 +30,6 @@ interface ContentCardProps {
   arc?: { slug: string; title: string } | null
   /** Brief highlight ring, used by the jump-to-episode feature. */
   flash?: boolean
-}
-
-const statusConfig: Record<WatchStatus | "none", { icon: typeof Eye; color: string; label: string }> = {
-  unwatched: { icon: EyeOff, color: "text-ink-faint", label: "Unwatched" },
-  watched: { icon: Check, color: "text-green-600", label: "Watched" },
-  rewatched: { icon: RefreshCw, color: "text-ink", label: "Rewatched" },
-  none: { icon: EyeOff, color: "text-ink-faint", label: "Unwatched" },
 }
 
 const typeBadgeClass: Record<string, string> = {
@@ -50,7 +46,8 @@ const typeBadgeClass: Record<string, string> = {
 export function ContentCard({
   entry,
   watchStatus,
-  onToggleStatus,
+  onSetStatus,
+  onIncrementRewatch,
   watchCount = 0,
   favorite = false,
   onToggleFavorite,
@@ -60,8 +57,7 @@ export function ContentCard({
   flash = false,
 }: ContentCardProps) {
   const status = watchStatus ?? "none"
-  const config = statusConfig[status]
-  const StatusIcon = config.icon
+  const isSeen = status === "watched" || status === "rewatched"
   const [hoverStar, setHoverStar] = useState(0)
 
   const starValue = Math.round(rating / 2)
@@ -86,9 +82,12 @@ export function ContentCard({
         <span className="absolute top-2 right-2 z-10 bg-gray-900 text-white text-[10px] font-mono px-2 py-0.5 rounded">{displayNumber}</span>
       )}
 
-      {/* Rewatch count badge */}
-      {watchCount > 1 && (
-        <span className="absolute top-2 left-2 z-10 inline-flex items-center gap-1 bg-gray-900 text-white text-[10px] font-mono px-2 py-0.5 rounded shadow-card">
+      {/* Rewatch count badge — only while the item is watched/rewatched (no stale ×N on unwatched) */}
+      {watchCount > 1 && isSeen && (
+        <span
+          className="absolute top-2 left-2 z-10 inline-flex items-center gap-1 bg-gray-900 text-white text-[10px] font-mono px-2 py-0.5 rounded shadow-card"
+          title={`Watched ${watchCount} times`}
+        >
           <RefreshCw className="h-2.5 w-2.5" />
           ×{watchCount}
         </span>
@@ -130,25 +129,43 @@ export function ContentCard({
           </button>
         )}
 
-        {/* Status overlay */}
-        {onToggleStatus && (
-          <button
-            onClick={(e) => {
-              e.preventDefault()
-              onToggleStatus(entry.id, watchStatus ?? null)
-            }}
-            className={cn(
-              "absolute bottom-2 right-2 h-8 w-8 rounded-full bg-surface border flex items-center justify-center transition-colors shadow-card",
-              status === "watched"
-                ? "border-green-500 text-green-600 bg-green-50"
-                : status === "rewatched"
-                  ? "border-gray-900 text-ink bg-surface-muted"
-                  : "border-slate-300 text-ink-faint hover:border-ink hover:text-ink"
+        {/* Status overlay — explicit two-button controls */}
+        {onSetStatus && (
+          <div className="absolute bottom-2 right-2 z-10 flex items-center gap-1.5">
+            {isSeen && onIncrementRewatch && (
+              <button
+                onClick={(e) => {
+                  e.preventDefault()
+                  onIncrementRewatch(entry.id, watchCount)
+                }}
+                className="h-8 w-8 rounded-full bg-surface border flex items-center justify-center transition-colors shadow-card border-gray-900 text-ink hover:bg-gray-900 hover:text-white"
+                title={watchCount > 0 ? `Rewatched ${watchCount}× total — click to count another` : "I watched this again"}
+                aria-label="Count another rewatch"
+              >
+                <RefreshCw className="h-4 w-4" />
+              </button>
             )}
-            title={config.label}
-          >
-            <StatusIcon className="h-4 w-4" />
-          </button>
+            <button
+              onClick={(e) => {
+                e.preventDefault()
+                onSetStatus(
+                  entry.id,
+                  status === "unwatched" || status === "none" ? "watched" : "unwatched",
+                  watchCount
+                )
+              }}
+              className={cn(
+                "h-8 w-8 rounded-full bg-surface border flex items-center justify-center transition-colors shadow-card",
+                isSeen
+                  ? "border-green-500 text-green-600 bg-green-50 hover:border-green-600"
+                  : "border-slate-300 text-ink-faint hover:border-ink hover:text-ink"
+              )}
+              title={isSeen ? "Mark as unwatched" : "Mark as watched"}
+              aria-label={isSeen ? "Mark as unwatched" : "Mark as watched"}
+            >
+              {isSeen ? <Check className="h-4 w-4" /> : <EyeOff className="h-4 w-4" />}
+            </button>
+          </div>
         )}
       </div>
 
