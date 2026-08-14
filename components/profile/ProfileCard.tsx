@@ -1,27 +1,28 @@
 "use client"
 
 import Link from "next/link"
-import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { avatarUrl } from "@/lib/constants"
-import { formatDate } from "@/lib/utils"
 import { Pencil } from "lucide-react"
-import type { Database } from "@/types/database.types"
 
-type Profile = Database["public"]["Tables"]["profiles"]["Row"]
-
-const roleColors: Record<string, "gold" | "default" | "secondary"> = {
-  admin: "gold",
-  moderator: "default",
-  member: "secondary",
+/**
+ * Public-facing profile shape — the PII-safe subset exposed by the
+ * `public_profiles` view. NEVER extend this with birthday, bio, status,
+ * ban fields, or timestamps: those are private per product decision.
+ */
+export interface PublicProfile {
+  user_id: string
+  username: string
+  display_name: string
+  avatar_url: string | null
 }
 
 export function ProfileCard({
   profile,
   isOwn = false,
 }: {
-  profile: Profile
+  profile: PublicProfile
   isOwn?: boolean
 }) {
   return (
@@ -43,9 +44,6 @@ export function ProfileCard({
             <h1 className="font-display text-2xl tracking-tight text-ink">
               {profile.display_name}
             </h1>
-            <Badge variant={roleColors[profile.role] ?? "secondary"}>
-              {profile.role}
-            </Badge>
             {isOwn && (
               <Link href="/settings" className="ml-auto">
                 <Button
@@ -62,16 +60,6 @@ export function ProfileCard({
 
           <p className="mt-1 font-mono text-sm text-ink-faint">
             @{profile.username}
-          </p>
-
-          {profile.bio && (
-            <p className="mt-4 max-w-lg text-sm text-ink-dim">
-              {profile.bio}
-            </p>
-          )}
-
-          <p className="mt-4 font-mono text-xs text-ink-faint">
-            Joined {formatDate(profile.created_at)}
           </p>
         </div>
       </div>

@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from "next/server"
+import crypto from "crypto"
 import { createClient } from "@/utils/supabase/server"
 import { createAdminClient } from "@/utils/supabase/admin"
+import { handleApiError } from "@/lib/api-utils"
 import {
   getAllEpisodes,
   getAnimeFull,
@@ -17,6 +19,23 @@ type ContentInsert = Database["public"]["Tables"]["content_entries"]["Insert"]
 
 /** Either the cookie-bound server client or the service-role admin client. */
 type SyncClient = Awaited<ReturnType<typeof createClient>>
+
+/**
+ * Constant-time comparison of `Authorization: Bearer <secret>` against the
+ * configured CRON_SECRET. Never accepts the secret via query string — that
+ * would leak it into Vercel/access logs.
+ */
+function headerMatchesSecret(
+  authorization: string | null,
+  secret: string | undefined
+): boolean {
+  if (!secret || !authorization) return false
+  const expected = `Bearer ${secret}`
+  const a = Buffer.from(authorization)
+  const b = Buffer.from(expected)
+  if (a.length !== b.length) return false
+  return crypto.timingSafeEqual(a, b)
+}
 
 interface SyncResult {
   type: "episodes" | "franchise" | "airing"
@@ -41,8 +60,9 @@ interface SyncResult {
  *   - limit=N                 → only sync first N items (testing)
  *   - mode=seed|airing|all    → seed = full pull; airing = AniList-triggered
  *
- * Cron: set CRON_SECRET and call with ?cron_secret=... or Authorization: Bearer ...
- * to allow unauthenticated scheduled runs.
+ * Cron: set CRON_SECRET and call with `Authorization: Bearer <CRON_SECRET>`
+ * (Vercel Cron injects this header automatically when CRON_SECRET is set).
+ * The secret is NEVER accepted via query string — that leaks into logs.
  */
 export async function POST(request: NextRequest) {
   const searchParams = request.nextUrl.searchParams
@@ -54,12 +74,9 @@ export async function POST(request: NextRequest) {
   try {
     const supabase = await createClient()
 
-    // 0. Authorize: cron secret (unauthenticated) OR admin user session.
+    // 0. Authorize: cron secret (header-only, timing-safe) OR admin user session.
     const cronSecret = process.env.CRON_SECRET
-    const isCron =
-      !!cronSecret &&
-      (searchParams.get("cron_secret") === cronSecret ||
-        request.headers.get("authorization") === `Bearer ${cronSecret}`)
+    const isCron = headerMatchesSecret(request.headers.get("authorization"), cronSecret)
 
     if (!isCron) {
       const { data: { user } } = await supabase.auth.getUser()
@@ -106,8 +123,7 @@ export async function POST(request: NextRequest) {
       results: [episodeResult, franchiseResult],
     })
   } catch (error) {
-    const message = error instanceof Error ? error.message : "Unknown error"
-    return NextResponse.json({ error: message }, { status: 500 })
+    return handleApiError(error, "sync")
   }
 }
 
@@ -395,7 +411,6 @@ export async function GET() {
       message: "POST to sync. mode=seed|airing.",
     })
   } catch (error) {
-    const message = error instanceof Error ? error.message : "Unknown error"
-    return NextResponse.json({ error: message }, { status: 500 })
+    return handleApiError(error, "sync")
   }
 }

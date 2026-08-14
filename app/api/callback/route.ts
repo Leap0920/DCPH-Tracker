@@ -1,8 +1,16 @@
 import { NextRequest, NextResponse } from "next/server"
 import { createClient } from "@/utils/supabase/server"
+import { fail, handleApiError } from "@/lib/api-utils"
+import { rateLimit, authRateLimitKey } from "@/lib/rate-limit"
 
 export async function POST(request: NextRequest) {
   try {
+    // Same brute-force guard as /api/auth.
+    const rl = rateLimit(authRateLimitKey(request))
+    if (!rl.allowed) {
+      return fail(429, "Too many attempts. Please try again later.")
+    }
+
     const body = await request.json()
     const { token, email } = body
 
@@ -24,27 +32,28 @@ export async function POST(request: NextRequest) {
       if (response.ok) {
         return NextResponse.json({ success: true })
       } else {
-        return NextResponse.json({ error: "Invalid token" }, { status: 400 })
+        return fail(400, "Invalid token")
       }
     }
 
-    // Login
+    // Login — generic failure message to prevent email enumeration.
     const supabase = await createClient()
-    const { data, error } = await supabase.auth.signInWithPassword({
+    const { error } = await supabase.auth.signInWithPassword({
       email: body.email,
       password: body.password,
     })
 
     if (error) {
-      return NextResponse.json({ error: error.message }, { status: 401 })
+      return fail(401, "Invalid email or password")
     }
 
-    return NextResponse.json({ success: true, user: data.user?.email })
-  } catch (error: any) {
-    return NextResponse.json({ error: error.message }, { status: 500 })
+    return NextResponse.json({ success: true })
+  } catch (error) {
+    return handleApiError(error, "callback")
   }
 }
 
 export async function GET() {
-  return NextResponse.json({ message: "Auth endpoints available" })
+  // Remove endpoint-existence disclosure.
+  return fail(404, "Not found")
 }

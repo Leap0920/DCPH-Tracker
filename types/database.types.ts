@@ -429,6 +429,15 @@ export interface Database {
         };
         Relationships: [];
       };
+      public_profiles: {
+        Row: {
+          user_id: string;
+          username: string;
+          display_name: string;
+          avatar_url: string | null;
+        };
+        Relationships: [];
+      };
     };
     Functions: Record<string, never>;
     Enums: Record<string, never>;

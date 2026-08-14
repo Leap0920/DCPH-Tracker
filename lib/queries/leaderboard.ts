@@ -1,6 +1,7 @@
 import { createClient } from "@/utils/supabase/server"
 import type { Database } from "@/types/database.types"
 import { getDetectiveRank } from "@/lib/ranks"
+import { PUBLIC_PROFILE_COLUMNS } from "@/lib/queries/profile"
 
 type WatchStatusRow = {
   user_id: string
@@ -66,12 +67,29 @@ export async function getRankings(limit = 100): Promise<RankingRow[]> {
   }
 
   const userIds = [...agg.keys()]
-  const { data: profiles, error: pError } = await supabase
-    .from("profiles")
-    .select("user_id, username, display_name, avatar_url")
+
+  // Prefer the public_profiles security-definer view (anon-safe, safe columns
+  // only); fall back to the base table with safe columns if the migration has
+  // not been applied yet. Never select("*") — the base table holds PII.
+  type ProfileRef = Database["public"]["Views"]["public_profiles"]["Row"]
+
+  const viewQuery = await supabase
+    .from("public_profiles")
+    .select(PUBLIC_PROFILE_COLUMNS)
     .in("user_id", userIds)
 
-  if (pError) throw pError
+  let profiles: ProfileRef[] | null = null
+
+  if (viewQuery.error) {
+    const baseQuery = await supabase
+      .from("profiles")
+      .select(PUBLIC_PROFILE_COLUMNS)
+      .in("user_id", userIds)
+    if (baseQuery.error) throw baseQuery.error
+    profiles = baseQuery.data
+  } else {
+    profiles = viewQuery.data
+  }
 
   return (profiles ?? [])
     .map((p) => {

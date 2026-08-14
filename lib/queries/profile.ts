@@ -4,34 +4,54 @@ import type { Database } from "@/types/database.types"
 type Profile = Database["public"]["Tables"]["profiles"]["Row"]
 type ProfileUpdate = Database["public"]["Tables"]["profiles"]["Update"]
 
+/**
+ * Safe public columns only. Never select("*") — the base table holds PII
+ * (birthday, bio, status, ban_reason, ...) that must stay private.
+ */
+export const PUBLIC_PROFILE_COLUMNS = "user_id, username, display_name, avatar_url"
+
+/**
+ * Reads a profile through the `public_profiles` security-definer view
+ * (safe columns only). Falls back to the base table with safe columns when
+ * the view has not been created yet (migration not applied). This function
+ * is safe to call for anonymous visitors — the view grants anon read.
+ */
+async function selectPublicProfile(
+  supabase: Awaited<ReturnType<typeof createClient>>,
+  column: "username" | "user_id",
+  value: string,
+  mode: "maybeSingle" | "single"
+) {
+  const viewQuery = supabase
+    .from("public_profiles")
+    .select(PUBLIC_PROFILE_COLUMNS)
+    .eq(column, value)
+
+  const view = await (mode === "maybeSingle" ? viewQuery.maybeSingle() : viewQuery.single())
+
+  if (!view.error) return view
+
+  // Fallback: view missing (migration not applied) → safe columns on base table.
+  const base = supabase
+    .from("profiles")
+    .select(PUBLIC_PROFILE_COLUMNS)
+    .eq(column, value)
+
+  const fb = await (mode === "maybeSingle" ? base.maybeSingle() : base.single())
+  if (fb.error) throw fb.error
+  return fb
+}
+
 export async function getProfileByUsername(username: string) {
   const supabase = await createClient()
-
-  const { data, error } = await supabase
-    .from("profiles")
-    .select("*")
-    .eq("username", username)
-    .maybeSingle()
-
-  // maybeSingle returns null (not an error) when no row matches, so a
-  // non-existent username results in a clean 404 rather than a crash.
-  if (error) throw error
-
-  return data
+  const result = await selectPublicProfile(supabase, "username", username, "maybeSingle")
+  return result.data
 }
 
 export async function getProfileByUserId(userId: string) {
   const supabase = await createClient()
-
-  const { data, error } = await supabase
-    .from("profiles")
-    .select("*")
-    .eq("user_id", userId)
-    .single()
-
-  if (error) throw error
-
-  return data
+  const result = await selectPublicProfile(supabase, "user_id", userId, "single")
+  return result.data
 }
 
 export async function updateProfile(userId: string, updates: ProfileUpdate) {
@@ -41,7 +61,7 @@ export async function updateProfile(userId: string, updates: ProfileUpdate) {
     .from("profiles")
     .update({ ...updates, updated_at: new Date().toISOString() })
     .eq("user_id", userId)
-    .select()
+    .select(PUBLIC_PROFILE_COLUMNS)
     .single()
 
   if (error) throw error
