@@ -190,18 +190,32 @@ export async function getFranchiseEntries(
   slug: string = DETECTIVE_CONAN_KITSU_SLUG,
   excludeId: number | string = DETECTIVE_CONAN_KITSU_ID
 ): Promise<KitsuAnime[]> {
-  const wanted: KitsuSubtype[] = ["movie", "OVA", "special", "ONA"]
-  const searchText = slug.replace(/-/g, " ")
+  const searchQueries = [
+    "detective conan",
+    "magic kaito",
+    "lupin iii vs detective conan",
+    "hannin no hanzawa",
+    "zero no tea time",
+    "yaiba",
+  ]
+  const wanted: KitsuSubtype[] = ["movie", "OVA", "special", "ONA", "TV"]
   const all: KitsuAnime[] = []
-  let url: string | null = `${KITSU_BASE_URL}/anime?filter[text]=${encodeURIComponent(searchText)}&page[limit]=20`
+  const seenIds = new Set<string>()
 
-  while (url) {
-    const res: KitsuAnimeListResponse = await rateLimitedFetch<KitsuAnimeListResponse>(url)
-    for (const anime of res.data) {
-      if (anime.id === String(excludeId)) continue
-      if (wanted.includes(anime.attributes.subtype)) all.push(anime)
+  for (const query of searchQueries) {
+    let url: string | null = `${KITSU_BASE_URL}/anime?filter[text]=${encodeURIComponent(query)}&page[limit]=20`
+    while (url) {
+      const res: KitsuAnimeListResponse = await rateLimitedFetch<KitsuAnimeListResponse>(url)
+      for (const anime of res.data) {
+        if (anime.id === String(excludeId)) continue
+        if (seenIds.has(anime.id)) continue
+        if (wanted.includes(anime.attributes.subtype)) {
+          seenIds.add(anime.id)
+          all.push(anime)
+        }
+      }
+      url = res.links?.next ?? null
     }
-    url = res.links?.next ?? null
   }
 
   return all

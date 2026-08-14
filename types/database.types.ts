@@ -415,6 +415,60 @@ export interface Database {
         };
         Relationships: [];
       };
+      sync_staging: {
+        Row: {
+          id: string;
+          source: string;
+          slug: string;
+          title: string;
+          type: "episode" | "movie" | "special" | "ova" | "live_action" | "magic_kaito" | "hanzawa" | "zero_tea_time" | "yaiba";
+          episode_number: number | null;
+          movie_number: number | null;
+          air_date: string | null;
+          canon_order: number | null;
+          synopsis: string | null;
+          image_url: string | null;
+          runtime_minutes: number | null;
+          status: "pending" | "approved" | "rejected";
+          review_notes: string | null;
+          created_at: string;
+        };
+        Insert: {
+          id?: string;
+          source: string;
+          slug: string;
+          title: string;
+          type: "episode" | "movie" | "special" | "ova" | "live_action" | "magic_kaito" | "hanzawa" | "zero_tea_time" | "yaiba";
+          episode_number?: number | null;
+          movie_number?: number | null;
+          air_date?: string | null;
+          canon_order?: number | null;
+          synopsis?: string | null;
+          image_url?: string | null;
+          runtime_minutes?: number | null;
+          status?: "pending" | "approved" | "rejected";
+          review_notes?: string | null;
+          created_at?: string;
+        };
+        Update: {
+          id?: string;
+          source?: string;
+          slug?: string;
+          title?: string;
+          type?: "episode" | "movie" | "special" | "ova" | "live_action" | "magic_kaito" | "hanzawa" | "zero_tea_time" | "yaiba";
+          episode_number?: number | null;
+          movie_number?: number | null;
+          air_date?: string | null;
+          canon_order?: number | null;
+          synopsis?: string | null;
+          image_url?: string | null;
+          runtime_minutes?: number | null;
+          status?: "pending" | "approved" | "rejected";
+          review_notes?: string | null;
+          created_at?: string;
+        };
+        Relationships: [];
+      };
     };
     Views: {
       leaderboard: {

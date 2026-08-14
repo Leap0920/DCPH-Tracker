@@ -134,27 +134,98 @@ function kitsuContentSlug(type: "movie" | "special" | "ova", idx: number): strin
   return `${prefix}-${String(idx).padStart(2, "0")}`
 }
 
-// ─── Shared upsert helper ────────────────────────────────────────
+// ─── Shared staging helper (Approval Queue + Duplicate Protection) ───
 
-async function upsertBatch(
+async function stageBatch(
   supabase: SyncClient,
-  rows: ContentInsert[]
-): Promise<{ inserted: number; errors: string[] }> {
-  const BATCH_SIZE = 50
-  let inserted = 0
+  rows: ContentInsert[],
+  source: "jikan" | "kitsu" | "anilist"
+): Promise<{ totalFetched: number; inserted: number; skipped: number; errors: string[] }> {
+  let staged = 0
+  let skipped = 0
   const errors: string[] = []
-  for (let i = 0; i < rows.length; i += BATCH_SIZE) {
-    const batch = rows.slice(i, i + BATCH_SIZE)
-    const { error } = await supabase
-      .from("content_entries")
-      .upsert(batch, { onConflict: "slug" })
-    if (error) {
-      errors.push(`Batch ${Math.floor(i / BATCH_SIZE) + 1}: ${error.message}`)
-    } else {
-      inserted += batch.length
+
+  // 1. Fetch all existing slugs, episode numbers, and movie numbers from content_entries
+  const { data: existingContent } = await supabase
+    .from("content_entries")
+    .select("slug, type, episode_number, movie_number")
+
+  const existingSlugs = new Set<string>()
+  const existingEpNums = new Set<number>()
+  const existingMovNums = new Set<number>()
+
+  if (existingContent) {
+    for (const c of existingContent) {
+      if (c.slug) existingSlugs.add(c.slug)
+      if (c.type === "episode" && c.episode_number != null) existingEpNums.add(c.episode_number)
+      if (c.type === "movie" && c.movie_number != null) existingMovNums.add(c.movie_number)
     }
   }
-  return { inserted, errors }
+
+  // 2. Fetch existing slugs in sync_staging (if table exists)
+  try {
+    const { data: existingStaged } = await supabase
+      .from("sync_staging")
+      .select("slug")
+
+    if (existingStaged) {
+      for (const s of existingStaged) {
+        if (s.slug) existingSlugs.add(s.slug)
+      }
+    }
+  } catch {
+    // Ignore if table not yet migrated
+  }
+
+  // 3. Filter rows: only stage entries that do NOT exist in content_entries or sync_staging
+  const newRows: any[] = []
+  for (const r of rows) {
+    if (existingSlugs.has(r.slug)) {
+      skipped++
+      continue
+    }
+    if (r.type === "episode" && r.episode_number != null && existingEpNums.has(r.episode_number)) {
+      skipped++
+      continue
+    }
+    if (r.type === "movie" && r.movie_number != null && existingMovNums.has(r.movie_number)) {
+      skipped++
+      continue
+    }
+
+    newRows.push({
+      source,
+      slug: r.slug,
+      title: r.title,
+      type: r.type,
+      episode_number: r.episode_number ?? null,
+      movie_number: r.movie_number ?? null,
+      air_date: r.air_date ?? null,
+      canon_order: r.canon_order ?? 0,
+      synopsis: r.synopsis ?? null,
+      image_url: r.image_url ?? null,
+      runtime_minutes: r.runtime_minutes ?? null,
+      status: "pending",
+    })
+  }
+
+  if (newRows.length === 0) {
+    return { totalFetched: rows.length, inserted: 0, skipped: rows.length, errors: [] }
+  }
+
+  // 4. Insert new rows into sync_staging for Admin Review
+  const BATCH_SIZE = 50
+  for (let i = 0; i < newRows.length; i += BATCH_SIZE) {
+    const batch = newRows.slice(i, i + BATCH_SIZE)
+    const { error } = await supabase.from("sync_staging").insert(batch)
+    if (error) {
+      errors.push(`Staging batch error: ${error.message}`)
+    } else {
+      staged += batch.length
+    }
+  }
+
+  return { totalFetched: rows.length, inserted: staged, skipped, errors }
 }
 
 // ─── Seed: episodes from Jikan (complete for DC) ────────────────
@@ -202,8 +273,15 @@ async function syncSeedEpisodes(
     }
   }
 
-  const { inserted, errors } = await upsertBatch(supabase, rows)
-  return { type: "episodes", totalFetched: rows.length, inserted, skipped: 0, errors }
+  const { inserted, skipped, errors } = await stageBatch(supabase, rows, "jikan")
+  return {
+    type: "episodes",
+    totalFetched: rows.length,
+    inserted,
+    skipped,
+    errors,
+    note: inserted > 0 ? `${inserted} new episodes queued for Admin Approval in /admin/sync` : "All episodes already up to date.",
+  }
 }
 
 // ─── Seed: franchise (movies / specials / OVAs) from Kitsu ──────
@@ -342,8 +420,15 @@ async function syncSeedFranchise(
     }
   }
 
-  const { inserted, errors } = await upsertBatch(supabase, rows)
-  return { type: "franchise", totalFetched: rows.length, inserted, skipped: 0, errors }
+  const { inserted, skipped, errors } = await stageBatch(supabase, rows, "kitsu")
+  return {
+    type: "franchise",
+    totalFetched: rows.length,
+    inserted,
+    skipped,
+    errors,
+    note: inserted > 0 ? `${inserted} new franchise items queued for Admin Approval in /admin/sync` : "All franchise items already up to date.",
+  }
 }
 
 // ─── Airing mode: AniList detects new episode → Jikan tail re-sync ─
@@ -438,14 +523,14 @@ async function syncAiring(
     }
   }
 
-  const { inserted, errors } = await upsertBatch(supabase, rows)
+  const { inserted, skipped, errors } = await stageBatch(supabase, rows, "anilist")
   return {
     type: "airing",
     totalFetched: rows.length,
     inserted,
-    skipped: 0,
+    skipped,
     errors,
-    note: anilistNote,
+    note: inserted > 0 ? `${anilistNote} ${inserted} new airing episode(s) queued for Admin Approval in /admin/sync.` : `${anilistNote} No new airing episodes to queue.`,
   }
 }
 
