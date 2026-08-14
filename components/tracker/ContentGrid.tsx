@@ -40,6 +40,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select"
+import { SUBCATEGORY_CONFIGS } from "@/lib/subcategories"
 
 type ContentEntry = Database["public"]["Tables"]["content_entries"]["Row"]
 
@@ -100,6 +101,18 @@ function getNumber(entry: ContentEntry): number {
   return entry.release_order ?? 0
 }
 
+type SectionData = {
+  key: string
+  type: ContentType
+  title: string
+  icon: React.ComponentType<{ className?: string }>
+  entries: ContentEntry[]
+  watched: number
+  total: number
+  subcats?: { key: string; label: string; count: number }[]
+  activeSubcat?: string
+}
+
 export function ContentGrid({
   entries,
   userStatuses,
@@ -131,6 +144,7 @@ export function ContentGrid({
   const [statusFilter, setStatusFilter] = useState<StatusFilter>(initialStatusFilter)
   const [expandedType, setExpandedType] = useState<string | null>(null)
   const [pages, setPages] = useState<Record<string, number>>({})
+  const [subcat, setSubcat] = useState<Record<string, string>>({})
   const [jumpInput, setJumpInput] = useState("")
   const [jumpError, setJumpError] = useState<string | null>(null)
   const [markInput, setMarkInput] = useState("")
@@ -162,6 +176,11 @@ export function ContentGrid({
   function setPage(key: string, page: number) {
     setPages((prev) => ({ ...prev, [key]: page }))
     onPageChange?.(key, page)
+  }
+
+  function setSubcatKey(key: string, groupKey: string) {
+    setSubcat((prev) => ({ ...prev, [key]: groupKey }))
+    setPage(key, 0)
   }
 
   // Sync external (URL) state changes back into the grid.
@@ -205,15 +224,7 @@ export function ContentGrid({
   // "year" mode, or sorted by canon_order in "chronological" mode.
   const sections = useMemo(() => {
     const episodeFiltered = entries.filter((e) => e.type === "episode" && matchesStatus(e))
-    const episodeSections: {
-      key: string
-      type: ContentType
-      title: string
-      icon: React.ComponentType<{ className?: string }>
-      entries: ContentEntry[]
-      watched: number
-      total: number
-    }[] = []
+    const episodeSections: SectionData[] = []
 
     if (mode === "chronological") {
       const list = [...episodeFiltered].sort((a, b) => (a.canon_order ?? 0) - (b.canon_order ?? 0))
@@ -250,9 +261,23 @@ export function ContentGrid({
 
     const otherSections = SECTION_ORDER.filter((s) => s.type !== "episode")
       .map((s) => {
-        const list = entries
+        const base = entries
           .filter((e) => e.type === s.type && matchesStatus(e))
           .sort((a, b) => getNumber(a) - getNumber(b))
+        const config = SUBCATEGORY_CONFIGS[s.type]
+        let list = base
+        let activeSubcat: string | undefined
+        let subcats: { key: string; label: string; count: number }[] | undefined
+        if (config) {
+          activeSubcat = subcat[s.type] ?? config.defaultKey
+          subcats = config.groups.map((g) => ({
+            key: g.key,
+            label: g.label,
+            count: base.filter((e) => g.match(e)).length,
+          }))
+          const activeGroup = config.groups.find((g) => g.key === activeSubcat)
+          if (activeGroup) list = base.filter((e) => activeGroup.match(e))
+        }
         return {
           key: s.type,
           type: s.type,
@@ -261,12 +286,14 @@ export function ContentGrid({
           entries: list,
           watched: list.filter(isWatched).length,
           total: list.length,
+          subcats,
+          activeSubcat,
         }
       })
       .filter((s) => s.total > 0)
 
     return [...episodeSections, ...otherSections].filter((s) => s.total > 0)
-  }, [entries, userStatuses, mode, statusFilter])
+  }, [entries, userStatuses, mode, statusFilter, subcat])
 
   const visibleSections =
     typeFilter === "all" ? sections : sections.filter((s) => s.type === typeFilter)
@@ -724,7 +751,28 @@ export function ContentGrid({
                 isOpen={isOpen}
                 onToggle={() => setExpandedType(isOpen ? null : section.key)}
                 action={
-                  onMarkAll && !complete && section.type === "episode" ? (
+                  section.subcats && section.subcats.length > 1 ? (
+                    <div onClick={(e) => e.stopPropagation()}>
+                      <Select
+                        value={section.activeSubcat}
+                        onValueChange={(v) => setSubcatKey(section.key, v)}
+                      >
+                        <SelectTrigger
+                          className="h-8 w-auto gap-1.5 border border-slate-300 bg-surface px-3 text-[10px] font-mono text-ink-faint hover:text-ink hover:border-ink transition-colors"
+                          aria-label={`${section.title} subcategory`}
+                        >
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {section.subcats.map((g) => (
+                            <SelectItem key={g.key} value={g.key}>
+                              {g.label} ({g.count})
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                  ) : onMarkAll && !complete && section.type === "episode" ? (
                     <button
                       onClick={(e) => {
                         e.stopPropagation()
