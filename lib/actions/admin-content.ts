@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache"
 import { requireAdmin } from "@/lib/auth/admin"
 import { createAdminClient } from "@/utils/supabase/admin"
+import { resolveAndCleanImageUrl } from "@/lib/utils/image-url"
 import type { Database } from "@/types/database.types"
 
 type ContentInsert = Database["public"]["Tables"]["content_entries"]["Insert"]
@@ -97,7 +98,7 @@ async function buildPayload(
 
   // Resolve cover: uploaded file takes priority over pasted URL.
   const file = formData.get("cover_file")
-  let imageUrl = String(formData.get("image_url") ?? "").trim() || null
+  let imageUrl = await resolveAndCleanImageUrl(String(formData.get("image_url") ?? ""))
   if (file instanceof File && file.size > 0) {
     const uploaded = await uploadCover(admin, file)
     if (uploaded && "error" in uploaded) return { error: uploaded.error }
@@ -189,7 +190,7 @@ export async function updateContentCover(
   if (!admin) return { ok: false, error: "Service role key not configured." }
   if (!id) return { ok: false, error: "Missing entry id." }
 
-  let imageUrl = String(formData.get("image_url") ?? "").trim() || null
+  let imageUrl = await resolveAndCleanImageUrl(String(formData.get("image_url") ?? ""))
   const file = formData.get("cover_file")
   if (file instanceof File && file.size > 0) {
     const uploaded = await uploadCover(admin, file)
@@ -234,4 +235,12 @@ export async function updateContentType(
   revalidatePath("/admin/content")
   revalidatePath("/tracker")
   return { ok: true, message: `Category moved to ${newType}.` }
+}
+
+/**
+ * Resolves a copy-pasted Wiki File page URL into a clean direct cover image URL.
+ */
+export async function resolveWikiImageUrl(url: string): Promise<string> {
+  const resolved = await resolveAndCleanImageUrl(url)
+  return resolved ?? url.trim()
 }

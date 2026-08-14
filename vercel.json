@@ -1,7 +1,4 @@
 {
-  "git": {
-    "deploymentEnabled": false
-  },
   "crons": [
     {
       "path": "/api/sync?mode=airing",
