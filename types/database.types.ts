@@ -106,7 +106,7 @@ export interface Database {
           id: string;
           slug: string;
           title: string;
-          type: "episode" | "movie" | "special" | "ova" | "live_action" | "magic_kaito" | "hanzawa" | "zero_tea_time";
+          type: "episode" | "movie" | "special" | "ova" | "live_action" | "magic_kaito" | "hanzawa" | "zero_tea_time" | "yaiba";
           episode_number: number | null;
           movie_number: number | null;
           air_date: string;
@@ -122,7 +122,7 @@ export interface Database {
           id?: string;
           slug: string;
           title: string;
-          type: "episode" | "movie" | "special" | "ova" | "live_action" | "magic_kaito" | "hanzawa" | "zero_tea_time";
+          type: "episode" | "movie" | "special" | "ova" | "live_action" | "magic_kaito" | "hanzawa" | "zero_tea_time" | "yaiba";
           episode_number?: number | null;
           movie_number?: number | null;
           air_date: string;
@@ -138,7 +138,7 @@ export interface Database {
           id?: string;
           slug?: string;
           title?: string;
-          type?: "episode" | "movie" | "special" | "ova" | "live_action" | "magic_kaito" | "hanzawa" | "zero_tea_time";
+          type?: "episode" | "movie" | "special" | "ova" | "live_action" | "magic_kaito" | "hanzawa" | "zero_tea_time" | "yaiba";
           episode_number?: number | null;
           movie_number?: number | null;
           air_date?: string;

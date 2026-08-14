@@ -1,13 +1,13 @@
-﻿import Link from "next/link"
+import Link from "next/link"
 import { createClient } from "@/utils/supabase/server"
-import { Film, Users, MessagesSquare, Image as ImageIcon, RefreshCw, ArrowRight } from "lucide-react"
+import { Film, Users, MessagesSquare, Image as ImageIcon, RefreshCw, BookOpen, Award, ArrowRight } from "lucide-react"
 
 export const dynamic = "force-dynamic"
 
 async function getStats() {
   const supabase = await createClient()
 
-  const [episodes, movies, otherContent, users, messages, missingCovers] = await Promise.all([
+  const [episodes, movies, otherContent, users, messages, missingCovers, arcs, badges] = await Promise.all([
     supabase.from("content_entries").select("*", { count: "exact", head: true }).eq("type", "episode"),
     supabase.from("content_entries").select("*", { count: "exact", head: true }).eq("type", "movie"),
     supabase
@@ -17,6 +17,8 @@ async function getStats() {
     supabase.from("profiles").select("*", { count: "exact", head: true }),
     supabase.from("chat_messages").select("*", { count: "exact", head: true }),
     supabase.from("content_entries").select("*", { count: "exact", head: true }).is("image_url", null),
+    supabase.from("arcs").select("*", { count: "exact", head: true }),
+    supabase.from("badges").select("*", { count: "exact", head: true }),
   ])
 
   return {
@@ -26,6 +28,8 @@ async function getStats() {
     users: users.count ?? 0,
     messages: messages.count ?? 0,
     missingCovers: missingCovers.count ?? 0,
+    arcs: arcs.count ?? 0,
+    badges: badges.count ?? 0,
   }
 }
 
@@ -36,6 +40,8 @@ export default async function AdminOverviewPage() {
     { label: "Episodes", value: stats.episodes, icon: Film },
     { label: "Movies", value: stats.movies, icon: Film },
     { label: "Other content", value: stats.otherContent, icon: Film },
+    { label: "Story Arcs", value: stats.arcs, icon: BookOpen },
+    { label: "Badges", value: stats.badges, icon: Award },
     { label: "Users", value: stats.users, icon: Users },
     { label: "Chat messages", value: stats.messages, icon: MessagesSquare },
     { label: "Missing covers", value: stats.missingCovers, icon: ImageIcon, warn: stats.missingCovers > 0 },
@@ -47,7 +53,7 @@ export default async function AdminOverviewPage() {
         <h2 className="font-display text-sm tracking-tight text-ink-dim mb-4">
           At a glance
         </h2>
-        <div className="grid grid-cols-2 lg:grid-cols-3 gap-4">
+        <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
           {cards.map((c) => {
             const Icon = c.icon
             return (
@@ -79,30 +85,42 @@ export default async function AdminOverviewPage() {
         <h2 className="font-display text-sm tracking-tight text-ink-dim mb-4">
           Quick actions
         </h2>
-        <div className="grid gap-4 sm:grid-cols-2">
+        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
           <QuickLink
-            href="/admin/content/new"
-            title="Add new content"
-            desc="Create a new episode, movie, special, or OVA."
-            icon={Film}
-          />
-          <QuickLink
-            href="/admin/content"
-            title="Manage content"
-            desc="Edit titles, dates, synopses and fix cover images."
+            href="/admin/content/covers"
+            title="Missing Covers Panel"
+            desc="Fix missing poster artwork directly from a queue."
             icon={ImageIcon}
           />
           <QuickLink
-            href="/admin/sync"
-            title="Run API sync"
-            desc="Pull the latest episodes & franchise data from external sources."
-            icon={RefreshCw}
+            href="/admin/arcs"
+            title="Manage Story Arcs"
+            desc="Group episodes into storyline arcs and sagas."
+            icon={BookOpen}
+          />
+          <QuickLink
+            href="/admin/badges"
+            title="Manage Badges"
+            desc="Create & update community achievement rewards."
+            icon={Award}
+          />
+          <QuickLink
+            href="/admin/content"
+            title="Manage Content & Relocate"
+            desc="Edit entry details and switch categories with one click."
+            icon={Film}
           />
           <QuickLink
             href="/admin/users"
-            title="Manage users"
-            desc="Promote or demote moderators and admins."
+            title="Manage Users"
+            desc="Promote/demote moderators and manage account status."
             icon={Users}
+          />
+          <QuickLink
+            href="/admin/sync"
+            title="Run API Sync"
+            desc="Pull latest episode data from external APIs."
+            icon={RefreshCw}
           />
         </div>
       </section>
