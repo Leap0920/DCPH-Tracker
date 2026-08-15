@@ -112,7 +112,7 @@ export function Navbar() {
                 key={route.href}
                 href={route.href}
                 className={cn(
-                    "px-3 py-2 rounded-md text-sm font-display transition-colors",
+                  "px-3 py-2 rounded-md text-sm font-display transition-colors",
                   isActive
                     ? "text-ink bg-surface-muted"
                     : "text-ink-dim hover:text-ink hover:bg-surface-muted"
@@ -192,7 +192,7 @@ export function Navbar() {
                   href={route.href}
                   onClick={() => setMobileOpen(false)}
                   className={cn(
-                  "px-3 py-2 rounded-md text-sm font-display transition-colors",
+                    "px-3 py-2 rounded-md text-sm font-display transition-colors",
                     isActive
                       ? "text-ink bg-surface-muted"
                       : "text-ink-dim hover:text-ink hover:bg-surface-muted"

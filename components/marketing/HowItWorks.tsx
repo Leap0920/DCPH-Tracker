@@ -1,89 +1,114 @@
 "use client"
 
 import Link from "next/link"
-import { UserPlus, ListChecks, Trophy } from "lucide-react"
-import { openAuthModal, type AuthModalMode } from "@/lib/auth-modal"
-
-const steps: Array<{
-  number: string
-  icon: typeof UserPlus
-  title: string
-  body: string
-  cta: string
-  href: string
-  modalMode?: AuthModalMode
-}> = [
-  {
-    number: "01",
-    icon: UserPlus,
-    title: "Create your account",
-    body: "Sign up in under a minute with just an email — no credit card, no fuss.",
-    cta: "Create account",
-    href: "/signup",
-    modalMode: "signup",
-  },
-  {
-    number: "02",
-    icon: ListChecks,
-    title: "Track what you watch",
-    body: "Log every episode, movie, special and OVA as you go and watch your progress fill in.",
-    cta: "Start tracking",
-    href: "/tracker",
-  },
-  {
-    number: "03",
-    icon: Trophy,
-    title: "Compete with fellow detectives",
-    body: "Climb the detective rankings and talk cases with the community in themed chat rooms.",
-    cta: "See rankings",
-    href: "/community/rankings",
-  },
-]
+import { motion } from "framer-motion"
+import { UserPlus, ListChecks, Trophy, ArrowRight } from "lucide-react"
+import { openAuthModal } from "@/lib/auth-modal"
+import { SectionHeading } from "./SectionHeading"
 
 export function HowItWorks() {
   return (
-    <section className="mx-auto max-w-5xl px-6">
-      <h2 className="font-display text-2xl sm:text-3xl text-center text-ink">
-        How it works
-      </h2>
-      <p className="mt-2 text-center text-ink-dim max-w-xl mx-auto">
-        From zero to full detective in three simple steps.
-      </p>
+    <section className="mx-auto max-w-6xl px-6 py-8">
+      <SectionHeading
+        eyebrow="How it works"
+        title="From zero to full detective"
+        subtitle="Three simple steps to start tracking, ranking, and chatting with the community."
+      />
 
-      <div className="mt-10 grid gap-6 sm:grid-cols-3">
-        {steps.map((step) => {
-          const Icon = step.icon
-          const linkClasses =
-            "mt-4 inline-block text-sm font-semibold text-accent hover:text-accent-bright"
-          return (
-            <div
-              key={step.number}
-              className="relative rounded-lg border border-slate-200 bg-surface p-6 pt-8 shadow-card"
-            >
-              <span className="font-mono text-xs tracking-widest text-ink-faint">
-                {step.number}
-              </span>
-              <span className="mt-3 flex h-10 w-10 items-center justify-center rounded-md bg-accent-soft text-accent">
-                <Icon className="h-5 w-5" />
-              </span>
-              <h3 className="mt-4 font-display text-lg text-ink">{step.title}</h3>
-              <p className="mt-2 text-sm text-ink-dim">{step.body}</p>
-              {step.modalMode ? (
-                <button
-                  type="button"
-                  onClick={() => openAuthModal(step.modalMode!)}
-                  className={linkClasses}
-                >
-                  {step.cta} →
-                </button>
-              ) : (
-                <Link href={step.href} className={linkClasses}>
-                  {step.cta} →
-                </Link>
-              )}
+      <div className="mt-12 flex flex-col md:flex-row items-center justify-between gap-12 lg:gap-16">
+        {/* Left Side: Overlapping stacked image cards (Shinichi and Jinpei) */}
+        <motion.div 
+          initial={{ opacity: 0, x: -30 }}
+          whileInView={{ opacity: 1, x: 0 }}
+          viewport={{ once: true }}
+          transition={{ duration: 0.6, ease: [0.16, 1, 0.3, 1] }}
+          className="relative w-full max-w-md h-[380px] sm:h-[440px] flex items-center justify-center"
+        >
+          {/* Background Image Card (Shinichi Kudo) */}
+          <div className="absolute top-0 left-2 sm:left-4 w-60 sm:w-72 h-72 sm:h-88 overflow-hidden rounded-3xl border border-slate-200/80 shadow-lg -rotate-3 hover:rotate-0 transition-all duration-500">
+            <img
+              src="/img/shinichi.jpg"
+              alt="Shinichi Kudo - Detective Conan"
+              className="h-full w-full object-cover"
+            />
+          </div>
+
+          {/* Foreground Image Card (Jinpei Matsuda) */}
+          <div className="absolute bottom-0 right-2 sm:right-4 w-60 sm:w-72 h-72 sm:h-88 overflow-hidden rounded-3xl border-2 border-white shadow-2xl rotate-3 hover:rotate-0 transition-all duration-500 z-10">
+            <img
+              src="/img/Jinpei.jpg"
+              alt="Jinpei Matsuda - Police Academy"
+              className="h-full w-full object-cover"
+            />
+          </div>
+        </motion.div>
+
+        {/* Right Side: Vertical feature list with colored circle icons */}
+        <motion.div 
+          initial={{ opacity: 0, x: 30 }}
+          whileInView={{ opacity: 1, x: 0 }}
+          viewport={{ once: true }}
+          transition={{ duration: 0.6, delay: 0.2, ease: [0.16, 1, 0.3, 1] }}
+          className="space-y-8 w-full max-w-lg"
+        >
+          {/* Step 1 */}
+          <div className="flex items-start gap-6 group">
+            <div className="p-4 aspect-square bg-violet-100 rounded-full flex items-center justify-center text-violet-600 shrink-0 shadow-sm transition-transform group-hover:scale-110">
+              <UserPlus className="w-7 h-7" />
             </div>
-          )
-        })}
+            <div className="space-y-1.5 pt-1">
+              <h3 className="text-lg font-semibold font-display text-ink">Create your account</h3>
+              <p className="text-sm text-ink-dim leading-relaxed">
+                Sign up in under a minute with just an email — no credit card, no fuss.
+              </p>
+              <button
+                type="button"
+                onClick={() => openAuthModal("signup")}
+                className="inline-flex items-center gap-1 text-xs font-semibold text-accent hover:gap-2 transition-all pt-1"
+              >
+                Create account <ArrowRight className="w-3.5 h-3.5" />
+              </button>
+            </div>
+          </div>
+
+          {/* Step 2 */}
+          <div className="flex items-start gap-6 group">
+            <div className="p-4 aspect-square bg-green-100 rounded-full flex items-center justify-center text-green-600 shrink-0 shadow-sm transition-transform group-hover:scale-110">
+              <ListChecks className="w-7 h-7" />
+            </div>
+            <div className="space-y-1.5 pt-1">
+              <h3 className="text-lg font-semibold font-display text-ink">Track what you watch</h3>
+              <p className="text-sm text-ink-dim leading-relaxed">
+                Log every episode, movie, special and OVA as you go and watch your progress fill in.
+              </p>
+              <Link
+                href="/tracker"
+                className="inline-flex items-center gap-1 text-xs font-semibold text-accent hover:gap-2 transition-all pt-1"
+              >
+                Start tracking <ArrowRight className="w-3.5 h-3.5" />
+              </Link>
+            </div>
+          </div>
+
+          {/* Step 3 */}
+          <div className="flex items-start gap-6 group">
+            <div className="p-4 aspect-square bg-orange-100 rounded-full flex items-center justify-center text-orange-600 shrink-0 shadow-sm transition-transform group-hover:scale-110">
+              <Trophy className="w-7 h-7" />
+            </div>
+            <div className="space-y-1.5 pt-1">
+              <h3 className="text-lg font-semibold font-display text-ink">Compete with fellow detectives</h3>
+              <p className="text-sm text-ink-dim leading-relaxed">
+                Climb the detective rankings and talk cases with the community in themed chat rooms.
+              </p>
+              <Link
+                href="/community/rankings"
+                className="inline-flex items-center gap-1 text-xs font-semibold text-accent hover:gap-2 transition-all pt-1"
+              >
+                See rankings <ArrowRight className="w-3.5 h-3.5" />
+              </Link>
+            </div>
+          </div>
+        </motion.div>
       </div>
     </section>
   )
