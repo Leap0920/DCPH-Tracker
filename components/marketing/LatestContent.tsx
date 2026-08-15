@@ -15,7 +15,7 @@ async function getLatestContent() {
       .from("content_entries")
       .select("id, title, type, episode_number, air_date, slug")
       .order("air_date", { ascending: false })
-      .limit(6)
+      .limit(7)
 
     if (error) return null
     return data
