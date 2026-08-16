@@ -1,7 +1,26 @@
 "use client"
 
 import Link from "next/link"
+import { motion, useReducedMotion, type Variants } from "framer-motion"
 import { Check } from "lucide-react"
+
+const EASE = [0.16, 1, 0.3, 1] as const
+
+const gridVariants: Variants = {
+  hidden: {},
+  show: {
+    transition: { staggerChildren: 0.08 },
+  },
+}
+
+const cardVariants: Variants = {
+  hidden: { opacity: 0, y: 24 },
+  show: {
+    opacity: 1,
+    y: 0,
+    transition: { duration: 0.7, ease: EASE },
+  },
+}
 
 export interface AdvantageItem {
   title: string
@@ -53,50 +72,75 @@ export function Feature({
   subtitle?: string
   advantages?: AdvantageItem[]
 }) {
+  const reduce = useReducedMotion()
+
   return (
-    <section className="mx-auto max-w-6xl px-4 sm:px-6 py-8 sm:py-12">
+    <section className="mx-auto max-w-6xl px-6 sm:px-12">
       {/* Header Area */}
-      <div className="max-w-2xl">
+      <motion.div
+        initial={reduce ? false : { opacity: 0, y: 24, filter: "blur(6px)" }}
+        whileInView={{ opacity: 1, y: 0, filter: "blur(0px)" }}
+        viewport={{ once: true, margin: "-60px" }}
+        transition={{ duration: 0.7, ease: EASE }}
+        className="max-w-2xl"
+      >
         {badge && (
-          <span className="inline-block rounded-full bg-slate-900 px-3 py-0.5 sm:px-3.5 sm:py-1 font-mono text-[11px] sm:text-xs font-semibold uppercase tracking-wider text-white shadow-sm">
+          <span className="inline-block rounded-full border border-accent/20 bg-accent-soft px-3.5 py-1 font-mono text-xs font-semibold uppercase tracking-widest text-accent">
             {badge}
           </span>
         )}
-        <h2 className="mt-3 sm:mt-4 font-display text-2xl sm:text-3xl lg:text-4xl font-semibold tracking-tight text-slate-900">
+        <h2 className="mt-4 font-display text-2xl sm:text-3xl lg:text-4xl font-semibold tracking-tight text-ink">
           {title}
         </h2>
         {subtitle && (
-          <p className="mt-1.5 sm:mt-2 font-body text-sm sm:text-base leading-relaxed text-slate-500">
+          <p className="mt-2 font-body text-sm sm:text-base leading-relaxed text-ink-dim">
             {subtitle}
           </p>
         )}
-      </div>
+      </motion.div>
 
       {/* Advantages Grid */}
-      <div className="mt-8 sm:mt-12 grid gap-x-6 gap-y-6 sm:gap-y-10 sm:grid-cols-2 lg:grid-cols-3">
+      <motion.div
+        initial={reduce ? "show" : "hidden"}
+        whileInView="show"
+        viewport={{ once: true, margin: "-60px" }}
+        variants={gridVariants}
+        className="mt-12 sm:mt-16 grid gap-4 sm:gap-5 sm:grid-cols-2 lg:grid-cols-3"
+      >
         {advantages.map((item, idx) => (
-          <div key={idx} className="group flex items-start gap-2.5 sm:gap-3.5">
-            <Check className="mt-0.5 h-4 w-4 sm:h-5 sm:w-5 shrink-0 text-slate-900 transition-transform duration-200 group-hover:scale-110" />
+          <motion.div
+            key={idx}
+            variants={cardVariants}
+            whileHover={
+              reduce
+                ? undefined
+                : { y: -6, transition: { type: "spring", stiffness: 300, damping: 22 } }
+            }
+            className="group flex items-start gap-3.5 rounded-2xl border border-slate-200/60 bg-surface p-5 sm:p-6 shadow-card transition-[box-shadow,border-color] duration-300 hover:shadow-xl hover:border-slate-300"
+          >
+            <span className="mt-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-accent-soft text-accent transition-all duration-300 group-hover:bg-accent group-hover:text-white">
+              <Check className="h-4 w-4 sm:h-5 sm:w-5 transition-transform duration-200 group-hover:scale-110" />
+            </span>
             <div>
               {item.href ? (
                 <Link
                   href={item.href}
-                  className="font-display text-sm sm:text-base font-semibold text-slate-900 transition-colors group-hover:text-accent"
+                  className="font-display text-sm sm:text-base font-semibold text-ink transition-colors group-hover:text-accent"
                 >
                   {item.title}
                 </Link>
               ) : (
-                <h3 className="font-display text-sm sm:text-base font-semibold text-slate-900">
+                <h3 className="font-display text-sm sm:text-base font-semibold text-ink">
                   {item.title}
                 </h3>
               )}
-              <p className="mt-0.5 sm:mt-1 font-body text-xs sm:text-sm leading-relaxed text-slate-500">
+              <p className="mt-0.5 sm:mt-1 font-body text-xs sm:text-sm leading-relaxed text-ink-dim">
                 {item.description}
               </p>
             </div>
-          </div>
+          </motion.div>
         ))}
-      </div>
+      </motion.div>
     </section>
   )
 }

@@ -1,6 +1,5 @@
 "use client"
 
-import { motion } from "framer-motion"
 import { Tv, Play, FileText, Sparkles, Calendar, Film, Video } from "lucide-react"
 import {
   CONTENT_TYPE_LABELS,
@@ -19,13 +18,14 @@ type LatestEntry = {
 }
 
 const bentoClasses = [
-  "lg:col-start-1 lg:col-end-2 lg:row-start-1 lg:row-end-3", // Left top (2 rows)
-  "lg:col-start-1 lg:col-end-2 lg:row-start-3 lg:row-end-4", // Left bottom (1 row)
-  "lg:col-start-2 lg:col-end-3 lg:row-start-1 lg:row-end-2", // Middle top (1 row)
-  "lg:col-start-2 lg:col-end-3 lg:row-start-2 lg:row-end-4", // Middle bottom (2 rows - split!)
-  "lg:col-start-3 lg:col-end-4 lg:row-start-1 lg:row-end-2", // Right top (1 row)
-  "lg:col-start-3 lg:col-end-4 lg:row-start-2 lg:row-end-3", // Right middle (1 row)
-  "lg:col-start-3 lg:col-end-4 lg:row-start-3 lg:row-end-4", // Right bottom (1 row)
+  // 2-col Bento (mobile/tablet) & 3-col Bento (desktop lg)
+  "col-start-1 col-end-2 row-start-1 row-end-3 lg:col-start-1 lg:col-end-2 lg:row-start-1 lg:row-end-3", // Card 0: Ep 1209 (Tall Left)
+  "col-start-2 col-end-3 row-start-1 row-end-2 lg:col-start-2 lg:col-end-3 lg:row-start-1 lg:row-end-2", // Card 1: Ep 1207 (Short Mid Top on lg)
+  "col-start-2 col-end-3 row-start-2 row-end-3 lg:col-start-3 lg:col-end-4 lg:row-start-1 lg:row-end-2", // Card 2: Ep 1205 (Short Right Top on lg)
+  "col-start-1 col-end-2 row-start-3 row-end-4 lg:col-start-1 lg:col-end-2 lg:row-start-3 lg:row-end-4", // Card 3: Ep 1208 (Short Left Bottom on lg)
+  "col-start-2 col-end-3 row-start-3 row-end-5 lg:col-start-2 lg:col-end-3 lg:row-start-2 lg:row-end-4", // Card 4: Ep 1206 (Tall Mid Bottom on lg)
+  "col-start-1 col-end-2 row-start-4 row-end-5 lg:col-start-3 lg:col-end-4 lg:row-start-2 lg:row-end-3", // Card 5: Ep 1204 (Short Right Mid on lg)
+  "col-start-1 col-end-3 row-start-5 row-end-6 lg:col-start-3 lg:col-end-4 lg:row-start-3 lg:row-end-4", // Card 6: Ep 1203 (Full-width on mobile, Short Right Bottom on lg)
 ]
 
 const bentoImages = [
@@ -42,21 +42,15 @@ const bentoIcons = [Tv, Play, Sparkles, Video, Calendar, FileText, Film]
 
 export function LatestContentGrid({ entries }: { entries: LatestEntry[] }) {
   return (
-    <section className="mx-auto max-w-6xl px-6">
+    <section className="mx-auto max-w-6xl px-3.5 sm:px-8 lg:px-12">
       <SectionHeading
         eyebrow="Fresh off the air"
         title="Latest content"
         subtitle="Jump back in where the case left off."
       />
 
-      <motion.div
-        initial={{ opacity: 0, y: 20 }}
-        whileInView={{ opacity: 1, y: 0 }}
-        viewport={{ once: true, margin: "-60px" }}
-        transition={{ duration: 0.6 }}
-        className="mt-10"
-      >
-        <BentoGrid className="lg:grid-rows-3 min-h-[640px] gap-4">
+      <div className="mt-8 sm:mt-12">
+        <BentoGrid className="grid-rows-5 lg:grid-rows-3 gap-2.5 sm:gap-4 lg:gap-5">
           {entries.slice(0, 7).map((entry, index) => {
             const type = entry.type as ContentType
             const label = CONTENT_TYPE_LABELS[type] ?? "Episode"
@@ -86,7 +80,7 @@ export function LatestContentGrid({ entries }: { entries: LatestEntry[] }) {
             )
           })}
         </BentoGrid>
-      </motion.div>
+      </div>
     </section>
   )
 }

@@ -1,16 +1,24 @@
 "use client"
 
-import { motion } from "framer-motion"
+import { motion, useReducedMotion } from "framer-motion"
 import { Calendar } from "lucide-react"
 import ElegantCarousel from "@/components/ui/elegant-carousel"
 
 const EASE = [0.16, 1, 0.3, 1] as const
 
 export function FourYearsSection() {
+  const reduce = useReducedMotion()
+
   return (
-    <section className="relative mx-auto max-w-6xl px-6 sm:px-12 lg:px-24">
-      <div className="space-y-8">
-        <div className="flex flex-col justify-between gap-4 sm:flex-row sm:items-end">
+    <section className="relative mx-auto max-w-6xl px-6 sm:px-12">
+      <div className="space-y-10 sm:space-y-12">
+        <motion.div
+          initial={reduce ? false : { opacity: 0, y: 24, filter: "blur(6px)" }}
+          whileInView={{ opacity: 1, y: 0, filter: "blur(0px)" }}
+          viewport={{ once: true, margin: "-60px" }}
+          transition={{ duration: 0.7, ease: EASE }}
+          className="flex flex-col justify-between gap-4 sm:flex-row sm:items-end"
+        >
           <div>
             <div className="mb-1 inline-flex items-center gap-2 font-mono text-xs font-semibold uppercase tracking-wider text-ink-faint">
               <Calendar className="h-3.5 w-3.5 text-accent" />
@@ -23,14 +31,14 @@ export function FourYearsSection() {
           <p className="max-w-md text-xs text-ink-dim sm:text-sm">
             Watch video highlights and recaps of our annual DCPH cinema block screenings at SM North EDSA.
           </p>
-        </div>
+        </motion.div>
 
         {/* Elegant Carousel Component with Video Highlights */}
         <motion.div
-          initial={{ opacity: 0, y: 24 }}
-          whileInView={{ opacity: 1, y: 0 }}
+          initial={reduce ? false : { opacity: 0, y: 28, filter: "blur(8px)" }}
+          whileInView={{ opacity: 1, y: 0, filter: "blur(0px)" }}
           viewport={{ once: true, margin: "-60px" }}
-          transition={{ duration: 0.6, ease: EASE }}
+          transition={{ duration: 0.8, ease: EASE }}
         >
           <ElegantCarousel />
         </motion.div>

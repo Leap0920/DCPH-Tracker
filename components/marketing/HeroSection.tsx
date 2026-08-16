@@ -1,6 +1,6 @@
 "use client"
 
-import { motion, AnimatePresence, useScroll, useTransform, useSpring } from "framer-motion"
+import { motion, AnimatePresence, useScroll, useTransform, useSpring, useReducedMotion } from "framer-motion"
 import { ArrowRight, ChevronDown } from "lucide-react"
 import { useRouter } from "next/navigation"
 import { Button } from "@/components/ui/button"
@@ -8,9 +8,12 @@ import { useEffect, useState, useCallback, useRef } from "react"
 import { createClient } from "@/utils/supabase/client"
 import { openAuthModal } from "@/lib/auth-modal"
 
+const EASE = [0.16, 1, 0.3, 1] as const
+
 export function HeroSection() {
   const [typedText, setTypedText] = useState("")
   const [typingCompleted, setTypingCompleted] = useState(false)
+  const reduce = useReducedMotion()
   const fullText = "Your ultimate Detective Conan tracking platform"
 
   // Show the static Android banner on Android devices; keep the video everywhere else
@@ -114,9 +117,9 @@ export function HeroSection() {
   }
 
   return (
-    <section className="relative min-h-[100vh] flex flex-col items-center bg-surface overflow-hidden pb-12">
+    <section className="relative min-h-[100dvh] flex flex-col items-center bg-page overflow-hidden pb-12">
       {/* Hero Content Area — full-bleed image banner with left-aligned text */}
-      <div className="relative min-h-[92vh] w-full flex flex-col items-start justify-center px-6 sm:px-12 lg:px-24 text-left">
+      <div className="relative min-h-[92dvh] w-full flex flex-col items-start justify-center px-6 sm:px-12 lg:px-24 text-left">
         {/* Hero background image */}
         <div className="absolute inset-0 z-0 bg-white">
           <picture className="absolute inset-0 h-full w-full">
@@ -141,9 +144,9 @@ export function HeroSection() {
           <AnimatePresence>
             {typingCompleted && (
               <motion.div
-                initial={{ opacity: 0, y: -60 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ duration: 0.9, ease: [0.16, 1, 0.3, 1] }}
+                initial={reduce ? false : { opacity: 0, y: -28, filter: "blur(6px)" }}
+                animate={{ opacity: 1, y: 0, filter: "blur(0px)" }}
+                transition={{ duration: 0.9, ease: EASE }}
                 className="flex flex-col items-center"
               >
                 {/* Logo and Title in same row */}
@@ -163,32 +166,37 @@ export function HeroSection() {
 
           {/* Subtitle / Typewriter block */}
           <div className="min-h-16 flex items-center justify-start mt-4 mb-10">
-            <p className="font-body text-ink max-w-5xl font-medium">
+            <p className="font-body text-ink max-w-5xl font-medium text-balance">
               {renderTypedText(typedText)}
               {/* Blinking typewriter cursor */}
               <motion.span
                 animate={{ opacity: [1, 0] }}
                 transition={{ duration: 0.8, repeat: Infinity, repeatType: "reverse" }}
-                className="inline-block w-[3px] h-[1.1em] bg-gray-900 ml-1.5 align-middle"
+                className="inline-block w-[3px] h-[1.1em] bg-ink ml-1.5 align-middle"
               />
             </p>
           </div>
 
           {/* CTA Buttons — always visible, not gated behind the typewriter */}
           <motion.div
-            initial={{ opacity: 0, y: 30 }}
+            initial={reduce ? false : { opacity: 0, y: 30 }}
             animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.7, delay: 0.3, ease: [0.16, 1, 0.3, 1] }}
+            transition={{ duration: 0.7, delay: 0.3, ease: EASE }}
             className="flex flex-col sm:flex-row items-start gap-4"
           >
-            <Button
-              size="lg"
-              onClick={handleTrackNow}
-              className="bg-gray-950 hover:bg-gray-800 text-white px-8 h-11 text-sm font-semibold rounded-full shadow-md hover:shadow-lg transition-all hover:scale-[1.02]"
+            <motion.div
+              whileTap={{ scale: 0.97 }}
+              transition={{ type: "spring", stiffness: 400, damping: 17 }}
             >
-              Track Now
-              <ArrowRight className="ml-2 h-4 w-4" />
-            </Button>
+              <Button
+                size="lg"
+                onClick={handleTrackNow}
+                className="bg-accent hover:bg-accent-bright text-white px-8 h-11 text-sm font-semibold rounded-full shadow-md hover:shadow-lg transition-all hover:scale-[1.02]"
+              >
+                Track Now
+                <ArrowRight className="ml-2 h-4 w-4" />
+              </Button>
+            </motion.div>
           </motion.div>
         </div>
 
@@ -224,8 +232,8 @@ export function HeroSection() {
         style={!isAndroid ? { aspectRatio: videoAspect ? String(videoAspect) : "16 / 9" } : undefined}
         className={
           isAndroid
-            ? "relative w-full overflow-hidden rounded-2xl z-10 mt-16 sm:mt-24"
-            : "relative w-full overflow-hidden rounded-2xl z-10 mt-16 sm:mt-24 border-2 border-white/40"
+            ? "relative w-full max-w-6xl px-4 sm:px-8 overflow-hidden rounded-2xl z-10 mt-10 sm:mt-24"
+            : "relative w-full max-w-6xl px-4 sm:px-8 overflow-hidden rounded-2xl z-10 mt-10 sm:mt-24 border-2 border-white/40"
         }
       >
         {isAndroid ? (

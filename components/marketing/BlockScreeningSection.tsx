@@ -6,6 +6,7 @@ import {
   AnimatePresence,
   useSpring,
   useMotionValue,
+  useReducedMotion,
 } from "framer-motion"
 import {
   Film,
@@ -23,6 +24,7 @@ const EASE = [0.16, 1, 0.3, 1] as const
 export function BlockScreeningSection() {
   const [showPosterModal, setShowPosterModal] = useState(false)
   const [preRegistered, setPreRegistered] = useState(false)
+  const reduce = useReducedMotion()
 
   // 3D tilt for the 2026 promo poster
   const posterRef = useRef<HTMLDivElement>(null)
@@ -44,7 +46,7 @@ export function BlockScreeningSection() {
   }
 
   return (
-    <section className="relative overflow-hidden bg-page px-6 py-20 sm:px-12 lg:px-24">
+    <section className="relative overflow-hidden bg-page px-6 sm:px-12">
       {/* Cinematic backdrop: soft rose glows */}
       <div
         aria-hidden
@@ -72,11 +74,16 @@ export function BlockScreeningSection() {
         {/* UPCOMING 2026 BLOCK SCREENING PROMOTION CARD                   */}
         {/* ============================================================== */}
         <motion.div
-          initial={{ opacity: 0, y: 40 }}
+          initial={reduce ? false : { opacity: 0, y: 40 }}
           whileInView={{ opacity: 1, y: 0 }}
           viewport={{ once: true, margin: "-60px" }}
           transition={{ duration: 0.7, ease: EASE }}
-          className="group relative overflow-hidden rounded-2xl border border-slate-200 bg-surface shadow-card"
+          whileHover={
+            reduce
+              ? undefined
+              : { y: -6, transition: { type: "spring", stiffness: 300, damping: 22 } }
+          }
+          className="group relative overflow-hidden rounded-2xl border border-slate-200/60 bg-surface shadow-card transition-[box-shadow,border-color] duration-300 hover:shadow-xl hover:border-slate-300"
         >
           {/* Hover sheen sweep */}
           <div
@@ -86,7 +93,7 @@ export function BlockScreeningSection() {
 
           <div className="grid items-center lg:grid-cols-12">
             {/* Left Promotion Poster (3D tilt) */}
-            <div className="flex items-center justify-center overflow-hidden border-b border-slate-200 bg-black/5 p-4 lg:col-span-5 lg:border-b-0 lg:border-r lg:p-6 [perspective:1200px]">
+            <div className="flex items-center justify-center overflow-hidden border-b border-slate-200/60 bg-surface-muted p-4 lg:col-span-5 lg:border-b-0 lg:border-r lg:p-6 [perspective:1200px]">
               <motion.div
                 ref={posterRef}
                 onMouseMove={handlePosterMove}
@@ -94,7 +101,7 @@ export function BlockScreeningSection() {
                 style={{ rotateX: tiltX, rotateY: tiltY, transformStyle: "preserve-3d" }}
                 whileHover={{ scale: 1.02 }}
                 transition={{ type: "spring", stiffness: 260, damping: 22 }}
-                className="relative w-full max-w-sm cursor-pointer overflow-hidden rounded-xl border border-slate-200/80 bg-slate-900 shadow-xl"
+                className="relative w-full max-w-sm cursor-pointer overflow-hidden rounded-xl border border-slate-200/60 bg-ink shadow-xl"
                 onClick={() => setShowPosterModal(true)}
               >
                 {/* eslint-disable-next-line @next/next/no-img-element */}

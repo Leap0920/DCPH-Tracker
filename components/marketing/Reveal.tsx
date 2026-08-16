@@ -1,6 +1,6 @@
 "use client"
 
-import { motion } from "framer-motion"
+import { motion, useReducedMotion } from "framer-motion"
 
 type Direction = "up" | "down" | "left" | "right"
 
@@ -34,11 +34,16 @@ export function Reveal({
   blur?: boolean
   className?: string
 }) {
+  const reduce = useReducedMotion()
   const offset = offsetFor(direction)
 
   return (
     <motion.div
-      initial={{ opacity: 0, ...offset, ...(blur ? { filter: "blur(8px)" } : {}) }}
+      initial={
+        reduce
+          ? false
+          : { opacity: 0, ...offset, ...(blur ? { filter: "blur(8px)" } : {}) }
+      }
       whileInView={{
         opacity: 1,
         x: 0,
@@ -46,7 +51,7 @@ export function Reveal({
         ...(blur ? { filter: "blur(0px)" } : {}),
       }}
       viewport={{ once: true, margin: "-60px" }}
-      transition={{ duration: 0.55, delay, ease: [0.16, 1, 0.3, 1] }}
+      transition={{ duration: 0.7, delay, ease: [0.16, 1, 0.3, 1] }}
       className={className}
     >
       {children}
