@@ -54,43 +54,43 @@ export function Feature({
   advantages?: AdvantageItem[]
 }) {
   return (
-    <section className="mx-auto max-w-6xl px-6 py-12">
+    <section className="mx-auto max-w-6xl px-4 sm:px-6 py-8 sm:py-12">
       {/* Header Area */}
       <div className="max-w-2xl">
         {badge && (
-          <span className="inline-block rounded-full bg-slate-900 px-3.5 py-1 text-xs font-semibold uppercase tracking-wider text-white shadow-sm">
+          <span className="inline-block rounded-full bg-slate-900 px-3 py-0.5 sm:px-3.5 sm:py-1 font-mono text-[11px] sm:text-xs font-semibold uppercase tracking-wider text-white shadow-sm">
             {badge}
           </span>
         )}
-        <h2 className="mt-4 font-display text-3xl font-semibold tracking-tight text-slate-900 sm:text-4xl">
+        <h2 className="mt-3 sm:mt-4 font-display text-2xl sm:text-3xl lg:text-4xl font-semibold tracking-tight text-slate-900">
           {title}
         </h2>
         {subtitle && (
-          <p className="mt-2 font-body text-base leading-relaxed text-slate-500">
+          <p className="mt-1.5 sm:mt-2 font-body text-sm sm:text-base leading-relaxed text-slate-500">
             {subtitle}
           </p>
         )}
       </div>
 
-      {/* Advantages Grid (3 Columns, Checkmarks on Left) */}
-      <div className="mt-12 grid gap-x-8 gap-y-10 sm:grid-cols-2 lg:grid-cols-3">
+      {/* Advantages Grid */}
+      <div className="mt-8 sm:mt-12 grid gap-x-6 gap-y-6 sm:gap-y-10 sm:grid-cols-2 lg:grid-cols-3">
         {advantages.map((item, idx) => (
-          <div key={idx} className="group flex items-start gap-3.5">
-            <Check className="mt-0.5 h-5 w-5 shrink-0 text-slate-900 transition-transform duration-200 group-hover:scale-110" />
+          <div key={idx} className="group flex items-start gap-2.5 sm:gap-3.5">
+            <Check className="mt-0.5 h-4 w-4 sm:h-5 sm:w-5 shrink-0 text-slate-900 transition-transform duration-200 group-hover:scale-110" />
             <div>
               {item.href ? (
                 <Link
                   href={item.href}
-                  className="font-display text-base font-semibold text-slate-900 transition-colors group-hover:text-accent"
+                  className="font-display text-sm sm:text-base font-semibold text-slate-900 transition-colors group-hover:text-accent"
                 >
                   {item.title}
                 </Link>
               ) : (
-                <h3 className="font-display text-base font-semibold text-slate-900">
+                <h3 className="font-display text-sm sm:text-base font-semibold text-slate-900">
                   {item.title}
                 </h3>
               )}
-              <p className="mt-1 font-body text-sm leading-relaxed text-slate-500">
+              <p className="mt-0.5 sm:mt-1 font-body text-xs sm:text-sm leading-relaxed text-slate-500">
                 {item.description}
               </p>
             </div>
