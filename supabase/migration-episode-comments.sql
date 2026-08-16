@@ -116,6 +116,8 @@ select proname
 from pg_proc
 where proname = 'get_content_rating';
 
--- 4) RPC works — substitute a real content entry id.
---    (Grab one with: select id from public.content_entries limit 1;)
-select * from public.get_content_rating('<some-real-content-uuid>');
+-- 4) RPC works — uses the first content entry found (no placeholder to
+--    substitute; returns 0 rows if the table is empty, never errors).
+select * from public.get_content_rating(
+  (select id from public.content_entries limit 1)
+);
