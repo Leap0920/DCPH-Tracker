@@ -135,7 +135,7 @@ export default function CharactersExplorer({
 
           {/* Floating Character Detail Panel */}
           {selection && (
-            <div className="absolute bottom-4 right-4 z-40 max-w-full sm:max-w-md w-full sm:w-96 px-3 sm:px-0">
+            <div className="fixed inset-x-0 bottom-0 sm:absolute sm:inset-auto sm:bottom-4 sm:right-4 z-40 w-full sm:w-96 sm:max-w-md pointer-events-auto">
               <CharacterDetailPanel
                 character={selection}
                 relationships={panelRelationships}
@@ -208,7 +208,7 @@ export default function CharactersExplorer({
             ))}
           </div>
           {selection && (
-            <div className="fixed bottom-4 right-4 z-40 max-w-full sm:max-w-md w-full sm:w-96 px-3 sm:px-0">
+            <div className="fixed inset-x-0 bottom-0 sm:absolute sm:inset-auto sm:bottom-4 sm:right-4 z-40 w-full sm:w-96 sm:max-w-md pointer-events-auto">
               <CharacterDetailPanel
                 character={selection}
                 relationships={panelRelationships}
@@ -234,7 +234,7 @@ export default function CharactersExplorer({
 
           {/* Floating Character Detail Panel on Right Side */}
           {selection && (
-            <div className="absolute bottom-4 right-4 z-40 max-w-full sm:max-w-md w-full sm:w-96 px-3 sm:px-0">
+            <div className="fixed inset-x-0 bottom-0 sm:absolute sm:inset-auto sm:bottom-4 sm:right-4 z-40 w-full sm:w-96 sm:max-w-md pointer-events-auto">
               <CharacterDetailPanel
                 character={selection}
                 relationships={panelRelationships}

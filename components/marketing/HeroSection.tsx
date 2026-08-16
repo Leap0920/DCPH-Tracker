@@ -16,15 +16,16 @@ export function HeroSection() {
   const reduce = useReducedMotion()
   const fullText = "Your ultimate Detective Conan tracking platform"
 
-  // Show the static Android banner on Android devices; keep the video everywhere else
-  const [isAndroid, setIsAndroid] = useState(false)
-  useEffect(() => {
-    setIsAndroid(/android/i.test(navigator.userAgent))
-  }, [])
-
   // Measure the promo video's true aspect ratio so it shows the full scene (no crop) while staying rounded
   const videoRef = useRef<HTMLVideoElement>(null)
   const [videoAspect, setVideoAspect] = useState<number | null>(null)
+
+  // Ensure video plays automatically on mobile devices
+  useEffect(() => {
+    if (videoRef.current) {
+      videoRef.current.play().catch(() => {})
+    }
+  }, [])
 
   // Typewriter effect with a quick initial delay
   useEffect(() => {
@@ -123,9 +124,8 @@ export function HeroSection() {
         {/* Hero background image */}
         <div className="absolute inset-0 z-0 bg-white">
           <picture className="absolute inset-0 h-full w-full">
-            <source media="(max-width: 639px)" srcSet="/heroBanner-Android.jpg" />
             <img
-              src={isAndroid ? "/heroBanner-Android.jpg" : "/hero-image.jpg"}
+              src="/hero-image.jpg"
               alt=""
               aria-hidden
               className="h-full w-full object-cover object-right sm:object-right-bottom pointer-events-none"
@@ -226,43 +226,31 @@ export function HeroSection() {
         </AnimatePresence>
       </div>
 
-      {/* Hero media — Android banner image (full, natural size) on Android; scroll-driven video elsewhere */}
+      {/* Hero media — scroll-driven video */}
       <div
         ref={scrollRef}
-        style={!isAndroid ? { aspectRatio: videoAspect ? String(videoAspect) : "16 / 9" } : undefined}
-        className={
-          isAndroid
-            ? "relative w-full max-w-6xl px-4 sm:px-8 overflow-hidden rounded-2xl z-10 mt-10 sm:mt-24"
-            : "relative w-full max-w-6xl px-4 sm:px-8 overflow-hidden rounded-2xl z-10 mt-10 sm:mt-24 border-2 border-white/40"
-        }
+        style={{ aspectRatio: videoAspect ? String(videoAspect) : "16 / 9" }}
+        className="relative w-full max-w-6xl px-4 sm:px-8 overflow-hidden rounded-2xl z-10 mt-10 sm:mt-24 border-2 border-white/40"
       >
-        {isAndroid ? (
-          <img
-            src="/heroBanner-Android.jpg"
-            alt="Detective Conan PH"
-            className="w-full h-auto object-contain rounded-2xl"
+        <motion.div
+          style={{ scale, opacity }}
+          className="absolute inset-0 rounded-2xl overflow-hidden"
+        >
+          <video
+            ref={videoRef}
+            onLoadedMetadata={(e) => {
+              const v = e.currentTarget
+              if (v.videoWidth && v.videoHeight) setVideoAspect(v.videoWidth / v.videoHeight)
+            }}
+            src="/img/Banner.mp4"
+            autoPlay
+            loop
+            muted
+            playsInline
+            controls={false}
+            className="w-full h-full object-contain pointer-events-none rounded-2xl"
           />
-        ) : (
-          <motion.div
-            style={{ scale, opacity }}
-            className="absolute inset-0 rounded-2xl overflow-hidden border-2 border-white/40"
-          >
-            <video
-              ref={videoRef}
-              onLoadedMetadata={(e) => {
-                const v = e.currentTarget
-                if (v.videoWidth && v.videoHeight) setVideoAspect(v.videoWidth / v.videoHeight)
-              }}
-              src="/img/Banner.mp4"
-              autoPlay
-              loop
-              muted
-              playsInline
-              controls={false}
-              className="w-full h-full object-contain pointer-events-none rounded-2xl"
-            />
-          </motion.div>
-        )}
+        </motion.div>
       </div>
     </section>
   )

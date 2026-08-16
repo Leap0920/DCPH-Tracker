@@ -120,15 +120,20 @@ export function CharacterDetailPanel({
         role="dialog"
         aria-label={character.name}
         tabIndex={-1}
-        initial={{ opacity: 0, x: 40 }}
-        animate={{ opacity: 1, x: 0 }}
-        exit={{ opacity: 0, x: 40 }}
-        transition={{ duration: 0.35, ease: EASE }}
-        className="dossier-card relative flex flex-col max-h-[80vh] sm:max-h-[85vh] w-full max-w-md p-0 outline-none sm:w-96 overflow-hidden shadow-2xl"
+        initial={{ opacity: 0, y: 60 }}
+        animate={{ opacity: 1, y: 0 }}
+        exit={{ opacity: 0, y: 60 }}
+        transition={{ duration: 0.3, ease: EASE }}
+        className="dossier-card relative flex flex-col max-h-[48vh] sm:max-h-[85vh] w-full p-0 outline-none rounded-t-2xl sm:rounded-2xl border-t sm:border border-slate-200/90 bg-surface/98 shadow-2xl backdrop-blur-xl overflow-hidden"
       >
-        {/* Sticky Header with fixed Close Button */}
-        <div className="sticky top-0 z-20 flex items-start justify-between gap-3 border-b border-slate-200/80 bg-surface/95 p-4 sm:p-5 backdrop-blur-md shrink-0">
-          <div className="min-w-0 pr-6">
+        {/* Drag handle indicator for mobile bottom sheet */}
+        <div className="sm:hidden w-full flex justify-center pt-2.5 pb-1 bg-surface/95 shrink-0">
+          <div className="h-1.5 w-12 rounded-full bg-slate-300 dark:bg-slate-700" />
+        </div>
+
+        {/* Header with fixed Close Button */}
+        <div className="sticky top-0 z-20 flex items-start justify-between gap-3 border-b border-slate-200/80 bg-surface/95 px-4 py-3 sm:p-5 backdrop-blur-md shrink-0">
+          <div className="min-w-0 pr-4">
             <div className="flex flex-wrap items-center gap-1.5">
               <span className="rounded-md bg-accent/10 px-2 py-0.5 font-mono text-[10px] font-semibold uppercase tracking-wide text-accent">
                 {character.role}
@@ -138,12 +143,12 @@ export function CharacterDetailPanel({
               </span>
             </div>
 
-            <h2 className="mt-2 font-display text-xl sm:text-2xl font-bold tracking-tight text-ink">
+            <h2 className="mt-1 sm:mt-2 font-display text-lg sm:text-2xl font-bold tracking-tight text-ink">
               {character.name}
             </h2>
 
             {character.aliases && character.aliases.length > 0 && (
-              <p className="mt-0.5 font-mono text-xs text-ink-faint">
+              <p className="mt-0.5 font-mono text-[11px] sm:text-xs text-ink-faint">
                 aka {character.aliases.join(" · ")}
               </p>
             )}
