@@ -128,7 +128,7 @@ export function Navbar() {
                 key={route.href}
                 href={route.href}
                 className={cn(
-                  "px-3 py-2 rounded-md text-sm font-display transition-colors",
+                  "px-3 py-2.5 rounded-md text-sm font-display transition-colors",
                   isActive
                     ? "text-ink bg-surface-muted"
                     : "text-ink-dim hover:text-ink hover:bg-surface-muted"
@@ -204,7 +204,7 @@ export function Navbar() {
                   href={route.href}
                   onClick={() => setMobileOpen(false)}
                   className={cn(
-                    "px-3 py-2 rounded-md text-sm font-display transition-colors",
+                    "px-3 py-3 rounded-md text-sm font-display transition-colors",
                     isActive
                       ? "text-ink bg-surface-muted"
                       : "text-ink-dim hover:text-ink hover:bg-surface-muted"
@@ -247,7 +247,7 @@ export function Navbar() {
                         setMobileOpen(false)
                         openAuthModal("signin")
                       }}
-                      className="w-full inline-flex items-center justify-center rounded-md border border-slate-200 bg-surface px-3 py-2 text-sm font-display text-ink-dim hover:text-ink transition-colors"
+                      className="w-full inline-flex items-center justify-center rounded-md border border-slate-200 bg-surface px-3 py-3 text-sm font-display text-ink-dim hover:text-ink transition-colors"
                     >
                       Sign In
                     </button>
