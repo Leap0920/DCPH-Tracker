@@ -3,7 +3,7 @@
 import Link from "next/link"
 import { usePathname, useRouter } from "next/navigation"
 import { useState, useEffect } from "react"
-import { Menu, X, LogOut, User, Settings, ShieldCheck } from "lucide-react"
+import { Menu, X, User, Settings, ShieldCheck } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { NAV_ROUTES } from "@/lib/constants"
 import { cn } from "@/lib/utils"
@@ -75,13 +75,6 @@ export function Navbar() {
     return () => window.removeEventListener("scroll", handleScroll)
   }, [mobileOpen])
 
-  async function handleSignOut() {
-    await supabase.auth.signOut()
-    setMobileOpen(false)
-    router.push("/")
-    router.refresh()
-  }
-
   return (
     <header className={cn(
       "sticky top-0 z-40 border-b border-slate-200 bg-surface/80 backdrop-blur-md transition-transform duration-300",
@@ -149,10 +142,6 @@ export function Navbar() {
                       <Settings className="h-4 w-4" />
                     </Button>
                   </Link>
-                  <Button variant="outline" size="sm" onClick={handleSignOut} className="gap-2 font-display text-xs border-slate-200 hover:border-slate-300 hover:bg-surface-muted text-ink-dim hover:text-ink">
-                    <LogOut className="h-3.5 w-3.5" />
-                    Sign Out
-                  </Button>
                 </div>
               ) : (
                 <button
@@ -227,10 +216,6 @@ export function Navbar() {
                           Settings
                         </Button>
                       </Link>
-                      <Button variant="outline" onClick={handleSignOut} className="w-full justify-start gap-2 border-slate-200 hover:border-slate-300 text-ink-dim hover:text-ink font-display">
-                        <LogOut className="h-4 w-4" />
-                        Sign Out
-                      </Button>
                     </div>
                   ) : (
                     <button
