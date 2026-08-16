@@ -37,6 +37,7 @@ import {
   fetchAdjacentEntries,
   fetchContentRating,
 } from "@/lib/queries/client/episode"
+import { CommentSection } from "@/components/tracker/CommentSection"
 import type { Database } from "@/types/database.types"
 
 type ContentEntry = Database["public"]["Tables"]["content_entries"]["Row"] & {
@@ -454,8 +455,8 @@ export function ContentDetail({ entry }: { entry: ContentEntry }) {
             )}
           </section>
 
-          {/* T4 mount point — episode comments (CommentSection) lands here,
-              in its own bordered section, once the next task ships it. */}
+          {/* T4 mount point — episode comments (CommentSection) in its own bordered section */}
+          <CommentSection contentId={entry.id} />
         </div>
       </div>
 
