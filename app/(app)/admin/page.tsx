@@ -1,13 +1,13 @@
 import Link from "next/link"
 import { createClient } from "@/utils/supabase/server"
-import { Film, Users, MessagesSquare, Image as ImageIcon, RefreshCw, BookOpen, Award, ArrowRight } from "lucide-react"
+import { Film, Users, MessagesSquare, Image as ImageIcon, RefreshCw, BookOpen, ArrowRight } from "lucide-react"
 
 export const dynamic = "force-dynamic"
 
 async function getStats() {
   const supabase = await createClient()
 
-  const [episodes, movies, otherContent, users, messages, missingCovers, arcs, badges] = await Promise.all([
+  const [episodes, movies, otherContent, users, messages, missingCovers, arcs] = await Promise.all([
     supabase.from("content_entries").select("*", { count: "exact", head: true }).eq("type", "episode"),
     supabase.from("content_entries").select("*", { count: "exact", head: true }).eq("type", "movie"),
     supabase
@@ -18,7 +18,6 @@ async function getStats() {
     supabase.from("chat_messages").select("*", { count: "exact", head: true }),
     supabase.from("content_entries").select("*", { count: "exact", head: true }).is("image_url", null),
     supabase.from("arcs").select("*", { count: "exact", head: true }),
-    supabase.from("badges").select("*", { count: "exact", head: true }),
   ])
 
   return {
@@ -29,7 +28,6 @@ async function getStats() {
     messages: messages.count ?? 0,
     missingCovers: missingCovers.count ?? 0,
     arcs: arcs.count ?? 0,
-    badges: badges.count ?? 0,
   }
 }
 
@@ -41,7 +39,6 @@ export default async function AdminOverviewPage() {
     { label: "Movies", value: stats.movies, icon: Film },
     { label: "Other content", value: stats.otherContent, icon: Film },
     { label: "Story Arcs", value: stats.arcs, icon: BookOpen },
-    { label: "Badges", value: stats.badges, icon: Award },
     { label: "Users", value: stats.users, icon: Users },
     { label: "Chat messages", value: stats.messages, icon: MessagesSquare },
     { label: "Missing covers", value: stats.missingCovers, icon: ImageIcon, warn: stats.missingCovers > 0 },
@@ -97,12 +94,6 @@ export default async function AdminOverviewPage() {
             title="Manage Story Arcs"
             desc="Group episodes into storyline arcs and sagas."
             icon={BookOpen}
-          />
-          <QuickLink
-            href="/admin/badges"
-            title="Manage Badges"
-            desc="Create & update community achievement rewards."
-            icon={Award}
           />
           <QuickLink
             href="/admin/content"
