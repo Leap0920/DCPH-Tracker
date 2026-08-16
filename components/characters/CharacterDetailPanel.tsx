@@ -124,77 +124,83 @@ export function CharacterDetailPanel({
         animate={{ opacity: 1, x: 0 }}
         exit={{ opacity: 0, x: 40 }}
         transition={{ duration: 0.35, ease: EASE }}
-        className="dossier-card w-full max-w-md p-5 outline-none sm:w-96"
+        className="dossier-card relative flex flex-col max-h-[80vh] sm:max-h-[85vh] w-full max-w-md p-0 outline-none sm:w-96 overflow-hidden shadow-2xl"
       >
-        <span className="dossier-stamp !right-14">RED STRING</span>
+        {/* Sticky Header with fixed Close Button */}
+        <div className="sticky top-0 z-20 flex items-start justify-between gap-3 border-b border-slate-200/80 bg-surface/95 p-4 sm:p-5 backdrop-blur-md shrink-0">
+          <div className="min-w-0 pr-6">
+            <div className="flex flex-wrap items-center gap-1.5">
+              <span className="rounded-md bg-accent/10 px-2 py-0.5 font-mono text-[10px] font-semibold uppercase tracking-wide text-accent">
+                {character.role}
+              </span>
+              <span className="rounded-md bg-surface-muted px-2 py-0.5 font-mono text-[10px] text-ink-dim">
+                {character.affiliation}
+              </span>
+            </div>
 
-        <button
-          type="button"
-          onClick={() => {
-            restoreFocus()
-            onClose()
-          }}
-          aria-label="Close"
-          className="absolute top-3 right-3 flex h-8 w-8 items-center justify-center rounded-md text-ink-faint transition-colors hover:bg-surface-muted hover:text-ink"
-        >
-          <X className="h-4 w-4" />
-        </button>
+            <h2 className="mt-2 font-display text-xl sm:text-2xl font-bold tracking-tight text-ink">
+              {character.name}
+            </h2>
 
-        <div className="flex flex-wrap items-center gap-1.5">
-          <span className="rounded-md bg-accent/10 px-2 py-0.5 font-mono text-[10px] font-semibold uppercase tracking-wide text-accent">
-            {character.role}
-          </span>
-          <span className="rounded-md bg-surface-muted px-2 py-0.5 font-mono text-[10px] text-ink-dim">
-            {character.affiliation}
-          </span>
+            {character.aliases && character.aliases.length > 0 && (
+              <p className="mt-0.5 font-mono text-xs text-ink-faint">
+                aka {character.aliases.join(" · ")}
+              </p>
+            )}
+          </div>
+
+          <button
+            type="button"
+            onClick={() => {
+              restoreFocus()
+              onClose()
+            }}
+            aria-label="Close dossier"
+            className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg border border-slate-200 bg-surface text-ink-dim shadow-sm transition-all hover:border-accent/40 hover:bg-accent-soft hover:text-accent"
+          >
+            <X className="h-4 w-4" />
+          </button>
         </div>
 
-        <h2 className="mt-3 font-display text-2xl font-bold tracking-tight text-ink">
-          {character.name}
-        </h2>
-
-        {character.aliases && character.aliases.length > 0 && (
-          <p className="mt-1 font-mono text-xs text-ink-faint">
-            aka {character.aliases.join(" · ")}
+        {/* Scrollable Content Area */}
+        <div className="overflow-y-auto flex-1 p-4 sm:p-5 space-y-4 text-left">
+          <p className="text-xs sm:text-sm leading-relaxed text-ink-dim">
+            {character.bio}
           </p>
-        )}
 
-        <p className="mt-3 text-sm leading-relaxed text-ink-dim">
-          {character.bio}
-        </p>
-
-        <div className="mt-5 border-t border-slate-200 pt-4">
-          <h3 className="font-mono text-[10px] uppercase tracking-stamp text-ink-faint">
-            Threads
-          </h3>
-          {threads.length === 0 ? (
-            <p className="mt-3 text-sm text-ink-faint">
-              No threads on record.
-            </p>
-          ) : (
-            <ul className="mt-3 space-y-3">
-              {threads.map(({ relationship, meta, otherName }) => (
-                <li key={relationship.id} className="flex gap-3">
-                  <span
-                    className="mt-1 h-2.5 w-2.5 shrink-0 rounded-full ring-2 ring-white"
-                    style={{ backgroundColor: meta.color }}
-                  />
-                  <div className="min-w-0">
-                    <p className="text-xs font-semibold tracking-wide text-ink">
-                      {meta.label}
-                    </p>
-                    <p className="mt-0.5 text-sm leading-snug text-ink-dim">
-                      <span className="font-medium text-accent">
-                        {otherName}
-                      </span>
-                      <span className="mx-1.5 text-ink-faint">—</span>
-                      {relationship.detail}
-                    </p>
-                  </div>
-                </li>
-              ))}
-            </ul>
-          )}
+          <div className="border-t border-slate-200 pt-4">
+            <h3 className="font-mono text-[10px] uppercase tracking-stamp text-ink-faint">
+              Threads ({threads.length})
+            </h3>
+            {threads.length === 0 ? (
+              <p className="mt-2 text-xs text-ink-faint">
+                No threads on record.
+              </p>
+            ) : (
+              <ul className="mt-3 space-y-3">
+                {threads.map(({ relationship, meta, otherName }) => (
+                  <li key={relationship.id} className="flex gap-3">
+                    <span
+                      className="mt-1 h-2.5 w-2.5 shrink-0 rounded-full ring-2 ring-white shadow-sm"
+                      style={{ backgroundColor: meta.color }}
+                    />
+                    <div className="min-w-0">
+                      <p className="text-xs font-semibold tracking-wide text-ink">
+                        {meta.label}
+                      </p>
+                      <p className="mt-0.5 text-xs sm:text-sm leading-snug text-ink-dim">
+                        <span className="font-medium text-accent">
+                          {otherName}
+                        </span>
+                        <span className="mx-1.5 text-ink-faint">—</span>
+                        {relationship.detail}
+                      </p>
+                    </div>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </div>
         </div>
       </motion.div>
     </MotionConfig>

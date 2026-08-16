@@ -61,7 +61,18 @@ export function Navbar() {
   }, [supabase])
 
   useEffect(() => {
+    const isCharactersPage = pathname.startsWith("/characters")
+
+    // On /characters, hide navbar by default to make graph 100% full screen immediately,
+    // but reveal when mouse moves near top edge (clientY < 50px)
+    if (isCharactersPage) {
+      setNavVisible(false)
+    } else {
+      setNavVisible(true)
+    }
+
     const handleScroll = () => {
+      if (isCharactersPage) return
       const currentScrollY = window.scrollY
       if (currentScrollY > 80 && !mobileOpen) {
         setNavVisible(false)
@@ -70,16 +81,28 @@ export function Navbar() {
       }
     }
 
+    const handleMouseMove = (e: MouseEvent) => {
+      if (!isCharactersPage) return
+      // Reveal navbar ONLY when cursor touches the absolute top edge (clientY < 10px) or mobile menu is open
+      if (e.clientY < 10 || mobileOpen) {
+        setNavVisible(true)
+      } else if (e.clientY > 30) {
+        setNavVisible(false)
+      }
+    }
+
     window.addEventListener("scroll", handleScroll, { passive: true })
-    return () => window.removeEventListener("scroll", handleScroll)
-  }, [mobileOpen])
+    window.addEventListener("mousemove", handleMouseMove, { passive: true })
+    return () => {
+      window.removeEventListener("scroll", handleScroll)
+      window.removeEventListener("mousemove", handleMouseMove)
+    }
+  }, [mobileOpen, pathname])
 
   return (
     <header className={cn(
-      "sticky top-0 z-40 border-b border-slate-200 bg-surface/80 backdrop-blur-md transition-transform duration-300",
-      // Only auto-hide on desktop. On mobile the header must stay put so the
-      // hamburger menu button is always reachable.
-      navVisible ? "translate-y-0" : "translate-y-0 md:-translate-y-full"
+      "fixed top-0 left-0 right-0 z-40 border-b border-slate-200 bg-surface/90 backdrop-blur-md transition-transform duration-300 shadow-sm",
+      navVisible ? "translate-y-0" : "-translate-y-full"
     )}>
       <nav className="mx-auto flex h-16 max-w-7xl items-center justify-between px-6">
         {/* Logo */}

@@ -13,28 +13,12 @@ export const metadata = {
 
 export default async function CharactersPage() {
   return (
-    <div className="px-6 py-10">
-      <div className="mx-auto max-w-5xl">
-        {/* Header */}
-        <div className="mb-6 flex items-center gap-3">
-          <span className="case-number">FILE NO. 009 CHARACTERS</span>
-          <span className="redacted-bar w-16" />
-        </div>
-        <h1 className="font-display text-3xl sm:text-4xl tracking-tight text-ink">
-          Characters &amp; Red Strings
-        </h1>
-        <p className="mt-2 max-w-2xl text-ink-dim">
-          The cast of Detective Conan and the red strings of fate that bind
-          them — click any node to open a dossier and trace how each character
-          is connected.
-        </p>
-
-        <CharactersExplorer
-          characters={CHARACTERS}
-          relationships={RELATIONSHIPS}
-          relationshipMeta={RELATIONSHIP_META}
-        />
-      </div>
+    <div className="fixed inset-0 h-screen w-screen overflow-hidden bg-page z-0">
+      <CharactersExplorer
+        characters={CHARACTERS}
+        relationships={RELATIONSHIPS}
+        relationshipMeta={RELATIONSHIP_META}
+      />
     </div>
   )
 }
