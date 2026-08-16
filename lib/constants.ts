@@ -98,6 +98,7 @@ export const NAV_ROUTES = [
   { href: "/tracker", label: "Tracker" },
   { href: "/analytics", label: "Self Analytics" },
   { href: "/arcs", label: "Story Arcs" },
+  { href: "/characters", label: "Characters" },
   { href: "/community/rankings", label: "Rankings" },
   { href: "/community/chat", label: "Chat" },
 ] as const;

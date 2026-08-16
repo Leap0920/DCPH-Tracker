@@ -4,6 +4,7 @@ import { Facebook, Instagram, Youtube, Twitter } from "lucide-react"
 const footerLinks = [
   { label: "Tracker", href: "/tracker" },
   { label: "Story Arcs", href: "/arcs" },
+  { label: "Characters", href: "/characters" },
   { label: "Rankings", href: "/community/rankings" },
   { label: "Chat", href: "/community/chat" },
 ]
