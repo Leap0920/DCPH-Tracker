@@ -1,26 +1,15 @@
 "use client"
 
 /*
-  CharactersExplorer — the /characters page's interactive orchestrator.
+  CharactersExplorer — Interactive Orchestrator for /characters
 
-  Owns the two pieces of interactive state (the selected character + the
-  active relationship-type filter) and switches the layout on the same ≤767px
-  breakpoint that CharactersWeb uses internally:
-
-  - Desktop: RelationshipLegend above the SVG red-strings web on the left,
-    with the CharacterDetailPanel in a rail on the right. The rail is 24rem
-    wide — not a narrower 320px default — because the verified panel's own
-    sm:w-96 width (24rem) has to fit inside it without overflowing.
-  - Mobile: CharactersWeb renders null, so a card-grid directory of every
-    character takes over and the detail panel renders below the grid.
-
-  All data arrives as props from the async server page (React 19 requires
-  serializable server→client props). A character's threads are derived from
-  the same `relationships` prop in both directions, so the panel always shows
-  exactly what the page passed down; the active filter trims those threads.
+  Features:
+  - Fullscreen Graph Mode: maximizes to 100vw x 100vh with floating controls & dossier
+  - Mobile Responsiveness: Interactive Graph View on phone screens with a toggle to directory list
+  - Real-time character dossier drawer and filter controls
 */
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import CharactersWeb, {
   useMediaQuery,
 } from "@/components/characters/CharactersWeb"
@@ -28,6 +17,7 @@ import {
   CharacterDetailPanel,
   RelationshipLegend,
 } from "@/components/characters/CharacterDetailPanel"
+import { X, Network, LayoutGrid, Maximize2, Filter } from "lucide-react"
 import type {
   Character,
   Relationship,
@@ -53,7 +43,26 @@ export default function CharactersExplorer({
 }: CharactersExplorerProps) {
   const [selection, setSelection] = useState<Character | null>(null)
   const [filter, setFilter] = useState<RelationshipType | null>(null)
+  const [legendOpen, setLegendOpen] = useState(false)
+  const [isFullscreen, setIsFullscreen] = useState(false)
+  const [graphTheme, setGraphTheme] = useState<"light" | "dark">("light")
+  const [mobileViewMode, setMobileViewMode] = useState<"graph" | "list">("graph")
+
   const isMobile = useMediaQuery("(max-width: 767px)")
+  const isDark = graphTheme === "dark"
+
+  const toggleTheme = () => setGraphTheme(graphTheme === "light" ? "dark" : "light")
+
+  // Handle ESC key to exit fullscreen
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === "Escape" && isFullscreen) {
+        setIsFullscreen(false)
+      }
+    }
+    window.addEventListener("keydown", handleKeyDown)
+    return () => window.removeEventListener("keydown", handleKeyDown)
+  }, [isFullscreen])
 
   /** A character's threads in both directions, trimmed by the active filter. */
   const threadsFor = (characterId: string): Relationship[] => {
@@ -65,65 +74,176 @@ export default function CharactersExplorer({
 
   const panelRelationships = selection ? threadsFor(selection.id) : []
 
-  /* Mobile (≤767px): no SVG web — a card-grid directory, panel below. */
-  if (isMobile) {
+  /* ========================================================================= */
+  /* FULLSCREEN MODE                                                           */
+  /* ========================================================================= */
+  if (isFullscreen) {
     return (
-      <div className="mt-8">
-        <RelationshipLegend activeFilter={filter} onFilterType={setFilter} />
-        <div className="mt-6 grid gap-4 sm:grid-cols-2">
-          {characters.map((character) => (
-            <CharacterCard
-              key={character.id}
-              character={character}
-              threads={threadsFor(character.id)}
-              relationshipMeta={relationshipMeta}
-              selected={selection?.id === character.id}
-              onSelect={() => setSelection(character)}
-            />
-          ))}
-        </div>
-        {selection && (
-          <div className="mt-6 flex justify-center">
-            <CharacterDetailPanel
-              character={selection}
-              relationships={panelRelationships}
-              onClose={() => setSelection(null)}
-            />
+      <div className={`fixed inset-0 z-50 flex flex-col overflow-hidden transition-colors duration-300 ${
+        isDark ? "bg-slate-950 text-white" : "bg-page text-ink"
+      }`}>
+        {/* Fullscreen Graph Canvas */}
+        <div className="relative h-full w-full flex-1">
+          <CharactersWeb
+            onSelectCharacter={setSelection}
+            selectedCharacterId={selection?.id}
+            activeFilter={filter}
+            isFullscreen={true}
+            onToggleFullscreen={() => setIsFullscreen(false)}
+            theme={graphTheme}
+            onToggleTheme={toggleTheme}
+            className="h-full w-full rounded-none border-none"
+          />
+
+          {/* Floating Filter Button / Legend */}
+          <div className="absolute top-16 left-3 z-30">
+            <button
+              type="button"
+              onClick={() => setLegendOpen(!legendOpen)}
+              className={`flex items-center gap-1.5 rounded-full border px-3.5 py-1.5 text-xs font-semibold shadow-md backdrop-blur-md transition-all ${
+                isDark
+                  ? "border-slate-700/80 bg-slate-900/90 text-white hover:border-slate-500"
+                  : "border-slate-200/90 bg-white/95 text-ink hover:bg-surface-muted hover:border-slate-300"
+              }`}
+            >
+              <Filter className="h-3.5 w-3.5 text-accent" />
+              {filter ? `Filter: ${relationshipMeta[filter].label}` : "All Relationships"}
+            </button>
+
+            {legendOpen && (
+              <div className={`mt-2 w-72 sm:w-80 rounded-2xl border p-4 shadow-2xl backdrop-blur-xl ${
+                isDark ? "border-slate-800 bg-slate-900/95 text-white" : "border-slate-200 bg-white/98 text-ink"
+              }`}>
+                <div className="flex items-center justify-between mb-3">
+                  <span className={`font-mono text-xs font-semibold uppercase tracking-wider ${
+                    isDark ? "text-slate-400" : "text-ink-faint"
+                  }`}>
+                    Filter by Relationship
+                  </span>
+                  <button
+                    type="button"
+                    onClick={() => setLegendOpen(false)}
+                    className={`p-1 ${isDark ? "text-slate-400 hover:text-white" : "text-ink-faint hover:text-ink"}`}
+                  >
+                    <X className="h-4 w-4" />
+                  </button>
+                </div>
+                <RelationshipLegend activeFilter={filter} onFilterType={setFilter} />
+              </div>
+            )}
           </div>
-        )}
+
+          {/* Floating Character Detail Panel */}
+          {selection && (
+            <div className="absolute bottom-4 right-4 z-40 max-w-full sm:max-w-md w-full sm:w-96 px-3 sm:px-0">
+              <CharacterDetailPanel
+                character={selection}
+                relationships={panelRelationships}
+                onClose={() => setSelection(null)}
+              />
+            </div>
+          )}
+        </div>
       </div>
     )
   }
 
-  /* Desktop: legend + web on the left, character dossier in the right rail. */
+  /* ========================================================================= */
+  /* FULLSCREEN VIEW (Immediate Edge-to-Edge Canvas)                          */
+  /* ========================================================================= */
   return (
-    <div className="mt-8 grid gap-6 lg:grid-cols-[1fr_24rem] lg:items-start">
-      <div className="min-w-0">
-        <RelationshipLegend activeFilter={filter} onFilterType={setFilter} />
-        <div className="mt-5">
-          <CharactersWeb onSelectCharacter={setSelection} />
-        </div>
-      </div>
-      <div className="min-w-0 lg:sticky lg:top-6">
-        {selection ? (
-          <CharacterDetailPanel
-            character={selection}
-            relationships={panelRelationships}
-            onClose={() => setSelection(null)}
-          />
-        ) : (
-          <div className="dossier-card p-5">
-            <span className="case-number">FILE NO. 009</span>
-            <p className="mt-2 font-display text-base tracking-tight text-ink">
-              No dossier open
-            </p>
-            <p className="mt-1 text-xs leading-relaxed text-ink-dim">
-              Click a node in the web above to open its dossier and read the
-              red strings that bind it.
-            </p>
+    <div className={`relative h-full w-full overflow-hidden transition-colors duration-300 ${
+      isDark ? "bg-slate-950 text-white" : "bg-page text-ink"
+    }`}>
+      {/* Mobile Mode Switcher Toggle (Floating Top Left overlay on Mobile) */}
+      {isMobile && (
+        <div className="absolute top-16 left-3 z-40">
+          <div className={`inline-flex rounded-full p-1 border shadow-md backdrop-blur-md ${
+            isDark ? "bg-slate-900/90 border-slate-700/80" : "bg-white/95 border-slate-200/90"
+          }`}>
+            <button
+              type="button"
+              onClick={() => setMobileViewMode("graph")}
+              className={cn(
+                "flex items-center gap-1.5 rounded-full px-3 py-1 text-xs font-semibold font-display transition-all",
+                mobileViewMode === "graph"
+                  ? (isDark ? "bg-slate-800 text-white shadow-sm" : "bg-surface text-ink shadow-sm")
+                  : (isDark ? "text-slate-400 hover:text-white" : "text-ink-dim hover:text-ink")
+              )}
+            >
+              <Network className="h-3.5 w-3.5 text-accent" />
+              Graph
+            </button>
+            <button
+              type="button"
+              onClick={() => setMobileViewMode("list")}
+              className={cn(
+                "flex items-center gap-1.5 rounded-full px-3 py-1 text-xs font-semibold font-display transition-all",
+                mobileViewMode === "list"
+                  ? (isDark ? "bg-slate-800 text-white shadow-sm" : "bg-surface text-ink shadow-sm")
+                  : (isDark ? "text-slate-400 hover:text-white" : "text-ink-dim hover:text-ink")
+              )}
+            >
+              <LayoutGrid className="h-3.5 w-3.5 text-accent" />
+              List
+            </button>
           </div>
-        )}
-      </div>
+        </div>
+      )}
+
+      {/* Main Fullscreen Canvas Container */}
+      {isMobile && mobileViewMode === "list" ? (
+        /* Mobile Directory Cards View */
+        <div className="h-full w-full overflow-y-auto p-4 pt-20 space-y-6">
+          <div className="grid gap-4 sm:grid-cols-2 max-w-4xl mx-auto">
+            {characters.map((character) => (
+              <CharacterCard
+                key={character.id}
+                character={character}
+                threads={threadsFor(character.id)}
+                relationshipMeta={relationshipMeta}
+                selected={selection?.id === character.id}
+                onSelect={() => setSelection(character)}
+              />
+            ))}
+          </div>
+          {selection && (
+            <div className="fixed bottom-4 right-4 z-40 max-w-full sm:max-w-md w-full sm:w-96 px-3 sm:px-0">
+              <CharacterDetailPanel
+                character={selection}
+                relationships={panelRelationships}
+                onClose={() => setSelection(null)}
+              />
+            </div>
+          )}
+        </div>
+      ) : (
+        /* Fullscreen Interactive Graph View */
+        <div className="h-full w-full relative">
+          <CharactersWeb
+            onSelectCharacter={setSelection}
+            selectedCharacterId={selection?.id}
+            activeFilter={filter}
+            onFilterType={setFilter}
+            isFullscreen={isFullscreen}
+            onToggleFullscreen={() => setIsFullscreen(!isFullscreen)}
+            theme={graphTheme}
+            onToggleTheme={toggleTheme}
+            className="h-full w-full rounded-none border-none"
+          />
+
+          {/* Floating Character Detail Panel on Right Side */}
+          {selection && (
+            <div className="absolute bottom-4 right-4 z-40 max-w-full sm:max-w-md w-full sm:w-96 px-3 sm:px-0">
+              <CharacterDetailPanel
+                character={selection}
+                relationships={panelRelationships}
+                onClose={() => setSelection(null)}
+              />
+            </div>
+          )}
+        </div>
+      )}
     </div>
   )
 }
