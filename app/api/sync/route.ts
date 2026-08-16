@@ -145,33 +145,41 @@ async function stageBatch(
   let skipped = 0
   const errors: string[] = []
 
-  // 1. Fetch all existing slugs, episode numbers, and movie numbers from content_entries
-  const { data: existingContent } = await supabase
-    .from("content_entries")
-    .select("slug, type, episode_number, movie_number")
-
+  // 1. Fetch all existing slugs, episode numbers, and movie numbers from
+  //    content_entries. PostgREST caps each request at 1,000 rows, so paginate
+  //    to avoid a truncated dedup set once the DB has 1,000+ episodes (Full
+  //    Seed used to re-stage episodes 1001+ because only the first page was read).
   const existingSlugs = new Set<string>()
   const existingEpNums = new Set<number>()
   const existingMovNums = new Set<number>()
 
-  if (existingContent) {
-    for (const c of existingContent) {
+  const PAGE_SIZE = 1000
+  for (let from = 0; ; from += PAGE_SIZE) {
+    const { data: chunk } = await supabase
+      .from("content_entries")
+      .select("slug, type, episode_number, movie_number")
+      .range(from, from + PAGE_SIZE - 1)
+    if (!chunk || chunk.length === 0) break
+    for (const c of chunk) {
       if (c.slug) existingSlugs.add(c.slug)
       if (c.type === "episode" && c.episode_number != null) existingEpNums.add(c.episode_number)
       if (c.type === "movie" && c.movie_number != null) existingMovNums.add(c.movie_number)
     }
+    if (chunk.length < PAGE_SIZE) break
   }
 
   // 2. Fetch existing slugs in sync_staging (if table exists)
   try {
-    const { data: existingStaged } = await supabase
-      .from("sync_staging")
-      .select("slug")
-
-    if (existingStaged) {
-      for (const s of existingStaged) {
+    for (let from = 0; ; from += PAGE_SIZE) {
+      const { data: chunk } = await supabase
+        .from("sync_staging")
+        .select("slug")
+        .range(from, from + PAGE_SIZE - 1)
+      if (!chunk || chunk.length === 0) break
+      for (const s of chunk) {
         if (s.slug) existingSlugs.add(s.slug)
       }
+      if (chunk.length < PAGE_SIZE) break
     }
   } catch {
     // Ignore if table not yet migrated
@@ -322,11 +330,19 @@ async function syncSeedFranchise(
     canon_order: number | null
   }[] = []
   if (!dryRun) {
-    const { data } = await supabase
-      .from("content_entries")
-      .select("slug, title, type, movie_number, canon_order")
-      .in("type", ["movie", "special", "ova"])
-    existing = (data ?? []) as typeof existing
+    // PostgREST caps each request at 1,000 rows, so paginate to avoid a
+    // truncated slug-reuse map once the DB has 1,000+ franchise rows.
+    const PAGE_SIZE = 1000
+    for (let from = 0; ; from += PAGE_SIZE) {
+      const { data: chunk } = await supabase
+        .from("content_entries")
+        .select("slug, title, type, movie_number, canon_order")
+        .in("type", ["movie", "special", "ova"])
+        .range(from, from + PAGE_SIZE - 1)
+      if (!chunk || chunk.length === 0) break
+      existing.push(...(chunk as typeof existing))
+      if (chunk.length < PAGE_SIZE) break
+    }
   }
   const slugByKey = new Map<string, string>()
   const movieNumberBySlug = new Map<string, number | null>()
