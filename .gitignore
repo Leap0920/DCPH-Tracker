@@ -40,6 +40,7 @@ next-env.d.ts
 
 # sisyphus sessions
 .sisyphus/
+.omo/
 
 # repo hygiene (added during cleanup)
 %USERPROFILE%/

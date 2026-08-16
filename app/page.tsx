@@ -6,6 +6,7 @@ import { HowItWorks } from "@/components/marketing/HowItWorks"
 import { LatestContent } from "@/components/marketing/LatestContent"
 import { HomeCta } from "@/components/marketing/HomeCta"
 import { BlockScreeningSection } from "@/components/marketing/BlockScreeningSection"
+import { FourYearsSection } from "@/components/marketing/FourYearsSection"
 
 export const metadata = {
   title: "Detective Conan PH — Track, Chat, and Climb the Ranks",
@@ -20,11 +21,9 @@ export default function HomePage() {
       <main className="flex-1">
         <HeroSection />
 
-        <BlockScreeningSection />
-
         <div className="border-t border-slate-200/70">
           <div className="py-16">
-            <FeaturesGrid />
+            <LatestContent />
           </div>
         </div>
 
@@ -36,7 +35,19 @@ export default function HomePage() {
 
         <div className="border-t border-slate-200/70">
           <div className="py-16">
-            <LatestContent />
+            <FourYearsSection />
+          </div>
+        </div>
+
+        <div className="border-t border-slate-200/70">
+          <div className="py-16">
+            <BlockScreeningSection />
+          </div>
+        </div>
+
+        <div className="border-t border-slate-200/70">
+          <div className="py-16">
+            <FeaturesGrid />
           </div>
         </div>
 
