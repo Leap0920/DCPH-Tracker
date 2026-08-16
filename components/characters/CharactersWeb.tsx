@@ -48,6 +48,7 @@ import {
   Sun,
   Moon,
 } from "lucide-react";
+import { cn } from "@/lib/utils";
 
 /**
  * Hydration-safe matchMedia hook.
@@ -206,6 +207,57 @@ export default function CharactersWeb({
     dist: number;
   } | null>(null);
 
+  // Active multi-touch pointers tracking for pinch zoom
+  const activePointersRef = useRef<Map<number, { x: number; y: number }>>(new Map());
+  const pinchStartRef = useRef<{ dist: number; k: number } | null>(null);
+
+  const trackPointerDown = (e: PointerEvent) => {
+    activePointersRef.current.set(e.pointerId, { x: e.clientX, y: e.clientY });
+    if (activePointersRef.current.size === 2) {
+      const pts = Array.from(activePointersRef.current.values());
+      const d = Math.hypot(pts[0].x - pts[1].x, pts[0].y - pts[1].y);
+      pinchStartRef.current = { dist: d, k: viewRef.current.k };
+    }
+  };
+
+  const trackPointerMove = (e: PointerEvent): boolean => {
+    if (activePointersRef.current.has(e.pointerId)) {
+      activePointersRef.current.set(e.pointerId, { x: e.clientX, y: e.clientY });
+    }
+    if (activePointersRef.current.size === 2 && pinchStartRef.current && svgRef.current) {
+      const pts = Array.from(activePointersRef.current.values());
+      const newD = Math.hypot(pts[0].x - pts[1].x, pts[0].y - pts[1].y);
+      if (pinchStartRef.current.dist > 0 && newD > 0) {
+        const factor = newD / pinchStartRef.current.dist;
+        const nextK = clamp(pinchStartRef.current.k * factor, MIN_ZOOM, MAX_ZOOM);
+
+        const midX = (pts[0].x + pts[1].x) / 2;
+        const midY = (pts[0].y + pts[1].y) / 2;
+        const rect = svgRef.current.getBoundingClientRect();
+        if (rect.width > 0 && rect.height > 0) {
+          const cx = ((midX - rect.left) / rect.width) * VIEW_W;
+          const cy = ((midY - rect.top) / rect.height) * VIEW_H;
+
+          setInstant(true);
+          setView((v) => ({
+            x: cx - ((cx - v.x) * nextK) / v.k,
+            y: cy - ((cy - v.y) * nextK) / v.k,
+            k: nextK,
+          }));
+        }
+      }
+      return true;
+    }
+    return false;
+  };
+
+  const trackPointerUp = (e: PointerEvent) => {
+    activePointersRef.current.delete(e.pointerId);
+    if (activePointersRef.current.size < 2) {
+      pinchStartRef.current = null;
+    }
+  };
+
   useEffect(() => {
     viewRef.current = view;
   }, [view]);
@@ -297,9 +349,11 @@ export default function CharactersWeb({
   /** Zoom into exact coordinate (targetX, targetY) so it centers in the 1000x600 viewBox */
   const zoomToPoint = (wx: number, wy: number, targetK: number = ZOOM_TO_NODE) => {
     setInstant(false);
+    // On mobile, position node near upper center (32% of view height) so bottom sheet never obscures it
+    const targetYCenter = isMobile ? VIEW_H * 0.32 : VIEW_H / 2;
     setView({
       x: VIEW_W / 2 - wx * targetK,
-      y: VIEW_H / 2 - wy * targetK,
+      y: targetYCenter - wy * targetK,
       k: targetK,
     });
   };
@@ -320,9 +374,9 @@ export default function CharactersWeb({
 
   const hoverNode = (id: string | null) => () => setHoveredId(id);
 
-  /** Canvas pointer handlers for panning */
+  /** Canvas pointer handlers for panning & multi-touch pinch */
   const handleCanvasPointerDown = (e: PointerEvent<SVGSVGElement>) => {
-    // If pointer down on node drag, skip canvas drag
+    trackPointerDown(e);
     if (nodeDragRef.current) return;
 
     didDragRef.current = false;
@@ -339,25 +393,24 @@ export default function CharactersWeb({
     setDraggingCanvas(true);
   };
 
-  /** Pointer move handling both node drag and canvas pan */
+  /** Pointer move handling both node drag, canvas pan, and pinch zoom */
   const handlePointerMove = (e: PointerEvent<SVGSVGElement>) => {
+    if (trackPointerMove(e)) return;
+
     // 1. Node dragging
     if (nodeDragRef.current) {
       const nd = nodeDragRef.current;
       const rect = svgRef.current?.getBoundingClientRect();
       if (!rect || rect.width === 0 || rect.height === 0) return;
 
-      const dx = ((e.clientX - nd.clientX) / rect.width) * VIEW_W / view.k;
-      const dy = ((e.clientY - nd.clientY) / rect.height) * VIEW_H / view.k;
-
-      nd.dist += Math.hypot(e.clientX - nd.clientX, e.clientY - nd.clientY);
-
-      if (nd.dist > DRAG_THRESHOLD) {
+      const distTotal = Math.hypot(e.clientX - nd.clientX, e.clientY - nd.clientY);
+      const threshold = e.pointerType === "touch" ? 14 : DRAG_THRESHOLD;
+      if (distTotal > threshold) {
         didDragRef.current = true;
       }
 
-      const original = byId.get(nd.nodeId);
-      const cur = positions[nd.nodeId] ?? { x: original?.x ?? 500, y: original?.y ?? 300 };
+      const dx = ((e.clientX - nd.clientX) / rect.width) * VIEW_W / view.k;
+      const dy = ((e.clientY - nd.clientY) / rect.height) * VIEW_H / view.k;
 
       const newX = clamp(nd.startX + dx, 30, VIEW_W - 30);
       const newY = clamp(nd.startY + dy, 30, VIEW_H - 30);
@@ -375,11 +428,9 @@ export default function CharactersWeb({
     const rect = svgRef.current?.getBoundingClientRect();
     if (!rect || rect.width === 0 || rect.height === 0) return;
 
-    start.dist += Math.hypot(e.clientX - start.lastClientX, e.clientY - start.lastClientY);
-    start.lastClientX = e.clientX;
-    start.lastClientY = e.clientY;
-
-    if (start.dist > DRAG_THRESHOLD) {
+    const distTotal = Math.hypot(e.clientX - start.clientX, e.clientY - start.clientY);
+    const threshold = e.pointerType === "touch" ? 14 : DRAG_THRESHOLD;
+    if (distTotal > threshold) {
       didDragRef.current = true;
       if (!capturedRef.current) {
         e.currentTarget.setPointerCapture(start.pointerId);
@@ -394,6 +445,7 @@ export default function CharactersWeb({
 
   /** Release drag */
   const endDrag = (e: PointerEvent<SVGSVGElement>) => {
+    trackPointerUp(e);
     if (capturedRef.current && e.currentTarget.hasPointerCapture(e.pointerId)) {
       e.currentTarget.releasePointerCapture(e.pointerId);
     }
@@ -407,6 +459,7 @@ export default function CharactersWeb({
   /** Start node drag */
   const handleNodePointerDown = (c: Character, e: PointerEvent) => {
     e.stopPropagation();
+    trackPointerDown(e);
     didDragRef.current = false;
     const pos = positions[c.id] ?? { x: c.x, y: c.y };
     nodeDragRef.current = {
@@ -462,9 +515,15 @@ export default function CharactersWeb({
       } ${className}`}
     >
       {/* Floating Canvas Action Dock (Bottom Left - Obsidian / Figma style) */}
-      <div className={`absolute bottom-6 left-4 sm:left-6 z-30 pointer-events-auto flex items-center gap-1 rounded-full border p-1.5 shadow-xl backdrop-blur-md ${
-        isDark ? "border-slate-700/80 bg-slate-900/95" : "border-slate-200/90 bg-white/95"
-      }`}>
+      <div
+        className={cn(
+          "absolute z-30 pointer-events-auto flex items-center gap-1 rounded-full border p-1.5 shadow-xl backdrop-blur-md transition-all duration-300",
+          selectedCharacterId && isMobile
+            ? "bottom-[calc(48vh+12px)] left-3"
+            : "bottom-6 left-4 sm:left-6",
+          isDark ? "border-slate-700/80 bg-slate-900/95" : "border-slate-200/90 bg-white/95"
+        )}
+      >
         <button
           type="button"
           onClick={() => zoomBy(ZOOM_STEP)}
