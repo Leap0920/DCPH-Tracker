@@ -51,8 +51,8 @@ export default function ElegantCarousel({ customSlides }: { customSlides?: Slide
   const [currentIndex, setCurrentIndex] = useState(0);
   const [isTransitioning, setIsTransitioning] = useState(false);
   const [progress, setProgress] = useState(0);
-  const [isMuted, setIsMuted] = useState(false);
-  const [isPlaying, setIsPlaying] = useState(true);
+  const [isMuted, setIsMuted] = useState(true);
+  const [isPlaying, setIsPlaying] = useState(false);
   const [currentTime, setCurrentTime] = useState(0);
   const [duration, setDuration] = useState(0);
 
@@ -71,7 +71,7 @@ export default function ElegantCarousel({ customSlides }: { customSlides?: Slide
 
       setTimeout(() => {
         setCurrentIndex(index);
-        setIsPlaying(true);
+        setIsPlaying(false);
         setTimeout(() => {
           setIsTransitioning(false);
         }, 50);
@@ -279,7 +279,6 @@ export default function ElegantCarousel({ customSlides }: { customSlides?: Slide
                   ref={videoRef}
                   key={currentSlide.videoUrl}
                   src={currentSlide.videoUrl}
-                  autoPlay
                   playsInline
                   muted={isMuted}
                   onTimeUpdate={handleTimeUpdate}

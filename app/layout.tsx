@@ -50,7 +50,7 @@ export default function RootLayout({
       lang="en"
       className={`${plusJakartaSans.variable} ${inter.variable} ${jetbrainsMono.variable} scroll-smooth`}
     >
-      <body className="min-h-screen">
+      <body className="min-h-screen bg-page text-ink font-body antialiased overflow-x-hidden w-full max-w-full">
         <Providers>
           {children}
           <AuthModal />

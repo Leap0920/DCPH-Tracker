@@ -16,39 +16,30 @@ export const metadata = {
 
 export default function HomePage() {
   return (
-    <div className="bg-page text-ink flex min-h-screen flex-col">
+    <div className="bg-page text-ink flex min-h-screen flex-col overflow-x-hidden w-full max-w-full">
       <Navbar />
       <main className="flex-1">
         <HeroSection />
 
-        <div className="border-t border-slate-200/70">
-          <div className="py-16">
-            <LatestContent />
-          </div>
+        {/* Vertical rhythm comes from clean, balanced whitespace */}
+        <div className="py-12 sm:py-16 lg:py-20">
+          <LatestContent />
         </div>
 
-        <div className="border-t border-slate-200/70">
-          <div className="py-16">
-            <HowItWorks />
-          </div>
+        <div className="py-12 sm:py-16 lg:py-20">
+          <HowItWorks />
         </div>
 
-        <div className="border-t border-slate-200/70">
-          <div className="py-16">
-            <FourYearsSection />
-          </div>
+        <div className="py-12 sm:py-16 lg:py-20">
+          <FourYearsSection />
         </div>
 
-        <div className="border-t border-slate-200/70">
-          <div className="py-16">
-            <BlockScreeningSection />
-          </div>
+        <div className="py-12 sm:py-16 lg:py-20">
+          <BlockScreeningSection />
         </div>
 
-        <div className="border-t border-slate-200/70">
-          <div className="py-16">
-            <FeaturesGrid />
-          </div>
+        <div className="py-12 sm:py-16 lg:py-20">
+          <FeaturesGrid />
         </div>
 
         <HomeCta />
