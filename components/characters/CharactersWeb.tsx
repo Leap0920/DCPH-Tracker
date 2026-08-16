@@ -374,10 +374,76 @@ export default function CharactersWeb({
 
   const hoverNode = (id: string | null) => () => setHoveredId(id);
 
+  // Native Touch listener for 100% reliable mobile pinch zooming
+  useEffect(() => {
+    const svg = svgRef.current;
+    if (!svg) return;
+
+    let touchPinchDist = 0;
+    let touchStartK = 1;
+    let touchCenter = { x: 500, y: 300 };
+
+    const onTouchStart = (e: TouchEvent) => {
+      if (e.touches.length === 2) {
+        const p1 = e.touches[0];
+        const p2 = e.touches[1];
+        touchPinchDist = Math.hypot(p1.clientX - p2.clientX, p1.clientY - p2.clientY);
+        touchStartK = viewRef.current.k;
+
+        const rect = svg.getBoundingClientRect();
+        if (rect.width > 0 && rect.height > 0) {
+          const midX = (p1.clientX + p2.clientX) / 2;
+          const midY = (p1.clientY + p2.clientY) / 2;
+          touchCenter = {
+            x: ((midX - rect.left) / rect.width) * VIEW_W,
+            y: ((midY - rect.top) / rect.height) * VIEW_H,
+          };
+        }
+      }
+    };
+
+    const onTouchMove = (e: TouchEvent) => {
+      if (e.touches.length === 2 && touchPinchDist > 0) {
+        if (e.cancelable) e.preventDefault();
+        const p1 = e.touches[0];
+        const p2 = e.touches[1];
+        const curDist = Math.hypot(p1.clientX - p2.clientX, p1.clientY - p2.clientY);
+        if (curDist > 0) {
+          const factor = curDist / touchPinchDist;
+          const nextK = clamp(touchStartK * factor, MIN_ZOOM, MAX_ZOOM);
+          const { x, y, k } = viewRef.current;
+
+          setInstant(true);
+          setView({
+            x: touchCenter.x - ((touchCenter.x - x) * nextK) / k,
+            y: touchCenter.y - ((touchCenter.y - y) * nextK) / k,
+            k: nextK,
+          });
+        }
+      }
+    };
+
+    const onTouchEnd = () => {
+      touchPinchDist = 0;
+    };
+
+    svg.addEventListener("touchstart", onTouchStart, { passive: true });
+    svg.addEventListener("touchmove", onTouchMove, { passive: false });
+    svg.addEventListener("touchend", onTouchEnd, { passive: true });
+    svg.addEventListener("touchcancel", onTouchEnd, { passive: true });
+
+    return () => {
+      svg.removeEventListener("touchstart", onTouchStart);
+      svg.removeEventListener("touchmove", onTouchMove);
+      svg.removeEventListener("touchend", onTouchEnd);
+      svg.removeEventListener("touchcancel", onTouchEnd);
+    };
+  }, []);
+
   /** Canvas pointer handlers for panning & multi-touch pinch */
   const handleCanvasPointerDown = (e: PointerEvent<SVGSVGElement>) => {
     trackPointerDown(e);
-    if (nodeDragRef.current) return;
+    nodeDragRef.current = null;
 
     didDragRef.current = false;
     dragStartRef.current = {
@@ -387,7 +453,7 @@ export default function CharactersWeb({
       lastClientX: e.clientX,
       lastClientY: e.clientY,
       dist: 0,
-      view,
+      view: viewRef.current,
     };
     capturedRef.current = false;
     setDraggingCanvas(true);
@@ -432,15 +498,20 @@ export default function CharactersWeb({
     const threshold = e.pointerType === "touch" ? 14 : DRAG_THRESHOLD;
     if (distTotal > threshold) {
       didDragRef.current = true;
-      if (!capturedRef.current) {
-        e.currentTarget.setPointerCapture(start.pointerId);
-        capturedRef.current = true;
+      if (!capturedRef.current && e.currentTarget.setPointerCapture) {
+        try {
+          e.currentTarget.setPointerCapture(start.pointerId);
+          capturedRef.current = true;
+        } catch {}
       }
     }
 
-    const vx = ((e.clientX - start.clientX) / rect.width) * VIEW_W;
-    const vy = ((e.clientY - start.clientY) / rect.height) * VIEW_H;
-    setView({ x: start.view.x + vx, y: start.view.y + vy, k: start.view.k });
+    const dx = ((e.clientX - start.lastClientX) / rect.width) * VIEW_W;
+    const dy = ((e.clientY - start.lastClientY) / rect.height) * VIEW_H;
+    start.lastClientX = e.clientX;
+    start.lastClientY = e.clientY;
+
+    setView((v) => ({ x: v.x + dx, y: v.y + dy, k: v.k }));
   };
 
   /** Release drag */
