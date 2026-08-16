@@ -185,103 +185,98 @@ export default function CharactersWeb({
   const viewRef = useRef(view);
   const capturedRef = useRef(false);
 
-  // Snapshot for canvas drag
-  const dragStartRef = useRef<{
-    pointerId: number;
-    clientX: number;
-    clientY: number;
-    lastClientX: number;
-    lastClientY: number;
-    dist: number;
-    view: { x: number; y: number; k: number };
-  } | null>(null);
+  // Drag state refs for global window listeners
+  const isDraggingCanvasRef = useRef(false);
+  const canvasDragStartRef = useRef<{ clientX: number; clientY: number; startViewX: number; startViewY: number } | null>(null);
 
-  // Snapshot for node drag
-  const nodeDragRef = useRef<{
-    pointerId: number;
-    nodeId: string;
-    clientX: number;
-    clientY: number;
-    startX: number;
-    startY: number;
-    dist: number;
-  } | null>(null);
+  const isDraggingNodeRef = useRef(false);
+  const activeNodeIdRef = useRef<string | null>(null);
+  const nodeDragStartRef = useRef<{ clientX: number; clientY: number; startNodeX: number; startNodeY: number } | null>(null);
 
-  // Active multi-touch pointers tracking for pinch zoom
-  const activePointersRef = useRef<Map<number, { x: number; y: number }>>(new Map());
-  const pinchStartRef = useRef<{ dist: number; k: number } | null>(null);
-
-  const trackPointerDown = (e: PointerEvent) => {
-    activePointersRef.current.set(e.pointerId, { x: e.clientX, y: e.clientY });
-    if (activePointersRef.current.size === 2) {
-      const pts = Array.from(activePointersRef.current.values());
-      const d = Math.hypot(pts[0].x - pts[1].x, pts[0].y - pts[1].y);
-      pinchStartRef.current = { dist: d, k: viewRef.current.k };
-    }
-  };
-
-  const trackPointerMove = (e: PointerEvent): boolean => {
-    if (activePointersRef.current.has(e.pointerId)) {
-      activePointersRef.current.set(e.pointerId, { x: e.clientX, y: e.clientY });
-    }
-    if (activePointersRef.current.size === 2 && pinchStartRef.current && svgRef.current) {
-      const pts = Array.from(activePointersRef.current.values());
-      const newD = Math.hypot(pts[0].x - pts[1].x, pts[0].y - pts[1].y);
-      if (pinchStartRef.current.dist > 0 && newD > 0) {
-        const factor = newD / pinchStartRef.current.dist;
-        const nextK = clamp(pinchStartRef.current.k * factor, MIN_ZOOM, MAX_ZOOM);
-
-        const midX = (pts[0].x + pts[1].x) / 2;
-        const midY = (pts[0].y + pts[1].y) / 2;
+  /** Window pointer listeners for 100% robust PC & Mobile movement */
+  useEffect(() => {
+    const handleWindowPointerMove = (e: globalThis.PointerEvent) => {
+      // 1. Node dragging
+      if (isDraggingNodeRef.current && activeNodeIdRef.current && nodeDragStartRef.current && svgRef.current) {
+        const start = nodeDragStartRef.current;
         const rect = svgRef.current.getBoundingClientRect();
         if (rect.width > 0 && rect.height > 0) {
-          const cx = ((midX - rect.left) / rect.width) * VIEW_W;
-          const cy = ((midY - rect.top) / rect.height) * VIEW_H;
+          const dx = e.clientX - start.clientX;
+          const dy = e.clientY - start.clientY;
 
-          setInstant(true);
-          setView((v) => ({
-            x: cx - ((cx - v.x) * nextK) / v.k,
-            y: cy - ((cy - v.y) * nextK) / v.k,
-            k: nextK,
+          const threshold = e.pointerType === "touch" ? 12 : 4;
+          if (Math.hypot(dx, dy) > threshold) {
+            didDragRef.current = true;
+          }
+
+          const currentK = viewRef.current.k;
+          const svgDx = (dx / rect.width) * VIEW_W / currentK;
+          const svgDy = (dy / rect.height) * VIEW_H / currentK;
+
+          const newX = clamp(start.startNodeX + svgDx, 30, VIEW_W - 30);
+          const newY = clamp(start.startNodeY + svgDy, 30, VIEW_H - 30);
+
+          setPositions((prev) => ({
+            ...prev,
+            [activeNodeIdRef.current!]: { x: newX, y: newY },
           }));
         }
+        return;
       }
-      return true;
-    }
-    return false;
-  };
 
-  const trackPointerUp = (e: PointerEvent) => {
-    activePointersRef.current.delete(e.pointerId);
-    if (activePointersRef.current.size < 2) {
-      pinchStartRef.current = null;
-    }
-  };
+      // 2. Canvas panning
+      if (isDraggingCanvasRef.current && canvasDragStartRef.current && svgRef.current) {
+        const start = canvasDragStartRef.current;
+        const rect = svgRef.current.getBoundingClientRect();
+        if (rect.width > 0 && rect.height > 0) {
+          const dx = e.clientX - start.clientX;
+          const dy = e.clientY - start.clientY;
 
-  useEffect(() => {
-    viewRef.current = view;
-  }, [view]);
+          const threshold = e.pointerType === "touch" ? 12 : 4;
+          if (Math.hypot(dx, dy) > threshold) {
+            didDragRef.current = true;
+          }
 
-  useEffect(() => {
-    if (instant) setInstant(false);
-  }, [instant]);
+          const svgDx = (dx / rect.width) * VIEW_W;
+          const svgDy = (dy / rect.height) * VIEW_H;
 
-  // Center selected character when prop changes
-  useEffect(() => {
-    if (selectedCharacterId) {
-      const pos = positions[selectedCharacterId] ?? CHARACTERS.find((c) => c.id === selectedCharacterId);
-      if (pos) {
-        zoomToPoint(pos.x, pos.y, ZOOM_TO_NODE);
+          setView({
+            x: start.startViewX + svgDx,
+            y: start.startViewY + svgDy,
+            k: viewRef.current.k,
+          });
+        }
       }
-    }
-  }, [selectedCharacterId]);
+    };
 
-  /** Wheel zoom */
+    const handleWindowPointerUp = () => {
+      isDraggingCanvasRef.current = false;
+      canvasDragStartRef.current = null;
+      isDraggingNodeRef.current = false;
+      activeNodeIdRef.current = null;
+      nodeDragStartRef.current = null;
+      setDraggingCanvas(false);
+      setDraggingNodeId(null);
+    };
+
+    window.addEventListener("pointermove", handleWindowPointerMove);
+    window.addEventListener("pointerup", handleWindowPointerUp);
+    window.addEventListener("pointercancel", handleWindowPointerUp);
+
+    return () => {
+      window.removeEventListener("pointermove", handleWindowPointerMove);
+      window.removeEventListener("pointerup", handleWindowPointerUp);
+      window.removeEventListener("pointercancel", handleWindowPointerUp);
+    };
+  }, []);
+
+  /** Wheel / Trackpad Zoom */
   useEffect(() => {
     const svg = svgRef.current;
     if (!svg) return;
 
-    const onWheel = (e: WheelEvent) => {
+    const handleWheel = (e: WheelEvent) => {
+      e.preventDefault();
       const { x, y, k } = viewRef.current;
       const rect = svg.getBoundingClientRect();
       if (rect.width === 0 || rect.height === 0) return;
@@ -289,9 +284,9 @@ export default function CharactersWeb({
       const cx = ((e.clientX - rect.left) / rect.width) * VIEW_W;
       const cy = ((e.clientY - rect.top) / rect.height) * VIEW_H;
 
-      const nextK = clamp(k * (1 - e.deltaY * 0.0012), MIN_ZOOM, MAX_ZOOM);
+      const zoomFactor = Math.exp(-e.deltaY * 0.002);
+      const nextK = clamp(k * zoomFactor, MIN_ZOOM, MAX_ZOOM);
       if (nextK === k) return;
-      e.preventDefault();
 
       setInstant(true);
       setView({
@@ -301,8 +296,77 @@ export default function CharactersWeb({
       });
     };
 
-    svg.addEventListener("wheel", onWheel, { passive: false });
-    return () => svg.removeEventListener("wheel", onWheel);
+    svg.addEventListener("wheel", handleWheel, { passive: false });
+    return () => svg.removeEventListener("wheel", handleWheel);
+  }, []);
+
+  /** Native Touch listener for 100% reliable mobile 2-finger pinch zooming */
+  useEffect(() => {
+    const svg = svgRef.current;
+    if (!svg) return;
+
+    let touchPinchDist = 0;
+    let touchStartK = 1;
+    let touchCenter = { x: 500, y: 300 };
+
+    const handleTouchStart = (e: TouchEvent) => {
+      if (e.touches.length === 2) {
+        isDraggingCanvasRef.current = false;
+        isDraggingNodeRef.current = false;
+        const t1 = e.touches[0];
+        const t2 = e.touches[1];
+        touchPinchDist = Math.hypot(t1.clientX - t2.clientX, t1.clientY - t2.clientY);
+        touchStartK = viewRef.current.k;
+
+        const rect = svg.getBoundingClientRect();
+        if (rect.width > 0 && rect.height > 0) {
+          const midX = (t1.clientX + t2.clientX) / 2;
+          const midY = (t1.clientY + t2.clientY) / 2;
+          touchCenter = {
+            x: ((midX - rect.left) / rect.width) * VIEW_W,
+            y: ((midY - rect.top) / rect.height) * VIEW_H,
+          };
+        }
+      }
+    };
+
+    const handleTouchMove = (e: TouchEvent) => {
+      if (e.touches.length === 2 && touchPinchDist > 0) {
+        if (e.cancelable) e.preventDefault();
+        const t1 = e.touches[0];
+        const t2 = e.touches[1];
+        const curDist = Math.hypot(t1.clientX - t2.clientX, t1.clientY - t2.clientY);
+
+        if (curDist > 0) {
+          const factor = curDist / touchPinchDist;
+          const nextK = clamp(touchStartK * factor, MIN_ZOOM, MAX_ZOOM);
+          const { x, y, k } = viewRef.current;
+
+          setInstant(true);
+          setView({
+            x: touchCenter.x - ((touchCenter.x - x) * nextK) / k,
+            y: touchCenter.y - ((touchCenter.y - y) * nextK) / k,
+            k: nextK,
+          });
+        }
+      }
+    };
+
+    const handleTouchEnd = () => {
+      touchPinchDist = 0;
+    };
+
+    svg.addEventListener("touchstart", handleTouchStart, { passive: true });
+    svg.addEventListener("touchmove", handleTouchMove, { passive: false });
+    svg.addEventListener("touchend", handleTouchEnd, { passive: true });
+    svg.addEventListener("touchcancel", handleTouchEnd, { passive: true });
+
+    return () => {
+      svg.removeEventListener("touchstart", handleTouchStart);
+      svg.removeEventListener("touchmove", handleTouchMove);
+      svg.removeEventListener("touchend", handleTouchEnd);
+      svg.removeEventListener("touchcancel", handleTouchEnd);
+    };
   }, []);
 
   /** Derived relationships and node degrees */
@@ -374,180 +438,49 @@ export default function CharactersWeb({
 
   const hoverNode = (id: string | null) => () => setHoveredId(id);
 
-  // Native Touch listener for 100% reliable mobile pinch zooming
-  useEffect(() => {
-    const svg = svgRef.current;
-    if (!svg) return;
-
-    let touchPinchDist = 0;
-    let touchStartK = 1;
-    let touchCenter = { x: 500, y: 300 };
-
-    const onTouchStart = (e: TouchEvent) => {
-      if (e.touches.length === 2) {
-        const p1 = e.touches[0];
-        const p2 = e.touches[1];
-        touchPinchDist = Math.hypot(p1.clientX - p2.clientX, p1.clientY - p2.clientY);
-        touchStartK = viewRef.current.k;
-
-        const rect = svg.getBoundingClientRect();
-        if (rect.width > 0 && rect.height > 0) {
-          const midX = (p1.clientX + p2.clientX) / 2;
-          const midY = (p1.clientY + p2.clientY) / 2;
-          touchCenter = {
-            x: ((midX - rect.left) / rect.width) * VIEW_W,
-            y: ((midY - rect.top) / rect.height) * VIEW_H,
-          };
-        }
-      }
-    };
-
-    const onTouchMove = (e: TouchEvent) => {
-      if (e.touches.length === 2 && touchPinchDist > 0) {
-        if (e.cancelable) e.preventDefault();
-        const p1 = e.touches[0];
-        const p2 = e.touches[1];
-        const curDist = Math.hypot(p1.clientX - p2.clientX, p1.clientY - p2.clientY);
-        if (curDist > 0) {
-          const factor = curDist / touchPinchDist;
-          const nextK = clamp(touchStartK * factor, MIN_ZOOM, MAX_ZOOM);
-          const { x, y, k } = viewRef.current;
-
-          setInstant(true);
-          setView({
-            x: touchCenter.x - ((touchCenter.x - x) * nextK) / k,
-            y: touchCenter.y - ((touchCenter.y - y) * nextK) / k,
-            k: nextK,
-          });
-        }
-      }
-    };
-
-    const onTouchEnd = () => {
-      touchPinchDist = 0;
-    };
-
-    svg.addEventListener("touchstart", onTouchStart, { passive: true });
-    svg.addEventListener("touchmove", onTouchMove, { passive: false });
-    svg.addEventListener("touchend", onTouchEnd, { passive: true });
-    svg.addEventListener("touchcancel", onTouchEnd, { passive: true });
-
-    return () => {
-      svg.removeEventListener("touchstart", onTouchStart);
-      svg.removeEventListener("touchmove", onTouchMove);
-      svg.removeEventListener("touchend", onTouchEnd);
-      svg.removeEventListener("touchcancel", onTouchEnd);
-    };
-  }, []);
-
-  /** Canvas pointer handlers for panning & multi-touch pinch */
-  const handleCanvasPointerDown = (e: PointerEvent<SVGSVGElement>) => {
-    trackPointerDown(e);
-    nodeDragRef.current = null;
-
+  /** Canvas pointer down */
+  const handleCanvasPointerDown = (e: React.PointerEvent<SVGSVGElement>) => {
+    if (e.pointerType === "touch" && e.isPrimary === false) return;
     didDragRef.current = false;
-    dragStartRef.current = {
-      pointerId: e.pointerId,
+    isDraggingCanvasRef.current = true;
+    canvasDragStartRef.current = {
       clientX: e.clientX,
       clientY: e.clientY,
-      lastClientX: e.clientX,
-      lastClientY: e.clientY,
-      dist: 0,
-      view: viewRef.current,
+      startViewX: viewRef.current.x,
+      startViewY: viewRef.current.y,
     };
-    capturedRef.current = false;
     setDraggingCanvas(true);
   };
 
-  /** Pointer move handling both node drag, canvas pan, and pinch zoom */
-  const handlePointerMove = (e: PointerEvent<SVGSVGElement>) => {
-    if (trackPointerMove(e)) return;
-
-    // 1. Node dragging
-    if (nodeDragRef.current) {
-      const nd = nodeDragRef.current;
-      const rect = svgRef.current?.getBoundingClientRect();
-      if (!rect || rect.width === 0 || rect.height === 0) return;
-
-      const distTotal = Math.hypot(e.clientX - nd.clientX, e.clientY - nd.clientY);
-      const threshold = e.pointerType === "touch" ? 14 : DRAG_THRESHOLD;
-      if (distTotal > threshold) {
-        didDragRef.current = true;
-      }
-
-      const dx = ((e.clientX - nd.clientX) / rect.width) * VIEW_W / view.k;
-      const dy = ((e.clientY - nd.clientY) / rect.height) * VIEW_H / view.k;
-
-      const newX = clamp(nd.startX + dx, 30, VIEW_W - 30);
-      const newY = clamp(nd.startY + dy, 30, VIEW_H - 30);
-
-      setPositions((prev) => ({
-        ...prev,
-        [nd.nodeId]: { x: newX, y: newY },
-      }));
-      return;
-    }
-
-    // 2. Canvas panning
-    const start = dragStartRef.current;
-    if (!start) return;
-    const rect = svgRef.current?.getBoundingClientRect();
-    if (!rect || rect.width === 0 || rect.height === 0) return;
-
-    const distTotal = Math.hypot(e.clientX - start.clientX, e.clientY - start.clientY);
-    const threshold = e.pointerType === "touch" ? 14 : DRAG_THRESHOLD;
-    if (distTotal > threshold) {
-      didDragRef.current = true;
-      if (!capturedRef.current && e.currentTarget.setPointerCapture) {
-        try {
-          e.currentTarget.setPointerCapture(start.pointerId);
-          capturedRef.current = true;
-        } catch {}
-      }
-    }
-
-    const dx = ((e.clientX - start.lastClientX) / rect.width) * VIEW_W;
-    const dy = ((e.clientY - start.lastClientY) / rect.height) * VIEW_H;
-    start.lastClientX = e.clientX;
-    start.lastClientY = e.clientY;
-
-    setView((v) => ({ x: v.x + dx, y: v.y + dy, k: v.k }));
-  };
-
-  /** Release drag */
-  const endDrag = (e: PointerEvent<SVGSVGElement>) => {
-    trackPointerUp(e);
-    if (capturedRef.current && e.currentTarget.hasPointerCapture(e.pointerId)) {
-      e.currentTarget.releasePointerCapture(e.pointerId);
-    }
-    capturedRef.current = false;
-    dragStartRef.current = null;
-    nodeDragRef.current = null;
-    setDraggingCanvas(false);
-    setDraggingNodeId(null);
-  };
-
-  /** Start node drag */
-  const handleNodePointerDown = (c: Character, e: PointerEvent) => {
+  /** Node pointer down */
+  const handleNodePointerDown = (c: Character, e: React.PointerEvent) => {
     e.stopPropagation();
-    trackPointerDown(e);
     didDragRef.current = false;
+    isDraggingNodeRef.current = true;
+    activeNodeIdRef.current = c.id;
+
     const pos = positions[c.id] ?? { x: c.x, y: c.y };
-    nodeDragRef.current = {
-      pointerId: e.pointerId,
-      nodeId: c.id,
+    nodeDragStartRef.current = {
       clientX: e.clientX,
       clientY: e.clientY,
-      startX: pos.x,
-      startY: pos.y,
-      dist: 0,
+      startNodeX: pos.x,
+      startNodeY: pos.y,
     };
     setDraggingNodeId(c.id);
   };
 
   const zoomBy = (factor: number) => {
     setInstant(false);
-    setView((v) => ({ ...v, k: clamp(v.k * factor, MIN_ZOOM, MAX_ZOOM) }));
+    setView((v) => {
+      const nextK = clamp(v.k * factor, MIN_ZOOM, MAX_ZOOM);
+      const cx = VIEW_W / 2;
+      const cy = VIEW_H / 2;
+      return {
+        x: cx - ((cx - v.x) * nextK) / v.k,
+        y: cy - ((cy - v.y) * nextK) / v.k,
+        k: nextK,
+      };
+    });
   };
 
   const resetView = () => {
@@ -685,10 +618,6 @@ export default function CharactersWeb({
           }`}
           aria-label="Detective Conan character relationship web"
           onPointerDown={handleCanvasPointerDown}
-          onPointerMove={handlePointerMove}
-          onPointerUp={endDrag}
-          onPointerLeave={endDrag}
-          onPointerCancel={endDrag}
         >
           {/* Dot matrix pattern */}
           <defs>
@@ -700,14 +629,12 @@ export default function CharactersWeb({
           <rect width="1000" height="600" fill="url(#dotGrid)" />
 
           {/* World Pan/Zoom Wrapper. Pins scale origin to (0,0) so target Math centers nodes exactly */}
-          <motion.g
-            style={{ transformOrigin: "0px 0px" }}
-            animate={{ x: view.x, y: view.y, scale: view.k }}
-            transition={
-              draggingCanvas || draggingNodeId || instant
-                ? { duration: 0 }
-                : { type: "spring", stiffness: 140, damping: 22 }
-            }
+          <g
+            transform={`translate(${view.x}, ${view.y}) scale(${view.k})`}
+            style={{
+              transformOrigin: "0px 0px",
+              transition: draggingCanvas || draggingNodeId || instant ? "none" : "transform 0.25s cubic-bezier(0.16, 1, 0.3, 1)",
+            }}
           >
             {/* Transparent hit area */}
             <rect width="1000" height="600" fill="transparent" />
@@ -830,7 +757,7 @@ export default function CharactersWeb({
                 );
               })}
             </motion.g>
-          </motion.g>
+          </g>
         </svg>
       </MotionConfig>
     </div>

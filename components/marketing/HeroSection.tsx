@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button"
 import { useEffect, useState, useCallback, useRef } from "react"
 import { createClient } from "@/utils/supabase/client"
 import { openAuthModal } from "@/lib/auth-modal"
+import { LiveStats } from "@/components/marketing/LiveStats"
 
 const EASE = [0.16, 1, 0.3, 1] as const
 
@@ -198,6 +199,11 @@ export function HeroSection() {
               </Button>
             </motion.div>
           </motion.div>
+
+          {/* Live all-time + active-now stats */}
+          <div className="mt-8">
+            <LiveStats />
+          </div>
         </div>
 
         {/* Scroll indicator at the bottom of the banner */}
