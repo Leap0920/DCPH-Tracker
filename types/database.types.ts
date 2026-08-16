@@ -415,6 +415,33 @@ export interface Database {
         };
         Relationships: [];
       };
+      episode_comments: {
+        Row: {
+          id: string;
+          content_id: string;
+          user_id: string;
+          body: string;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          id?: string;
+          content_id: string;
+          user_id: string;
+          body: string;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: {
+          id?: string;
+          content_id?: string;
+          user_id?: string;
+          body?: string;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Relationships: [];
+      };
       sync_staging: {
         Row: {
           id: string;
@@ -493,7 +520,12 @@ export interface Database {
         Relationships: [];
       };
     };
-    Functions: Record<string, never>;
+    Functions: {
+      get_content_rating: {
+        Args: { p_content_id: string };
+        Returns: { avg_rating: number; rating_count: number };
+      };
+    };
     Enums: Record<string, never>;
   };
 }

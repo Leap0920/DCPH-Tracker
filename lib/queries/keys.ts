@@ -11,6 +11,8 @@ export const queryKeys = {
   content: {
     all: () => ["content", "all"] as const,
     bySlug: (slug: string) => ["content", "bySlug", slug] as const,
+    comments: (contentId: string) => ["content", "comments", contentId] as const,
+    rating: (contentId: string) => ["content", "rating", contentId] as const,
   },
   watchStatus: {
     all: (userId: string) => ["watchStatus", "all", userId] as const,
