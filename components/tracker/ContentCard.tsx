@@ -75,17 +75,17 @@ export function ContentCard({
         "relative bg-surface border rounded-lg overflow-hidden group transition-all",
         flash
           ? "border-gray-900 ring-2 ring-gray-900/60 shadow-md"
-          : "border-slate-200 hover:shadow-md"
+          : "border-slate-200 hover:border-slate-300 hover:shadow-md"
       )}
     >
       {entry.type !== "movie" && (
-        <span className="absolute top-2 right-2 z-10 bg-gray-900 text-white text-[10px] font-mono px-2 py-0.5 rounded">{displayNumber}</span>
+        <span className="absolute top-2 right-2 z-10 bg-gray-900 text-white text-[10px] font-mono px-2 py-0.5 rounded-md">{displayNumber}</span>
       )}
 
       {/* Rewatch count badge — only while the item is watched/rewatched (no stale ×N on unwatched) */}
       {watchCount > 1 && isSeen && (
         <span
-          className="absolute top-2 left-2 z-10 inline-flex items-center gap-1 bg-gray-900 text-white text-[10px] font-mono px-2 py-0.5 rounded shadow-card"
+          className="absolute top-2 left-2 z-10 inline-flex items-center gap-1 bg-gray-900 text-white text-[10px] font-mono px-2 py-0.5 rounded-md shadow-card"
           title={`Watched ${watchCount} times`}
         >
           <RefreshCw className="h-2.5 w-2.5" />
@@ -171,14 +171,14 @@ export function ContentCard({
 
       {/* Content */}
       <div className="p-4">
-        <div className="flex items-start justify-between gap-2 mb-2">
+        <div className="flex items-start justify-between gap-2 mb-2.5">
           <span className={cn(
             "inline-flex items-center rounded-md border px-2 py-0.5 text-[10px] font-mono",
             typeBadgeClass[entry.type] ?? typeBadgeClass.episode
           )}>
             {CONTENT_TYPE_LABELS[entry.type as ContentType]}
           </span>
-          <span className="text-xs text-ink-dim">
+          <span className="text-xs text-ink-dim tabular-nums">
             {new Date(entry.air_date).getFullYear()}
           </span>
         </div>
@@ -194,7 +194,7 @@ export function ContentCard({
           <Link
             href={`/arcs/${arc.slug}`}
             onClick={(e) => e.stopPropagation()}
-            className="mt-1.5 inline-flex items-center gap-1 rounded-md border border-slate-200 bg-surface-muted px-1.5 py-0.5 text-[9px] font-mono text-ink-faint hover:border-ink hover:text-ink transition-colors"
+            className="mt-2 inline-flex items-center gap-1 rounded-md border border-slate-200 bg-surface-muted px-1.5 py-0.5 text-[9px] font-mono text-ink-faint hover:border-ink hover:text-ink transition-colors"
             title={`View the ${arc.title} story arc`}
           >
             <span className="h-1 w-1 rounded-full bg-accent" />
@@ -205,7 +205,7 @@ export function ContentCard({
         {/* Star rating (signed-in only) */}
         {onSetRating && (
           <div
-            className="mt-1.5 flex items-center gap-0.5"
+            className="mt-2 flex items-center gap-0.5"
             onMouseLeave={() => setHoverStar(0)}
             aria-label={`Rated ${starValue} of 5 stars`}
           >
@@ -219,7 +219,7 @@ export function ContentCard({
                     onSetRating(entry.id, starValue === star ? 0 : star)
                   }}
                   onMouseEnter={() => setHoverStar(star)}
-                  className="p-0.5 transition-transform hover:scale-110"
+                  className="-mx-0.5 -my-1 p-1 transition-transform hover:scale-110"
                   title={`${active ? "Clear" : "Rate"} ${star} star${star > 1 ? "s" : ""}`}
                   aria-label={`Rate ${star} star${star > 1 ? "s" : ""}`}
                 >
