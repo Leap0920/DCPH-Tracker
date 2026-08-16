@@ -62,17 +62,18 @@ export function Navbar() {
 
   useEffect(() => {
     const isCharactersPage = pathname.startsWith("/characters")
+    const isMobile = typeof window !== "undefined" && window.innerWidth < 768
 
-    // On /characters, hide navbar by default to make graph 100% full screen immediately,
-    // but reveal when mouse moves near top edge (clientY < 50px)
-    if (isCharactersPage) {
+    // On /characters on desktop, hide navbar by default until cursor approaches top;
+    // on mobile, ALWAYS keep navbar visible so users can navigate properly.
+    if (isCharactersPage && !isMobile) {
       setNavVisible(false)
     } else {
       setNavVisible(true)
     }
 
     const handleScroll = () => {
-      if (isCharactersPage) return
+      if (isCharactersPage || (typeof window !== "undefined" && window.innerWidth < 768)) return
       const currentScrollY = window.scrollY
       if (currentScrollY > 80 && !mobileOpen) {
         setNavVisible(false)
@@ -82,8 +83,8 @@ export function Navbar() {
     }
 
     const handleMouseMove = (e: MouseEvent) => {
-      if (!isCharactersPage) return
-      // Reveal navbar ONLY when cursor touches the absolute top edge (clientY < 10px) or mobile menu is open
+      if (!isCharactersPage || (typeof window !== "undefined" && window.innerWidth < 768)) return
+      // Reveal navbar ONLY when cursor touches top edge (clientY < 10px) or mobile menu is open
       if (e.clientY < 10 || mobileOpen) {
         setNavVisible(true)
       } else if (e.clientY > 30) {

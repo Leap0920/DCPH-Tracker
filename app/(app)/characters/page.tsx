@@ -13,7 +13,7 @@ export const metadata = {
 
 export default async function CharactersPage() {
   return (
-    <div className="fixed inset-0 h-screen w-screen overflow-hidden bg-page z-0">
+    <div className="fixed inset-0 h-screen w-screen overflow-hidden bg-page z-0 pt-16 md:pt-0">
       <CharactersExplorer
         characters={CHARACTERS}
         relationships={RELATIONSHIPS}
