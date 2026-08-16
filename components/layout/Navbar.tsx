@@ -1,7 +1,7 @@
 "use client"
 
 import Link from "next/link"
-import { usePathname, useRouter } from "next/navigation"
+import { usePathname } from "next/navigation"
 import { useState, useEffect } from "react"
 import { Menu, X, User, Settings, ShieldCheck } from "lucide-react"
 import { Button } from "@/components/ui/button"
@@ -15,7 +15,6 @@ type NavProfile = { username: string; display_name: string; role: "member" | "mo
 
 export function Navbar() {
   const pathname = usePathname()
-  const router = useRouter()
   const [mobileOpen, setMobileOpen] = useState(false)
   const [user, setUser] = useState<SupabaseUser | null>(null)
   const [profile, setProfile] = useState<NavProfile | null>(null)
