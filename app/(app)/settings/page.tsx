@@ -24,8 +24,10 @@ const MAX_AVATAR_MB = 3
 
 export default function SettingsPage() {
   const [userId, setUserId] = useState<string | null>(null)
+  const [email, setEmail] = useState<string | null>(null)
   const [displayName, setDisplayName] = useState("")
   const [bio, setBio] = useState("")
+  const [birthday, setBirthday] = useState<string | null>(null)
   const [saving, setSaving] = useState(false)
   const [uploading, setUploading] = useState(false)
   const [message, setMessage] = useState<{
@@ -48,8 +50,10 @@ export default function SettingsPage() {
   // Auth (one-time, not cacheable data) — gates the profile query.
   useEffect(() => {
     supabase.auth.getUser().then(({ data }) => {
-      if (data.user) setUserId(data.user.id)
-      else openAuthModal("signin")
+      if (data.user) {
+        setUserId(data.user.id)
+        setEmail(data.user.email ?? null)
+      } else openAuthModal("signin")
     })
   }, [router, supabase])
 
@@ -66,6 +70,7 @@ export default function SettingsPage() {
     if (profile) {
       setDisplayName(profile.display_name)
       setBio(profile.bio ?? "")
+      setBirthday(profile.birthday ?? null)
     }
   }, [profile])
 
@@ -182,6 +187,7 @@ export default function SettingsPage() {
       updateProfileMutation.mutate({
         display_name: displayName,
         bio: bio || null,
+        birthday: birthday || null,
         avatar_url,
       })
       // The mutation's isPending now guards the button; `saving` only
@@ -362,6 +368,16 @@ export default function SettingsPage() {
                   {bio.length}/280
                 </p>
               </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="birthday">Birthday</Label>
+                <Input
+                  id="birthday"
+                  type="date"
+                  value={birthday ?? ""}
+                  onChange={(e) => setBirthday(e.target.value || null)}
+                />
+              </div>
             </div>
           </div>
 
@@ -385,6 +401,37 @@ export default function SettingsPage() {
           <h2 className="font-display text-base tracking-tight text-ink">
             Account
           </h2>
+
+          <dl className="mt-4 space-y-3">
+            <div className="flex items-center justify-between gap-4">
+              <dt className="text-sm text-ink-faint">Email</dt>
+              <dd className="text-sm text-ink-dim">
+                {email ?? "Not provided"}
+              </dd>
+            </div>
+            <div className="flex items-center justify-between gap-4">
+              <dt className="text-sm text-ink-faint">Member since</dt>
+              <dd className="text-sm text-ink-dim">
+                {profile
+                  ? new Date(profile.created_at).toLocaleDateString("en-PH", {
+                      year: "numeric",
+                      month: "long",
+                      day: "numeric",
+                    })
+                  : ""}
+              </dd>
+            </div>
+            <div className="flex items-center justify-between gap-4">
+              <dt className="text-sm text-ink-faint">Role</dt>
+              <dd className="text-sm text-ink-dim">
+                {profile
+                  ? profile.role.charAt(0).toUpperCase() +
+                    profile.role.slice(1)
+                  : ""}
+              </dd>
+            </div>
+          </dl>
+
           <div className="mt-4">
             <Button
               variant="outline"
