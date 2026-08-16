@@ -6,20 +6,31 @@ type ProfileUpdate = Database["public"]["Tables"]["profiles"]["Update"]
 
 /**
  * The OWN-profile editor shape (settings page, authenticated + owner-scoped
- * RLS). Includes `bio` for editing; role/status/ban fields are never fetched
- * client-side.
+ * RLS). Includes `bio` for editing; birthday/created_at/role are exposed on
+ * the OWN profile only (owner-scoped RLS); status/ban/ban_reason/banned_at/
+ * suspended_until are NEVER fetched client-side.
  */
 type OwnProfile = Pick<
   Profile,
-  "user_id" | "username" | "display_name" | "avatar_url" | "bio"
+  | "user_id"
+  | "username"
+  | "display_name"
+  | "avatar_url"
+  | "bio"
+  | "birthday"
+  | "created_at"
+  | "role"
 >
 
 /**
  * Explicit safe columns — never select("*"). This is the OWN profile editor
- * path (settings page, authenticated + owner-scoped RLS), so `bio` is included
- * for editing; role/status/ban fields are never fetched client-side.
+ * path (settings page, authenticated + owner-scoped RLS), so `bio` plus
+ * birthday/created_at/role are exposed on the OWN profile only
+ * (owner-scoped RLS); status/ban/ban_reason/banned_at/suspended_until are
+ * NEVER fetched client-side.
  */
-const OWN_PROFILE_COLUMNS = "user_id, username, display_name, avatar_url, bio"
+const OWN_PROFILE_COLUMNS =
+  "user_id, username, display_name, avatar_url, bio, birthday, created_at, role"
 
 export async function fetchProfileByUserId(
   userId: string
