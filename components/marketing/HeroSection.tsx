@@ -24,7 +24,7 @@ export function HeroSection() {
   // Ensure video plays automatically on mobile devices
   useEffect(() => {
     if (videoRef.current) {
-      videoRef.current.play().catch(() => {})
+      videoRef.current.play().catch(() => { })
     }
   }, [])
 
@@ -119,9 +119,9 @@ export function HeroSection() {
   }
 
   return (
-    <section className="relative min-h-[100dvh] flex flex-col items-center bg-page overflow-hidden pb-12">
+    <section className="relative min-h-[100dvh] flex flex-col items-center bg-page overflow-hidden pt-16 pb-12">
       {/* Hero Content Area — full-bleed image banner with left-aligned text */}
-      <div className="relative min-h-[92dvh] w-full flex flex-col items-start justify-center px-6 sm:px-12 lg:px-24 text-left">
+      <div className="relative min-h-[calc(100dvh-4rem)] w-full flex flex-col items-start justify-center px-6 sm:px-12 lg:px-24 text-left">
         {/* Hero background image */}
         <div className="absolute inset-0 z-0 bg-white">
           <picture className="absolute inset-0 h-full w-full">
@@ -140,7 +140,7 @@ export function HeroSection() {
         </div>
 
         {/* Left-aligned content above the image */}
-        <div className="relative z-10 flex flex-col items-start w-full max-w-3xl -mt-12 sm:-mt-24">
+        <div className="relative z-10 flex flex-col items-start w-full max-w-3xl">
           {/* Animated container for Logo and Main Heading */}
           <AnimatePresence>
             {typingCompleted && (
