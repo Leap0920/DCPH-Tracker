@@ -83,32 +83,60 @@ export default async function RankingsPage() {
         {/* Your standing */}
         <div className="mt-8">
           {currentUserId && you ? (
-            <div className="flex flex-wrap items-center gap-4 rounded-lg border border-accent/30 bg-accent/5 p-5">
-              <span className="flex h-11 w-11 items-center justify-center rounded-full bg-accent text-white">
-                <Trophy className="h-5 w-5" />
-              </span>
-              <div className="flex-1">
-                <p className="font-mono text-xs text-ink-faint">
-                  Your standing
-                </p>
-                <p className="font-display text-lg tracking-tight text-ink">
-                  {you.watched_count} episodes watched
-                  {you.rank > 0 && (
-                    <span className="ml-2 text-sm text-ink-dim">
-                      · Rank #{you.rank}
+            (() => {
+              const rankInfo = getDetectiveRank(you.watched_count)
+              return (
+                <div className="flex flex-col gap-4 rounded-2xl border border-slate-200/80 bg-surface p-5 sm:p-6 shadow-card sm:flex-row sm:items-center sm:justify-between">
+                  <div className="flex items-center gap-4 min-w-0 flex-1">
+                    <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-accent-soft text-accent">
+                      <Trophy className="h-5 w-5" />
                     </span>
-                  )}
-                </p>
-                <span className="mt-1 inline-block rounded-md bg-accent/10 px-1.5 py-0.5 font-mono text-[10px] text-accent">
-                  {getDetectiveRank(you.watched_count).title}
-                </span>
-              </div>
-              <Link href={`/profile/${you.username}`}>
-                <Button variant="outline" size="sm" className="min-h-9 rounded-lg border-slate-200">
-                  View profile
-                </Button>
-              </Link>
-            </div>
+                    <div className="min-w-0 flex-1">
+                      <div className="flex flex-wrap items-center gap-2">
+                        <span className="font-mono text-xs text-ink-dim">
+                          Your Standing
+                        </span>
+                        {you.rank > 0 && (
+                          <span className="rounded-md bg-accent-soft px-2 py-0.5 font-mono text-xs font-semibold text-accent">
+                            Rank #{you.rank}
+                          </span>
+                        )}
+                      </div>
+                      <p className="font-display text-lg font-semibold tracking-tight text-ink mt-0.5">
+                        {you.watched_count} episodes watched
+                      </p>
+                      <div className="mt-1 flex flex-wrap items-center gap-2">
+                        <span className={`inline-block rounded-md border px-2 py-0.5 font-mono text-xs font-medium ${rankInfo.badgeColor}`}>
+                          Level {rankInfo.level} · {rankInfo.title}
+                        </span>
+                      </div>
+
+                      {/* Progress bar to next rank threshold */}
+                      {rankInfo.nextRankTitle && (
+                        <div className="mt-3 w-full max-w-md">
+                          <div className="flex items-center justify-between font-mono text-xs text-ink-dim mb-1">
+                            <span>Next: {rankInfo.nextRankTitle}</span>
+                            <span>{rankInfo.remainingToNext} cases left ({rankInfo.progressToNext}%)</span>
+                          </div>
+                          <div className="h-1.5 w-full overflow-hidden rounded-full bg-surface-muted">
+                            <div
+                              className="h-full rounded-full bg-accent transition-all duration-500"
+                              style={{ width: `${rankInfo.progressToNext}%` }}
+                            />
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+
+                  <Link href={`/profile/${you.username}`}>
+                    <Button variant="outline" size="sm" className="h-9 rounded-xl border-slate-200 text-xs font-display text-ink-dim hover:text-ink">
+                      View profile
+                    </Button>
+                  </Link>
+                </div>
+              )
+            })()
           ) : currentUserId ? (
             <div className="flex flex-wrap items-center gap-4 rounded-lg border border-slate-200 bg-surface p-5 shadow-card">
               <span className="flex h-11 w-11 items-center justify-center rounded-full bg-surface-muted text-ink-faint">
