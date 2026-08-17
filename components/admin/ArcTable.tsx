@@ -74,7 +74,7 @@ export function ArcTable({ arcs }: { arcs: ArcRow[] }) {
                 </td>
                 <td className="px-4 py-3 whitespace-nowrap">
                   <span className="inline-flex items-center rounded-md bg-slate-100 px-2.5 py-1 text-xs font-mono font-medium text-slate-700">
-                    Ep {arc.start_episode} – {arc.end_episode} ({episodeCount} eps)
+                    Ep {arc.start_episode} to {arc.end_episode} ({episodeCount} eps)
                   </span>
                 </td>
                 <td className="px-4 py-3 max-w-md">

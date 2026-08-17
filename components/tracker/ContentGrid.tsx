@@ -469,7 +469,7 @@ export function ContentGrid({
   function handleMarkUpTo(value: string) {
     const n = parseInt(value, 10)
     if (!Number.isInteger(n) || n < 1 || n > maxEpisode) {
-      setMarkError(`Enter a valid episode number (1–${maxEpisode}).`)
+      setMarkError(`Enter a valid episode number (between 1 and ${maxEpisode}).`)
       return
     }
     if (!onMarkAll) return
@@ -482,7 +482,7 @@ export function ContentGrid({
       )
       .map((e) => e.id)
     if (ids.length === 0) {
-      setMarkError(`Nothing to mark — all episodes up to ${n} are already watched.`)
+      setMarkError(`Nothing to mark. All episodes up to ${n} are already watched.`)
       return
     }
     setMarkError(null)

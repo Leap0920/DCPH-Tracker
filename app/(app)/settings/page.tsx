@@ -225,7 +225,7 @@ export default function SettingsPage() {
     <div className="px-6 py-10">
       <div className="mx-auto max-w-2xl">
         <div className="mb-8 flex items-center gap-3">
-          <span className="case-number">FILE NO. 008 — SETTINGS</span>
+          <span className="case-number">FILE NO. 008 · SETTINGS</span>
           <span className="redacted-bar w-16" />
         </div>
 
@@ -276,7 +276,7 @@ export default function SettingsPage() {
                   type="button"
                   variant="outline"
                   size="sm"
-                  className="gap-1.5 rounded-lg border-slate-200"
+                  className="gap-1.5 min-h-9 rounded-lg border-slate-200"
                   onClick={() => fileInputRef.current?.click()}
                   disabled={uploading}
                 >

@@ -34,7 +34,7 @@ export function Footer() {
               </span>
             </Link>
             <p className="text-sm text-ink-dim max-w-xs">
-              The Filipino Detective Conan community — track episodes, join discussions,
+              The Filipino Detective Conan community: track episodes, join discussions,
               and prove your rank in the organization.
             </p>
           </div>
@@ -49,7 +49,7 @@ export function Footer() {
                 <li key={link.href}>
                   <Link
                     href={link.href}
-                    className="text-sm text-ink-dim hover:text-ink transition-colors"
+                    className="text-sm text-ink-dim hover:text-ink transition-colors py-1"
                   >
                     {link.label}
                   </Link>
@@ -70,7 +70,7 @@ export function Footer() {
                   href={social.href}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="h-9 w-9 rounded-md border border-slate-200 flex items-center justify-center text-ink-faint hover:text-ink hover:border-slate-300 transition-colors"
+                  className="h-11 w-11 rounded-md border border-slate-200 flex items-center justify-center text-ink-faint hover:text-ink hover:border-slate-300 transition-colors"
                   aria-label={social.label}
                 >
                   <social.icon className="h-4 w-4" />
@@ -82,7 +82,7 @@ export function Footer() {
 
         <div className="mt-10 pt-6 border-t border-slate-200 flex flex-col sm:flex-row justify-between items-center gap-4">
           <p className="case-number">
-            FILE NO. 001 — CLASSIFIED
+            FILE NO. 001 · CLASSIFIED
           </p>
           <p className="text-xs text-ink-faint">
             &copy; {new Date().getFullYear()} Detective Conan PH. Not affiliated with Gosho Aoyama.

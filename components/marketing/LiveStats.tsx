@@ -12,7 +12,7 @@ import {
 const POLL_INTERVAL_MS = 60_000
 
 /**
- * Live hero stats: "N all-time visits" + "M detectives active right now".
+ * Live hero stats: "N all-time visits" + "M detectives active right now" + "K episodes tracked".
  * On first mount it registers this browser's visit and seeds both counters,
  * then a 60s heartbeat keeps the session alive and refreshes them.
  *
@@ -21,7 +21,7 @@ const POLL_INTERVAL_MS = 60_000
  * (PGRST202) the query layer returns nulls and the row stays hidden.
  */
 export function LiveStats() {
-  const [stats, setStats] = useState<SiteStats>({ totalVisits: null, activeNow: null })
+  const [stats, setStats] = useState<SiteStats>({ totalVisits: null, activeNow: null, trackedEpisodes: null })
   const mountedRef = useRef(false)
   const reduce = useReducedMotion()
 
@@ -76,6 +76,11 @@ export function LiveStats() {
             }`}
           />
           {stats.activeNow} detectives active right now
+        </span>
+      )}
+      {stats.trackedEpisodes != null && (
+        <span className="font-mono text-[11px] sm:text-xs uppercase tracking-widest text-ink-dim">
+          {stats.trackedEpisodes.toLocaleString()} episodes tracked
         </span>
       )}
     </div>

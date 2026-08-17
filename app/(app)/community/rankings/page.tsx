@@ -10,7 +10,7 @@ import { AuthModalButton } from "@/components/auth/AuthModalButton"
 export const dynamic = "force-dynamic"
 
 export const metadata = {
-  title: "Detective Rankings — Detective Conan PH",
+  title: "Detective Rankings · Detective Conan PH",
   description:
     "See how many episodes fellow detectives have watched and climb the community leaderboard.",
 }
@@ -68,7 +68,7 @@ export default async function RankingsPage() {
     <div className="px-6 py-10">
       <div className="mx-auto max-w-4xl">
         <div className="mb-6 flex items-center gap-3">
-          <span className="case-number">FILE NO. 005 — RANKINGS</span>
+          <span className="case-number">FILE NO. 005 · RANKINGS</span>
           <span className="redacted-bar w-16" />
         </div>
 
@@ -104,7 +104,7 @@ export default async function RankingsPage() {
                 </span>
               </div>
               <Link href={`/profile/${you.username}`}>
-                <Button variant="outline" size="sm" className="rounded-lg border-slate-200">
+                <Button variant="outline" size="sm" className="min-h-9 rounded-lg border-slate-200">
                   View profile
                 </Button>
               </Link>

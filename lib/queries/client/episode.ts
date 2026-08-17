@@ -143,7 +143,10 @@ export async function fetchContentRating(
       p_content_id: contentId,
     })
     if (error) return null
-    return data
+    // PostgREST `returns table` RPCs come back as an array even for a single
+    // row — unwrap it so callers can read avg_rating/rating_count directly.
+    const row = Array.isArray(data) ? data[0] : data
+    return row ?? null
   } catch {
     return null
   }

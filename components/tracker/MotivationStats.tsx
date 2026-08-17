@@ -218,7 +218,7 @@ export function MotivationStats({ entries, userStatuses, userName }: MotivationS
           ))}
         </div>
         <p className="mt-4 text-[11px] text-ink-dim leading-relaxed">
-          Every case file in the tracker. The truth is out there — one episode at a time.
+          Every case file in the tracker. The truth is out there, one episode at a time.
         </p>
       </div>
 
@@ -339,7 +339,7 @@ export function MotivationStats({ entries, userStatuses, userName }: MotivationS
                 <Target className="h-4 w-4 text-accent flex-shrink-0" />
                 <p className="text-xs text-ink-dim">
                   {toMilestone > 0
-                    ? `${toMilestone}% to your next milestone — ${nextMilestone}% complete. Keep going!`
+                    ? `${toMilestone}% to your next milestone. ${nextMilestone}% complete. Keep going!`
                     : `You hit the ${nextMilestone}% milestone. Nice work!`}
                 </p>
               </div>

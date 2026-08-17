@@ -18,7 +18,7 @@ export default function TrackerPage() {
             Featured Episodes
           </h2>
           <p className="text-sm text-ink-dim mt-2">
-            Log every case you watch — episodes, movies, specials and more.
+            Log every case you watch: episodes, movies, specials and more.
           </p>
         </section>
         <section className="mb-16">

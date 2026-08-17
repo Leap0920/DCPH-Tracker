@@ -31,7 +31,7 @@ export default function DemoFeatureSection() {
                         </div>
                         <div className="space-y-1.5 pt-1">
                             <h3 className="text-base font-semibold font-display text-ink">Create your account</h3>
-                            <p className="text-sm text-ink-dim leading-relaxed">Sign up in under a minute with just an email — no credit card, no fuss.</p>
+                            <p className="text-sm text-ink-dim leading-relaxed">Sign up in under a minute with just an email, no credit card, no fuss.</p>
                             <Link href="/signup" className="inline-flex items-center gap-1 text-xs font-semibold text-accent hover:gap-2 transition-all pt-1">
                                 Create account <ArrowRight className="w-3.5 h-3.5" />
                             </Link>

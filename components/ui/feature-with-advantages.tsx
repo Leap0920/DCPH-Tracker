@@ -99,13 +99,13 @@ export function Feature({
         )}
       </motion.div>
 
-      {/* Advantages Grid */}
+      {/* Advantages Grid — 3 rows x 2 columns on mobile, 3 columns on desktop */}
       <motion.div
         initial={reduce ? "show" : "hidden"}
         whileInView="show"
         viewport={{ once: true, margin: "-60px" }}
         variants={gridVariants}
-        className="mt-12 sm:mt-16 grid gap-4 sm:gap-5 sm:grid-cols-2 lg:grid-cols-3"
+        className="mt-8 sm:mt-16 grid grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-5"
       >
         {advantages.map((item, idx) => (
           <motion.div
@@ -116,25 +116,25 @@ export function Feature({
                 ? undefined
                 : { y: -6, transition: { type: "spring", stiffness: 300, damping: 22 } }
             }
-            className="group flex items-start gap-3.5 rounded-2xl border border-slate-200/60 bg-surface p-5 sm:p-6 shadow-card transition-[box-shadow,border-color] duration-300 hover:shadow-xl hover:border-slate-300"
+            className="group flex items-start gap-2.5 sm:gap-3.5 rounded-2xl border border-slate-200/60 bg-surface p-3.5 sm:p-6 shadow-card transition-[box-shadow,border-color] duration-300 hover:shadow-xl hover:border-slate-300"
           >
-            <span className="mt-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-accent-soft text-accent transition-all duration-300 group-hover:bg-accent group-hover:text-white">
-              <Check className="h-4 w-4 sm:h-5 sm:w-5 transition-transform duration-200 group-hover:scale-110" />
+            <span className="mt-0.5 flex h-7 w-7 sm:h-9 sm:w-9 shrink-0 items-center justify-center rounded-lg bg-accent-soft text-accent transition-all duration-300 group-hover:bg-accent group-hover:text-white">
+              <Check className="h-3.5 w-3.5 sm:h-5 sm:w-5 transition-transform duration-200 group-hover:scale-110" />
             </span>
-            <div>
+            <div className="min-w-0 flex-1">
               {item.href ? (
                 <Link
                   href={item.href}
-                  className="font-display text-sm sm:text-base font-semibold text-ink transition-colors group-hover:text-accent"
+                  className="font-display text-xs sm:text-base font-semibold text-ink transition-colors group-hover:text-accent block leading-snug"
                 >
                   {item.title}
                 </Link>
               ) : (
-                <h3 className="font-display text-sm sm:text-base font-semibold text-ink">
+                <h3 className="font-display text-xs sm:text-base font-semibold text-ink leading-snug">
                   {item.title}
                 </h3>
               )}
-              <p className="mt-0.5 sm:mt-1 font-body text-xs sm:text-sm leading-relaxed text-ink-dim">
+              <p className="mt-1 font-body text-[11px] sm:text-sm leading-snug sm:leading-relaxed text-ink-dim">
                 {item.description}
               </p>
             </div>

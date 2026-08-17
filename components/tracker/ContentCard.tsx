@@ -139,7 +139,7 @@ export function ContentCard({
                   onIncrementRewatch(entry.id, watchCount)
                 }}
                 className="h-8 w-8 rounded-full bg-surface border flex items-center justify-center transition-colors shadow-card border-gray-900 text-ink hover:bg-gray-900 hover:text-white"
-                title={watchCount > 0 ? `Rewatched ${watchCount}× total — click to count another` : "I watched this again"}
+                title={watchCount > 0 ? `Rewatched ${watchCount}× total. Click to count another` : "I watched this again"}
                 aria-label="Count another rewatch"
               >
                 <RefreshCw className="h-4 w-4" />
@@ -219,13 +219,13 @@ export function ContentCard({
                     onSetRating(entry.id, starValue === star ? 0 : star)
                   }}
                   onMouseEnter={() => setHoverStar(star)}
-                  className="-mx-0.5 -my-1 p-1 transition-transform hover:scale-110"
+                  className="-mx-1 -my-2 p-2 transition-transform hover:scale-110"
                   title={`${active ? "Clear" : "Rate"} ${star} star${star > 1 ? "s" : ""}`}
                   aria-label={`Rate ${star} star${star > 1 ? "s" : ""}`}
                 >
                   <Star
                     className={cn(
-                      "h-3.5 w-3.5 transition-colors",
+                      "h-4 w-4 transition-colors",
                       active ? "text-accent fill-current" : "text-ink-faint"
                     )}
                   />

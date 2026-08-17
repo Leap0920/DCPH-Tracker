@@ -4,7 +4,7 @@ import { getSelfAnalytics } from "@/lib/queries/analytics"
 import { AnalyticsDashboard } from "@/components/analytics/AnalyticsDashboard"
 
 export const metadata = {
-  title: "Self Analytics — Detective Conan PH",
+  title: "Self Analytics · Detective Conan PH",
   description: "Your personal Detective Conan watching statistics: views, rewatches, favorites, and time spent.",
 }
 

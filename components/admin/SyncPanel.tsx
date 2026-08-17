@@ -26,7 +26,7 @@ export function SyncPanel() {
       <div className="grid gap-4 sm:grid-cols-2">
         <SyncCard
           title="Airing sync"
-          desc="Checks AniList for the next airing episode and pulls any new episodes from Jikan. Fast — safe to run often."
+          desc="Checks AniList for the next airing episode and pulls any new episodes from Jikan. Fast, safe to run often."
           busy={pending && activeMode === "airing"}
           disabled={pending}
           onClick={() => run("airing")}

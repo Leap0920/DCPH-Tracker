@@ -313,7 +313,7 @@ export function AnalyticsDashboard({ analytics }: AnalyticsDashboardProps) {
           {/* Timeline & Release Years */}
           <div className="grid gap-6 lg:grid-cols-2">
             {/* Release Years */}
-            <div className="flex flex-col rounded-xl border border-slate-200 bg-surface p-6 shadow-card">
+            <div className="min-w-0 flex flex-col rounded-xl border border-slate-200 bg-surface p-6 shadow-card">
               <h2 className="mb-4 flex items-center justify-between font-display text-base tracking-tight text-ink">
                 <span className="flex items-center gap-2">
                   <Calendar className="h-4 w-4 text-ink-dim" />
@@ -354,7 +354,7 @@ export function AnalyticsDashboard({ analytics }: AnalyticsDashboardProps) {
             </div>
 
             {/* Recently Watched Logs */}
-            <div className="rounded-xl border border-slate-200 bg-surface p-6 shadow-card">
+            <div className="min-w-0 rounded-xl border border-slate-200 bg-surface p-6 shadow-card">
               <h2 className="mb-4 flex items-center justify-between font-display text-base tracking-tight text-ink">
                 <span className="flex items-center gap-2">
                   <Clock className="h-4 w-4 text-ink-dim" />
@@ -495,7 +495,7 @@ export function AnalyticsDashboard({ analytics }: AnalyticsDashboardProps) {
                     </div>
 
                     <p className="mt-1 font-mono text-xs text-ink-dim">
-                      Episodes {arc.start_episode} – {arc.end_episode}
+                      Episodes {arc.start_episode} to {arc.end_episode}
                     </p>
 
                     {arc.description && (
@@ -578,7 +578,7 @@ export function AnalyticsDashboard({ analytics }: AnalyticsDashboardProps) {
 
           <div className="grid gap-6 lg:grid-cols-2">
             {/* Top Rated */}
-            <div className="rounded-xl border border-slate-200 bg-surface p-6 shadow-card">
+            <div className="min-w-0 rounded-xl border border-slate-200 bg-surface p-6 shadow-card">
               <h2 className="mb-4 flex items-center justify-between font-display text-base tracking-tight text-ink">
                 <span className="flex items-center gap-2">
                   <Star className="h-4 w-4 text-ink-dim" />
@@ -616,7 +616,7 @@ export function AnalyticsDashboard({ analytics }: AnalyticsDashboardProps) {
             </div>
 
             {/* Most Rewatched */}
-            <div className="rounded-xl border border-slate-200 bg-surface p-6 shadow-card">
+            <div className="min-w-0 rounded-xl border border-slate-200 bg-surface p-6 shadow-card">
               <h2 className="mb-4 flex items-center justify-between font-display text-base tracking-tight text-ink">
                 <span className="flex items-center gap-2">
                   <RefreshCw className="h-4 w-4 text-ink-dim" />

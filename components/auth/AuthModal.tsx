@@ -388,12 +388,12 @@ export function AuthModal() {
                   <Mail className="h-4 w-4 shrink-0 mt-0.5 text-amber-600" />
                   <div className="space-y-1.5">
                     <p>
-                      Please confirm your email first — check your inbox (and spam) for the
+                      Please confirm your email first. Check your inbox (and spam) for the
                       confirmation link.
                     </p>
                     {resendSent ? (
                       <p className="font-semibold text-emerald-700">
-                        Confirmation email sent — check your inbox.
+                        Confirmation email sent. Check your inbox.
                       </p>
                     ) : (
                       <button
