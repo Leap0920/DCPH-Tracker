@@ -95,9 +95,9 @@ const DIM_OPACITY = 0.12;
 const BASE_BOW = 6;
 const PARALLEL_GAP = 22;
 
-/** World geometry — 1000x600 coordinate canvas */
-const VIEW_W = 1000;
-const VIEW_H = 600;
+/** World geometry — 2000x1400 coordinate canvas */
+const VIEW_W = 2000;
+const VIEW_H = 1400;
 
 /** Pan/zoom limits */
 const MIN_ZOOM = 0.4;
@@ -410,7 +410,7 @@ export default function CharactersWeb({
     return { byId, strings, degreeByCharacter };
   }, [positions]);
 
-  /** Zoom into exact coordinate (targetX, targetY) so it centers in the 1000x600 viewBox */
+  /** Zoom into exact coordinate (targetX, targetY) so it centers in the 2000x1400 viewBox */
   const zoomToPoint = (wx: number, wy: number, targetK: number = ZOOM_TO_NODE) => {
     setInstant(false);
     // On mobile, position node near upper center (32% of view height) so bottom sheet never obscures it
@@ -612,7 +612,7 @@ export default function CharactersWeb({
       <MotionConfig reducedMotion="user">
         <svg
           ref={svgRef}
-          viewBox="0 0 1000 600"
+          viewBox="0 0 2000 1400"
           className={`h-full w-full touch-none select-none ${
             draggingCanvas ? "cursor-grabbing" : draggingNodeId ? "cursor-grabbing" : "cursor-grab"
           }`}
@@ -626,7 +626,7 @@ export default function CharactersWeb({
             </pattern>
           </defs>
 
-          <rect width="1000" height="600" fill="url(#dotGrid)" />
+          <rect width="2000" height="1400" fill="url(#dotGrid)" />
 
           {/* World Pan/Zoom Wrapper. Pins scale origin to (0,0) so target Math centers nodes exactly */}
           <g
@@ -637,7 +637,7 @@ export default function CharactersWeb({
             }}
           >
             {/* Transparent hit area */}
-            <rect width="1000" height="600" fill="transparent" />
+            <rect width="2000" height="1400" fill="transparent" />
 
             <motion.g variants={containerVariants} initial={reduce ? "show" : "hidden"} animate="show">
               {/* Relationship Strings */}
