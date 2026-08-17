@@ -34,9 +34,7 @@ export default function HomePage() {
           <FourYearsSection />
         </div>
 
-        <div className="py-12 sm:py-16 lg:py-20">
-          <BlockScreeningSection />
-        </div>
+        <BlockScreeningSection />
 
         <div className="py-12 sm:py-16 lg:py-20">
           <FeaturesGrid />
