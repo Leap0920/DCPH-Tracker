@@ -11,7 +11,7 @@ export default async function ChatDirectoryPage() {
     <div className="px-6 py-10">
       <div className="mx-auto max-w-5xl">
         <div className="mb-6 flex items-center gap-3">
-          <span className="case-number">FILE NO. 006 — LIVE COMMS</span>
+          <span className="case-number">FILE NO. 006 · LIVE COMMS</span>
           <span className="redacted-bar w-16" />
         </div>
 
@@ -31,7 +31,7 @@ export default async function ChatDirectoryPage() {
               No chat rooms available
             </p>
             <p className="mt-1 text-xs text-ink-faint">
-              Check back later — new rooms open all the time.
+              Check back later. New rooms open all the time.
             </p>
           </div>
         ) : (

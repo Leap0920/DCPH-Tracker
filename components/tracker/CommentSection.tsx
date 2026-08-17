@@ -73,7 +73,6 @@ export function CommentSection({ contentId }: { contentId: string }) {
   const [userId, setUserId] = useState<string | null>(null)
   const [me, setMe] = useState<SelfProfile | null>(null)
   const [newComment, setNewComment] = useState("")
-  const [loadingMore, setLoadingMore] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const textareaRef = useRef<HTMLTextAreaElement>(null)
 
@@ -110,7 +109,6 @@ export function CommentSection({ contentId }: { contentId: string }) {
     queryFn: () => fetchEpisodeComments(contentId),
   })
   const comments = commentsQuery.data?.comments ?? []
-  const hasMore = commentsQuery.data?.hasMore ?? false
 
   // ── Optimistic post: temp id `temp-${uuid}`, replaced by the server row on
   //    success, rolled back on error (ChatWindow.tsx:169-210 pattern). ──
@@ -137,7 +135,7 @@ export function CommentSection({ contentId }: { contentId: string }) {
     },
     onError: (_err, _vars, ctx) => {
       if (ctx?.prev) queryClient.setQueryData(commentsKey, ctx.prev)
-      setError("Couldn't post your comment. The comments feature isn't available yet — try again later.")
+      setError("Couldn't post your comment. The comments feature isn't available yet. Try again later.")
     },
     onSuccess: (data, _vars, ctx) => {
       if (!ctx) return
@@ -199,19 +197,6 @@ export function CommentSection({ contentId }: { contentId: string }) {
       e.preventDefault()
       handleSend()
     }
-  }
-
-  async function handleLoadMore() {
-    if (loadingMore) return
-    setLoadingMore(true)
-    try {
-      const result = await fetchEpisodeComments(contentId)
-      queryClient.setQueryData<EpisodeCommentsResult>(commentsKey, result)
-      setError(null)
-    } catch {
-      setError("Couldn't load more comments. Try again.")
-    }
-    setLoadingMore(false)
   }
 
   function handleDelete(id: string) {
@@ -283,7 +268,7 @@ export function CommentSection({ contentId }: { contentId: string }) {
                     onClick={() => handleDelete(comment.id)}
                     disabled={deleteMutation.isPending}
                     aria-label="Delete comment"
-                    className="self-start rounded-md p-1 text-ink-faint transition-colors hover:bg-surface-muted hover:text-accent disabled:opacity-50"
+                    className="self-start rounded-md p-2 text-ink-faint transition-colors hover:bg-surface-muted hover:text-accent disabled:opacity-50"
                   >
                     <Trash2 className="h-4 w-4" />
                   </button>
@@ -292,18 +277,6 @@ export function CommentSection({ contentId }: { contentId: string }) {
             )
           })}
         </ul>
-      )}
-
-      {hasMore && (
-        <div className="mt-4 flex justify-center">
-          <button
-            onClick={handleLoadMore}
-            disabled={loadingMore}
-            className="rounded-full border border-slate-200 bg-surface px-4 py-2 font-mono text-[11px] text-ink-dim transition-colors hover:border-slate-300 hover:text-ink disabled:opacity-50"
-          >
-            {loadingMore ? "Loading…" : "Load more"}
-          </button>
-        </div>
       )}
 
       {commentsQuery.isError && (

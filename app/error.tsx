@@ -12,12 +12,12 @@ export default function Error({
 }) {
   return (
     <div className="flex min-h-screen flex-col items-center justify-center bg-surface px-6 text-center">
-      <span className="case-number">FILE NO. 500 — INVESTIGATION FAILED</span>
+      <span className="case-number">FILE NO. 500 · INVESTIGATION FAILED</span>
       <h1 className="mt-4 font-display text-4xl tracking-tight text-ink">
         Something went wrong
       </h1>
       <p className="mt-2 max-w-md text-sm text-ink-dim">
-        An unexpected error interrupted the investigation. Try again — or head
+        An unexpected error interrupted the investigation. Try again, or head
         back to base.
       </p>
       <div className="mt-6 flex items-center gap-3">

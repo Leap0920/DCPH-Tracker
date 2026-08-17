@@ -7,7 +7,7 @@ export function FeaturesGrid() {
     <Feature
       badge="Platform"
       title="Everything you need to follow the case"
-      subtitle="Track, explore, rank, and talk — all in one place."
+      subtitle="Track, explore, rank, and talk, all in one place."
     />
   )
 }

@@ -84,7 +84,7 @@ export function HowItWorks() {
             <div className="space-y-1 pt-0.5 sm:pt-1">
               <h3 className="text-base sm:text-lg font-semibold font-display text-ink">Create your account</h3>
               <p className="text-xs sm:text-sm text-ink-dim leading-relaxed">
-                Sign up in under a minute with just an email — no credit card, no fuss.
+                Sign up in under a minute with just an email, no credit card, no fuss.
               </p>
               <button
                 type="button"

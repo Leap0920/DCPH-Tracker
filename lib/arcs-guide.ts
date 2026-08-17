@@ -16,7 +16,7 @@ export interface ArcCharacter {
 }
 
 export interface ArcHighlight {
-  /** e.g. "188–193" or "345" */
+  /** e.g. "188-193" or "345" */
   episodes: string
   title: string
   note: string
@@ -78,8 +78,8 @@ export const STORY_ARCS: StoryArc[] = [
     era: "The Beginning",
     episodeStart: 1,
     episodeEnd: 128,
-    mangaRange: "Vol. 1–17 (Ch. 1–175)",
-    years: "1996–1998",
+    mangaRange: "Vol. 1-17 (Ch. 1-175)",
+    years: "1996-1998",
     status: "complete",
     tagline: "A shrunken detective builds a new life and a secret mission.",
     summary:
@@ -94,7 +94,7 @@ export const STORY_ARCS: StoryArc[] = [
     highlights: [
       { episodes: "1", title: "The Roller Coaster Murder Case", note: "The origin: Shinichi is poisoned and becomes Conan." },
       { episodes: "11", title: "The Moonlight Sonata Murder Case", note: "An iconic, chilling early mystery on a remote island." },
-      { episodes: "48–49", title: "The Diplomat Murder Case", note: "Debut of Osaka's high-school detective, Heiji Hattori." },
+      { episodes: "48-49", title: "The Diplomat Murder Case", note: "Debut of Osaka's high-school detective, Heiji Hattori." },
       { episodes: "76", title: "Kaitou Kid's debut", note: "The gentleman phantom thief enters the series." },
     ],
   },
@@ -105,8 +105,8 @@ export const STORY_ARCS: StoryArc[] = [
     era: "Enter Sherry",
     episodeStart: 129,
     episodeEnd: 178,
-    mangaRange: "Vol. 18–24 (Ch. 176–242)",
-    years: "1998–2000",
+    mangaRange: "Vol. 18-24 (Ch. 176-242)",
+    years: "1998-2000",
     status: "complete",
     tagline: "A defector from the Organization joins Conan's side.",
     summary:
@@ -118,7 +118,7 @@ export const STORY_ARCS: StoryArc[] = [
     ],
     highlights: [
       { episodes: "129", title: "The Girl from the Black Organization", note: "Sherry / Ai Haibara is introduced." },
-      { episodes: "176–178", title: "Reunion with the Black Organization", note: "The first major confrontation with Gin and Vodka." },
+      { episodes: "176-178", title: "Reunion with the Black Organization", note: "The first major confrontation with Gin and Vodka." },
     ],
   },
   {
@@ -128,8 +128,8 @@ export const STORY_ARCS: StoryArc[] = [
     era: "The Silver Bullet",
     episodeStart: 179,
     episodeEnd: 345,
-    mangaRange: "Vol. 25–42 (Ch. 243–434)",
-    years: "2000–2003",
+    mangaRange: "Vol. 25-42 (Ch. 243-434)",
+    years: "2000-2003",
     status: "complete",
     tagline: "A master of disguise who somehow knows Conan's secret.",
     summary:
@@ -140,8 +140,8 @@ export const STORY_ARCS: StoryArc[] = [
       { name: "Shuichi Akai", role: "FBI sniper and Gin's rival" },
     ],
     highlights: [
-      { episodes: "188–193", title: "The Desperate Revival", note: "Shinichi temporarily returns to his real body." },
-      { episodes: "286–288", title: "Shinichi Kudo's New York Case", note: "The origin of Vermouth's obsession with Ran and Shinichi." },
+      { episodes: "188-193", title: "The Desperate Revival", note: "Shinichi temporarily returns to his real body." },
+      { episodes: "286-288", title: "Shinichi Kudo's New York Case", note: "The origin of Vermouth's obsession with Ran and Shinichi." },
       { episodes: "345", title: "Full-Moon Night's Duel", note: "A head-to-head match against the Organization." },
     ],
   },
@@ -152,8 +152,8 @@ export const STORY_ARCS: StoryArc[] = [
     era: "A Number to the Boss",
     episodeStart: 346,
     episodeEnd: 424,
-    mangaRange: "Vol. 43–50 (Ch. 435–498)",
-    years: "2004–2006",
+    mangaRange: "Vol. 43-50 (Ch. 435-498)",
+    years: "2004-2006",
     status: "complete",
     tagline: "Conan gets dangerously close to the boss himself.",
     summary:
@@ -175,8 +175,8 @@ export const STORY_ARCS: StoryArc[] = [
     era: "Clash of Red and Black",
     episodeStart: 425,
     episodeEnd: 508,
-    mangaRange: "Vol. 51–59 (Ch. 499–621)",
-    years: "2006–2008",
+    mangaRange: "Vol. 51-59 (Ch. 499-621)",
+    years: "2006-2008",
     status: "complete",
     tagline: "A three-way war between the FBI, the CIA, and the Organization.",
     summary:
@@ -188,7 +188,7 @@ export const STORY_ARCS: StoryArc[] = [
     ],
     highlights: [
       { episodes: "425", title: "Black Impact!", note: "Chianti, Korn, and Kir are introduced." },
-      { episodes: "491–504", title: "The Clash of Red and Black", note: "A landmark saga and a devastating turning point for the FBI." },
+      { episodes: "491-504", title: "The Clash of Red and Black", note: "A landmark saga and a devastating turning point for the FBI." },
     ],
   },
   {
@@ -198,8 +198,8 @@ export const STORY_ARCS: StoryArc[] = [
     era: "The Three Suspects",
     episodeStart: 509,
     episodeEnd: 783,
-    mangaRange: "Vol. 60–85 (Ch. 622–898)",
-    years: "2008–2015",
+    mangaRange: "Vol. 60-85 (Ch. 622-898)",
+    years: "2008-2015",
     status: "complete",
     tagline: "Who is Bourbon? Three newcomers, one hidden agent.",
     summary:
@@ -210,8 +210,8 @@ export const STORY_ARCS: StoryArc[] = [
       { name: "Masumi Sera", role: "A high-school detective with secrets" },
     ],
     highlights: [
-      { episodes: "701–704", title: "The Scarlet Return (Mystery Train)", note: "Bourbon and Vermouth strike; a major reveal." },
-      { episodes: "779–783", title: "The Scarlet Series", note: "Akai's return and Bourbon's true identity confirmed." },
+      { episodes: "701-704", title: "The Scarlet Return (Mystery Train)", note: "Bourbon and Vermouth strike; a major reveal." },
+      { episodes: "779-783", title: "The Scarlet Series", note: "Akai's return and Bourbon's true identity confirmed." },
     ],
   },
   {
@@ -221,8 +221,8 @@ export const STORY_ARCS: StoryArc[] = [
     era: "The Boss's Right Hand",
     episodeStart: 784,
     episodeEnd: null,
-    mangaRange: "Vol. 86–present (Ch. 899–present)",
-    years: "2015–present",
+    mangaRange: "Vol. 86-present (Ch. 899-present)",
+    years: "2015-present",
     status: "ongoing",
     tagline: "The hunt for the No. 2 and the boss is finally named.",
     summary:
@@ -234,7 +234,7 @@ export const STORY_ARCS: StoryArc[] = [
     ],
     highlights: [
       { episodes: "784+", title: "The Scarlet era begins", note: "The search for Rum's true identity opens." },
-      { episodes: "1077–1079", title: "The Black Organization's Scheme", note: "A brutal FBI-vs-Organization clash; Rum's identity in focus." },
+      { episodes: "1077-1079", title: "The Black Organization's Scheme", note: "A brutal FBI-vs-Organization clash; Rum's identity in focus." },
     ],
   },
 ]
@@ -282,7 +282,7 @@ export const RECURRING_THREADS: RecurringThread[] = [
     tagline: "The detective of the West",
     description:
       "Osaka's high-school detective and one of the few who knows Conan's secret. He's Conan's closest rival-turned-partner, with his own slow-burn romance with Kazuha.",
-    starterEpisodes: "Ep 48–49, 118–119",
+    starterEpisodes: "Ep 48-49, 118-119",
   },
   {
     slug: "fbi-vs-bo",
@@ -290,7 +290,7 @@ export const RECURRING_THREADS: RecurringThread[] = [
     tagline: "The international war in the shadows",
     description:
       "Jodie, Shuichi Akai, Camel, and Kir wage a covert war against the syndicate. Their operations power the Vermouth, Kir, and Bourbon arcs.",
-    starterEpisodes: "Ep 230–231, 491–504",
+    starterEpisodes: "Ep 230-231, 491-504",
   },
   {
     slug: "shinichi-and-ran",
@@ -298,7 +298,7 @@ export const RECURRING_THREADS: RecurringThread[] = [
     tagline: "The heart of the series",
     description:
       "The canon romance between Shinichi and Ran simmers for hundreds of episodes, from missed phone calls to a long-awaited confession in London.",
-    starterEpisodes: "Ep 188–193, 621–623",
+    starterEpisodes: "Ep 188-193, 621-623",
   },
 ]
 
@@ -311,7 +311,7 @@ export interface WatchStep {
 export const WATCH_GUIDE: WatchStep[] = [
   {
     step: 1,
-    title: "Start with the essentials (Ep 1–5)",
+    title: "Start with the essentials (Ep 1-5)",
     detail:
       "Watch the first five episodes to learn the premise, meet the cast, and understand Conan's methods. Don't worry about catching every filler after that.",
   },
@@ -364,5 +364,5 @@ export function getAdjacentArcs(slug: string): {
 export function formatEpisodeRange(arc: StoryArc): string {
   return arc.episodeEnd === null
     ? `Ep ${arc.episodeStart}+`
-    : `Ep ${arc.episodeStart}–${arc.episodeEnd}`
+    : `Ep ${arc.episodeStart}-${arc.episodeEnd}`
 }

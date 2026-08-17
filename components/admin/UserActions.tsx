@@ -37,7 +37,7 @@ export function UserActions({
     })
   }
 
-  if (isSelf) return <span className="text-xs text-ink-faint">—</span>
+  if (isSelf) return <span className="text-xs text-ink-faint">N/A</span>
 
   return (
     <div className="flex flex-col items-end gap-2 md:flex-row md:items-center">

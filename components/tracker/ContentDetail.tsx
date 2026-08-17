@@ -270,7 +270,7 @@ export function ContentDetail({ entry }: { entry: ContentEntry }) {
       {/* Back to tracker */}
       <Link
         href="/tracker"
-        className="mb-6 inline-flex items-center gap-2 text-sm text-ink-dim hover:text-ink transition-colors"
+        className="mb-6 inline-flex items-center gap-2 py-2.5 text-sm text-ink-dim hover:text-ink transition-colors"
       >
         <ArrowLeft className="h-4 w-4" />
         Back to Case Files
@@ -392,7 +392,7 @@ export function ContentDetail({ entry }: { entry: ContentEntry }) {
                           type="button"
                           onClick={() => handleSetRating(star)}
                           onMouseEnter={() => setHoverStar(star)}
-                          className="-mx-0.5 -my-1 p-1 transition-transform hover:scale-110"
+                          className="-mx-1 -my-2 p-2.5 transition-transform hover:scale-110"
                           title={`${active ? "Clear" : "Rate"} ${star} star${star > 1 ? "s" : ""}`}
                           aria-label={`Rate ${star} star${star > 1 ? "s" : ""}`}
                         >

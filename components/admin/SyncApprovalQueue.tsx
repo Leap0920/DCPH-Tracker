@@ -228,8 +228,8 @@ export function SyncApprovalQueue({ items }: { items: StagedRow[] }) {
             >
               <option value="newest">Sort: Newest to Oldest</option>
               <option value="oldest">Sort: Oldest to Newest</option>
-              <option value="a-z">Sort: Title (A – Z)</option>
-              <option value="z-a">Sort: Title (Z – A)</option>
+              <option value="a-z">Sort: Title (A to Z)</option>
+              <option value="z-a">Sort: Title (Z to A)</option>
             </select>
             <ArrowUpDown className="absolute left-2.5 top-2.5 h-3.5 w-3.5 text-ink-faint" />
           </div>
@@ -264,7 +264,7 @@ export function SyncApprovalQueue({ items }: { items: StagedRow[] }) {
         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 rounded-lg border border-slate-200 bg-surface-muted/50 px-4 py-2.5 text-xs text-ink-dim">
           <div className="flex items-center gap-2 font-mono">
             <span>
-              Showing <strong className="text-ink font-semibold">{startIndex + 1}</strong> –{" "}
+              Showing <strong className="text-ink font-semibold">{startIndex + 1}</strong> to{" "}
               <strong className="text-ink font-semibold">{endIndex}</strong> of{" "}
               <strong className="text-ink font-semibold">{filteredPendingItems.length}</strong> matching items
               {filteredPendingItems.length < pendingItems.length && (

@@ -16,7 +16,7 @@ function typeLabel(t: string) {
 function numberFor(e: ContentEntry) {
   if (e.type === "episode" && e.episode_number != null) return `EP ${e.episode_number}`
   if (e.type === "movie" && e.movie_number != null) return `MOV ${e.movie_number}`
-  return "—"
+  return "N/A"
 }
 
 export function ContentTable({ entries }: { entries: ContentEntry[] }) {

@@ -9,7 +9,7 @@ import { BlockScreeningSection } from "@/components/marketing/BlockScreeningSect
 import { FourYearsSection } from "@/components/marketing/FourYearsSection"
 
 export const metadata = {
-  title: "Detective Conan PH — Track, Chat, and Climb the Ranks",
+  title: "Detective Conan PH · Track, Chat, and Climb the Ranks",
   description:
     "The Filipino Detective Conan community: track every episode, explore the story arcs, join the community chat, and prove your rank.",
 }

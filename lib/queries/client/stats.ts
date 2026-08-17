@@ -3,6 +3,7 @@ import { createClient } from "@/utils/supabase/client"
 export interface SiteStats {
   totalVisits: number | null
   activeNow: number | null
+  trackedEpisodes: number | null
 }
 
 // The site-stats RPCs (`record_visit`, `heartbeat`, `get_site_stats`) are
@@ -28,16 +29,24 @@ export async function recordVisitAndGetStats(): Promise<SiteStats> {
     // PostgREST surfaces RPC failures in the response `error` field, not as
     // a throw — a missing function pre-migration is PGRST202, so bail to
     // nulls there too (prevents rendering a bogus "0 all-time visits").
-    if (totalError || statsError) return { totalVisits: null, activeNow: null }
+    if (totalError || statsError) {
+      return { totalVisits: null, activeNow: null, trackedEpisodes: null }
+    }
     // PostgREST `returns table` RPCs come back as an array even for a single
     // row — unwrap it so callers can read total_visits/active_now directly.
     const row = Array.isArray(statsData) ? statsData[0] : statsData
+    const tv = Number(totalData)
+    const an = row ? Number((row as { active_now?: number }).active_now) : null
+    const te = row
+      ? Number((row as { tracked_episodes?: number }).tracked_episodes)
+      : null
     return {
-      totalVisits: Number(totalData) ?? null,
-      activeNow: row ? Number((row as { active_now?: number }).active_now) : null,
+      totalVisits: typeof tv === "number" && Number.isFinite(tv) ? tv : null,
+      activeNow: an != null && Number.isFinite(an) ? an : null,
+      trackedEpisodes: te != null && Number.isFinite(te) ? te : null,
     }
   } catch {
-    return { totalVisits: null, activeNow: null }
+    return { totalVisits: null, activeNow: null, trackedEpisodes: null }
   }
 }
 
@@ -59,13 +68,21 @@ export async function heartbeatAndGetStats(
     const { data: statsData, error: statsError } = await supabase.rpc(
       "get_site_stats" as never
     )
-    if (heartbeatError || statsError) return { totalVisits: null, activeNow: null }
+    if (heartbeatError || statsError) {
+      return { totalVisits: null, activeNow: null, trackedEpisodes: null }
+    }
     const row = Array.isArray(statsData) ? statsData[0] : statsData
+    const tv = row ? Number((row as { total_visits?: number }).total_visits) : null
+    const an = row ? Number((row as { active_now?: number }).active_now) : null
+    const te = row
+      ? Number((row as { tracked_episodes?: number }).tracked_episodes)
+      : null
     return {
-      totalVisits: row ? Number((row as { total_visits?: number }).total_visits) : null,
-      activeNow: row ? Number((row as { active_now?: number }).active_now) : null,
+      totalVisits: typeof tv === "number" && Number.isFinite(tv) ? tv : null,
+      activeNow: an != null && Number.isFinite(an) ? an : null,
+      trackedEpisodes: te != null && Number.isFinite(te) ? te : null,
     }
   } catch {
-    return { totalVisits: null, activeNow: null }
+    return { totalVisits: null, activeNow: null, trackedEpisodes: null }
   }
 }
