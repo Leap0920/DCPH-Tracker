@@ -63,25 +63,29 @@ export function LiveStats() {
   if (stats.totalVisits == null) return null
 
   return (
-    <div className="flex flex-wrap items-center gap-x-4 gap-y-2">
-      <span className="font-mono text-[11px] sm:text-xs uppercase tracking-widest text-ink-dim">
-        {stats.totalVisits.toLocaleString()} all-time visits
-      </span>
+    <div className="flex flex-col gap-2">
+      <div className="flex flex-wrap items-center gap-2">
+        <span className="inline-flex items-center rounded-lg border border-slate-200 bg-surface px-3 py-1.5 font-mono text-[11px] shadow-card uppercase tracking-widest text-ink-dim sm:text-xs">
+          {stats.totalVisits.toLocaleString()} all-time visits
+        </span>
+        {stats.trackedEpisodes != null && (
+          <span className="inline-flex items-center rounded-lg border border-slate-200 bg-surface px-3 py-1.5 font-mono text-[11px] shadow-card uppercase tracking-widest text-ink-dim sm:text-xs">
+            {stats.trackedEpisodes.toLocaleString()} episodes tracked
+          </span>
+        )}
+      </div>
       {stats.activeNow != null && (
-        <span className="font-mono text-[11px] sm:text-xs uppercase tracking-widest text-ink-dim">
-          <span
-            aria-hidden
-            className={`h-2 w-2 rounded-full bg-emerald-500 inline-block mr-1.5 ${
-              reduce ? "" : "animate-pulse"
-            }`}
-          />
-          {stats.activeNow} detectives active right now
-        </span>
-      )}
-      {stats.trackedEpisodes != null && (
-        <span className="font-mono text-[11px] sm:text-xs uppercase tracking-widest text-ink-dim">
-          {stats.trackedEpisodes.toLocaleString()} episodes tracked
-        </span>
+        <div className="flex flex-wrap items-center gap-2">
+          <span className="inline-flex items-center rounded-lg border border-slate-200 bg-surface px-3 py-1.5 font-mono text-[11px] shadow-card uppercase tracking-widest text-ink-dim sm:text-xs">
+            <span
+              aria-hidden
+              className={`h-2 w-2 rounded-full bg-emerald-500 inline-block mr-1.5 ${
+                reduce ? "" : "animate-pulse"
+              }`}
+            />
+            {stats.activeNow} detectives active right now
+          </span>
+        </div>
       )}
     </div>
   )
