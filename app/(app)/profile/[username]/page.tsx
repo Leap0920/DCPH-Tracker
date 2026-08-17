@@ -1,6 +1,11 @@
 import { ProfileCard } from "@/components/profile/ProfileCard"
 import { StatsGrid } from "@/components/profile/StatsGrid"
-import { getProfileByUsername, getProfileStats } from "@/lib/queries/profile"
+import { CommentTrail } from "@/components/community/CommentTrail"
+import {
+  getProfileByUsername,
+  getProfileStats,
+  getUserComments,
+} from "@/lib/queries/profile"
 import { createClient } from "@/utils/supabase/server"
 import { notFound } from "next/navigation"
 
@@ -28,6 +33,9 @@ export default async function ProfilePage({
   const isOwn = user?.id === profile.user_id
 
   const stats = await getProfileStats(profile.user_id)
+  const { comments: initialComments, hasMore: initialHasMore } = await getUserComments(
+    profile.user_id
+  )
 
   return (
     <div className="px-6 py-10">
@@ -39,6 +47,11 @@ export default async function ProfilePage({
 
         <ProfileCard profile={profile} isOwn={isOwn} />
         <StatsGrid stats={stats} />
+        <CommentTrail
+          userId={profile.user_id}
+          initialComments={initialComments}
+          initialHasMore={initialHasMore}
+        />
       </div>
     </div>
   )

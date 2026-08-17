@@ -100,3 +100,86 @@ export async function getProfileStats(userId: string) {
     badgeCount: badgeCount ?? 0,
   }
 }
+
+/**
+ * One comment in a user's public comment trail, joined with the episode it
+ * was posted on (title/slug power the /tracker/[slug] link).
+ */
+export interface CommentTrailItem {
+  id: string
+  body: string
+  created_at: string
+  content_id: string
+  episode_title: string
+  episode_slug: string
+  episode_type: string
+}
+
+/** True when a PostgREST/Postgres error means the table (or view) is missing. */
+function isTableMissingError(error: unknown): boolean {
+  if (typeof error !== "object" || error === null) return false
+  const e = error as { code?: string; message?: string }
+  if (e.code === "42P01" || e.code === "PGRST205") return true
+  return /does not exist|could not find the table/i.test(e.message ?? "")
+}
+
+/**
+ * Fetches a user's comments newest-first with episode context (title/slug)
+ * for the public profile page.
+ *
+ * episode_comments declares no FK relationship in the generated types
+ * (Relationships: []), so the content_entries embed is not typed — we join in
+ * code instead (exact two-query pattern from lib/queries/client/episode.ts
+ * attachProfiles).
+ *
+ * Paginated: `limit` rows at `offset`, with `hasMore` true when the page came
+ * back exactly full. Tolerates a missing episode_comments table (migration
+ * not applied) by degrading to an empty result; any other error is rethrown.
+ */
+export async function getUserComments(
+  userId: string,
+  limit = 20,
+  offset = 0
+): Promise<{ comments: CommentTrailItem[]; hasMore: boolean }> {
+  const supabase = await createClient()
+
+  const { data: rows, error } = await supabase
+    .from("episode_comments")
+    .select("id, content_id, body, created_at")
+    .eq("user_id", userId)
+    .order("created_at", { ascending: false })
+    .range(offset, offset + limit - 1)
+
+  if (error) {
+    if (isTableMissingError(error)) return { comments: [], hasMore: false }
+    throw error
+  }
+
+  if (!rows || rows.length === 0) {
+    return { comments: [], hasMore: false }
+  }
+
+  const contentIds = [...new Set(rows.map((r) => r.content_id))]
+  const { data: entries, error: entriesError } = await supabase
+    .from("content_entries")
+    .select("id, slug, title, type")
+    .in("id", contentIds)
+
+  if (entriesError) throw entriesError
+
+  const entryById = new Map((entries ?? []).map((e) => [e.id, e]))
+  const comments: CommentTrailItem[] = rows.map((row) => {
+    const entry = entryById.get(row.content_id)
+    return {
+      id: row.id,
+      body: row.body,
+      created_at: row.created_at,
+      content_id: row.content_id,
+      episode_title: entry?.title ?? "Unknown",
+      episode_slug: entry?.slug ?? "",
+      episode_type: entry?.type ?? "episode",
+    }
+  })
+
+  return { comments, hasMore: rows.length === limit }
+}
