@@ -27,9 +27,11 @@ const CONTENT_SELECT =
   "id, slug, title, type, episode_number, movie_number, image_url, runtime_minutes, synopsis"
 
 /**
- * Last `limit` watched/rewatched entries, most-recently-touched first.
- * Uses the same watch_status → content_entries join-in-query shape as
- * lib/queries/profile.ts getUserStats (RLS restricts to own rows).
+ * The user's watched/rewatched EPISODES as a linear run, canon-ordered from
+ * ep 1 up to the latest episode they focused. Only `type = "episode"` rows
+ * participate (movies/specials/etc. are excluded so the strip reads as a
+ * clean episode sequence). The most recent `limit` episodes of that run are
+ * returned in ascending canon order — the last card is the latest focused.
  */
 export async function getContinueWatching(userId: string, limit = 8): Promise<ContinueWatchingEntry[]> {
   const supabase = createClient()
@@ -39,7 +41,8 @@ export async function getContinueWatching(userId: string, limit = 8): Promise<Co
     .select(`content_id, updated_at, content_entries(${CONTENT_SELECT})`)
     .eq("user_id", userId)
     .in("status", ["watched", "rewatched"])
-    .order("updated_at", { ascending: false })
+    .eq("content_entries.type", "episode")
+    .order("content_entries(canon_order)", { ascending: false })
     .limit(limit)
 
   if (error) throw error
@@ -51,7 +54,8 @@ export async function getContinueWatching(userId: string, limit = 8): Promise<Co
     if (!entry) continue
     entries.push({ content_id: row.content_id, updated_at: row.updated_at, ...entry })
   }
-  return entries
+  // Descending fetch → ascending strip: ep 1 first, latest focused last.
+  return entries.reverse()
 }
 
 /**
