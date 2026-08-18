@@ -10,6 +10,41 @@
 @tailwind components;
 @tailwind utilities;
 
+/*
+  THEME TOKENS — light palette lives on :root, the `dark` class on
+  <html> (set by components/theme-provider.tsx + the beforeInteractive
+  script in app/layout.tsx) overrides it with the night palette.
+  Values are "R G B" triples consumed by tailwind.config.ts colors as
+  `rgb(var(--x) / <alpha-value>)`.
+*/
+:root {
+  --page: 248 250 252;           /* slate-50 */
+  --surface: 255 255 255;        /* white */
+  --surface-muted: 241 245 249;  /* slate-100 */
+  --ink: 15 23 42;               /* slate-900 */
+  --ink-dim: 71 85 105;          /* slate-600 */
+  --ink-faint: 148 163 184;      /* slate-400 */
+  --accent: 225 29 72;           /* rose-600 */
+  --accent-bright: 244 63 94;    /* rose-500 */
+  --accent-soft: 255 241 242;    /* rose-50 */
+  --gold-seal: 245 158 11;       /* amber-500 */
+  color-scheme: light;
+}
+
+.dark {
+  --page: 2 6 23;                /* slate-950 */
+  --surface: 15 23 42;           /* slate-900 */
+  --surface-muted: 30 41 59;     /* slate-800 */
+  --ink: 226 232 240;            /* slate-200 */
+  --ink-dim: 148 163 184;        /* slate-400 */
+  --ink-faint: 100 116 139;      /* slate-500 */
+  --accent: 244 63 94;           /* rose-500 */
+  --accent-bright: 251 113 133;  /* rose-400 */
+  --accent-soft: 76 5 25;        /* deep rose tint */
+  --gold-seal: 251 191 36;       /* amber-400 */
+  color-scheme: dark;
+}
+
 @layer base {
   body {
     @apply bg-page text-ink font-body antialiased;
@@ -35,10 +70,10 @@
 
 @layer components {
 
-  /* Signature card surface: clean white card with a soft shadow
+  /* Signature card surface: clean surface card with a soft shadow
      and a thin accent strip on the left edge. */
   .dossier-card {
-    @apply relative bg-surface border border-slate-200 shadow-card rounded-xl overflow-hidden;
+    @apply relative bg-surface border border-ink-dim/20 shadow-card rounded-xl overflow-hidden;
   }
 
   .dossier-card::before {
@@ -51,7 +86,7 @@
   }
 
   .redacted-bar {
-    @apply h-3 bg-slate-200 rounded-[2px];
+    @apply h-3 bg-ink-dim/15 rounded-[2px];
   }
 
   .case-number {
@@ -64,5 +99,42 @@
     animation-duration: 0.01ms !important;
     animation-iteration-count: 1 !important;
     transition-duration: 0.01ms !important;
+  }
+}
+
+/* ─────────────────────────────────────────────────────────
+   SLASH THEME TRANSITION — diagonal wipe reveal via the
+   View Transitions API (Chromium/Edge + Safari 18+).
+   When the theme toggles, the OLD root wipes OUT toward a thin
+   diagonal line while the NEW root grows IN from that same
+   diagonal to the full viewport. Feature-detected in
+   components/theme-provider.tsx — browsers without
+   document.startViewTransition fall back to an instant swap.
+   ───────────────────────────────────────────────────────── */
+@media (prefers-reduced-motion: no-preference) {
+  ::view-transition-old(root) {
+    animation: dcph-slash-out 500ms ease-out both;
+  }
+
+  ::view-transition-new(root) {
+    animation: dcph-slash-in 500ms ease-out both;
+  }
+
+  @keyframes dcph-slash-in {
+    from {
+      clip-path: polygon(0 0, 0 0, 100% 100%, 0 100%);
+    }
+    to {
+      clip-path: polygon(0 0, 100% 0, 100% 100%, 0 100%);
+    }
+  }
+
+  @keyframes dcph-slash-out {
+    from {
+      clip-path: polygon(0 0, 100% 0, 100% 100%, 0 100%);
+    }
+    to {
+      clip-path: polygon(0 0, 0 0, 100% 100%, 0 100%);
+    }
   }
 }
