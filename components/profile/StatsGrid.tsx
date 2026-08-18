@@ -16,7 +16,7 @@ const statItems = [
     key: "watchedCount" as const,
     icon: Eye,
     label: "Cases Solved",
-    color: "text-green-500",
+    color: "text-green-400",
   },
   {
     key: "rewatchedCount" as const,
@@ -49,7 +49,7 @@ export function StatsGrid({ stats }: StatsGridProps) {
         return (
           <div
             key={item.key}
-            className="rounded-lg border border-slate-200 bg-surface p-4 text-center shadow-card"
+            className="rounded-lg border border-ink-dim/20 bg-surface p-4 text-center shadow-card"
           >
             <item.icon className={`mx-auto mb-2 h-6 w-6 ${item.color}`} />
             <div className="font-display text-2xl text-ink">{display}</div>

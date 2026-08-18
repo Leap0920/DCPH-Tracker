@@ -44,14 +44,14 @@ export function RoleSelect({
         onChange={onChange}
         disabled={pending || isSelf}
         title={isSelf ? "You can't change your own role" : undefined}
-        className="h-8 rounded-md border border-slate-200 bg-surface px-2 text-xs text-ink focus:outline-none focus:ring-2 focus:ring-accent/20 disabled:opacity-60"
+        className="h-8 rounded-md border border-ink-dim/20 bg-surface px-2 text-xs text-ink focus:outline-none focus:ring-2 focus:ring-accent/20 disabled:opacity-60"
       >
         <option value="member">Member</option>
         <option value="moderator">Moderator</option>
         <option value="admin">Admin</option>
       </select>
       {pending && <Loader2 className="h-3.5 w-3.5 animate-spin text-ink-faint" />}
-      {error && <span className="text-[11px] text-red-600">{error}</span>}
+      {error && <span className="text-[11px] text-red-400">{error}</span>}
     </div>
   )
 }

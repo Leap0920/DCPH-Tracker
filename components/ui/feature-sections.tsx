@@ -15,7 +15,7 @@ export default function FeatureSections() {
       <div className="flex flex-col md:flex-row items-center justify-between gap-12 max-w-6xl mx-auto px-6">
         {/* Left Side: Overlapping image cards (Shinichi & Jinpei) */}
         <div className="relative w-full max-w-md h-[360px] sm:h-[420px] flex items-center justify-center">
-          <div className="absolute top-0 left-2 sm:left-4 w-60 sm:w-72 h-72 sm:h-88 overflow-hidden rounded-3xl border border-slate-200 shadow-lg -rotate-3 hover:rotate-0 transition-all duration-500">
+          <div className="absolute top-0 left-2 sm:left-4 w-60 sm:w-72 h-72 sm:h-88 overflow-hidden rounded-3xl border border-ink-dim/20 shadow-lg -rotate-3 hover:rotate-0 transition-all duration-500">
             <img
               src="/img/shinichi.jpg"
               alt="Shinichi Kudo"
@@ -47,7 +47,7 @@ export default function FeatureSections() {
           </div>
 
           <div className="flex items-start gap-6 group">
-            <div className="p-4 aspect-square bg-green-100 rounded-full flex items-center justify-center text-green-600 shrink-0 shadow-sm transition-transform group-hover:scale-110">
+            <div className="p-4 aspect-square bg-green-500/10 rounded-full flex items-center justify-center text-green-400 shrink-0 shadow-sm transition-transform group-hover:scale-110">
               <ListChecks className="w-7 h-7" />
             </div>
             <div className="space-y-1.5 pt-1">

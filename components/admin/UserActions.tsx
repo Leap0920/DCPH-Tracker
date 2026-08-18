@@ -50,7 +50,7 @@ export function UserActions({
             )
           }
           disabled={pending}
-          className="inline-flex h-8 items-center gap-1.5 rounded-md border border-slate-200 bg-surface px-2 text-xs text-ink transition-colors hover:bg-surface-muted disabled:opacity-60"
+          className="inline-flex h-8 items-center gap-1.5 rounded-md border border-ink-dim/20 bg-surface px-2 text-xs text-ink transition-colors hover:bg-surface-muted disabled:opacity-60"
         >
           {status === "suspended" ? (
             <>
@@ -70,7 +70,7 @@ export function UserActions({
             )
           }
           disabled={pending}
-          className="inline-flex h-8 items-center gap-1.5 rounded-md border border-red-200 bg-red-50 px-2 text-xs text-red-700 transition-colors hover:bg-red-100 disabled:opacity-60"
+          className="inline-flex h-8 items-center gap-1.5 rounded-md border border-red-500/30 bg-red-500/10 px-2 text-xs text-red-400 transition-colors hover:bg-red-500/20 disabled:opacity-60"
         >
           <ShieldAlert className="h-3.5 w-3.5" />
           {status === "banned" ? "Unban" : "Ban"}
@@ -83,13 +83,13 @@ export function UserActions({
             }
           }}
           disabled={pending}
-          className="inline-flex h-8 items-center gap-1.5 rounded-md border border-slate-200 bg-surface px-2 text-xs text-ink transition-colors hover:border-red-300 hover:text-red-700 disabled:opacity-60"
+          className="inline-flex h-8 items-center gap-1.5 rounded-md border border-ink-dim/20 bg-surface px-2 text-xs text-ink transition-colors hover:border-red-500/40 hover:text-red-400 disabled:opacity-60"
         >
           <UserX className="h-3.5 w-3.5" /> Delete
         </button>
       </div>
       {pending && <Loader2 className="h-3.5 w-3.5 animate-spin text-ink-faint" />}
-      {error && <span className="text-[11px] text-red-600">{error}</span>}
+      {error && <span className="text-[11px] text-red-400">{error}</span>}
     </div>
   )
 }

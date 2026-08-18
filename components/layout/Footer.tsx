@@ -18,7 +18,7 @@ const socialLinks = [
 
 export function Footer() {
   return (
-    <footer className="border-t border-slate-200 bg-surface">
+    <footer className="border-t border-ink-dim/20 bg-surface">
       <div className="mx-auto max-w-7xl px-6 py-12">
         <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
           {/* Brand */}
@@ -70,7 +70,7 @@ export function Footer() {
                   href={social.href}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="h-11 w-11 rounded-md border border-slate-200 flex items-center justify-center text-ink-faint hover:text-ink hover:border-slate-300 transition-colors"
+                  className="h-11 w-11 rounded-md border border-ink-dim/20 flex items-center justify-center text-ink-faint hover:text-ink hover:border-ink-dim/30 transition-colors"
                   aria-label={social.label}
                 >
                   <social.icon className="h-4 w-4" />
@@ -80,7 +80,7 @@ export function Footer() {
           </div>
         </div>
 
-        <div className="mt-10 pt-6 border-t border-slate-200 flex flex-col sm:flex-row justify-between items-center gap-4">
+        <div className="mt-10 pt-6 border-t border-ink-dim/20 flex flex-col sm:flex-row justify-between items-center gap-4">
           <p className="case-number">
             FILE NO. 001 · CLASSIFIED
           </p>

@@ -237,8 +237,8 @@ export default function SettingsPage() {
           <div
             className={`mb-6 flex items-center gap-2 rounded-lg border px-4 py-3 text-sm ${
               message.type === "success"
-                ? "border-green-200 bg-green-50 text-green-700"
-                : "border-red-200 bg-red-50 text-red-700"
+                ? "border-green-500/30 bg-green-500/10 text-green-400"
+                : "border-red-500/30 bg-red-500/10 text-red-400"
             }`}
           >
             {message.type === "success" && <Check className="h-4 w-4" />}
@@ -248,7 +248,7 @@ export default function SettingsPage() {
 
         <form onSubmit={handleSave} className="space-y-6">
           {/* Profile picture */}
-          <div className="rounded-lg border border-slate-200 bg-surface p-6 shadow-card">
+          <div className="rounded-lg border border-ink-dim/20 bg-surface p-6 shadow-card">
             <h2 className="font-display text-base tracking-tight text-ink">
               Profile picture
             </h2>
@@ -257,7 +257,7 @@ export default function SettingsPage() {
             </p>
 
             <div className="mt-4 flex items-center gap-5">
-              <Avatar className="h-20 w-20 shrink-0 ring-2 ring-slate-200">
+              <Avatar className="h-20 w-20 shrink-0 ring-2 ring-ink-dim/20">
                 <AvatarImage src={currentAvatarSrc} />
                 <AvatarFallback className="bg-accent text-lg font-display text-white">
                   {(displayName || "?").slice(0, 2).toUpperCase()}
@@ -276,7 +276,7 @@ export default function SettingsPage() {
                   type="button"
                   variant="outline"
                   size="sm"
-                  className="gap-1.5 min-h-9 rounded-lg border-slate-200"
+                  className="gap-1.5 min-h-9 rounded-lg border-ink-dim/20"
                   onClick={() => fileInputRef.current?.click()}
                   disabled={uploading}
                 >
@@ -305,7 +305,7 @@ export default function SettingsPage() {
                     type="button"
                     variant="ghost"
                     size="sm"
-                    className="gap-1.5 text-ink-dim hover:text-red-600"
+                    className="gap-1.5 text-ink-dim hover:text-red-400"
                     onClick={onRemoveAvatar}
                   >
                     <Trash2 className="h-4 w-4" />
@@ -323,7 +323,7 @@ export default function SettingsPage() {
           </div>
 
           {/* Identity */}
-          <div className="rounded-lg border border-slate-200 bg-surface p-6 shadow-card">
+          <div className="rounded-lg border border-ink-dim/20 bg-surface p-6 shadow-card">
             <h2 className="font-display text-base tracking-tight text-ink">
               Identity
             </h2>
@@ -362,7 +362,7 @@ export default function SettingsPage() {
                   placeholder="Tell us about yourself..."
                   rows={3}
                   maxLength={280}
-                  className="w-full resize-none rounded-lg border border-slate-200 bg-surface px-3 py-2 text-sm text-ink placeholder:text-ink-faint focus-visible:border-accent focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-accent"
+                  className="w-full resize-none rounded-lg border border-ink-dim/20 bg-surface px-3 py-2 text-sm text-ink placeholder:text-ink-faint focus-visible:border-accent focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-accent"
                 />
                 <p className="text-right text-xs text-ink-faint">
                   {bio.length}/280
@@ -397,7 +397,7 @@ export default function SettingsPage() {
         </form>
 
         {/* Account */}
-        <div className="mt-6 rounded-lg border border-slate-200 bg-surface p-6 shadow-card">
+        <div className="mt-6 rounded-lg border border-ink-dim/20 bg-surface p-6 shadow-card">
           <h2 className="font-display text-base tracking-tight text-ink">
             Account
           </h2>
@@ -436,7 +436,7 @@ export default function SettingsPage() {
             <Button
               variant="outline"
               onClick={handleSignOut}
-              className="gap-1.5 rounded-lg border-slate-200 text-ink-dim hover:text-ink"
+              className="gap-1.5 rounded-lg border-ink-dim/20 text-ink-dim hover:text-ink"
             >
               <LogOut className="h-4 w-4" />
               Sign Out

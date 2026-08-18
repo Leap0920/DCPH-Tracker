@@ -56,7 +56,7 @@ export default async function AdminOverviewPage() {
             return (
               <div
                 key={c.label}
-                className="rounded-lg border border-slate-200 bg-surface p-5 shadow-card"
+                className="rounded-lg border border-ink-dim/20 bg-surface p-5 shadow-card"
               >
                 <div className="flex items-center gap-2 text-ink-faint mb-2">
                   <Icon className="h-4 w-4" />
@@ -67,7 +67,7 @@ export default async function AdminOverviewPage() {
                 <div
                   className={
                     "font-display text-3xl " +
-                    (c.warn ? "text-red-600" : "text-ink")
+                    (c.warn ? "text-red-400" : "text-ink")
                   }
                 >
                   {c.value}
@@ -133,9 +133,9 @@ function QuickLink({
   return (
     <Link
       href={href}
-      className="group flex items-start gap-4 rounded-lg border border-slate-200 bg-surface p-5 shadow-card transition-colors hover:border-slate-300 hover:bg-surface-muted"
+      className="group flex items-start gap-4 rounded-lg border border-ink-dim/20 bg-surface p-5 shadow-card transition-colors hover:border-ink-dim/30 hover:bg-surface-muted"
     >
-      <span className="flex h-10 w-10 items-center justify-center rounded-md bg-gray-900 text-white shrink-0">
+      <span className="flex h-10 w-10 items-center justify-center rounded-md bg-ink text-page shrink-0">
         <Icon className="h-5 w-5" />
       </span>
       <div className="min-w-0 flex-1">

@@ -25,7 +25,7 @@ export function Cta({ cta }: { cta: CtaProps }) {
       className={
         cta.variant === "default"
           ? "bg-accent hover:bg-accent-bright text-white rounded-full font-semibold shadow-md px-6 h-11 text-sm font-display transition-all hover:scale-[1.02]"
-          : "rounded-full border border-slate-300 font-semibold px-6 h-11 text-sm font-display text-ink-dim hover:text-ink hover:border-slate-400 transition-all bg-surface"
+          : "rounded-full border border-ink-dim/30 font-semibold px-6 h-11 text-sm font-display text-ink-dim hover:text-ink hover:border-ink-dim/40 transition-all bg-surface"
       }
     >
       <a

@@ -50,7 +50,7 @@ export function HowItWorks() {
           className="relative w-full max-w-sm sm:max-w-md h-[280px] sm:h-[380px] flex items-center justify-center"
         >
           {/* Background Image Card (Shinichi Kudo) */}
-          <div className="absolute top-0 left-2 sm:left-4 w-44 sm:w-60 h-56 sm:h-72 overflow-hidden rounded-2xl sm:rounded-3xl border border-slate-200/80 shadow-lg -rotate-3 hover:rotate-0 transition-all duration-500">
+          <div className="absolute top-0 left-2 sm:left-4 w-44 sm:w-60 h-56 sm:h-72 overflow-hidden rounded-2xl sm:rounded-3xl border border-ink-dim/20 shadow-lg -rotate-3 hover:rotate-0 transition-all duration-500">
             <img
               src="/img/shinichi.jpg"
               alt="Shinichi Kudo - Detective Conan"

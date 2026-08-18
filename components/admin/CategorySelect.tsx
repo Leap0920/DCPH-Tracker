@@ -39,7 +39,7 @@ export function CategorySelect({
         value={selected}
         onChange={handleChange}
         disabled={pending}
-        className="h-8 rounded-md border border-slate-200 bg-surface px-2.5 py-1 font-display text-xs text-ink focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent disabled:opacity-50"
+        className="h-8 rounded-md border border-ink-dim/20 bg-surface px-2.5 py-1 font-display text-xs text-ink focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent disabled:opacity-50"
       >
         {TYPE_OPTIONS.map(([val, label]) => (
           <option key={val} value={val}>

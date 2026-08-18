@@ -40,7 +40,7 @@ export default function ForgotPasswordPage() {
   }
 
   return (
-    <Card className="w-full max-w-md bg-surface border border-slate-200 shadow-card rounded-2xl relative overflow-hidden">
+    <Card className="w-full max-w-md bg-surface border border-ink-dim/20 shadow-card rounded-2xl relative overflow-hidden">
       
       <CardHeader className="text-center pb-4 pt-6">
         <div className="flex justify-center mb-4">
@@ -61,13 +61,13 @@ export default function ForgotPasswordPage() {
       <CardContent className="px-6 pb-8">
         {success ? (
           <div className="space-y-4">
-            <div className="bg-green-50 border border-green-200 rounded-lg p-4 text-sm text-green-700">
+            <div className="bg-green-500/10 border border-green-500/30 rounded-lg p-4 text-sm text-green-400">
               <p className="font-semibold mb-1">Recovery Email Sent</p>
               <p>Check your email for the password recovery link. Follow the instructions in the email to reset your password.</p>
             </div>
             <Button
               variant="outline"
-              className="w-full gap-2 border-slate-200 text-ink-dim hover:bg-surface-muted rounded-full h-11 text-sm font-semibold transition-all"
+              className="w-full gap-2 border-ink-dim/20 text-ink-dim hover:bg-surface-muted rounded-full h-11 text-sm font-semibold transition-all"
               onClick={() => openAuthModal("signin")}
             >
               <ArrowLeft className="h-4 w-4" />
@@ -77,8 +77,8 @@ export default function ForgotPasswordPage() {
         ) : (
           <form onSubmit={handleResetRequest} className="space-y-5">
             {error && (
-              <div className="bg-red-50 border border-red-200 rounded-lg p-3.5 flex gap-2 items-start text-xs text-red-600">
-                <ShieldAlert className="h-4 w-4 shrink-0 mt-0.5 text-red-500" />
+              <div className="bg-red-500/10 border border-red-500/30 rounded-lg p-3.5 flex gap-2 items-start text-xs text-red-400">
+                <ShieldAlert className="h-4 w-4 shrink-0 mt-0.5 text-red-400" />
                 <span>{error}</span>
               </div>
             )}
@@ -96,7 +96,7 @@ export default function ForgotPasswordPage() {
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
                   required
-                  className="pl-10 bg-surface border border-slate-200 focus:border-accent focus:ring-1 focus:ring-accent rounded-lg text-ink placeholder:text-ink-faint text-sm h-11 transition-colors"
+                  className="pl-10 bg-surface border border-ink-dim/20 focus:border-accent focus:ring-1 focus:ring-accent rounded-lg text-ink placeholder:text-ink-faint text-sm h-11 transition-colors"
                 />
               </div>
             </div>
@@ -112,7 +112,7 @@ export default function ForgotPasswordPage() {
         )}
 
         {!success && (
-          <div className="mt-8 pt-6 border-t border-slate-100 text-center">
+          <div className="mt-8 pt-6 border-t border-ink-dim/10 text-center">
             <button
               type="button"
               onClick={() => openAuthModal("signin")}

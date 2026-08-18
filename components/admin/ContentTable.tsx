@@ -22,17 +22,17 @@ function numberFor(e: ContentEntry) {
 export function ContentTable({ entries }: { entries: ContentEntry[] }) {
   if (entries.length === 0) {
     return (
-      <div className="rounded-lg border border-slate-200 bg-surface p-10 text-center text-sm text-ink-dim">
+      <div className="rounded-lg border border-ink-dim/20 bg-surface p-10 text-center text-sm text-ink-dim">
         No entries match your filters.
       </div>
     )
   }
 
   return (
-    <div className="overflow-x-auto rounded-lg border border-slate-200 bg-surface shadow-card">
+    <div className="overflow-x-auto rounded-lg border border-ink-dim/20 bg-surface shadow-card">
       <table className="w-full text-sm">
         <thead>
-          <tr className="border-b border-slate-200 text-left">
+          <tr className="border-b border-ink-dim/20 text-left">
             <th className="p-3 font-mono text-[10px] text-ink-faint">Cover</th>
             <th className="p-3 font-mono text-[10px] text-ink-faint">Title</th>
             <th className="p-3 font-mono text-[10px] text-ink-faint">Category / Relocate</th>
@@ -43,9 +43,9 @@ export function ContentTable({ entries }: { entries: ContentEntry[] }) {
         </thead>
         <tbody>
           {entries.map((e) => (
-            <tr key={e.id} className="border-b border-slate-100 last:border-0 hover:bg-surface-muted">
+            <tr key={e.id} className="border-b border-ink-dim/10 last:border-0 hover:bg-surface-muted">
               <td className="p-3">
-                <div className="h-10 w-16 overflow-hidden rounded border border-slate-200 bg-surface-muted flex items-center justify-center">
+                <div className="h-10 w-16 overflow-hidden rounded border border-ink-dim/20 bg-surface-muted flex items-center justify-center">
                   {e.image_url ? (
                     // eslint-disable-next-line @next/next/no-img-element
                     <img src={e.image_url} alt="" className="h-full w-full object-cover" />

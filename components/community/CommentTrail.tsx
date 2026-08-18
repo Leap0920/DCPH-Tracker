@@ -116,11 +116,11 @@ export function CommentTrail({
   }
 
   return (
-    <section className="mt-8 border-t border-slate-200 pt-6">
+    <section className="mt-8 border-t border-ink-dim/20 pt-6">
       <h2 className="mb-3 font-display text-sm text-ink-dim">Comment Trail</h2>
 
       {comments.length === 0 ? (
-        <div className="flex flex-col items-center justify-center rounded-lg border border-dashed border-slate-200 bg-surface-muted px-4 py-8 text-center">
+        <div className="flex flex-col items-center justify-center rounded-lg border border-dashed border-ink-dim/20 bg-surface-muted px-4 py-8 text-center">
           <MessageSquare className="h-6 w-6 text-ink-faint" />
           <p className="mt-3 text-sm text-ink-dim">No comments yet.</p>
         </div>
@@ -163,7 +163,7 @@ export function CommentTrail({
           <Button
             type="button"
             variant="outline"
-            className="rounded-lg border-slate-200"
+            className="rounded-lg border-ink-dim/20"
             onClick={handleLoadMore}
             disabled={isLoading}
           >

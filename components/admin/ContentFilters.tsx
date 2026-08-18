@@ -34,13 +34,13 @@ export function ContentFilters() {
           value={q}
           onChange={(e) => setQ(e.target.value)}
           placeholder="Search title or slug…"
-          className="h-10 w-full rounded-lg border border-slate-200 bg-surface pl-10 pr-3 text-sm text-ink placeholder:text-ink-faint focus:outline-none focus:ring-2 focus:ring-accent/20 focus:border-accent"
+          className="h-10 w-full rounded-lg border border-ink-dim/20 bg-surface pl-10 pr-3 text-sm text-ink placeholder:text-ink-faint focus:outline-none focus:ring-2 focus:ring-accent/20 focus:border-accent"
         />
       </form>
       <select
         value={type}
         onChange={(e) => apply({ type: e.target.value })}
-        className="h-10 rounded-lg border border-slate-200 bg-surface px-3 text-sm text-ink focus:outline-none focus:ring-2 focus:ring-accent/20"
+        className="h-10 rounded-lg border border-ink-dim/20 bg-surface px-3 text-sm text-ink focus:outline-none focus:ring-2 focus:ring-accent/20"
       >
         <option value="all">All types</option>
         {Object.entries(CONTENT_TYPE_LABELS).map(([value, label]) => (

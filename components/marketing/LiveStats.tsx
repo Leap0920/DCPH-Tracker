@@ -65,18 +65,18 @@ export function LiveStats() {
   return (
     <div className="flex flex-col gap-2">
       <div className="flex flex-wrap items-center gap-2">
-        <span className="inline-flex items-center rounded-lg border border-slate-200 bg-surface px-3 py-1.5 font-mono text-[11px] shadow-card uppercase tracking-widest text-ink-dim sm:text-xs">
+        <span className="inline-flex items-center rounded-lg border border-ink-dim/20 bg-surface px-3 py-1.5 font-mono text-[11px] shadow-card uppercase tracking-widest text-ink-dim sm:text-xs">
           {stats.totalVisits.toLocaleString()} all-time visits
         </span>
         {stats.trackedEpisodes != null && (
-          <span className="inline-flex items-center rounded-lg border border-slate-200 bg-surface px-3 py-1.5 font-mono text-[11px] shadow-card uppercase tracking-widest text-ink-dim sm:text-xs">
+          <span className="inline-flex items-center rounded-lg border border-ink-dim/20 bg-surface px-3 py-1.5 font-mono text-[11px] shadow-card uppercase tracking-widest text-ink-dim sm:text-xs">
             {stats.trackedEpisodes.toLocaleString()} episodes tracked
           </span>
         )}
       </div>
       {stats.activeNow != null && (
         <div className="flex flex-wrap items-center gap-2">
-          <span className="inline-flex items-center rounded-lg border border-slate-200 bg-surface px-3 py-1.5 font-mono text-[11px] shadow-card uppercase tracking-widest text-ink-dim sm:text-xs">
+          <span className="inline-flex items-center rounded-lg border border-ink-dim/20 bg-surface px-3 py-1.5 font-mono text-[11px] shadow-card uppercase tracking-widest text-ink-dim sm:text-xs">
             <span
               aria-hidden
               className={`h-2 w-2 rounded-full bg-emerald-500 inline-block mr-1.5 ${reduce ? "" : "animate-pulse"

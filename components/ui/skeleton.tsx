@@ -40,11 +40,11 @@ export function TrackerSkeleton() {
       <div className="mx-auto max-w-5xl space-y-6">
         <div className="grid grid-cols-2 gap-4 sm:grid-cols-4">
           {[0, 1, 2, 3].map((i) => (
-            <Skeleton key={i} className="h-24 rounded-lg border border-slate-200 bg-surface" />
+            <Skeleton key={i} className="h-24 rounded-lg border border-ink-dim/20 bg-surface" />
           ))}
         </div>
         <Skeleton className="h-10 w-full rounded-lg" />
-        <div className="rounded-lg border border-slate-200 bg-surface p-4 shadow-card">
+        <div className="rounded-lg border border-ink-dim/20 bg-surface p-4 shadow-card">
           <div className="space-y-3">
             {[0, 1, 2, 3, 4].map((i) => (
               <div key={i} className="flex items-center gap-4">
@@ -72,10 +72,10 @@ export function ContentDetailSkeleton() {
         <Skeleton className="h-10 w-2/3" />
         <div className="grid grid-cols-2 gap-4 sm:grid-cols-4">
           {[0, 1, 2, 3].map((i) => (
-            <Skeleton key={i} className="h-20 rounded-lg border border-slate-200 bg-surface" />
+            <Skeleton key={i} className="h-20 rounded-lg border border-ink-dim/20 bg-surface" />
           ))}
         </div>
-        <div className="rounded-lg border border-slate-200 bg-surface p-6 shadow-card">
+        <div className="rounded-lg border border-ink-dim/20 bg-surface p-6 shadow-card">
           <Skeleton className="h-6 w-40" />
           <Skeleton className="mt-4 h-4 w-full" />
           <Skeleton className="mt-2 h-4 w-5/6" />
@@ -98,12 +98,12 @@ export function AnalyticsSkeleton() {
         </div>
         <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-6">
           {[0, 1, 2, 3, 4, 5].map((i) => (
-            <Skeleton key={i} className="h-28 rounded-lg border border-slate-200 bg-surface" />
+            <Skeleton key={i} className="h-28 rounded-lg border border-ink-dim/20 bg-surface" />
           ))}
         </div>
         <div className="grid gap-6 lg:grid-cols-2">
-          <Skeleton className="h-64 rounded-lg border border-slate-200 bg-surface" />
-          <Skeleton className="h-64 rounded-lg border border-slate-200 bg-surface" />
+          <Skeleton className="h-64 rounded-lg border border-ink-dim/20 bg-surface" />
+          <Skeleton className="h-64 rounded-lg border border-ink-dim/20 bg-surface" />
         </div>
       </div>
     </SkeletonRegion>
@@ -124,13 +124,13 @@ export function RankingsSkeleton() {
             <Skeleton
               key={i}
               className={cn(
-                "w-24 rounded-t-lg border border-slate-200 bg-surface",
+                "w-24 rounded-t-lg border border-ink-dim/20 bg-surface",
                 i === 0 ? "h-28" : i === 1 ? "h-36" : "h-24"
               )}
             />
           ))}
         </div>
-        <div className="rounded-lg border border-slate-200 bg-surface shadow-card">
+        <div className="rounded-lg border border-ink-dim/20 bg-surface shadow-card">
           <div className="space-y-3 p-4">
             {[0, 1, 2, 3, 4].map((i) => (
               <div key={i} className="flex items-center gap-4">
@@ -152,7 +152,7 @@ export function ProfileSkeleton() {
   return (
     <SkeletonRegion className="px-6 py-10">
       <div className="mx-auto max-w-4xl space-y-6">
-        <div className="rounded-lg border border-slate-200 bg-surface p-6 shadow-card">
+        <div className="rounded-lg border border-ink-dim/20 bg-surface p-6 shadow-card">
           <div className="flex items-center gap-5">
             <Skeleton className="h-20 w-20 rounded-full" />
             <div className="flex-1 space-y-2">
@@ -166,7 +166,7 @@ export function ProfileSkeleton() {
         </div>
         <div className="grid grid-cols-2 gap-4 sm:grid-cols-4">
           {[0, 1, 2, 3].map((i) => (
-            <Skeleton key={i} className="h-24 rounded-lg border border-slate-200 bg-surface" />
+            <Skeleton key={i} className="h-24 rounded-lg border border-ink-dim/20 bg-surface" />
           ))}
         </div>
       </div>
@@ -178,7 +178,7 @@ export function ProfileSkeleton() {
 export function ChatSkeletonLayout() {
   return (
     <SkeletonRegion className="flex h-full min-w-0 flex-1 flex-col bg-surface">
-      <header className="border-b border-slate-200 bg-surface px-4 py-3">
+      <header className="border-b border-ink-dim/20 bg-surface px-4 py-3">
         <Skeleton className="h-6 w-40" />
       </header>
       <div className="flex-1 space-y-4 overflow-hidden px-4 py-4">
@@ -189,7 +189,7 @@ export function ChatSkeletonLayout() {
           </div>
         ))}
       </div>
-      <div className="border-t border-slate-200 bg-surface p-3">
+      <div className="border-t border-ink-dim/20 bg-surface p-3">
         <Skeleton className="h-10 w-full rounded-lg" />
       </div>
     </SkeletonRegion>
@@ -202,13 +202,13 @@ export function SettingsSkeleton() {
     <SkeletonRegion className="px-6 py-10">
       <div className="mx-auto max-w-2xl space-y-6">
         <Skeleton className="h-9 w-40" />
-        <div className="rounded-lg border border-slate-200 bg-surface p-6 shadow-card">
+        <div className="rounded-lg border border-ink-dim/20 bg-surface p-6 shadow-card">
           <div className="flex items-center gap-5">
             <Skeleton className="h-20 w-20 rounded-full" />
             <Skeleton className="h-8 w-28 rounded-lg" />
           </div>
         </div>
-        <div className="rounded-lg border border-slate-200 bg-surface p-6 shadow-card">
+        <div className="rounded-lg border border-ink-dim/20 bg-surface p-6 shadow-card">
           <div className="space-y-4">
             <Skeleton className="h-4 w-32" />
             <Skeleton className="h-10 w-full rounded-lg" />
@@ -235,7 +235,7 @@ export function ArcsSkeleton() {
         </div>
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
           {[0, 1, 2, 3, 4, 5].map((i) => (
-            <Skeleton key={i} className="h-32 rounded-lg border border-slate-200 bg-surface" />
+            <Skeleton key={i} className="h-32 rounded-lg border border-ink-dim/20 bg-surface" />
           ))}
         </div>
       </div>
@@ -256,7 +256,7 @@ export function AdminSkeleton() {
           <Skeleton className="h-9 w-28 rounded-lg" />
           <Skeleton className="h-9 w-28 rounded-lg" />
         </div>
-        <div className="rounded-lg border border-slate-200 bg-surface shadow-card">
+        <div className="rounded-lg border border-ink-dim/20 bg-surface shadow-card">
           <div className="space-y-3 p-4">
             {[0, 1, 2, 3, 4].map((i) => (
               <div key={i} className="flex items-center gap-4">

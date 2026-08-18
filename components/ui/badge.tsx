@@ -10,11 +10,11 @@ const badgeVariants = cva(
         default:
           "border-accent/40 bg-accent-soft text-accent",
         secondary:
-          "border-slate-200 bg-surface-muted text-ink-dim",
+          "border-ink-dim/20 bg-surface-muted text-ink-dim",
         outline:
-          "border-slate-200 bg-transparent text-ink-dim",
+          "border-ink-dim/20 bg-transparent text-ink-dim",
         gold:
-          "border-gold-seal/40 bg-amber-50 text-gold-seal",
+          "border-gold-seal/40 bg-amber-500/10 text-gold-seal",
       },
     },
     defaultVariants: {

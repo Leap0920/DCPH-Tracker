@@ -41,13 +41,13 @@ export function SyncPanel() {
       </div>
 
       {status.kind === "ok" && (
-        <div className="flex items-start gap-2 rounded-lg border border-green-200 bg-green-50 px-4 py-3 text-sm text-green-700">
+        <div className="flex items-start gap-2 rounded-lg border border-green-500/30 bg-green-500/10 px-4 py-3 text-sm text-green-400">
           <CheckCircle2 className="h-4 w-4 mt-0.5 shrink-0" />
           <span>{status.msg}</span>
         </div>
       )}
       {status.kind === "err" && (
-        <div className="flex items-start gap-2 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-600">
+        <div className="flex items-start gap-2 rounded-lg border border-red-500/30 bg-red-500/10 px-4 py-3 text-sm text-red-400">
           <AlertCircle className="h-4 w-4 mt-0.5 shrink-0" />
           <span>{status.msg}</span>
         </div>
@@ -75,7 +75,7 @@ function SyncCard({
   onClick: () => void
 }) {
   return (
-    <div className="rounded-lg border border-slate-200 bg-surface p-5 shadow-card">
+    <div className="rounded-lg border border-ink-dim/20 bg-surface p-5 shadow-card">
       <h3 className="font-display  text-ink">{title}</h3>
       <p className="mt-1 text-sm text-ink-dim">{desc}</p>
       <button

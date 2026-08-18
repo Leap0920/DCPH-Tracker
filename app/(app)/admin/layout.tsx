@@ -18,7 +18,7 @@ export default async function AdminLayout({
   return (
     <div className="mx-auto max-w-7xl px-4 sm:px-6 py-6">
       <div className="mb-6 flex items-center gap-2">
-        <span className="flex h-8 w-8 items-center justify-center rounded-md bg-gray-900 text-white">
+        <span className="flex h-8 w-8 items-center justify-center rounded-md bg-ink text-page">
           <ShieldCheck className="h-4 w-4" />
         </span>
         <div>

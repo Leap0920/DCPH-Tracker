@@ -26,7 +26,7 @@ export function ArcTable({ arcs }: { arcs: ArcRow[] }) {
 
   if (arcs.length === 0) {
     return (
-      <div className="rounded-xl border border-slate-200 bg-surface p-12 text-center shadow-card">
+      <div className="rounded-xl border border-ink-dim/20 bg-surface p-12 text-center shadow-card">
         <BookOpen className="mx-auto h-10 w-10 text-ink-faint mb-3" />
         <h3 className="font-display text-base text-ink font-semibold">No Story Arcs Found</h3>
         <p className="mt-1 text-sm text-ink-dim max-w-sm mx-auto">
@@ -37,9 +37,9 @@ export function ArcTable({ arcs }: { arcs: ArcRow[] }) {
   }
 
   return (
-    <div className="overflow-hidden rounded-xl border border-slate-200 bg-surface shadow-card">
+    <div className="overflow-hidden rounded-xl border border-ink-dim/20 bg-surface shadow-card">
       <table className="w-full text-left text-sm">
-        <thead className="border-b border-slate-200 bg-surface-muted/50 font-display text-xs text-ink-dim uppercase tracking-wider">
+        <thead className="border-b border-ink-dim/20 bg-surface-muted/50 font-display text-xs text-ink-dim uppercase tracking-wider">
           <tr>
             <th className="px-4 py-3">Arc Title</th>
             <th className="px-4 py-3">Episode Range</th>
@@ -47,7 +47,7 @@ export function ArcTable({ arcs }: { arcs: ArcRow[] }) {
             <th className="px-4 py-3 text-right">Actions</th>
           </tr>
         </thead>
-        <tbody className="divide-y divide-slate-100">
+        <tbody className="divide-y divide-ink-dim/10">
           {arcs.map((arc) => {
             const isDeleting = pendingId === arc.id
             const episodeCount = arc.end_episode - arc.start_episode + 1
@@ -59,10 +59,10 @@ export function ArcTable({ arcs }: { arcs: ArcRow[] }) {
                       <img
                         src={arc.image_url}
                         alt={arc.title}
-                        className="h-10 w-10 rounded-md object-cover border border-slate-200 shrink-0"
+                        className="h-10 w-10 rounded-md object-cover border border-ink-dim/20 shrink-0"
                       />
                     ) : (
-                      <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-md bg-slate-100 text-ink-faint border border-slate-200">
+                      <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-md bg-surface-muted text-ink-faint border border-ink-dim/20">
                         <BookOpen className="h-5 w-5" />
                       </div>
                     )}
@@ -73,7 +73,7 @@ export function ArcTable({ arcs }: { arcs: ArcRow[] }) {
                   </div>
                 </td>
                 <td className="px-4 py-3 whitespace-nowrap">
-                  <span className="inline-flex items-center rounded-md bg-slate-100 px-2.5 py-1 text-xs font-mono font-medium text-slate-700">
+                  <span className="inline-flex items-center rounded-md bg-surface-muted px-2.5 py-1 text-xs font-mono font-medium text-ink-dim">
                     Ep {arc.start_episode} to {arc.end_episode} ({episodeCount} eps)
                   </span>
                 </td>
@@ -90,7 +90,7 @@ export function ArcTable({ arcs }: { arcs: ArcRow[] }) {
                       size="sm"
                       onClick={() => handleDelete(arc.id, arc.title)}
                       disabled={isDeleting}
-                      className="gap-1 text-xs border-red-200 text-red-600 hover:bg-red-50 hover:border-red-300"
+                      className="gap-1 text-xs border-red-500/30 text-red-400 hover:bg-red-500/10 hover:border-red-500/40"
                     >
                       {isDeleting ? (
                         <Loader2 className="h-3.5 w-3.5 animate-spin" />

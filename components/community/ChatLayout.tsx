@@ -20,7 +20,7 @@ export function ChatLayout({
 
   const sidebar = (
     <div className="flex h-full flex-col bg-surface">
-      <div className="flex items-center justify-between border-b border-slate-200 px-4 py-4">
+      <div className="flex items-center justify-between border-b border-ink-dim/20 px-4 py-4">
         <span className="font-display text-sm tracking-tight text-ink">
           Rooms
         </span>
@@ -72,7 +72,7 @@ export function ChatLayout({
   return (
     <div className="mx-auto flex h-[calc(100vh-4rem)] supports-[height:100dvh]:h-[calc(100dvh-4rem)] max-w-7xl">
       {/* Desktop sidebar */}
-      <aside className="hidden w-72 shrink-0 border-r border-slate-200 md:block">
+      <aside className="hidden w-72 shrink-0 border-r border-ink-dim/20 md:block">
         {sidebar}
       </aside>
 
@@ -83,7 +83,7 @@ export function ChatLayout({
             className="absolute inset-0 bg-black/40"
             onClick={() => setMobileOpen(false)}
           />
-          <div className="absolute left-0 top-0 h-full w-72 max-w-[80%] border-r border-slate-200 shadow-xl">
+          <div className="absolute left-0 top-0 h-full w-72 max-w-[80%] border-r border-ink-dim/20 shadow-xl">
             <button
               onClick={() => setMobileOpen(false)}
               aria-label="Close rooms"

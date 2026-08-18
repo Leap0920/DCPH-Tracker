@@ -93,7 +93,7 @@ export function AnalyticsDashboard({ analytics }: AnalyticsDashboardProps) {
   return (
     <div className="space-y-8">
       {/* Hero Banner with Custom Background Image */}
-      <div className="relative min-h-[220px] overflow-hidden rounded-2xl border border-slate-200 shadow-md">
+      <div className="relative min-h-[220px] overflow-hidden rounded-2xl border border-ink-dim/20 shadow-md">
         {/* Banner background image */}
         <img
           src="/analytics-banner.jpg"
@@ -144,7 +144,7 @@ export function AnalyticsDashboard({ analytics }: AnalyticsDashboardProps) {
             <div className="mt-1 text-xs tracking-wider text-slate-300 uppercase">
               Franchise Solved
             </div>
-            <div className="mt-1 text-xs text-slate-400">
+            <div className="mt-1 text-xs text-ink-faint">
               {analytics.watchedCount + analytics.rewatchedCount} of {analytics.totalCatalogCount} cases
             </div>
           </div>
@@ -156,7 +156,7 @@ export function AnalyticsDashboard({ analytics }: AnalyticsDashboardProps) {
         {statsList.map((stat) => (
           <div
             key={stat.key}
-            className="rounded-xl border border-slate-200 bg-surface p-4 shadow-card transition-all hover:border-slate-300"
+            className="rounded-xl border border-ink-dim/20 bg-surface p-4 shadow-card transition-all hover:border-ink-dim/30"
           >
             <div className="flex items-center justify-between">
               <stat.icon className="h-4 w-4 text-ink-dim" />
@@ -173,7 +173,7 @@ export function AnalyticsDashboard({ analytics }: AnalyticsDashboardProps) {
       </div>
 
       {/* Navigation Tabs */}
-      <div className="border-b border-slate-200">
+      <div className="border-b border-ink-dim/20">
         <div className="flex items-center gap-2 overflow-x-auto no-scrollbar">
           <button
             onClick={() => setActiveTab("overview")}
@@ -234,7 +234,7 @@ export function AnalyticsDashboard({ analytics }: AnalyticsDashboardProps) {
         <div className="space-y-6">
           <div className="grid gap-6 lg:grid-cols-3">
             {/* Overall Franchise Progress */}
-            <div className="rounded-xl border border-slate-200 bg-surface p-6 shadow-card lg:col-span-2">
+            <div className="rounded-xl border border-ink-dim/20 bg-surface p-6 shadow-card lg:col-span-2">
               <h2 className="mb-4 flex items-center justify-between font-display text-base tracking-tight text-ink">
                 <span className="flex items-center gap-2">
                   <TrendingUp className="h-4 w-4 text-accent" />
@@ -246,7 +246,7 @@ export function AnalyticsDashboard({ analytics }: AnalyticsDashboardProps) {
               </h2>
 
               <div className="space-y-4">
-                <div className="h-2.5 w-full overflow-hidden rounded-full bg-slate-100">
+                <div className="h-2.5 w-full overflow-hidden rounded-full bg-surface-muted">
                   <div
                     className="h-full rounded-full bg-accent transition-all duration-500"
                     style={{ width: `${analytics.catalogCompletionProgress}%` }}
@@ -254,19 +254,19 @@ export function AnalyticsDashboard({ analytics }: AnalyticsDashboardProps) {
                 </div>
 
                 <div className="grid grid-cols-2 gap-4 text-center sm:grid-cols-4 pt-2">
-                  <div className="rounded-lg bg-slate-50 p-3 border border-slate-100">
+                  <div className="rounded-lg bg-surface-muted p-3 border border-ink-dim/10">
                     <div className="text-xs text-ink-dim">Total Entries</div>
                     <div className="font-display text-xl text-ink">{analytics.totalCatalogCount}</div>
                   </div>
-                  <div className="rounded-lg bg-slate-50 p-3 border border-slate-100">
+                  <div className="rounded-lg bg-surface-muted p-3 border border-ink-dim/10">
                     <div className="text-xs text-ink-dim">Unique Watched</div>
                     <div className="font-display text-xl text-ink">{analytics.watchedCount + analytics.rewatchedCount}</div>
                   </div>
-                  <div className="rounded-lg bg-slate-50 p-3 border border-slate-100">
+                  <div className="rounded-lg bg-surface-muted p-3 border border-ink-dim/10">
                     <div className="text-xs text-ink-dim">Rewatched</div>
                     <div className="font-display text-xl text-ink">{analytics.rewatchedCount}</div>
                   </div>
-                  <div className="rounded-lg bg-slate-50 p-3 border border-slate-100">
+                  <div className="rounded-lg bg-surface-muted p-3 border border-ink-dim/10">
                     <div className="text-xs text-ink-dim">Completed Arcs</div>
                     <div className="font-display text-xl text-ink">{completedArcsCount}</div>
                   </div>
@@ -275,7 +275,7 @@ export function AnalyticsDashboard({ analytics }: AnalyticsDashboardProps) {
             </div>
 
             {/* Rating Distribution */}
-            <div className="rounded-xl border border-slate-200 bg-surface p-6 shadow-card">
+            <div className="rounded-xl border border-ink-dim/20 bg-surface p-6 shadow-card">
               <h2 className="mb-4 flex items-center gap-2 font-display text-base tracking-tight text-ink">
                 <Star className="h-4 w-4 text-ink-dim" />
                 Rating Breakdown
@@ -293,9 +293,9 @@ export function AnalyticsDashboard({ analytics }: AnalyticsDashboardProps) {
                         <span>{item.stars} ★</span>
                       </div>
                       <div className="flex-1">
-                        <div className="h-2 overflow-hidden rounded-full bg-slate-100">
+                        <div className="h-2 overflow-hidden rounded-full bg-surface-muted">
                           <div
-                            className="h-full rounded-full bg-slate-800"
+                            className="h-full rounded-full bg-ink"
                             style={{ width: `${item.percentage}%` }}
                           />
                         </div>
@@ -313,7 +313,7 @@ export function AnalyticsDashboard({ analytics }: AnalyticsDashboardProps) {
           {/* Timeline & Release Years */}
           <div className="grid gap-6 lg:grid-cols-2">
             {/* Release Years */}
-            <div className="min-w-0 flex flex-col rounded-xl border border-slate-200 bg-surface p-6 shadow-card">
+            <div className="min-w-0 flex flex-col rounded-xl border border-ink-dim/20 bg-surface p-6 shadow-card">
               <h2 className="mb-4 flex items-center justify-between font-display text-base tracking-tight text-ink">
                 <span className="flex items-center gap-2">
                   <Calendar className="h-4 w-4 text-ink-dim" />
@@ -336,9 +336,9 @@ export function AnalyticsDashboard({ analytics }: AnalyticsDashboardProps) {
                           {row.year}
                         </span>
                         <div className="flex-1">
-                          <div className="h-2 overflow-hidden rounded-full bg-slate-100">
+                          <div className="h-2 overflow-hidden rounded-full bg-surface-muted">
                             <div
-                              className="h-full rounded-full bg-slate-800"
+                              className="h-full rounded-full bg-ink"
                               style={{ width: `${(row.views / maxViews) * 100}%` }}
                             />
                           </div>
@@ -354,7 +354,7 @@ export function AnalyticsDashboard({ analytics }: AnalyticsDashboardProps) {
             </div>
 
             {/* Recently Watched Logs */}
-            <div className="min-w-0 rounded-xl border border-slate-200 bg-surface p-6 shadow-card">
+            <div className="min-w-0 rounded-xl border border-ink-dim/20 bg-surface p-6 shadow-card">
               <h2 className="mb-4 flex items-center justify-between font-display text-base tracking-tight text-ink">
                 <span className="flex items-center gap-2">
                   <Clock className="h-4 w-4 text-ink-dim" />
@@ -372,7 +372,7 @@ export function AnalyticsDashboard({ analytics }: AnalyticsDashboardProps) {
                   {analytics.recentlyWatched.map((item) => (
                     <div
                       key={item.id}
-                      className="flex items-center justify-between gap-3 rounded-lg border border-slate-100 bg-slate-50/50 p-3"
+                      className="flex items-center justify-between gap-3 rounded-lg border border-ink-dim/10 bg-surface-muted/50 p-3"
                     >
                       <div className="min-w-0 flex-1">
                         <p className="truncate text-sm text-ink">{item.title}</p>
@@ -382,7 +382,7 @@ export function AnalyticsDashboard({ analytics }: AnalyticsDashboardProps) {
                           <span className="text-ink-faint">{timeAgo(item.updated_at)}</span>
                         </p>
                       </div>
-                      <span className="shrink-0 rounded bg-slate-200 px-2 py-0.5 font-mono text-[10px] text-slate-700">
+                      <span className="shrink-0 rounded bg-ink-dim/15 px-2 py-0.5 font-mono text-[10px] text-ink-dim">
                         {item.status === "rewatched" ? "Rewatched" : "Watched"}
                       </span>
                     </div>
@@ -402,11 +402,11 @@ export function AnalyticsDashboard({ analytics }: AnalyticsDashboardProps) {
             return (
               <div
                 key={stat.type}
-                className="rounded-xl border border-slate-200 bg-surface p-6 shadow-card"
+                className="rounded-xl border border-ink-dim/20 bg-surface p-6 shadow-card"
               >
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-3">
-                    <div className="rounded-lg bg-slate-100 p-2.5 text-slate-700">
+                    <div className="rounded-lg bg-surface-muted p-2.5 text-ink-dim">
                       <Icon className="h-5 w-5" />
                     </div>
                     <div>
@@ -422,7 +422,7 @@ export function AnalyticsDashboard({ analytics }: AnalyticsDashboardProps) {
                   </span>
                 </div>
 
-                <div className="mt-4 h-2 w-full overflow-hidden rounded-full bg-slate-100">
+                <div className="mt-4 h-2 w-full overflow-hidden rounded-full bg-surface-muted">
                   <div
                     className="h-full rounded-full bg-accent transition-all duration-500"
                     style={{ width: `${stat.completionProgress}%` }}
@@ -430,15 +430,15 @@ export function AnalyticsDashboard({ analytics }: AnalyticsDashboardProps) {
                 </div>
 
                 <div className="mt-4 grid grid-cols-3 gap-2 text-center text-xs">
-                  <div className="rounded bg-slate-50 p-2 border border-slate-100">
+                  <div className="rounded bg-surface-muted p-2 border border-ink-dim/10">
                     <div className="font-mono text-ink-dim">Watched</div>
                     <div className="text-ink mt-0.5">{stat.watched}</div>
                   </div>
-                  <div className="rounded bg-slate-50 p-2 border border-slate-100">
+                  <div className="rounded bg-surface-muted p-2 border border-ink-dim/10">
                     <div className="font-mono text-ink-dim">Rewatched</div>
                     <div className="text-ink mt-0.5">{stat.rewatched}</div>
                   </div>
-                  <div className="rounded bg-slate-50 p-2 border border-slate-100">
+                  <div className="rounded bg-surface-muted p-2 border border-ink-dim/10">
                     <div className="font-mono text-ink-dim">Total Views</div>
                     <div className="text-ink mt-0.5">{stat.totalViews}</div>
                   </div>
@@ -460,7 +460,7 @@ export function AnalyticsDashboard({ analytics }: AnalyticsDashboardProps) {
                 placeholder="Search story arcs..."
                 value={arcFilter}
                 onChange={(e) => setArcFilter(e.target.value)}
-                className="w-full rounded-lg border border-slate-200 bg-surface py-2 pl-9 pr-4 text-sm text-ink placeholder:text-ink-faint focus:border-accent focus:outline-none"
+                className="w-full rounded-lg border border-ink-dim/20 bg-surface py-2 pl-9 pr-4 text-sm text-ink placeholder:text-ink-faint focus:border-accent focus:outline-none"
               />
             </div>
             <div className="font-mono text-xs text-ink-dim">
@@ -475,7 +475,7 @@ export function AnalyticsDashboard({ analytics }: AnalyticsDashboardProps) {
               return (
                 <div
                   key={arc.id}
-                  className="flex flex-col justify-between rounded-xl border border-slate-200 bg-surface p-5 shadow-card"
+                  className="flex flex-col justify-between rounded-xl border border-ink-dim/20 bg-surface p-5 shadow-card"
                 >
                   <div>
                     <div className="flex items-start justify-between gap-2">
@@ -486,8 +486,8 @@ export function AnalyticsDashboard({ analytics }: AnalyticsDashboardProps) {
                           isComplete
                             ? "bg-emerald-50 text-emerald-700 border-emerald-200"
                             : isInProgress
-                              ? "bg-amber-50 text-amber-700 border-amber-200"
-                              : "bg-slate-100 text-slate-600 border-slate-200"
+                              ? "bg-amber-500/10 text-amber-400 border-amber-500/30"
+                              : "bg-surface-muted text-ink-dim border-ink-dim/20"
                         )}
                       >
                         {isComplete ? "Completed" : isInProgress ? "In Progress" : "Unopened"}
@@ -503,14 +503,14 @@ export function AnalyticsDashboard({ analytics }: AnalyticsDashboardProps) {
                     )}
                   </div>
 
-                  <div className="mt-4 pt-3 border-t border-slate-100">
+                  <div className="mt-4 pt-3 border-t border-ink-dim/10">
                     <div className="mb-1.5 flex items-center justify-between text-xs">
                       <span className="font-mono text-ink-dim">
                         {arc.watched} / {arc.total} Solved
                       </span>
                       <span className="font-mono text-ink">{arc.progress}%</span>
                     </div>
-                    <div className="h-2 w-full overflow-hidden rounded-full bg-slate-100">
+                    <div className="h-2 w-full overflow-hidden rounded-full bg-surface-muted">
                       <div
                         className={cn(
                           "h-full rounded-full transition-all duration-500",
@@ -538,7 +538,7 @@ export function AnalyticsDashboard({ analytics }: AnalyticsDashboardProps) {
             </h2>
 
             {analytics.favorites.length === 0 ? (
-              <div className="rounded-xl border border-dashed border-slate-200 bg-surface p-12 text-center">
+              <div className="rounded-xl border border-dashed border-ink-dim/20 bg-surface p-12 text-center">
                 <Heart className="mx-auto h-8 w-8 text-ink-faint" />
                 <p className="mt-2 text-sm text-ink-dim">No favorited cases yet.</p>
                 <Link
@@ -554,7 +554,7 @@ export function AnalyticsDashboard({ analytics }: AnalyticsDashboardProps) {
                   <Link
                     key={fav.id}
                     href={`/tracker?q=${encodeURIComponent(fav.title)}`}
-                    className="group flex items-center justify-between rounded-xl border border-slate-200 bg-surface p-4 transition-all hover:border-accent/40 shadow-card"
+                    className="group flex items-center justify-between rounded-xl border border-ink-dim/20 bg-surface p-4 transition-all hover:border-accent/40 shadow-card"
                   >
                     <div className="min-w-0 flex-1">
                       <p className="truncate text-sm text-ink group-hover:text-accent">
@@ -578,7 +578,7 @@ export function AnalyticsDashboard({ analytics }: AnalyticsDashboardProps) {
 
           <div className="grid gap-6 lg:grid-cols-2">
             {/* Top Rated */}
-            <div className="min-w-0 rounded-xl border border-slate-200 bg-surface p-6 shadow-card">
+            <div className="min-w-0 rounded-xl border border-ink-dim/20 bg-surface p-6 shadow-card">
               <h2 className="mb-4 flex items-center justify-between font-display text-base tracking-tight text-ink">
                 <span className="flex items-center gap-2">
                   <Star className="h-4 w-4 text-ink-dim" />
@@ -593,7 +593,7 @@ export function AnalyticsDashboard({ analytics }: AnalyticsDashboardProps) {
                   {analytics.topRated.map((item, idx) => (
                     <div
                       key={item.id}
-                      className="flex items-center justify-between gap-3 rounded-lg border border-slate-100 bg-slate-50/50 p-3"
+                      className="flex items-center justify-between gap-3 rounded-lg border border-ink-dim/10 bg-surface-muted/50 p-3"
                     >
                       <div className="flex items-center gap-3 min-w-0">
                         <span className="font-mono text-xs text-ink-dim">
@@ -616,7 +616,7 @@ export function AnalyticsDashboard({ analytics }: AnalyticsDashboardProps) {
             </div>
 
             {/* Most Rewatched */}
-            <div className="min-w-0 rounded-xl border border-slate-200 bg-surface p-6 shadow-card">
+            <div className="min-w-0 rounded-xl border border-ink-dim/20 bg-surface p-6 shadow-card">
               <h2 className="mb-4 flex items-center justify-between font-display text-base tracking-tight text-ink">
                 <span className="flex items-center gap-2">
                   <RefreshCw className="h-4 w-4 text-ink-dim" />
@@ -631,7 +631,7 @@ export function AnalyticsDashboard({ analytics }: AnalyticsDashboardProps) {
                   {analytics.mostRewatched.map((item, idx) => (
                     <div
                       key={item.id}
-                      className="flex items-center justify-between gap-3 rounded-lg border border-slate-100 bg-slate-50/50 p-3"
+                      className="flex items-center justify-between gap-3 rounded-lg border border-ink-dim/10 bg-surface-muted/50 p-3"
                     >
                       <div className="flex items-center gap-3 min-w-0">
                         <span className="font-mono text-xs text-ink-dim">

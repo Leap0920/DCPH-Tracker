@@ -496,10 +496,10 @@ export function ContentGrid({
   return (
     <div className="space-y-0">
       {/* ── Hero Banner ── */}
-      <div className="relative w-full h-48 sm:h-64 bg-gradient-to-b from-gray-100 to-white overflow-hidden rounded-t-lg">
+      <div className="relative w-full h-48 sm:h-64 bg-gradient-to-b from-surface-muted to-surface overflow-hidden rounded-t-lg">
         <div className="absolute inset-0 bg-gradient-to-tr from-accent-soft via-transparent to-transparent" />
         <div className="absolute inset-0 bg-[linear-gradient(to_right,rgba(225,29,72,0.05)_1px,transparent_1px),linear-gradient(to_bottom,rgba(225,29,72,0.05)_1px,transparent_1px)] bg-[size:3rem_3rem]" />
-        <div className="absolute bottom-0 left-0 right-0 h-32 bg-gradient-to-t from-white to-transparent" />
+        <div className="absolute bottom-0 left-0 right-0 h-32 bg-gradient-to-t from-surface to-transparent" />
         <div className="absolute bottom-0 left-0 right-0 p-6 sm:p-8">
           <h1 className="font-display text-3xl sm:text-5xl leading-tight tracking-tight text-ink mb-2">
             Detective Conan
@@ -512,9 +512,9 @@ export function ContentGrid({
             <span className="font-mono text-xs">{totalMovies} movies</span>
           </div>
           <div className="flex items-center gap-2.5 max-w-md">
-            <div className="flex-1 h-1.5 bg-gray-200 rounded-full overflow-hidden">
+            <div className="flex-1 h-1.5 bg-surface-muted rounded-full overflow-hidden">
               <motion.div
-                className="h-full bg-gray-900 rounded-full"
+                className="h-full bg-ink rounded-full"
                 initial={{ width: 0 }}
                 animate={{ width: `${overallPercent}%` }}
                 transition={{ duration: 0.8, ease: "easeOut" }}
@@ -526,7 +526,7 @@ export function ContentGrid({
       </div>
 
       {/* ── Toolbar: search + view mode + status + type filters ── */}
-      <div className="sticky top-16 z-20 bg-surface/95 backdrop-blur border-b border-slate-200 px-4 sm:px-6 py-3 space-y-3">
+      <div className="sticky top-16 z-20 bg-surface/95 backdrop-blur border-b border-ink-dim/20 px-4 sm:px-6 py-3 space-y-3">
         <div className="relative">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-ink-faint" />
           <input
@@ -537,7 +537,7 @@ export function ContentGrid({
               setSearch(e.target.value)
               onSearchChange?.(e.target.value)
             }}
-            className="w-full h-9 rounded-lg border border-slate-200 bg-surface-muted pl-10 pr-3 text-sm text-ink placeholder:text-ink-faint focus:outline-none focus:ring-2 focus:ring-accent/20 focus:border-accent"
+            className="w-full h-9 rounded-lg border border-ink-dim/20 bg-surface-muted pl-10 pr-3 text-sm text-ink placeholder:text-ink-faint focus:outline-none focus:ring-2 focus:ring-accent/20 focus:border-accent"
           />
         </div>
 
@@ -620,11 +620,11 @@ export function ContentGrid({
               onKeyDown={(e) => {
                 if (e.key === "Enter") handleJump(jumpInput)
               }}
-              className="w-20 h-9 rounded-md border border-slate-200 bg-surface-muted px-2 text-xs text-ink placeholder:text-ink-faint focus:outline-none focus:ring-2 focus:ring-accent/20 focus:border-accent"
+              className="w-20 h-9 rounded-md border border-ink-dim/20 bg-surface-muted px-2 text-xs text-ink placeholder:text-ink-faint focus:outline-none focus:ring-2 focus:ring-accent/20 focus:border-accent"
             />
             <button
               onClick={() => handleJump(jumpInput)}
-              className="inline-flex items-center gap-1 h-9 px-3 rounded-md border border-slate-300 bg-surface text-[10px] font-mono text-ink-faint hover:text-ink hover:border-ink transition-colors"
+              className="inline-flex items-center gap-1 h-9 px-3 rounded-md border border-ink-dim/30 bg-surface text-[10px] font-mono text-ink-faint hover:text-ink hover:border-ink transition-colors"
               title="Jump to episode"
             >
               Jump
@@ -645,12 +645,12 @@ export function ContentGrid({
               onKeyDown={(e) => {
                 if (e.key === "Enter") handleMarkUpTo(markInput)
               }}
-              className="w-20 h-9 rounded-md border border-slate-200 bg-surface-muted px-2 text-xs text-ink placeholder:text-ink-faint focus:outline-none focus:ring-2 focus:ring-accent/20 focus:border-accent"
+              className="w-20 h-9 rounded-md border border-ink-dim/20 bg-surface-muted px-2 text-xs text-ink placeholder:text-ink-faint focus:outline-none focus:ring-2 focus:ring-accent/20 focus:border-accent"
             />
             <button
               onClick={() => handleMarkUpTo(markInput)}
               disabled={!onMarkAll}
-              className="inline-flex items-center gap-1 h-9 px-3 rounded-md border border-slate-300 bg-surface text-[10px] font-mono text-ink-faint hover:text-ink hover:border-ink disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+              className="inline-flex items-center gap-1 h-9 px-3 rounded-md border border-ink-dim/30 bg-surface text-[10px] font-mono text-ink-faint hover:text-ink hover:border-ink disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
               title={onMarkAll ? "Mark episodes up to N as watched" : "Sign in to mark episodes"}
             >
               <Check className="h-3.5 w-3.5" />
@@ -658,8 +658,8 @@ export function ContentGrid({
             </button>
           </div>
 
-          {jumpError && <span className="text-[11px] text-red-600">{jumpError}</span>}
-          {markError && <span className="text-[11px] text-red-600">{markError}</span>}
+          {jumpError && <span className="text-[11px] text-red-400">{jumpError}</span>}
+          {markError && <span className="text-[11px] text-red-400">{markError}</span>}
         </div>
       </div>
 
@@ -695,9 +695,9 @@ export function ContentGrid({
         <div>
           {/* Continue Tracking — always-visible quick strip */}
           {continueTracking.length > 0 && typeFilter === "all" && (
-            <div className="px-4 sm:px-6 py-5 border-b border-slate-100">
+            <div className="px-4 sm:px-6 py-5 border-b border-ink-dim/10">
               <div className="flex items-center gap-2.5 mb-3">
-                <span className="flex h-8 w-8 items-center justify-center rounded-md bg-gray-900 text-white shrink-0">
+                <span className="flex h-8 w-8 items-center justify-center rounded-md bg-ink text-page shrink-0">
                   <Play className="h-4 w-4" />
                 </span>
                 <h2 className="font-display text-sm tracking-tight text-ink">
@@ -707,7 +707,7 @@ export function ContentGrid({
                   {continueTracking.length}
                 </span>
               </div>
-              <div className="flex gap-4 overflow-x-auto pb-2 -mx-1 px-1 scrollbar-thin scrollbar-thumb-gray-300 scrollbar-track-transparent snap-x">
+              <div className="flex gap-4 overflow-x-auto pb-2 -mx-1 px-1 scrollbar-thin scrollbar-thumb-ink-dim/40 scrollbar-track-transparent snap-x">
                 {continueTracking.map((entry) => (
                   <div key={entry.id} className="snap-start w-36 sm:w-40 shrink-0">
                     <ContentCard
@@ -736,8 +736,8 @@ export function ContentGrid({
             const progressColor = complete
               ? "bg-green-500"
               : started
-                ? "bg-gray-900"
-                : "bg-gray-200"
+                ? "bg-ink"
+                : "bg-surface-muted"
             const totalPages = Math.max(1, Math.ceil(section.entries.length / PAGE_SIZE))
             const page = Math.min(pages[section.key] ?? 0, totalPages - 1)
             const pageItems = section.entries.slice(page * PAGE_SIZE, (page + 1) * PAGE_SIZE)
@@ -761,7 +761,7 @@ export function ContentGrid({
                         onValueChange={(v) => setSubcatKey(section.key, v)}
                       >
                         <SelectTrigger
-                          className="h-8 w-auto gap-1.5 border border-slate-300 bg-surface px-3 text-xs font-mono text-ink-faint hover:text-ink hover:border-ink transition-colors"
+                          className="h-8 w-auto gap-1.5 border border-ink-dim/30 bg-surface px-3 text-xs font-mono text-ink-faint hover:text-ink hover:border-ink transition-colors"
                           aria-label={`${section.title} subcategory`}
                         >
                           <SelectValue />
@@ -784,7 +784,7 @@ export function ContentGrid({
                           "watched"
                         )
                       }}
-                      className="inline-flex items-center gap-1.5 h-8 px-3 rounded-md border border-slate-300 bg-surface text-[10px] font-mono text-ink-faint hover:text-ink hover:border-ink transition-colors"
+                      className="inline-flex items-center gap-1.5 h-8 px-3 rounded-md border border-ink-dim/30 bg-surface text-[10px] font-mono text-ink-faint hover:text-ink hover:border-ink transition-colors"
                       title="Mark all as watched"
                     >
                       <Check className="h-3.5 w-3.5" />
@@ -818,7 +818,7 @@ export function ContentGrid({
                       <button
                         onClick={() => setPage(section.key, Math.max(0, page - 1))}
                         disabled={page === 0}
-                        className="inline-flex items-center gap-1.5 h-9 px-3 rounded-md border border-slate-300 bg-surface text-[11px] font-mono text-ink-dim transition-colors hover:text-ink hover:border-ink disabled:opacity-30 disabled:cursor-not-allowed disabled:hover:border-slate-300 disabled:hover:text-ink-dim"
+                        className="inline-flex items-center gap-1.5 h-9 px-3 rounded-md border border-ink-dim/30 bg-surface text-[11px] font-mono text-ink-dim transition-colors hover:text-ink hover:border-ink disabled:opacity-30 disabled:cursor-not-allowed disabled:hover:border-ink-dim/30 disabled:hover:text-ink-dim"
                       >
                         <ChevronLeft className="h-4 w-4" />
                         Prev
@@ -829,7 +829,7 @@ export function ContentGrid({
                       <button
                         onClick={() => setPage(section.key, Math.min(totalPages - 1, page + 1))}
                         disabled={page >= totalPages - 1}
-                        className="inline-flex items-center gap-1.5 h-9 px-3 rounded-md border border-slate-300 bg-surface text-[11px] font-mono text-ink-dim transition-colors hover:text-ink hover:border-ink disabled:opacity-30 disabled:cursor-not-allowed disabled:hover:border-slate-300 disabled:hover:text-ink-dim"
+                        className="inline-flex items-center gap-1.5 h-9 px-3 rounded-md border border-ink-dim/30 bg-surface text-[11px] font-mono text-ink-dim transition-colors hover:text-ink hover:border-ink disabled:opacity-30 disabled:cursor-not-allowed disabled:hover:border-ink-dim/30 disabled:hover:text-ink-dim"
                       >
                         Next
                         <ChevronRight className="h-4 w-4" />
@@ -864,7 +864,7 @@ export function ContentGrid({
                   <Detail term="Status" value="Ongoing" />
                 </dl>
               </div>
-              <div className="bg-surface-muted border border-slate-200 rounded-lg p-5 flex flex-col justify-center">
+              <div className="bg-surface-muted border border-ink-dim/20 rounded-lg p-5 flex flex-col justify-center">
                 <div className="flex items-center gap-2 mb-3 text-ink">
                   <Users className="h-4 w-4" />
                   <span className="font-display text-sm text-ink">Progress</span>
@@ -913,7 +913,7 @@ function Section({
     typeof count === "number"
 
   return (
-    <section className="border-b border-slate-100 last:border-b-0">
+    <section className="border-b border-ink-dim/10 last:border-b-0">
       <div
         role="button"
         tabIndex={0}
@@ -927,7 +927,7 @@ function Section({
         aria-expanded={isOpen}
         className="w-full flex items-center gap-4 px-4 sm:px-6 py-4 hover:bg-surface-muted transition-colors text-left cursor-pointer outline-none focus-visible:ring-2 focus-visible:ring-accent/30"
       >
-        <span className="flex h-8 w-8 items-center justify-center rounded-md bg-gray-900 text-white shrink-0">
+        <span className="flex h-8 w-8 items-center justify-center rounded-md bg-ink text-page shrink-0">
           <Icon className="h-4 w-4" />
         </span>
 
@@ -944,7 +944,7 @@ function Section({
           </div>
           {showProgress && (
             <div className="mt-2 flex items-center gap-3 max-w-xs">
-              <div className="flex-1 h-1.5 bg-gray-200 rounded-full overflow-hidden">
+              <div className="flex-1 h-1.5 bg-surface-muted rounded-full overflow-hidden">
                 <motion.div
                   className={cn("h-full rounded-full", progressColor)}
                   initial={{ width: 0 }}

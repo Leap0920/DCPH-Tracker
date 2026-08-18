@@ -26,11 +26,11 @@ export function ProfileCard({
   isOwn?: boolean
 }) {
   return (
-    <div className="relative rounded-lg border border-slate-200 bg-surface p-6 shadow-card sm:p-8">
+    <div className="relative rounded-lg border border-ink-dim/20 bg-surface p-6 shadow-card sm:p-8">
       <span className="dossier-stamp">Detective</span>
 
       <div className="flex flex-col gap-6 sm:flex-row sm:items-start">
-        <Avatar className="h-24 w-24 shrink-0 ring-2 ring-gray-200">
+        <Avatar className="h-24 w-24 shrink-0 ring-2 ring-ink-dim/20">
           <AvatarImage
             src={profile.avatar_url ?? avatarUrl(profile.display_name)}
           />
@@ -49,7 +49,7 @@ export function ProfileCard({
                 <Button
                   variant="outline"
                   size="sm"
-                  className="gap-1.5 rounded-lg border-slate-200 text-ink-dim hover:text-ink"
+                  className="gap-1.5 rounded-lg border-ink-dim/20 text-ink-dim hover:text-ink"
                 >
                   <Pencil className="h-3.5 w-3.5" />
                   Edit
