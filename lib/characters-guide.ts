@@ -98,8 +98,8 @@ export const CHARACTERS: Character[] = [
     role: "The shrunken detective of Beika",
     affiliation: "Junior Detective League",
     bio: "High-school sleuth Shinichi Kudo, poisoned by the Black Organization's APTX 4869, shrinks to a child and hides as Conan Edogawa. He lives beside Ran as a child, solving cases he can never claim credit for while hunting the men who shrank him.",
-    x: 420,
-    y: 270,
+    x: 1000,
+    y: 700,
   },
   {
     id: "yusaku-kudo",
@@ -310,7 +310,7 @@ export const CHARACTERS: Character[] = [
     affiliation: "Suzuki Family",
     bio: "An eccentric billionaire who funds elaborate traps to catch Kaitou Kid, only to be outwitted every time.",
     x: 860,
-    y: 130,
+    y: 290,
   },
 
   // ─── Kaito Kid / Magic Kaito (top-right) ─────────────────────────
@@ -330,8 +330,8 @@ export const CHARACTERS: Character[] = [
     role: "Kaito's classmate and love interest",
     affiliation: "Phantom Thief Cast",
     bio: "Kaito's childhood friend and love interest, unaware of his double life as Kaitou Kid.",
-    x: 830,
-    y: 130,
+    x: 800,
+    y: 90,
   },
   {
     id: "ginzo-nakamori",
@@ -357,8 +357,8 @@ export const CHARACTERS: Character[] = [
     role: "Toichi's old assistant, now Kaito's aide",
     affiliation: "Phantom Thief Cast",
     bio: "Toichi Kuroba's old assistant, now Kaito's trusted aide and butler figure.",
-    x: 1050,
-    y: 140,
+    x: 1060,
+    y: 190,
   },
 
   // ─── Tokyo MPD (bottom-center) ────────────────────────────────────
@@ -558,8 +558,8 @@ export const CHARACTERS: Character[] = [
     role: "Genial senior agent of the FBI",
     affiliation: "FBI",
     bio: "The calm, much-tested supervisor of the FBI's Japanese headquarters. James steadies the volatile Akai and Jodie while they close in on the Organization.",
-    x: 650,
-    y: 600,
+    x: 620,
+    y: 550,
   },
   {
     id: "mary-sera",
