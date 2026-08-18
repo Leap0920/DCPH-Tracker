@@ -1,6 +1,8 @@
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
+import Script from "next/script";
 import { Inter, JetBrains_Mono, Plus_Jakarta_Sans } from "next/font/google";
 import { Providers } from "@/components/providers";
+import { ThemeProvider } from "@/components/theme-provider";
 import { AuthModal } from "@/components/auth/AuthModal";
 import "./globals.css";
 
@@ -24,7 +26,14 @@ const jetbrainsMono = JetBrains_Mono({
   weight: ["400", "500"],
 });
 
+const siteUrl = process.env.NEXT_PUBLIC_SITE_URL ?? "http://localhost:3000"
+
+export const viewport: Viewport = {
+  themeColor: "#E11D48",
+};
+
 export const metadata: Metadata = {
+  metadataBase: new URL(siteUrl),
   title: {
     default: "Detective Conan PH",
     template: "%s | Detective Conan PH",
@@ -37,11 +46,25 @@ export const metadata: Metadata = {
       "The Filipino Detective Conan community tracker and hub.",
     type: "website",
     locale: "en_PH",
+    images: [
+      {
+        url: new URL("/hero-image.jpg", siteUrl),
+        width: 1200,
+        height: 630,
+        alt: "Detective Conan PH",
+      },
+    ],
   },
-  themeColor: "#E11D48",
   icons: {
     icon: "/icon.svg",
     apple: "/icon.svg",
+  },
+  twitter: {
+    card: "summary_large_image",
+    title: "Detective Conan PH",
+    description:
+      "The Filipino Detective Conan community tracker and hub.",
+    images: [new URL("/hero-image.jpg", siteUrl)],
   },
 };
 
@@ -56,10 +79,20 @@ export default function RootLayout({
       className={`${plusJakartaSans.variable} ${inter.variable} ${jetbrainsMono.variable} scroll-smooth`}
     >
       <body className="min-h-screen bg-page text-ink font-body antialiased overflow-x-hidden w-full max-w-full">
-        <Providers>
-          {children}
-          <AuthModal />
-        </Providers>
+        {/* FOUC guard: apply the persisted theme to <html> BEFORE first
+            paint. App Router has no manual <head>, so this
+            beforeInteractive script is injected into the initial HTML and
+            runs before hydration. Must stay in sync with the ThemeProvider
+            initializer (same localStorage key, default light). */}
+        <Script id="dcph-theme-init" strategy="beforeInteractive">
+          {`(function(){try{var s=localStorage.getItem("dcph-theme");document.documentElement.classList.toggle("dark",s==="dark");}catch(e){}})();`}
+        </Script>
+        <ThemeProvider>
+          <Providers>
+            {children}
+            <AuthModal />
+          </Providers>
+        </ThemeProvider>
       </body>
     </html>
   );
