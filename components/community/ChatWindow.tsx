@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useRef, useCallback, useMemo } from "react"
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query"
+import Link from "next/link"
 import { Send, Menu, ArrowDown, LogIn, UserPlus, MessagesSquare } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
@@ -294,7 +295,7 @@ export function ChatWindow({
   return (
     <div className="flex min-w-0 flex-1 flex-col bg-surface">
       {/* Header */}
-      <header className="flex items-center gap-3 border-b border-slate-200 bg-surface px-4 py-3">
+      <header className="flex items-center gap-3 border-b border-ink-dim/20 bg-surface px-4 py-3">
         <button
           onClick={onOpenRooms}
           aria-label="Open rooms"
@@ -311,14 +312,14 @@ export function ChatWindow({
               className={cn(
                 "flex items-center gap-1 rounded-md px-1.5 py-0.5 font-mono text-[10px]",
                 connected
-                  ? "bg-green-50 text-green-600"
+                  ? "bg-green-500/10 text-green-400"
                   : "bg-surface-muted text-ink-faint"
               )}
             >
               <span
                 className={cn(
                   "h-1.5 w-1.5 rounded-full",
-                  connected ? "bg-green-500" : "bg-gray-400"
+                  connected ? "bg-green-500" : "bg-ink-faint"
                 )}
               />
               {connected ? "Live" : "…"}
@@ -348,7 +349,7 @@ export function ChatWindow({
               <Button size="sm" className="rounded-lg" onClick={() => openAuthModal("signin")}>
                 Sign In
               </Button>
-              <Button size="sm" variant="outline" className="rounded-lg border-slate-200" onClick={() => openAuthModal("signup")}>
+              <Button size="sm" variant="outline" className="rounded-lg border-ink-dim/20" onClick={() => openAuthModal("signup")}>
                 Sign Up
               </Button>
             </div>
@@ -370,7 +371,7 @@ export function ChatWindow({
                 <button
                   onClick={loadEarlier}
                   disabled={loadingMore}
-                  className="rounded-full border border-slate-200 bg-surface px-4 py-2 font-mono text-[11px] text-ink-dim hover:text-ink hover:border-slate-300 disabled:opacity-50 transition-colors"
+                  className="rounded-full border border-ink-dim/20 bg-surface px-4 py-2 font-mono text-[11px] text-ink-dim hover:text-ink hover:border-ink-dim/30 disabled:opacity-50 transition-colors"
                 >
                   {loadingMore ? "Loading…" : "Load earlier messages"}
                 </button>
@@ -389,12 +390,31 @@ export function ChatWindow({
                   new Date(prev.created_at).getTime() <
                   GROUP_GAP_MS
               const pending = msg.id.startsWith("temp-")
+              const username = msg.profiles?.username
+              const avatar = (
+                <Avatar
+                  className={cn(
+                    "h-8 w-8 shrink-0",
+                    grouped && "invisible"
+                  )}
+                >
+                  <AvatarImage
+                    src={
+                      msg.profiles?.avatar_url ??
+                      avatarUrl(msg.profiles?.display_name ?? "?")
+                    }
+                  />
+                  <AvatarFallback className="bg-accent text-xs text-white">
+                    {initials(msg.profiles?.display_name ?? "?")}
+                  </AvatarFallback>
+                </Avatar>
+              )
 
               return (
                 <div key={msg.id}>
                   {showDay && (
                     <div className="my-4 flex items-center justify-center">
-                      <span className="rounded-full border border-slate-200 bg-surface px-3 py-0.5 font-mono text-[11px] text-ink-faint">
+                      <span className="rounded-full border border-ink-dim/20 bg-surface px-3 py-0.5 font-mono text-[11px] text-ink-faint">
                         {formatDay(msg.created_at)}
                       </span>
                     </div>
@@ -406,22 +426,13 @@ export function ChatWindow({
                       grouped ? "mt-0.5" : "mt-3"
                     )}
                   >
-                    <Avatar
-                      className={cn(
-                        "h-8 w-8 shrink-0",
-                        grouped && "invisible"
-                      )}
-                    >
-                      <AvatarImage
-                        src={
-                          msg.profiles?.avatar_url ??
-                          avatarUrl(msg.profiles?.display_name ?? "?")
-                        }
-                      />
-                      <AvatarFallback className="bg-accent text-xs text-white">
-                        {initials(msg.profiles?.display_name ?? "?")}
-                      </AvatarFallback>
-                    </Avatar>
+                    {username ? (
+                      <Link href={`/profile/${username}`} className="shrink-0">
+                        {avatar}
+                      </Link>
+                    ) : (
+                      avatar
+                    )}
 
                     <div
                       className={cn(
@@ -492,7 +503,7 @@ export function ChatWindow({
       </div>
 
       {/* Composer */}
-      <div className="border-t border-slate-200 bg-surface p-3">
+      <div className="border-t border-ink-dim/20 bg-surface p-3">
         {error && (
           <p className="mb-2 px-1 text-xs text-accent">{error}</p>
         )}
@@ -509,7 +520,7 @@ export function ChatWindow({
               }}
               onKeyDown={handleKeyDown}
               placeholder={`Message ${room.name}…`}
-              className="max-h-40 min-h-[40px] flex-1 resize-none rounded-lg border border-slate-200 bg-surface px-3 py-2 text-sm text-ink placeholder:text-ink-faint focus-visible:border-accent focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-accent"
+              className="max-h-40 min-h-[40px] flex-1 resize-none rounded-lg border border-ink-dim/20 bg-surface px-3 py-2 text-sm text-ink placeholder:text-ink-faint focus-visible:border-accent focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-accent"
             />
             <Button
               type="button"
@@ -523,7 +534,7 @@ export function ChatWindow({
             </Button>
           </div>
         ) : (
-          <div className="flex flex-col items-center gap-3 rounded-lg border border-dashed border-slate-200 bg-surface-muted px-4 py-6 text-center sm:flex-row sm:justify-center">
+          <div className="flex flex-col items-center gap-3 rounded-lg border border-dashed border-ink-dim/20 bg-surface-muted px-4 py-6 text-center sm:flex-row sm:justify-center">
             <p className="text-sm text-ink-dim">
               Sign in to join the conversation.
             </p>
@@ -535,7 +546,7 @@ export function ChatWindow({
               <Button
                 size="sm"
                 variant="outline"
-                className="gap-1.5 rounded-lg border-slate-200"
+                className="gap-1.5 rounded-lg border-ink-dim/20"
                 onClick={() => openAuthModal("signup")}
               >
                 <UserPlus className="h-4 w-4" />
@@ -565,7 +576,7 @@ function ChatSkeleton() {
           key={i}
           className={cn("flex gap-3", i % 2 === 0 ? "" : "flex-row-reverse")}
         >
-          <div className="h-8 w-8 shrink-0 animate-pulse rounded-full bg-gray-200" />
+          <div className="h-8 w-8 shrink-0 animate-pulse rounded-full bg-surface-muted" />
           <div
             className={cn(
               "h-10 animate-pulse rounded-lg bg-surface-muted",
