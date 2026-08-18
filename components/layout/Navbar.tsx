@@ -184,7 +184,7 @@ export function Navbar() {
           })}
 
           {/* Explore Dropdown */}
-          <DropdownMenu>
+          <DropdownMenu modal={false}>
             <DropdownMenuTrigger asChild>
               <button
                 type="button"
@@ -225,7 +225,7 @@ export function Navbar() {
           </DropdownMenu>
 
           {/* Community Dropdown */}
-          <DropdownMenu>
+          <DropdownMenu modal={false}>
             <DropdownMenuTrigger asChild>
               <button
                 type="button"
@@ -279,7 +279,7 @@ export function Navbar() {
           {!loading && (
             <>
               {user ? (
-                <DropdownMenu>
+                <DropdownMenu modal={false}>
                   <DropdownMenuTrigger asChild>
                     <button
                       type="button"
