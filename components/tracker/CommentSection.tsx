@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState } from "react"
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
+import Link from "next/link"
 import { MessageSquare, Send, Trash2 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
@@ -205,7 +206,7 @@ export function CommentSection({ contentId }: { contentId: string }) {
   }
 
   return (
-    <section className="mt-6 border-t border-slate-200 pt-6">
+    <section className="mt-6 border-t border-ink-dim/20 pt-6">
       <h2 className="mb-3 font-display text-sm text-ink-dim">Comments</h2>
 
       {commentsQuery.isLoading ? (
@@ -221,7 +222,7 @@ export function CommentSection({ contentId }: { contentId: string }) {
           ))}
         </div>
       ) : comments.length === 0 ? (
-        <div className="flex flex-col items-center justify-center rounded-lg border border-dashed border-slate-200 bg-surface-muted px-4 py-8 text-center">
+        <div className="flex flex-col items-center justify-center rounded-lg border border-dashed border-ink-dim/20 bg-surface-muted px-4 py-8 text-center">
           <MessageSquare className="h-6 w-6 text-ink-faint" />
           <p className="mt-3 text-sm text-ink-dim">No comments yet. Be the first to share your thoughts.</p>
         </div>
@@ -232,22 +233,43 @@ export function CommentSection({ contentId }: { contentId: string }) {
             const canDelete = isOwn || isModerator
             const author = comment.author
             const pending = comment.id.startsWith("temp-")
+            const profileHref = author?.username ? `/profile/${author.username}` : null
+
+            const avatar = (
+              <Avatar className="h-8 w-8 shrink-0">
+                <AvatarImage
+                  src={author?.avatar_url ?? avatarUrl(author?.display_name ?? "?")}
+                />
+                <AvatarFallback className="bg-accent text-xs text-white">
+                  {initials(author?.display_name ?? "?")}
+                </AvatarFallback>
+              </Avatar>
+            )
+
             return (
               <li key={comment.id} className="flex gap-3">
-                <Avatar className="h-8 w-8 shrink-0">
-                  <AvatarImage
-                    src={author?.avatar_url ?? avatarUrl(author?.display_name ?? "?")}
-                  />
-                  <AvatarFallback className="bg-accent text-xs text-white">
-                    {initials(author?.display_name ?? "?")}
-                  </AvatarFallback>
-                </Avatar>
+                {profileHref ? (
+                  <Link href={profileHref} className="shrink-0">
+                    {avatar}
+                  </Link>
+                ) : (
+                  avatar
+                )}
 
                 <div className="min-w-0 flex-1">
                   <div className="flex items-baseline gap-2">
-                    <span className="truncate text-sm font-medium text-ink">
-                      {author?.display_name || author?.username || "Unknown"}
-                    </span>
+                    {profileHref ? (
+                      <Link
+                        href={profileHref}
+                        className="truncate text-sm font-medium text-ink"
+                      >
+                        {author?.display_name || author?.username || "Unknown"}
+                      </Link>
+                    ) : (
+                      <span className="truncate text-sm font-medium text-ink">
+                        {author?.display_name || author?.username || "Unknown"}
+                      </span>
+                    )}
                     <span className="shrink-0 font-mono text-[11px] text-ink-faint">
                       {formatDay(comment.created_at)} · {formatTime(comment.created_at)}
                     </span>
@@ -301,7 +323,7 @@ export function CommentSection({ contentId }: { contentId: string }) {
                 }}
                 onKeyDown={handleKeyDown}
                 placeholder="Share your thoughts…"
-                className="max-h-40 min-h-[40px] flex-1 resize-none rounded-lg border border-slate-200 bg-surface px-3 py-2 text-sm text-ink placeholder:text-ink-faint focus-visible:border-accent focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-accent"
+                className="max-h-40 min-h-[40px] flex-1 resize-none rounded-lg border border-ink-dim/20 bg-surface px-3 py-2 text-sm text-ink placeholder:text-ink-faint focus-visible:border-accent focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-accent"
               />
               <Button
                 type="button"
@@ -320,7 +342,7 @@ export function CommentSection({ contentId }: { contentId: string }) {
             </p>
           </>
         ) : (
-          <div className="flex flex-col items-center gap-3 rounded-lg border border-dashed border-slate-200 bg-surface-muted px-4 py-6 text-center sm:flex-row sm:justify-center">
+          <div className="flex flex-col items-center gap-3 rounded-lg border border-dashed border-ink-dim/20 bg-surface-muted px-4 py-6 text-center sm:flex-row sm:justify-center">
             <p className="text-sm text-ink-dim">Sign in to comment.</p>
             <div className="flex items-center gap-2">
               <Button size="sm" className="rounded-lg" onClick={() => openAuthModal("signin")}>
@@ -329,7 +351,7 @@ export function CommentSection({ contentId }: { contentId: string }) {
               <Button
                 size="sm"
                 variant="outline"
-                className="rounded-lg border-slate-200"
+                className="rounded-lg border-ink-dim/20"
                 onClick={() => openAuthModal("signup")}
               >
                 Sign Up
