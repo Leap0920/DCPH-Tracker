@@ -1,20 +1,58 @@
 "use client"
 
 import Link from "next/link"
-import { usePathname } from "next/navigation"
+import { usePathname, useRouter } from "next/navigation"
 import { useState, useEffect } from "react"
-import { Menu, X, User, Settings, ShieldCheck } from "lucide-react"
+import {
+  Menu,
+  X,
+  User,
+  Settings,
+  ShieldCheck,
+  Search,
+  ChevronDown,
+  BookOpen,
+  Users,
+  BarChart3,
+  Trophy,
+  MessageSquare,
+  LogOut,
+} from "lucide-react"
 import { Button } from "@/components/ui/button"
-import { NAV_ROUTES } from "@/lib/constants"
+import { ThemeToggle } from "@/components/ui/theme-toggle"
+import { NotificationBell } from "@/components/notifications/NotificationBell"
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu"
+import { NAV_MAIN, NAV_EXPLORE, NAV_COMMUNITY, avatarUrl } from "@/lib/constants"
 import { cn } from "@/lib/utils"
 import { createClient } from "@/utils/supabase/client"
 import { openAuthModal } from "@/lib/auth-modal"
 import type { User as SupabaseUser } from "@supabase/supabase-js"
 
-type NavProfile = { username: string; display_name: string; role: "member" | "moderator" | "admin" }
+type NavProfile = {
+  username: string
+  display_name: string
+  role: "member" | "moderator" | "admin"
+  avatar_url?: string | null
+}
+
+const iconMap: Record<string, React.ElementType> = {
+  BookOpen,
+  Users,
+  BarChart3,
+  Trophy,
+  MessageSquare,
+}
 
 export function Navbar() {
   const pathname = usePathname()
+  const router = useRouter()
   const [mobileOpen, setMobileOpen] = useState(false)
   const [user, setUser] = useState<SupabaseUser | null>(null)
   const [profile, setProfile] = useState<NavProfile | null>(null)
@@ -29,7 +67,7 @@ export function Navbar() {
       if (user) {
         const { data: profileData } = await supabase
           .from("profiles")
-          .select("username, display_name, role")
+          .select("username, display_name, role, avatar_url")
           .eq("user_id", user.id)
           .single()
         setProfile(profileData as NavProfile | null)
@@ -45,7 +83,7 @@ export function Navbar() {
       if (currentUser) {
         const { data: profileData } = await supabase
           .from("profiles")
-          .select("username, display_name, role")
+          .select("username, display_name, role, avatar_url")
           .eq("user_id", currentUser.id)
           .single()
         setProfile(profileData as NavProfile | null)
@@ -64,8 +102,6 @@ export function Navbar() {
     const isCharactersPage = pathname.startsWith("/characters")
     const isMobile = typeof window !== "undefined" && window.innerWidth < 768
 
-    // On /characters on desktop, hide navbar by default until cursor approaches top;
-    // on mobile, ALWAYS keep navbar visible so users can navigate properly.
     if (isCharactersPage && !isMobile) {
       setNavVisible(false)
     } else {
@@ -84,7 +120,6 @@ export function Navbar() {
 
     const handleMouseMove = (e: MouseEvent) => {
       if (!isCharactersPage || (typeof window !== "undefined" && window.innerWidth < 768)) return
-      // Reveal navbar ONLY when cursor touches top edge (clientY < 10px) or mobile menu is open
       if (e.clientY < 10 || mobileOpen) {
         setNavVisible(true)
       } else if (e.clientY > 30) {
@@ -100,14 +135,22 @@ export function Navbar() {
     }
   }, [mobileOpen, pathname])
 
+  const handleSignOut = async () => {
+    await supabase.auth.signOut()
+    router.refresh()
+  }
+
+  const isExploreActive = NAV_EXPLORE.some(item => pathname.startsWith(item.href))
+  const isCommunityActive = NAV_COMMUNITY.some(item => pathname.startsWith(item.href))
+
   return (
     <header className={cn(
-      "fixed top-0 left-0 right-0 z-40 border-b border-slate-200 bg-surface/90 backdrop-blur-md transition-transform duration-300 shadow-sm",
+      "fixed top-0 left-0 right-0 z-40 border-b border-ink-dim/20 bg-surface/90 backdrop-blur-md transition-transform duration-300 shadow-sm",
       navVisible ? "translate-y-0" : "-translate-y-full"
     )}>
       <nav className="mx-auto flex h-16 max-w-7xl items-center justify-between px-6">
         {/* Logo */}
-        <Link href="/" className="flex items-center gap-2 group">
+        <Link href="/" className="flex items-center gap-2 group shrink-0">
           <img
             src="/img/logo_DCPH.png"
             alt="Detective Conan PH Logo"
@@ -118,9 +161,10 @@ export function Navbar() {
           </span>
         </Link>
 
-        {/* Desktop nav */}
+        {/* Desktop grouped nav */}
         <div className="hidden md:flex items-center gap-1">
-          {NAV_ROUTES.map((route) => {
+          {/* Main Links */}
+          {NAV_MAIN.map((route) => {
             const isActive = pathname === route.href ||
               (route.href !== "/" && pathname.startsWith(route.href))
             return (
@@ -128,9 +172,9 @@ export function Navbar() {
                 key={route.href}
                 href={route.href}
                 className={cn(
-                  "px-3 py-2.5 rounded-md text-sm font-display transition-colors",
+                  "px-3 py-2 rounded-md text-sm font-display transition-colors",
                   isActive
-                    ? "text-ink bg-surface-muted"
+                    ? "text-ink bg-surface-muted font-medium"
                     : "text-ink-dim hover:text-ink hover:bg-surface-muted"
                 )}
               >
@@ -138,42 +182,181 @@ export function Navbar() {
               </Link>
             )
           })}
+
+          {/* Explore Dropdown */}
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <button
+                type="button"
+                className={cn(
+                  "flex items-center gap-1 px-3 py-2 rounded-md text-sm font-display transition-colors outline-none",
+                  isExploreActive
+                    ? "text-ink bg-surface-muted font-medium"
+                    : "text-ink-dim hover:text-ink hover:bg-surface-muted"
+                )}
+              >
+                Explore
+                <ChevronDown className="h-3.5 w-3.5 opacity-60" />
+              </button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="start" className="w-56 p-1.5 bg-surface/95 backdrop-blur-md">
+              {NAV_EXPLORE.map((item) => {
+                const Icon = item.icon ? iconMap[item.icon] : null
+                const isActive = pathname.startsWith(item.href)
+                return (
+                  <DropdownMenuItem key={item.href} asChild>
+                    <Link
+                      href={item.href}
+                      className={cn(
+                        "flex items-start gap-2.5 p-2 rounded-md cursor-pointer transition-colors",
+                        isActive ? "bg-surface-muted text-ink" : "hover:bg-surface-muted/60"
+                      )}
+                    >
+                      {Icon && <Icon className="h-4 w-4 mt-0.5 text-accent shrink-0" />}
+                      <div>
+                        <div className="font-display text-xs font-medium text-ink">{item.label}</div>
+                        <div className="text-[11px] text-ink-faint leading-tight mt-0.5">{item.description}</div>
+                      </div>
+                    </Link>
+                  </DropdownMenuItem>
+                )
+              })}
+            </DropdownMenuContent>
+          </DropdownMenu>
+
+          {/* Community Dropdown */}
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <button
+                type="button"
+                className={cn(
+                  "flex items-center gap-1 px-3 py-2 rounded-md text-sm font-display transition-colors outline-none",
+                  isCommunityActive
+                    ? "text-ink bg-surface-muted font-medium"
+                    : "text-ink-dim hover:text-ink hover:bg-surface-muted"
+                )}
+              >
+                Community
+                <ChevronDown className="h-3.5 w-3.5 opacity-60" />
+              </button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="start" className="w-56 p-1.5 bg-surface/95 backdrop-blur-md">
+              {NAV_COMMUNITY.map((item) => {
+                const Icon = item.icon ? iconMap[item.icon] : null
+                const isActive = pathname.startsWith(item.href)
+                return (
+                  <DropdownMenuItem key={item.href} asChild>
+                    <Link
+                      href={item.href}
+                      className={cn(
+                        "flex items-start gap-2.5 p-2 rounded-md cursor-pointer transition-colors",
+                        isActive ? "bg-surface-muted text-ink" : "hover:bg-surface-muted/60"
+                      )}
+                    >
+                      {Icon && <Icon className="h-4 w-4 mt-0.5 text-accent shrink-0" />}
+                      <div>
+                        <div className="font-display text-xs font-medium text-ink">{item.label}</div>
+                        <div className="text-[11px] text-ink-faint leading-tight mt-0.5">{item.description}</div>
+                      </div>
+                    </Link>
+                  </DropdownMenuItem>
+                )
+              })}
+            </DropdownMenuContent>
+          </DropdownMenu>
         </div>
 
-        {/* Right side */}
+        {/* Right side actions */}
         <div className="flex items-center gap-2">
+          <Link href="/search">
+            <Button variant="ghost" size="icon" aria-label="Search" className="text-ink-faint hover:text-ink">
+              <Search className="h-4 w-4" />
+            </Button>
+          </Link>
+
+          <NotificationBell className="hidden md:block" />
+
           {!loading && (
             <>
               {user ? (
-                <div className="hidden md:flex items-center gap-2">
-                  {profile?.role === "admin" && (
-                    <Link href="/admin">
-                      <Button variant="ghost" size="sm" className="gap-2 text-ink-dim hover:text-ink font-display text-xs">
-                        <ShieldCheck className="h-4 w-4" />
-                        Admin
-                      </Button>
-                    </Link>
-                  )}
-                  <Link href={profile ? `/profile/${profile.username}` : "#"}>
-                    <Button variant="ghost" size="sm" className="gap-2 text-ink-dim hover:text-ink font-display text-xs">
-                      <User className="h-4 w-4" />
-                      {profile?.display_name || "Profile"}
-                    </Button>
-                  </Link>
-                  <Link href="/settings">
-                    <Button variant="ghost" size="icon" aria-label="Settings" className="text-ink-faint hover:text-ink">
-                      <Settings className="h-4 w-4" />
-                    </Button>
-                  </Link>
-                </div>
+                <DropdownMenu>
+                  <DropdownMenuTrigger asChild>
+                    <button
+                      type="button"
+                      className="hidden md:flex items-center gap-2 pl-1.5 pr-2.5 py-1 rounded-full border border-ink-dim/20 bg-surface-muted/50 hover:bg-surface-muted hover:border-ink-dim/40 transition-all outline-none"
+                    >
+                      <img
+                        src={profile?.avatar_url || avatarUrl(profile?.display_name || user.email || "Detective")}
+                        alt={profile?.display_name || "Profile"}
+                        className="h-6 w-6 rounded-full object-cover border border-ink-dim/20"
+                      />
+                      <span className="font-display text-xs text-ink font-medium max-w-[110px] truncate">
+                        {profile?.display_name || "Detective"}
+                      </span>
+                      <ChevronDown className="h-3 w-3 text-ink-dim opacity-70" />
+                    </button>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent align="end" className="w-56 p-1.5 bg-surface/95 backdrop-blur-md">
+                    <DropdownMenuLabel className="px-3 py-2">
+                      <div className="font-display text-xs font-bold text-ink truncate">
+                        {profile?.display_name || "Detective"}
+                      </div>
+                      <div className="text-[11px] text-ink-faint font-normal truncate">
+                        @{profile?.username || user.email?.split("@")[0]}
+                      </div>
+                      {profile?.role === "admin" && (
+                        <span className="inline-flex items-center gap-1 mt-1.5 px-1.5 py-0.5 rounded text-[10px] font-mono bg-accent/15 text-accent font-semibold">
+                          <ShieldCheck className="h-3 w-3" /> Admin
+                        </span>
+                      )}
+                    </DropdownMenuLabel>
+                    <DropdownMenuSeparator />
+                    <DropdownMenuItem asChild>
+                      <Link href={profile ? `/profile/${profile.username}` : "#"} className="flex items-center gap-2.5 px-3 py-2 text-xs font-display cursor-pointer">
+                        <User className="h-4 w-4 text-ink-dim" />
+                        Profile
+                      </Link>
+                    </DropdownMenuItem>
+                    {profile?.role === "admin" && (
+                      <DropdownMenuItem asChild>
+                        <Link href="/admin" className="flex items-center gap-2.5 px-3 py-2 text-xs font-display cursor-pointer text-accent font-medium">
+                          <ShieldCheck className="h-4 w-4" />
+                          Admin Console
+                        </Link>
+                      </DropdownMenuItem>
+                    )}
+                    <DropdownMenuItem asChild>
+                      <Link href="/settings" className="flex items-center gap-2.5 px-3 py-2 text-xs font-display cursor-pointer">
+                        <Settings className="h-4 w-4 text-ink-dim" />
+                        Settings
+                      </Link>
+                    </DropdownMenuItem>
+                    <DropdownMenuSeparator />
+                    <div className="px-3 py-1.5 flex items-center justify-between">
+                      <span className="text-xs font-display text-ink-dim">Theme</span>
+                      <ThemeToggle className="h-7 w-7 text-ink-faint hover:text-ink" />
+                    </div>
+                    <DropdownMenuSeparator />
+                    <DropdownMenuItem
+                      onClick={handleSignOut}
+                      className="flex items-center gap-2.5 px-3 py-2 text-xs font-display text-red-500 hover:text-red-600 dark:hover:text-red-400 cursor-pointer focus:bg-red-500/10"
+                    >
+                      <LogOut className="h-4 w-4" />
+                      Sign Out
+                    </DropdownMenuItem>
+                  </DropdownMenuContent>
+                </DropdownMenu>
               ) : (
-                <button
-                  type="button"
-                  onClick={() => openAuthModal("signin")}
-                  className="hidden md:inline-flex items-center justify-center rounded-md border border-slate-200 bg-surface px-3 h-9 text-xs font-display text-ink-dim hover:text-ink hover:border-slate-300 transition-colors"
-                >
-                  Sign In
-                </button>
+                <div className="hidden md:flex items-center gap-2">
+                  <ThemeToggle className="text-ink-faint hover:text-ink" />
+                  <button
+                    type="button"
+                    onClick={() => openAuthModal("signin")}
+                    className="inline-flex items-center justify-center rounded-md border border-ink-dim/20 bg-surface px-3 h-8 text-xs font-display text-ink-dim hover:text-ink hover:border-ink-dim/30 transition-colors"
+                  >
+                    Sign In
+                  </button>
+                </div>
               )}
             </>
           )}
@@ -193,64 +376,135 @@ export function Navbar() {
 
       {/* Mobile nav */}
       {mobileOpen && (
-        <div className="md:hidden border-t border-slate-200 bg-surface/95 backdrop-blur-md">
-          <div className="flex flex-col px-6 py-4 gap-1">
-            {NAV_ROUTES.map((route) => {
-              const isActive = pathname === route.href ||
-                (route.href !== "/" && pathname.startsWith(route.href))
-              return (
-                <Link
-                  key={route.href}
-                  href={route.href}
-                  onClick={() => setMobileOpen(false)}
-                  className={cn(
-                    "px-3 py-3 rounded-md text-sm font-display transition-colors",
-                    isActive
-                      ? "text-ink bg-surface-muted"
-                      : "text-ink-dim hover:text-ink hover:bg-surface-muted"
-                  )}
-                >
-                  {route.label}
-                </Link>
-              )
-            })}
-            <div className="mt-4 pt-4 border-t border-slate-200">
+        <div className="md:hidden border-t border-ink-dim/20 bg-surface/95 backdrop-blur-md max-h-[calc(100vh-4rem)] overflow-y-auto">
+          <div className="flex flex-col px-6 py-4 gap-4">
+            {/* Section: Main */}
+            <div>
+              <div className="text-[10px] font-mono uppercase tracking-wider text-ink-faint mb-2">Main</div>
+              <div className="flex flex-col gap-1">
+                {NAV_MAIN.map((route) => {
+                  const isActive = pathname === route.href || (route.href !== "/" && pathname.startsWith(route.href))
+                  return (
+                    <Link
+                      key={route.href}
+                      href={route.href}
+                      onClick={() => setMobileOpen(false)}
+                      className={cn(
+                        "px-3 py-2.5 rounded-md text-sm font-display transition-colors",
+                        isActive ? "text-ink bg-surface-muted font-medium" : "text-ink-dim hover:text-ink hover:bg-surface-muted"
+                      )}
+                    >
+                      {route.label}
+                    </Link>
+                  )
+                })}
+              </div>
+            </div>
+
+            {/* Section: Explore */}
+            <div>
+              <div className="text-[10px] font-mono uppercase tracking-wider text-ink-faint mb-2">Explore</div>
+              <div className="flex flex-col gap-1">
+                {NAV_EXPLORE.map((item) => {
+                  const Icon = item.icon ? iconMap[item.icon] : null
+                  const isActive = pathname.startsWith(item.href)
+                  return (
+                    <Link
+                      key={item.href}
+                      href={item.href}
+                      onClick={() => setMobileOpen(false)}
+                      className={cn(
+                        "flex items-center gap-2.5 px-3 py-2.5 rounded-md text-sm font-display transition-colors",
+                        isActive ? "text-ink bg-surface-muted font-medium" : "text-ink-dim hover:text-ink hover:bg-surface-muted"
+                      )}
+                    >
+                      {Icon && <Icon className="h-4 w-4 text-accent" />}
+                      <span>{item.label}</span>
+                    </Link>
+                  )
+                })}
+              </div>
+            </div>
+
+            {/* Section: Community */}
+            <div>
+              <div className="text-[10px] font-mono uppercase tracking-wider text-ink-faint mb-2">Community</div>
+              <div className="flex flex-col gap-1">
+                {NAV_COMMUNITY.map((item) => {
+                  const Icon = item.icon ? iconMap[item.icon] : null
+                  const isActive = pathname.startsWith(item.href)
+                  return (
+                    <Link
+                      key={item.href}
+                      href={item.href}
+                      onClick={() => setMobileOpen(false)}
+                      className={cn(
+                        "flex items-center gap-2.5 px-3 py-2.5 rounded-md text-sm font-display transition-colors",
+                        isActive ? "text-ink bg-surface-muted font-medium" : "text-ink-dim hover:text-ink hover:bg-surface-muted"
+                      )}
+                    >
+                      {Icon && <Icon className="h-4 w-4 text-accent" />}
+                      <span>{item.label}</span>
+                    </Link>
+                  )
+                })}
+              </div>
+            </div>
+
+            {/* Section: Account / Auth */}
+            <div className="pt-3 border-t border-ink-dim/20">
+              <NotificationBell mobile />
               {!loading && (
                 <>
                   {user ? (
-                    <div className="flex flex-col gap-2">
+                    <div className="flex flex-col gap-1 mt-2">
                       {profile?.role === "admin" && (
                         <Link href="/admin" onClick={() => setMobileOpen(false)}>
-                          <Button variant="ghost" className="w-full justify-start gap-2 font-display">
+                          <Button variant="ghost" className="w-full justify-start gap-2.5 font-display text-accent">
                             <ShieldCheck className="h-4 w-4" />
                             Admin Console
                           </Button>
                         </Link>
                       )}
                       <Link href={profile ? `/profile/${profile.username}` : "#"} onClick={() => setMobileOpen(false)}>
-                        <Button variant="ghost" className="w-full justify-start gap-2 font-display">
+                        <Button variant="ghost" className="w-full justify-start gap-2.5 font-display">
                           <User className="h-4 w-4" />
                           Profile ({profile?.display_name || "Detective"})
                         </Button>
                       </Link>
                       <Link href="/settings" onClick={() => setMobileOpen(false)}>
-                        <Button variant="ghost" className="w-full justify-start gap-2 font-display">
+                        <Button variant="ghost" className="w-full justify-start gap-2.5 font-display">
                           <Settings className="h-4 w-4" />
                           Settings
                         </Button>
                       </Link>
+                      <ThemeToggle withLabel className="w-full justify-start gap-2.5 font-display text-ink-dim hover:text-ink px-4 py-2" />
+                      <Button
+                        variant="ghost"
+                        onClick={() => {
+                          setMobileOpen(false)
+                          handleSignOut()
+                        }}
+                        className="w-full justify-start gap-2.5 font-display text-red-500 hover:text-red-600"
+                      >
+                        <LogOut className="h-4 w-4" />
+                        Sign Out
+                      </Button>
                     </div>
                   ) : (
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setMobileOpen(false)
-                        openAuthModal("signin")
-                      }}
-                      className="w-full inline-flex items-center justify-center rounded-md border border-slate-200 bg-surface px-3 py-3 text-sm font-display text-ink-dim hover:text-ink transition-colors"
-                    >
-                      Sign In
-                    </button>
+                    <div className="flex flex-col gap-2 mt-2">
+                      <ThemeToggle withLabel className="w-full justify-start gap-2.5 font-display text-ink-dim hover:text-ink px-4 py-2" />
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setMobileOpen(false)
+                          openAuthModal("signin")
+                        }}
+                        className="w-full inline-flex items-center justify-center rounded-md border border-ink-dim/20 bg-surface px-3 py-2.5 text-sm font-display text-ink-dim hover:text-ink transition-colors"
+                      >
+                        Sign In
+                      </button>
+                    </div>
                   )}
                 </>
               )}
@@ -261,3 +515,4 @@ export function Navbar() {
     </header>
   )
 }
+
