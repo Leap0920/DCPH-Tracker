@@ -101,6 +101,7 @@ function TrackerPageContent() {
   const contentQuery = useQuery({
     queryKey: queryKeys.content.all(),
     queryFn: fetchContentEntries,
+    staleTime: 1000 * 60 * 60, // Cache content entries for 1 hour
   })
   const entries = contentQuery.data?.entries ?? []
   const arcMap = contentQuery.data?.arcMap ?? null
@@ -122,6 +123,7 @@ function TrackerPageContent() {
     queryKey: queryKeys.watchStatus.all(user ?? ""),
     queryFn: () => fetchUserWatchStatuses(user as string),
     enabled: !!user,
+    staleTime: 1000 * 60 * 5, // Cache watch status for 5 minutes
   })
   const userStatuses = watchStatusQuery.data?.statuses ?? new Map<string, WatchStatus>()
   const watchCounts = watchStatusQuery.data?.counts ?? new Map<string, number>()
@@ -135,11 +137,13 @@ function TrackerPageContent() {
     queryKey: queryKeys.continueWatching.all(user ?? ""),
     queryFn: () => getContinueWatching(user as string),
     enabled: !!user,
+    staleTime: 1000 * 60 * 5,
   })
   const nextUpQuery = useQuery({
     queryKey: queryKeys.continueWatching.nextUp(user ?? ""),
     queryFn: () => getNextUp(user as string),
     enabled: !!user,
+    staleTime: 1000 * 60 * 5,
   })
   const continueWatchingKey = () => queryKeys.continueWatching.all(user as string)
   const nextUpKey = () => queryKeys.continueWatching.nextUp(user as string)
@@ -356,11 +360,11 @@ function TrackerPageContent() {
         {loading ? (
           <div className="text-center py-24">
             <div className="inline-flex items-center gap-3">
-              <div className="h-2 w-2 bg-gray-900 rounded-full animate-pulse" />
+              <div className="h-2 w-2 bg-ink rounded-full animate-pulse" />
               <p className="font-display text-lg text-ink-faint animate-pulse tracking-tight">
                 Loading case files...
               </p>
-              <div className="h-2 w-2 bg-gray-900 rounded-full animate-pulse" style={{ animationDelay: "0.3s" }} />
+              <div className="h-2 w-2 bg-ink rounded-full animate-pulse" style={{ animationDelay: "0.3s" }} />
             </div>
           </div>
         ) : error && entries.length === 0 ? (
@@ -385,13 +389,13 @@ function TrackerPageContent() {
         ) : (
           <div className="space-y-6">
             {error && (
-              <div className="rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-600">
+              <div className="rounded-lg border border-red-500/30 bg-red-500/10 px-4 py-3 text-sm text-red-400">
                 {error}
               </div>
             )}
             <MotivationStats entries={entries} userStatuses={userStatuses} userName={user} />
             {!user && (
-              <div className="flex flex-wrap items-center gap-4 rounded-lg border border-slate-200 bg-surface p-5">
+              <div className="flex flex-wrap items-center gap-4 rounded-lg border border-ink-dim/20 bg-surface p-5">
                 <div className="flex-1">
                   <p className="font-display text-base tracking-tight text-ink">
                     Sign in to track your progress
@@ -411,7 +415,7 @@ function TrackerPageContent() {
                 nextUp={nextUpQuery.data ?? null}
               />
             )}
-            <div className="bg-surface border border-slate-200 rounded-lg overflow-hidden shadow-card">
+            <div className="bg-surface border border-ink-dim/20 rounded-lg overflow-hidden shadow-card">
               <ContentGrid
                 entries={entries}
                 userStatuses={userStatuses}
