@@ -1,4 +1,5 @@
 import { createClient } from "@/utils/supabase/server"
+import { createAdminClient } from "@/utils/supabase/admin"
 import type { Database } from "@/types/database.types"
 
 type Profile = Database["public"]["Tables"]["profiles"]["Row"]
@@ -70,7 +71,7 @@ export async function updateProfile(userId: string, updates: ProfileUpdate) {
 }
 
 export async function getProfileStats(userId: string) {
-  const supabase = await createClient()
+  const supabase = createAdminClient() ?? (await createClient())
 
   const { data: watchStatuses, error: watchError } = await supabase
     .from("watch_status")

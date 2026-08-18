@@ -439,10 +439,11 @@ create policy "Admins can delete content entries"
   on content_entries for delete
   using (public.is_admin());
 
--- Watch status: owner CRUD
+-- Watch status: public read, owner write/delete
 drop policy if exists "Users can view own watch status" on watch_status;
-create policy "Users can view own watch status"
-  on watch_status for select using (auth.uid() = user_id);
+drop policy if exists "Watch status is publicly readable" on watch_status;
+create policy "Watch status is publicly readable"
+  on watch_status for select using (true);
 
 drop policy if exists "Users can insert own watch status" on watch_status;
 create policy "Users can insert own watch status"

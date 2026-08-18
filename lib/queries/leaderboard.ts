@@ -1,4 +1,5 @@
 import { createClient } from "@/utils/supabase/server"
+import { createAdminClient } from "@/utils/supabase/admin"
 import type { Database } from "@/types/database.types"
 import { getDetectiveRank } from "@/lib/ranks"
 import { PUBLIC_PROFILE_COLUMNS } from "@/lib/queries/profile"
@@ -34,7 +35,7 @@ export interface RankingRow {
  * user and sums their runtimes, then ranks by episodes watched.
  */
 export async function getRankings(limit = 100): Promise<RankingRow[]> {
-  const supabase = await createClient()
+  const supabase = createAdminClient() ?? (await createClient())
 
   // PostgREST caps each request at 1,000 rows; paginate so the leaderboard
   // stays correct once the community has more than 1,000 watch rows.
@@ -128,7 +129,7 @@ export async function getUserGlobalRank(
   watchedCount: number,
   minutes: number
 ): Promise<number | null> {
-  const supabase = await createClient()
+  const supabase = createAdminClient() ?? (await createClient())
 
   // PostgREST caps each request at 1,000 rows; paginate so the global rank
   // stays correct once the community has more than 1,000 watch rows.
