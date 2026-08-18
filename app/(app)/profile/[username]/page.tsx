@@ -1,3 +1,4 @@
+import type { Metadata } from "next"
 import { ProfileCard } from "@/components/profile/ProfileCard"
 import { StatsGrid } from "@/components/profile/StatsGrid"
 import { CommentTrail } from "@/components/community/CommentTrail"
@@ -9,9 +10,36 @@ import {
 import { createClient } from "@/utils/supabase/server"
 import { notFound } from "next/navigation"
 
-export const metadata = {
-  title: "Detective Dossier · Detective Conan PH",
-  description: "View a detective's watch stats, badges, and profile.",
+export async function generateMetadata({
+  params,
+}: {
+  params: Promise<{ username: string }>
+}): Promise<Metadata> {
+  const { username } = await params
+  const profile = await getProfileByUsername(username)
+
+  if (!profile) return {}
+
+  const name = profile.display_name ?? profile.username
+  const description = `Detective dossier for ${name}: watch stats, badges, and case notes on Detective Conan PH.`
+  const images = [profile.avatar_url ?? "/hero-image.jpg"]
+
+  return {
+    title: name,
+    description,
+    openGraph: {
+      title: `${name} | Detective Conan PH`,
+      description,
+      images,
+      type: "profile",
+    },
+    twitter: {
+      card: "summary_large_image",
+      title: `${name} | Detective Conan PH`,
+      description,
+      images,
+    },
+  }
 }
 
 export default async function ProfilePage({

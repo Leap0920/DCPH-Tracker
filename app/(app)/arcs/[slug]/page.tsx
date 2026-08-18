@@ -1,3 +1,4 @@
+import type { Metadata } from "next"
 import Link from "next/link"
 import { notFound } from "next/navigation"
 import {
@@ -15,6 +16,37 @@ import {
 } from "@/lib/arcs-guide"
 import { computeArcProgress, getArcProgressData } from "@/lib/arcs-progress"
 import { AuthModalButton } from "@/components/auth/AuthModalButton"
+
+export async function generateMetadata({
+  params,
+}: {
+  params: Promise<{ slug: string }>
+}): Promise<Metadata> {
+  const { slug } = await params
+  const arc = getArcBySlug(slug)
+
+  if (!arc) return {}
+
+  const title = arc.title
+  const description = (arc.tagline ?? arc.summary).trim().slice(0, 160)
+
+  return {
+    title,
+    description,
+    openGraph: {
+      title,
+      description,
+      images: ["/hero-image.jpg"],
+      type: "article",
+    },
+    twitter: {
+      card: "summary_large_image",
+      title,
+      description,
+      images: ["/hero-image.jpg"],
+    },
+  }
+}
 
 export default async function ArcDetailPage({
   params,
@@ -57,7 +89,7 @@ export default async function ArcDetailPage({
           <span
             className={`rounded-md px-2 py-0.5 font-mono text-[10px] ${
               arc.status === "ongoing"
-                ? "bg-green-50 text-green-600"
+                ? "bg-green-500/10 text-green-400"
                 : "bg-surface-muted text-ink-dim"
             }`}
           >
@@ -91,7 +123,7 @@ export default async function ArcDetailPage({
         </p>
 
         {/* Live per-arc progress */}
-        <div className="mt-6 rounded-lg border border-slate-200 bg-surface p-5 shadow-card">
+        <div className="mt-6 rounded-lg border border-ink-dim/20 bg-surface p-5 shadow-card">
           <div className="flex items-center justify-between mb-2">
             <span className="font-display text-sm tracking-tight text-ink">
               Your progress in this arc
@@ -100,7 +132,7 @@ export default async function ArcDetailPage({
               {progress.watched} / {progress.total} · {progress.percent}%
             </span>
           </div>
-          <div className="h-2 bg-gray-200 rounded-full overflow-hidden">
+          <div className="h-2 bg-surface-muted rounded-full overflow-hidden">
             <div
               className="h-full bg-accent rounded-full"
               style={{ width: `${progress.percent}%` }}
@@ -116,13 +148,13 @@ export default async function ArcDetailPage({
                 <ArrowRight className="h-3.5 w-3.5" />
               </Link>
             ) : signedIn && nextEpisode === null ? (
-              <span className="text-xs font-mono text-green-600">
+              <span className="text-xs font-mono text-green-400">
                 Arc complete! Nice work!
               </span>
             ) : (
               <AuthModalButton
                 mode="signin"
-                className="inline-flex items-center gap-1.5 rounded-md border border-slate-300 px-3 py-1.5 h-auto text-xs font-mono text-ink-dim transition-colors hover:border-ink hover:text-ink"
+                className="inline-flex items-center gap-1.5 rounded-md border border-ink-dim/30 px-3 py-1.5 h-auto text-xs font-mono text-ink-dim transition-colors hover:border-ink hover:text-ink"
               >
                 Sign in to track progress
                 <ArrowRight className="h-3.5 w-3.5" />
@@ -141,7 +173,7 @@ export default async function ArcDetailPage({
             {arc.keyCharacters.map((c) => (
               <div
                 key={c.name}
-                className="rounded-lg border border-slate-200 bg-surface p-4"
+                className="rounded-lg border border-ink-dim/20 bg-surface p-4"
               >
                 <p className="font-medium text-ink">{c.name}</p>
                 <p className="text-xs text-ink-dim">{c.role}</p>
@@ -179,7 +211,7 @@ export default async function ArcDetailPage({
           {prev ? (
             <Link
               href={`/arcs/${prev.slug}`}
-              className="group flex flex-col rounded-lg border border-slate-200 bg-surface p-4 transition-colors hover:border-slate-300 hover:bg-surface-muted"
+              className="group flex flex-col rounded-lg border border-ink-dim/20 bg-surface p-4 transition-colors hover:border-ink-dim/30 hover:bg-surface-muted"
             >
               <span className="flex items-center gap-1 text-xs text-ink-faint">
                 <ArrowRightIcon className="h-3.5 w-3.5 rotate-180" />
@@ -196,7 +228,7 @@ export default async function ArcDetailPage({
           {next ? (
             <Link
               href={`/arcs/${next.slug}`}
-              className="group flex flex-col items-end rounded-lg border border-slate-200 bg-surface p-4 text-right transition-colors hover:border-slate-300 hover:bg-surface-muted"
+              className="group flex flex-col items-end rounded-lg border border-ink-dim/20 bg-surface p-4 text-right transition-colors hover:border-ink-dim/30 hover:bg-surface-muted"
             >
               <span className="flex items-center gap-1 text-xs text-ink-faint">
                 Next arc
