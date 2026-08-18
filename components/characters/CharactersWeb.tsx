@@ -634,7 +634,7 @@ export default function CharactersWeb({
       className={`relative w-full h-full overflow-hidden select-none transition-colors duration-300 ${
         isDark
           ? "bg-[#0B0F19] text-white rounded-2xl border border-slate-800/80 shadow-2xl"
-          : "bg-surface text-ink rounded-2xl border border-slate-200/80 shadow-card"
+          : "bg-[#F8FAFC] text-ink rounded-2xl border border-slate-200/90 shadow-card"
       } ${className}`}
     >
 
@@ -811,12 +811,19 @@ export default function CharactersWeb({
         >
           <defs>
             {/* Obsidian Dot matrix pattern */}
-            <pattern id="dotGrid" width="36" height="36" patternUnits="userSpaceOnUse">
-              <circle cx="18" cy="18" r="1.3" fill={isDark ? "rgba(255, 255, 255, 0.1)" : "rgba(15, 23, 42, 0.08)"} />
+            <pattern id="dotGrid" width="24" height="24" patternUnits="userSpaceOnUse">
+              <circle
+                cx="12"
+                cy="12"
+                r={isDark ? 1.3 : 1.6}
+                fill={isDark ? "rgba(255, 255, 255, 0.12)" : "#94A3B8"}
+                opacity={isDark ? 1 : 0.55}
+              />
             </pattern>
           </defs>
 
           {/* Background pattern */}
+          <rect x={-pad} width={viewBoxW} height="1400" fill={isDark ? "transparent" : "#F8FAFC"} />
           <rect x={-pad} width={viewBoxW} height="1400" fill="url(#dotGrid)" />
 
           {/* World Pan/Zoom Wrapper */}
@@ -858,15 +865,13 @@ export default function CharactersWeb({
                       strokeLinecap="round"
                       opacity={currentOpacity}
                       style={{ transition: "opacity 200ms ease, stroke-width 200ms ease" }}
-                    >
-                      <title>{`${meta.label}: ${rel.detail}`}</title>
-                    </path>
+                    />
                   </motion.g>
                 );
               })}
 
               {/* Character Nodes */}
-              {CHARACTERS.map((c) => {
+              {CHARACTERS.map((c, idx) => {
                 const pos = positions[c.id] ?? { x: c.x, y: c.y };
                 const degree = degreeByCharacter.get(c.id) ?? 0;
                 const radius = getNodeRadius(c, degree);
@@ -875,7 +880,6 @@ export default function CharactersWeb({
                 const isSelected = selectedCharacterId === c.id;
                 const isHovered = hoveredId === c.id;
                 const isSearchMatch = searchMatches.has(c.id);
-
                 const isConan = c.id === "conan-edogawa";
 
                 return (
@@ -904,6 +908,32 @@ export default function CharactersWeb({
                       onFocus={hoverNode(c.id)}
                       onBlur={hoverNode(null)}
                     >
+                      {/* Animated pulsing wave ripple ring for Conan Edogawa */}
+                      {isConan && (
+                        <motion.circle
+                          r={radius + 12}
+                          fill="none"
+                          stroke={factionTheme.primary}
+                          strokeWidth={2}
+                          animate={{ scale: [1, 1.3, 1], opacity: [0.6, 0.1, 0.6] }}
+                          transition={{ duration: 2.8, repeat: Infinity, ease: "easeInOut" }}
+                        />
+                      )}
+
+                      {/* Gentle organic breathing motion ring for all nodes */}
+                      <motion.circle
+                        r={radius + 3}
+                        fill="none"
+                        stroke={factionTheme.border}
+                        strokeWidth={1}
+                        animate={{ scale: [1, 1.12, 1], opacity: [0.25, 0.65, 0.25] }}
+                        transition={{
+                          duration: 3 + (idx % 3) * 0.8,
+                          repeat: Infinity,
+                          ease: "easeInOut",
+                          delay: (idx * 0.2) % 2,
+                        }}
+                      />
                       {/* Outer Glow Halo ring for Conan or Selected / Hovered */}
                       {(isConan || isSelected || isHovered || isSearchMatch) && (
                         <circle

@@ -58,3 +58,8 @@ logs/
 # Playwright MCP QA artifacts
 .playwright-mcp/
 
+# agent customizations
+.agent
+.agent/
+.agents
+.agents/
