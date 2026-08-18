@@ -301,15 +301,15 @@ export function AuthModal() {
           <div
             role="status"
             aria-live="polite"
-            className="bg-red-50 border border-red-200 rounded-lg p-3.5 flex gap-2 items-start text-xs text-red-600"
+            className="bg-red-500/10 border border-red-500/30 rounded-lg p-3.5 flex gap-2 items-start text-xs text-red-400"
           >
-            <ShieldAlert className="h-4 w-4 shrink-0 mt-0.5 text-red-500" />
+            <ShieldAlert className="h-4 w-4 shrink-0 mt-0.5 text-red-400" />
             <span>{urlError}</span>
           </div>
         )}
 
         {/* Mode tabs */}
-        <div className="flex rounded-full border border-slate-200 bg-surface-muted p-1">
+        <div className="flex rounded-full border border-ink-dim/20 bg-surface-muted p-1">
           {(["signin", "signup"] as const).map((tab) => (
             <button
               key={tab}
@@ -356,10 +356,10 @@ export function AuthModal() {
               <div
                 role="status"
                 aria-live="polite"
-                className="bg-red-50 border border-red-200 rounded-lg p-3.5 text-xs text-red-600"
+                className="bg-red-500/10 border border-red-500/30 rounded-lg p-3.5 text-xs text-red-400"
               >
                 <div className="flex gap-2 items-start">
-                  <ShieldAlert className="h-4 w-4 shrink-0 mt-0.5 text-red-500" />
+                  <ShieldAlert className="h-4 w-4 shrink-0 mt-0.5 text-red-400" />
                   <div className="space-y-1">
                     <p>
                       That email or password doesn&apos;t match. Check for typos, or reset your
@@ -368,7 +368,7 @@ export function AuthModal() {
                     <Link
                       href="/forgot-password"
                       onClick={() => setOpen(false)}
-                      className="inline-block font-semibold text-red-700 underline underline-offset-2 hover:text-red-800 transition-colors"
+                      className="inline-block font-semibold text-red-400 underline underline-offset-2 hover:text-red-300 transition-colors"
                     >
                       Reset your password
                     </Link>
@@ -382,10 +382,10 @@ export function AuthModal() {
               <div
                 role="status"
                 aria-live="polite"
-                className="bg-amber-50 border border-amber-200 rounded-lg p-3.5 text-xs text-amber-700"
+                className="bg-amber-500/10 border border-amber-500/30 rounded-lg p-3.5 text-xs text-amber-400"
               >
                 <div className="flex gap-2 items-start">
-                  <Mail className="h-4 w-4 shrink-0 mt-0.5 text-amber-600" />
+                  <Mail className="h-4 w-4 shrink-0 mt-0.5 text-amber-400" />
                   <div className="space-y-1.5">
                     <p>
                       Please confirm your email first. Check your inbox (and spam) for the
@@ -400,7 +400,7 @@ export function AuthModal() {
                         type="button"
                         onClick={handleResendConfirmation}
                         disabled={resendLoading}
-                        className="font-semibold text-amber-800 underline underline-offset-2 hover:text-amber-900 disabled:opacity-60 transition-colors"
+                        className="font-semibold text-amber-300 underline underline-offset-2 hover:text-amber-300 disabled:opacity-60 transition-colors"
                       >
                         {resendLoading ? "Sending…" : "Resend confirmation email"}
                       </button>
@@ -415,9 +415,9 @@ export function AuthModal() {
               <div
                 role="status"
                 aria-live="polite"
-                className="bg-red-50 border border-red-200 rounded-lg p-3.5 flex gap-2 items-start text-xs text-red-600"
+                className="bg-red-500/10 border border-red-500/30 rounded-lg p-3.5 flex gap-2 items-start text-xs text-red-400"
               >
-                <ShieldAlert className="h-4 w-4 shrink-0 mt-0.5 text-red-500" />
+                <ShieldAlert className="h-4 w-4 shrink-0 mt-0.5 text-red-400" />
                 <span>{error}</span>
               </div>
             )}
@@ -436,7 +436,7 @@ export function AuthModal() {
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
                   required
-                  className="pl-10 bg-surface border border-slate-200 focus:border-accent focus:ring-1 focus:ring-accent rounded-lg text-ink placeholder:text-ink-faint text-sm h-11 transition-colors"
+                  className="pl-10 bg-surface border border-ink-dim/20 focus:border-accent focus:ring-1 focus:ring-accent rounded-lg text-ink placeholder:text-ink-faint text-sm h-11 transition-colors"
                 />
               </div>
             </div>
@@ -464,7 +464,7 @@ export function AuthModal() {
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
                   required
-                  className="pl-10 pr-10 bg-surface border border-slate-200 focus:border-accent focus:ring-1 focus:ring-accent rounded-lg text-ink placeholder:text-ink-faint text-sm h-11 transition-colors"
+                  className="pl-10 pr-10 bg-surface border border-ink-dim/20 focus:border-accent focus:ring-1 focus:ring-accent rounded-lg text-ink placeholder:text-ink-faint text-sm h-11 transition-colors"
                 />
                 <button
                   type="button"
@@ -494,7 +494,7 @@ export function AuthModal() {
           </form>
         ) : needsConfirmation ? (
           <div className="space-y-4 text-center">
-            <div className="bg-green-50 border border-green-200 rounded-lg p-4 text-sm text-green-700">
+            <div className="bg-green-500/10 border border-green-500/30 rounded-lg p-4 text-sm text-green-400">
               <p className="font-semibold mb-1">Confirm your email</p>
               <p>
                 We sent a confirmation link to <span className="font-medium">{email}</span>.
@@ -502,7 +502,7 @@ export function AuthModal() {
               </p>
             </div>
             {error && (
-              <div className="bg-red-50 border border-red-200 rounded-lg p-3 text-xs text-red-600 text-left">
+              <div className="bg-red-500/10 border border-red-500/30 rounded-lg p-3 text-xs text-red-400 text-left">
                 {error}
               </div>
             )}
@@ -528,8 +528,8 @@ export function AuthModal() {
         ) : (
           <form onSubmit={handleSignUp} className="space-y-4">
             {error && (
-              <div className="bg-red-50 border border-red-200 rounded-lg p-3.5 flex gap-2 items-start text-xs text-red-600">
-                <ShieldAlert className="h-4 w-4 shrink-0 mt-0.5 text-red-500" />
+              <div className="bg-red-500/10 border border-red-500/30 rounded-lg p-3.5 flex gap-2 items-start text-xs text-red-400">
+                <ShieldAlert className="h-4 w-4 shrink-0 mt-0.5 text-red-400" />
                 <span>{error}</span>
               </div>
             )}
@@ -546,7 +546,7 @@ export function AuthModal() {
                   value={displayName}
                   onChange={(e) => setDisplayName(e.target.value)}
                   required
-                  className="pl-10 bg-surface border border-slate-200 focus:border-accent focus:ring-1 focus:ring-accent rounded-lg text-ink placeholder:text-ink-faint text-sm h-11 transition-colors"
+                  className="pl-10 bg-surface border border-ink-dim/20 focus:border-accent focus:ring-1 focus:ring-accent rounded-lg text-ink placeholder:text-ink-faint text-sm h-11 transition-colors"
                 />
               </div>
             </div>
@@ -565,7 +565,7 @@ export function AuthModal() {
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
                   required
-                  className="pl-10 bg-surface border border-slate-200 focus:border-accent focus:ring-1 focus:ring-accent rounded-lg text-ink placeholder:text-ink-faint text-sm h-11 transition-colors"
+                  className="pl-10 bg-surface border border-ink-dim/20 focus:border-accent focus:ring-1 focus:ring-accent rounded-lg text-ink placeholder:text-ink-faint text-sm h-11 transition-colors"
                 />
               </div>
             </div>
@@ -582,7 +582,7 @@ export function AuthModal() {
                   value={birthday}
                   onChange={(e) => setBirthday(e.target.value)}
                   required
-                  className="pl-10 bg-surface border border-slate-200 focus:border-accent focus:ring-1 focus:ring-accent rounded-lg text-ink text-sm h-11 transition-colors"
+                  className="pl-10 bg-surface border border-ink-dim/20 focus:border-accent focus:ring-1 focus:ring-accent rounded-lg text-ink text-sm h-11 transition-colors"
                 />
               </div>
             </div>
@@ -601,7 +601,7 @@ export function AuthModal() {
                   onChange={(e) => setPassword(e.target.value)}
                   required
                   minLength={6}
-                  className="pl-10 pr-10 bg-surface border border-slate-200 focus:border-accent focus:ring-1 focus:ring-accent rounded-lg text-ink placeholder:text-ink-faint text-sm h-11 transition-colors"
+                  className="pl-10 pr-10 bg-surface border border-ink-dim/20 focus:border-accent focus:ring-1 focus:ring-accent rounded-lg text-ink placeholder:text-ink-faint text-sm h-11 transition-colors"
                 />
                 <button
                   type="button"
@@ -627,7 +627,7 @@ export function AuthModal() {
                   value={confirmPassword}
                   onChange={(e) => setConfirmPassword(e.target.value)}
                   required
-                  className="pl-10 pr-10 bg-surface border border-slate-200 focus:border-accent focus:ring-1 focus:ring-accent rounded-lg text-ink placeholder:text-ink-faint text-sm h-11 transition-colors"
+                  className="pl-10 pr-10 bg-surface border border-ink-dim/20 focus:border-accent focus:ring-1 focus:ring-accent rounded-lg text-ink placeholder:text-ink-faint text-sm h-11 transition-colors"
                 />
                 <button
                   type="button"
@@ -651,7 +651,7 @@ export function AuthModal() {
         )}
 
         {/* Bottom switch link */}
-        <div className="pt-5 border-t border-slate-100 text-center">
+        <div className="pt-5 border-t border-ink-dim/10 text-center">
           <p className="text-sm text-ink-dim">
             {mode === "signin" ? (
               <>

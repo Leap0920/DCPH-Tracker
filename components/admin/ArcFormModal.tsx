@@ -10,7 +10,7 @@ import type { ActionResult } from "@/lib/actions/admin-arcs"
 type ArcRow = Database["public"]["Tables"]["arcs"]["Row"]
 
 const inputCls =
-  "w-full h-10 rounded-lg border border-slate-200 bg-surface px-3 text-sm text-ink placeholder:text-ink-faint focus:outline-none focus:ring-2 focus:ring-accent/20 focus:border-accent"
+  "w-full h-10 rounded-lg border border-ink-dim/20 bg-surface px-3 text-sm text-ink placeholder:text-ink-faint focus:outline-none focus:ring-2 focus:ring-accent/20 focus:border-accent"
 const labelCls =
   "block font-display text-xs font-semibold text-ink-dim mb-1.5"
 
@@ -60,7 +60,7 @@ export function ArcFormModal({
       ) : (
         <Button
           onClick={() => setOpen(true)}
-          className="gap-2 bg-gray-900 text-white hover:bg-gray-800 text-xs font-display"
+          className="gap-2 bg-ink text-page hover:bg-ink/80 text-xs font-display"
         >
           <Plus className="h-4 w-4" />
           {triggerLabel || "Add Story Arc"}
@@ -69,8 +69,8 @@ export function ArcFormModal({
 
       {open && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-4">
-          <div className="w-full max-w-lg rounded-xl border border-slate-200 bg-surface p-6 shadow-2xl animate-in fade-in zoom-in-95 duration-200">
-            <div className="flex items-center justify-between border-b border-slate-200 pb-4 mb-5">
+          <div className="w-full max-w-lg rounded-xl border border-ink-dim/20 bg-surface p-6 shadow-2xl animate-in fade-in zoom-in-95 duration-200">
+            <div className="flex items-center justify-between border-b border-ink-dim/20 pb-4 mb-5">
               <h3 className="font-display text-lg text-ink">
                 {isEdit ? `Edit Arc: ${arc?.title}` : "Create New Story Arc"}
               </h3>
@@ -86,7 +86,7 @@ export function ArcFormModal({
 
             <form onSubmit={handleSubmit} className="space-y-4">
               {error && (
-                <div className="rounded-lg border border-red-200 bg-red-50 p-3 text-xs text-red-600">
+                <div className="rounded-lg border border-red-500/30 bg-red-500/10 p-3 text-xs text-red-400">
                   {error}
                 </div>
               )}
@@ -155,11 +155,11 @@ export function ArcFormModal({
                   rows={3}
                   defaultValue={arc?.description ?? ""}
                   placeholder="Key story events, pivotal character intros, Black Org encounters..."
-                  className="w-full rounded-lg border border-slate-200 bg-surface p-3 text-sm text-ink placeholder:text-ink-faint focus:outline-none focus:ring-2 focus:ring-accent/20 focus:border-accent"
+                  className="w-full rounded-lg border border-ink-dim/20 bg-surface p-3 text-sm text-ink placeholder:text-ink-faint focus:outline-none focus:ring-2 focus:ring-accent/20 focus:border-accent"
                 />
               </div>
 
-              <div className="flex items-center justify-end gap-3 pt-4 border-t border-slate-200">
+              <div className="flex items-center justify-end gap-3 pt-4 border-t border-ink-dim/20">
                 <Button
                   type="button"
                   variant="ghost"
@@ -171,7 +171,7 @@ export function ArcFormModal({
                 <Button
                   type="submit"
                   disabled={pending}
-                  className="bg-gray-900 text-white hover:bg-gray-800 font-display text-xs"
+                  className="bg-ink text-page hover:bg-ink/80 font-display text-xs"
                 >
                   {pending ? (
                     <>

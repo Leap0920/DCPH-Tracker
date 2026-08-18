@@ -31,7 +31,7 @@ export function AdminNav() {
             className={cn(
               "flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-display transition-colors",
               active
-                ? "bg-gray-900 text-white"
+                ? "bg-ink text-page"
                 : "text-ink-dim hover:bg-surface-muted hover:text-ink"
             )}
           >

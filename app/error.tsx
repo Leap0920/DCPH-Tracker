@@ -24,7 +24,7 @@ export default function Error({
         <Button onClick={reset} className="rounded-lg">
           Try again
         </Button>
-        <Button variant="outline" className="rounded-lg border-slate-200">
+        <Button asChild variant="outline" className="rounded-lg border-ink-dim/20">
           <Link href="/">Return Home</Link>
         </Button>
       </div>

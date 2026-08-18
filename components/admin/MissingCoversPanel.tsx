@@ -56,10 +56,10 @@ export function MissingCoversPanel({ entries }: { entries: ContentEntry[] }) {
 
   if (entries.length === 0) {
     return (
-      <div className="rounded-xl border border-green-200 bg-green-50/50 p-12 text-center shadow-card">
-        <Check className="mx-auto h-12 w-12 text-green-600 mb-3" />
+      <div className="rounded-xl border border-green-500/30 bg-green-500/5 p-12 text-center shadow-card">
+        <Check className="mx-auto h-12 w-12 text-green-400 mb-3" />
         <h3 className="font-display text-lg text-green-800 font-semibold">All Covers Complete!</h3>
-        <p className="mt-1 text-sm text-green-700 max-w-sm mx-auto">
+        <p className="mt-1 text-sm text-green-400 max-w-sm mx-auto">
           Every content entry in the database currently has a cover image URL configured. Great work!
         </p>
       </div>
@@ -75,11 +75,11 @@ export function MissingCoversPanel({ entries }: { entries: ContentEntry[] }) {
         return (
           <div
             key={item.id}
-            className="flex flex-col justify-between rounded-xl border border-slate-200 bg-surface p-4 shadow-card hover:border-slate-300 transition-colors"
+            className="flex flex-col justify-between rounded-xl border border-ink-dim/20 bg-surface p-4 shadow-card hover:border-ink-dim/30 transition-colors"
           >
             <div>
               <div className="flex items-start justify-between gap-2 mb-2">
-                <span className="inline-flex items-center rounded-md bg-amber-50 px-2 py-0.5 font-mono text-[10px] font-medium text-amber-700 border border-amber-200 uppercase">
+                <span className="inline-flex items-center rounded-md bg-amber-500/10 px-2 py-0.5 font-mono text-[10px] font-medium text-amber-400 border border-amber-500/30 uppercase">
                   {item.type}
                 </span>
                 <span className="font-mono text-xs text-ink-faint">{item.slug}</span>
@@ -93,7 +93,7 @@ export function MissingCoversPanel({ entries }: { entries: ContentEntry[] }) {
               </p>
             </div>
 
-            <div className="space-y-3 pt-3 border-t border-slate-100">
+            <div className="space-y-3 pt-3 border-t border-ink-dim/10">
               {/* Option A: Paste URL */}
               <form onSubmit={(e) => handleUrlSubmit(e, item.id)} className="flex items-center gap-2">
                 <div className="relative flex-1">
@@ -103,7 +103,7 @@ export function MissingCoversPanel({ entries }: { entries: ContentEntry[] }) {
                     onChange={(e) => setUrlInputs({ ...urlInputs, [item.id]: e.target.value })}
                     placeholder="Paste Image URL..."
                     disabled={isUpdating}
-                    className="w-full h-8 rounded-md border border-slate-200 bg-surface pl-7 pr-2 text-xs text-ink placeholder:text-ink-faint focus:border-accent focus:outline-none"
+                    className="w-full h-8 rounded-md border border-ink-dim/20 bg-surface pl-7 pr-2 text-xs text-ink placeholder:text-ink-faint focus:border-accent focus:outline-none"
                   />
                   <LinkIcon className="absolute left-2 top-2 h-3.5 w-3.5 text-ink-faint" />
                 </div>
@@ -111,7 +111,7 @@ export function MissingCoversPanel({ entries }: { entries: ContentEntry[] }) {
                   type="submit"
                   size="sm"
                   disabled={isUpdating || !currentUrlInput.trim()}
-                  className="h-8 px-2.5 text-xs bg-gray-900 text-white hover:bg-gray-800 shrink-0"
+                  className="h-8 px-2.5 text-xs bg-ink text-page hover:bg-ink/80 shrink-0"
                 >
                   {isUpdating ? <Loader2 className="h-3 w-3 animate-spin" /> : "Save"}
                 </Button>
@@ -134,7 +134,7 @@ export function MissingCoversPanel({ entries }: { entries: ContentEntry[] }) {
                   />
                 </label>
                 {isUpdating && (
-                  <span className="inline-flex items-center gap-1 text-[11px] font-mono text-amber-600">
+                  <span className="inline-flex items-center gap-1 text-[11px] font-mono text-amber-400">
                     <Loader2 className="h-3 w-3 animate-spin" />
                     Updating...
                   </span>

@@ -81,7 +81,7 @@ const BentoCard = ({
           : { y: -5, transition: { type: "spring", stiffness: 300, damping: 22 } }
       }
       className={cn(
-        "group relative flex flex-col justify-between overflow-hidden rounded-xl sm:rounded-2xl border border-slate-200/60 bg-surface p-2.5 sm:p-4 shadow-card transition-[box-shadow,border-color] duration-300 hover:shadow-xl hover:border-slate-300",
+        "group relative flex flex-col justify-between overflow-hidden rounded-xl sm:rounded-2xl border border-ink-dim/20 bg-surface p-2.5 sm:p-4 shadow-card transition-[box-shadow,border-color] duration-300 hover:shadow-xl hover:border-ink-dim/30",
         className,
       )}
     >

@@ -162,7 +162,7 @@ export function Hero04({
   )
 
   return (
-    <section className="bg-white relative isolate w-full overflow-hidden border-y border-slate-200/60">
+    <section className="bg-surface relative isolate w-full overflow-hidden border-y border-ink-dim/20">
       {backgroundElement}
 
       <motion.div

@@ -14,7 +14,7 @@ export function ArtCollage({
   primaryAlt = "Detective Conan Block Screening Promo Poster",
 }: ArtCollageProps) {
   return (
-    <div className="relative mx-auto w-full max-w-lg overflow-hidden rounded-2xl border border-slate-200/80 bg-surface shadow-xl transition-all hover:shadow-2xl">
+    <div className="relative mx-auto w-full max-w-lg overflow-hidden rounded-2xl border border-ink-dim/20 bg-surface shadow-xl transition-all hover:shadow-2xl">
       {/* eslint-disable-next-line @next/next/no-img-element */}
       <img
         src={primaryImage}

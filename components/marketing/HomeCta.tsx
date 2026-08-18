@@ -57,7 +57,7 @@ export function HomeCta() {
             <Button
               variant="outline"
               onClick={() => openAuthModal("signup")}
-              className="h-12 w-full gap-2 rounded-xl border-slate-200 px-7 font-display text-ink-dim hover:text-ink sm:w-auto"
+              className="h-12 w-full gap-2 rounded-xl border-ink-dim/20 px-7 font-display text-ink-dim hover:text-ink sm:w-auto"
             >
               <UserPlus className="h-4 w-4" />
               Sign Up

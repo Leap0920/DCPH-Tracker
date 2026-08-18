@@ -31,7 +31,7 @@ export default async function AdminSyncPage() {
 
       <SyncApprovalQueue items={stagedItems} />
 
-      <div className="pt-6 border-t border-slate-200">
+      <div className="pt-6 border-t border-ink-dim/20">
         <h2 className="font-display text-base font-semibold text-ink mb-4">
           Manual API Sync Controls
         </h2>

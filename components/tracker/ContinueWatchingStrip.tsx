@@ -47,7 +47,7 @@ function StripCard({ entry, nextUp = false }: { entry: NextUpEntry; nextUp?: boo
             <span className="font-display text-2xl text-ink-faint uppercase">{label}</span>
           </div>
         )}
-        <span className="absolute top-2 right-2 z-10 bg-ink text-white text-[10px] font-mono px-2 py-0.5 rounded-md">
+        <span className="absolute top-2 right-2 z-10 bg-ink text-page text-[10px] font-mono px-2 py-0.5 rounded-md">
           {label}
         </span>
         {nextUp && (
@@ -80,7 +80,7 @@ export function ContinueWatchingStrip({ entries, nextUp }: ContinueWatchingStrip
   return (
     <div className="bg-surface border border-ink-dim/20 rounded-lg overflow-hidden shadow-card">
       <div className="flex items-center gap-2.5 px-4 sm:px-6 py-4 border-b border-ink-dim/10">
-        <span className="flex h-8 w-8 items-center justify-center rounded-md bg-ink text-white shrink-0">
+        <span className="flex h-8 w-8 items-center justify-center rounded-md bg-ink text-page shrink-0">
           <Play className="h-4 w-4" />
         </span>
         <h2 className="font-display text-sm tracking-tight text-ink">Continue Watching</h2>

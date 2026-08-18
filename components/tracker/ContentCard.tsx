@@ -33,14 +33,14 @@ interface ContentCardProps {
 }
 
 const typeBadgeClass: Record<string, string> = {
-  movie: "bg-amber-100 text-amber-700 border-amber-300",
+  movie: "bg-amber-500/10 text-amber-400 border-amber-500/30",
   special: "bg-rose-100 text-rose-700 border-rose-300",
   ova: "bg-violet-100 text-violet-700 border-violet-300",
   live_action: "bg-sky-100 text-sky-700 border-sky-300",
   magic_kaito: "bg-fuchsia-100 text-fuchsia-700 border-fuchsia-300",
   hanzawa: "bg-zinc-200 text-zinc-700 border-zinc-300",
   zero_tea_time: "bg-teal-100 text-teal-700 border-teal-300",
-  episode: "bg-surface-muted text-ink-dim border-slate-300",
+  episode: "bg-surface-muted text-ink-dim border-ink-dim/30",
 }
 
 export function ContentCard({
@@ -74,18 +74,18 @@ export function ContentCard({
       className={cn(
         "relative bg-surface border rounded-lg overflow-hidden group transition-all",
         flash
-          ? "border-gray-900 ring-2 ring-gray-900/60 shadow-md"
-          : "border-slate-200 hover:border-slate-300 hover:shadow-md"
+          ? "border-ink ring-2 ring-ink/60 shadow-md"
+          : "border-ink-dim/20 hover:border-ink-dim/30 hover:shadow-md"
       )}
     >
       {entry.type !== "movie" && (
-        <span className="absolute top-2 right-2 z-10 bg-gray-900 text-white text-[10px] font-mono px-2 py-0.5 rounded-md">{displayNumber}</span>
+        <span className="absolute top-2 right-2 z-10 bg-ink text-page text-[10px] font-mono px-2 py-0.5 rounded-md">{displayNumber}</span>
       )}
 
       {/* Rewatch count badge — only while the item is watched/rewatched (no stale ×N on unwatched) */}
       {watchCount > 1 && isSeen && (
         <span
-          className="absolute top-2 left-2 z-10 inline-flex items-center gap-1 bg-gray-900 text-white text-[10px] font-mono px-2 py-0.5 rounded-md shadow-card"
+          className="absolute top-2 left-2 z-10 inline-flex items-center gap-1 bg-ink text-page text-[10px] font-mono px-2 py-0.5 rounded-md shadow-card"
           title={`Watched ${watchCount} times`}
         >
           <RefreshCw className="h-2.5 w-2.5" />
@@ -103,7 +103,7 @@ export function ContentCard({
           />
         ) : (
           <div className="flex h-full items-center justify-center">
-            <span className="font-display text-4xl text-gray-200 uppercase">
+            <span className="font-display text-4xl text-ink-dim/15 uppercase">
               {displayNumber}
             </span>
           </div>
@@ -119,8 +119,8 @@ export function ContentCard({
             className={cn(
               "absolute bottom-2 left-2 h-8 w-8 rounded-full bg-surface border flex items-center justify-center transition-colors shadow-card",
               favorite
-                ? "border-red-300 text-red-500 bg-red-50 hover:border-red-500"
-                : "border-slate-300 text-ink-faint hover:border-red-400 hover:text-red-400"
+                ? "border-red-500/40 text-red-400 bg-red-500/10 hover:border-red-500"
+                : "border-ink-dim/30 text-ink-faint hover:border-red-400 hover:text-red-400"
             )}
             title={favorite ? "Remove from favorites" : "Add to favorites"}
             aria-label={favorite ? "Remove from favorites" : "Add to favorites"}
@@ -138,7 +138,7 @@ export function ContentCard({
                   e.preventDefault()
                   onIncrementRewatch(entry.id, watchCount)
                 }}
-                className="h-8 w-8 rounded-full bg-surface border flex items-center justify-center transition-colors shadow-card border-gray-900 text-ink hover:bg-gray-900 hover:text-white"
+                className="h-8 w-8 rounded-full bg-surface border flex items-center justify-center transition-colors shadow-card border-ink text-ink hover:bg-ink hover:text-page"
                 title={watchCount > 0 ? `Rewatched ${watchCount}× total. Click to count another` : "I watched this again"}
                 aria-label="Count another rewatch"
               >
@@ -157,8 +157,8 @@ export function ContentCard({
               className={cn(
                 "h-8 w-8 rounded-full bg-surface border flex items-center justify-center transition-colors shadow-card",
                 isSeen
-                  ? "border-green-500 text-green-600 bg-green-50 hover:border-green-600"
-                  : "border-slate-300 text-ink-faint hover:border-ink hover:text-ink"
+                  ? "border-green-500 text-green-400 bg-green-500/10 hover:border-green-600"
+                  : "border-ink-dim/30 text-ink-faint hover:border-ink hover:text-ink"
               )}
               title={isSeen ? "Mark as unwatched" : "Mark as watched"}
               aria-label={isSeen ? "Mark as unwatched" : "Mark as watched"}
@@ -194,7 +194,7 @@ export function ContentCard({
           <Link
             href={`/arcs/${arc.slug}`}
             onClick={(e) => e.stopPropagation()}
-            className="mt-2 inline-flex items-center gap-1 rounded-md border border-slate-200 bg-surface-muted px-1.5 py-0.5 text-[9px] font-mono text-ink-faint hover:border-ink hover:text-ink transition-colors"
+            className="mt-2 inline-flex items-center gap-1 rounded-md border border-ink-dim/20 bg-surface-muted px-1.5 py-0.5 text-[9px] font-mono text-ink-faint hover:border-ink hover:text-ink transition-colors"
             title={`View the ${arc.title} story arc`}
           >
             <span className="h-1 w-1 rounded-full bg-accent" />

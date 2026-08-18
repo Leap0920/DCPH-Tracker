@@ -116,7 +116,7 @@ export function Feature({
                 ? undefined
                 : { y: -6, transition: { type: "spring", stiffness: 300, damping: 22 } }
             }
-            className="group flex items-start gap-2.5 sm:gap-3.5 rounded-2xl border border-slate-200/60 bg-surface p-3.5 sm:p-6 shadow-card transition-[box-shadow,border-color] duration-300 hover:shadow-xl hover:border-slate-300"
+            className="group flex items-start gap-2.5 sm:gap-3.5 rounded-2xl border border-ink-dim/20 bg-surface p-3.5 sm:p-6 shadow-card transition-[box-shadow,border-color] duration-300 hover:shadow-xl hover:border-ink-dim/30"
           >
             <span className="mt-0.5 flex h-7 w-7 sm:h-9 sm:w-9 shrink-0 items-center justify-center rounded-lg bg-accent-soft text-accent transition-all duration-300 group-hover:bg-accent group-hover:text-white">
               <Check className="h-3.5 w-3.5 sm:h-5 sm:w-5 transition-transform duration-200 group-hover:scale-110" />

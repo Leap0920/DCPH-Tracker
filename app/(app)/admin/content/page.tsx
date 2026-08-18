@@ -1,4 +1,4 @@
-﻿import Link from "next/link"
+import Link from "next/link"
 import { Plus } from "lucide-react"
 import { createClient } from "@/utils/supabase/server"
 import { ContentTable } from "@/components/admin/ContentTable"
@@ -67,11 +67,11 @@ export default async function AdminContentPage({
       {totalPages > 1 && (
         <div className="flex items-center justify-center gap-4 pt-2">
           {page > 1 ? (
-            <Link href={pageHref(page - 1)} className="h-9 px-3 inline-flex items-center rounded-lg border border-slate-200 text-xs font-mono text-ink-dim hover:border-slate-300">
+            <Link href={pageHref(page - 1)} className="h-9 px-3 inline-flex items-center rounded-lg border border-ink-dim/20 text-xs font-mono text-ink-dim hover:border-ink-dim/30">
               Prev
             </Link>
           ) : (
-            <span className="h-9 px-3 inline-flex items-center rounded-lg border border-slate-100 text-xs font-mono text-ink-faint">
+            <span className="h-9 px-3 inline-flex items-center rounded-lg border border-ink-dim/10 text-xs font-mono text-ink-faint">
               Prev
             </span>
           )}
@@ -79,11 +79,11 @@ export default async function AdminContentPage({
             Page {page} / {totalPages}
           </span>
           {page < totalPages ? (
-            <Link href={pageHref(page + 1)} className="h-9 px-3 inline-flex items-center rounded-lg border border-slate-200 text-xs font-mono text-ink-dim hover:border-slate-300">
+            <Link href={pageHref(page + 1)} className="h-9 px-3 inline-flex items-center rounded-lg border border-ink-dim/20 text-xs font-mono text-ink-dim hover:border-ink-dim/30">
               Next
             </Link>
           ) : (
-            <span className="h-9 px-3 inline-flex items-center rounded-lg border border-slate-100 text-xs font-mono text-ink-faint">
+            <span className="h-9 px-3 inline-flex items-center rounded-lg border border-ink-dim/10 text-xs font-mono text-ink-faint">
               Next
             </span>
           )}

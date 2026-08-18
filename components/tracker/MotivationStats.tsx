@@ -195,7 +195,7 @@ export function MotivationStats({ entries, userStatuses, userName }: MotivationS
   return (
     <div className="grid gap-6 md:grid-cols-3">
       {/* ── Series Totals (static) ── */}
-      <div className="bg-surface border border-slate-200 rounded-lg p-6 shadow-card md:col-span-1">
+      <div className="bg-surface border border-ink-dim/20 rounded-lg p-6 shadow-card md:col-span-1">
         <h3 className="font-display text-sm tracking-tight text-ink mb-4 flex items-center gap-2">
           <span className="h-1.5 w-1.5 rounded-full bg-accent" />
           Series Totals
@@ -223,7 +223,7 @@ export function MotivationStats({ entries, userStatuses, userName }: MotivationS
       </div>
 
       {/* ── Personal Progress ── */}
-      <div className="bg-surface border border-slate-200 rounded-lg p-6 shadow-card md:col-span-1">
+      <div className="bg-surface border border-ink-dim/20 rounded-lg p-6 shadow-card md:col-span-1">
         <h3 className="font-display text-sm tracking-tight text-ink mb-4 flex items-center gap-2">
           <span className="h-1.5 w-1.5 rounded-full bg-accent" />
           Your Progress
@@ -246,7 +246,7 @@ export function MotivationStats({ entries, userStatuses, userName }: MotivationS
                   <span>{personal.watched} watched</span>
                   <span>{personal.remaining} remaining</span>
                 </div>
-                <div className="h-2 bg-gray-200 rounded-full overflow-hidden">
+                <div className="h-2 bg-surface-muted rounded-full overflow-hidden">
                   <motion.div
                     className="h-full bg-accent rounded-full"
                     initial={{ width: 0 }}
@@ -273,9 +273,9 @@ export function MotivationStats({ entries, userStatuses, userName }: MotivationS
                           {stat.watched}/{stat.total}
                         </span>
                       </div>
-                      <div className="h-1 bg-gray-200 rounded-full overflow-hidden">
+                      <div className="h-1 bg-surface-muted rounded-full overflow-hidden">
                         <motion.div
-                          className="h-full bg-gray-900 rounded-full"
+                          className="h-full bg-ink rounded-full"
                           initial={{ width: 0 }}
                           animate={{ width: `${stat.total > 0 ? (stat.watched / stat.total) * 100 : 0}%` }}
                           transition={{ duration: 0.5, ease: "easeOut", delay: 0.2 + i * 0.06 }}
@@ -291,7 +291,7 @@ export function MotivationStats({ entries, userStatuses, userName }: MotivationS
       </div>
 
       {/* ── Finish Projection ── */}
-      <div className="bg-surface border border-slate-200 rounded-lg p-6 shadow-card md:col-span-1">
+      <div className="bg-surface border border-ink-dim/20 rounded-lg p-6 shadow-card md:col-span-1">
         <h3 className="font-display text-sm tracking-tight text-ink mb-4 flex items-center gap-2">
           <span className="h-1.5 w-1.5 rounded-full bg-accent" />
           Finish Line
@@ -323,7 +323,7 @@ export function MotivationStats({ entries, userStatuses, userName }: MotivationS
                   max={50}
                   value={ratePerDay}
                   onChange={(e) => handleRateChange(e.target.value)}
-                  className="w-14 h-7 rounded-md border border-slate-200 bg-surface-muted px-2 text-center text-xs text-ink font-mono focus:outline-none focus:ring-2 focus:ring-accent/20 focus:border-accent"
+                  className="w-14 h-7 rounded-md border border-ink-dim/20 bg-surface-muted px-2 text-center text-xs text-ink font-mono focus:outline-none focus:ring-2 focus:ring-accent/20 focus:border-accent"
                 />
                 <label
                   htmlFor="finish-rate"

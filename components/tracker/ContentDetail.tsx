@@ -104,6 +104,7 @@ export function ContentDetail({ entry }: { entry: ContentEntry }) {
     queryKey: watchStatusKey ?? queryKeys.watchStatus.all(""),
     queryFn: () => fetchUserWatchStatuses(userId as string),
     enabled: !!userId,
+    staleTime: 1000 * 60 * 5,
   })
   const status = watchStatusQuery.data?.statuses.get(entry.id) ?? null
   const watchCount = watchStatusQuery.data?.counts.get(entry.id) ?? 0
@@ -240,6 +241,7 @@ export function ContentDetail({ entry }: { entry: ContentEntry }) {
   const ratingQuery = useQuery({
     queryKey: queryKeys.content.rating(entry.id),
     queryFn: () => fetchContentRating(entry.id),
+    staleTime: 1000 * 60 * 10,
   })
   const rating = ratingQuery.data
   const hasRating = rating !== null && rating !== undefined && rating.rating_count > 0 && rating.avg_rating != null
@@ -251,6 +253,7 @@ export function ContentDetail({ entry }: { entry: ContentEntry }) {
   const adjacentQuery = useQuery({
     queryKey: ["content", "adjacent", entry.type, entry.canon_order],
     queryFn: () => fetchAdjacentEntries(entry.type, entry.canon_order),
+    staleTime: 1000 * 60 * 30,
   })
   const prev = adjacentQuery.data?.prev ?? null
   const next = adjacentQuery.data?.next ?? null
@@ -277,7 +280,7 @@ export function ContentDetail({ entry }: { entry: ContentEntry }) {
       </Link>
 
       {/* Hero block */}
-      <div className="overflow-hidden rounded-xl border border-slate-200 bg-surface shadow-card">
+      <div className="overflow-hidden rounded-xl border border-ink-dim/20 bg-surface shadow-card">
         <div className="relative aspect-video bg-surface-muted">
           {entry.image_url ? (
             <img
@@ -287,12 +290,12 @@ export function ContentDetail({ entry }: { entry: ContentEntry }) {
             />
           ) : (
             <div className="flex h-full items-center justify-center">
-              <span className="font-display text-6xl text-gray-200 uppercase">
+              <span className="font-display text-6xl text-ink-dim/15 uppercase">
                 {displayNumber}
               </span>
             </div>
           )}
-          <span className="absolute top-3 right-3 z-10 rounded-md bg-gray-900/90 px-2 py-0.5 font-mono text-[10px] text-white">
+          <span className="absolute top-3 right-3 z-10 rounded-md bg-ink/90 px-2 py-0.5 font-mono text-[10px] text-page">
             {displayNumber}
           </span>
         </div>
@@ -336,7 +339,7 @@ export function ContentDetail({ entry }: { entry: ContentEntry }) {
           </div>
 
           {/* Action row — signed-in only; guest sees a Sign In CTA */}
-          <div className="mt-6 flex flex-wrap items-center gap-3 border-t border-slate-200 pt-6">
+          <div className="mt-6 flex flex-wrap items-center gap-3 border-t border-ink-dim/20 pt-6">
             {userId ? (
               <>
                 <Button
@@ -344,7 +347,7 @@ export function ContentDetail({ entry }: { entry: ContentEntry }) {
                   disabled={watchStatusQuery.isLoading || watchMutation.isPending}
                   className={cn(
                     isSeen &&
-                      "border-green-500 bg-green-50 text-green-600 hover:border-green-600 hover:bg-green-50"
+                      "border-green-500 bg-green-500/10 text-green-400 hover:border-green-600 hover:bg-green-500/10"
                   )}
                 >
                   <ToggleIcon className="h-4 w-4" />
@@ -370,7 +373,7 @@ export function ContentDetail({ entry }: { entry: ContentEntry }) {
                   aria-pressed={favorite}
                   className={cn(
                     favorite &&
-                      "border-red-300 bg-red-50 text-red-500 hover:border-red-500 hover:bg-red-50"
+                      "border-red-500/40 bg-red-500/10 text-red-400 hover:border-red-500 hover:bg-red-500/10"
                   )}
                 >
                   <Heart className={cn("h-4 w-4", favorite && "fill-current")} />
@@ -426,14 +429,14 @@ export function ContentDetail({ entry }: { entry: ContentEntry }) {
 
           {/* Synopsis */}
           {entry.synopsis && (
-            <section className="mt-6 border-t border-slate-200 pt-6">
+            <section className="mt-6 border-t border-ink-dim/20 pt-6">
               <h2 className="mb-3 font-display text-sm text-ink-dim">Synopsis</h2>
               <p className="font-body leading-relaxed text-ink-dim">{entry.synopsis}</p>
             </section>
           )}
 
           {/* Community rating */}
-          <section className="mt-6 border-t border-slate-200 pt-6">
+          <section className="mt-6 border-t border-ink-dim/20 pt-6">
             <h2 className="mb-3 font-display text-sm text-ink-dim">Community Rating</h2>
             {ratingQuery.isLoading ? (
               <div className="flex items-center gap-3">
@@ -461,7 +464,7 @@ export function ContentDetail({ entry }: { entry: ContentEntry }) {
       </div>
 
       {/* Prev / Next navigation */}
-      <div className="mt-8 flex items-center justify-between gap-4 border-t border-slate-200 pt-4">
+      <div className="mt-8 flex items-center justify-between gap-4 border-t border-ink-dim/20 pt-4">
         {prev ? (
           <Link
             href={`/tracker/${prev.slug}`}

@@ -154,9 +154,9 @@ export function SyncApprovalQueue({ items }: { items: StagedRow[] }) {
   return (
     <div className="space-y-6">
       {/* Action Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 rounded-xl border border-slate-200 bg-surface p-4 shadow-sm">
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 rounded-xl border border-ink-dim/20 bg-surface p-4 shadow-sm">
         <div className="flex items-center gap-3">
-          <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-amber-50 text-amber-600 border border-amber-200 shrink-0">
+          <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-amber-500/10 text-amber-400 border border-amber-500/30 shrink-0">
             <Sparkles className="h-5 w-5" />
           </div>
           <div>
@@ -189,7 +189,7 @@ export function SyncApprovalQueue({ items }: { items: StagedRow[] }) {
               size="sm"
               onClick={handleRejectAll}
               disabled={bulkPending}
-              className="gap-1 text-xs border-red-200 text-red-600 hover:bg-red-50"
+              className="gap-1 text-xs border-red-500/30 text-red-400 hover:bg-red-500/10"
             >
               <X className="h-3.5 w-3.5" />
               Reject All
@@ -200,7 +200,7 @@ export function SyncApprovalQueue({ items }: { items: StagedRow[] }) {
 
       {/* Search, Sort, and Filter Controls Bar */}
       {pendingItems.length > 0 && (
-        <div className="grid gap-3 sm:grid-cols-12 rounded-xl border border-slate-200 bg-surface p-3 shadow-card">
+        <div className="grid gap-3 sm:grid-cols-12 rounded-xl border border-ink-dim/20 bg-surface p-3 shadow-card">
           {/* Search Input */}
           <div className="relative sm:col-span-6">
             <input
@@ -211,7 +211,7 @@ export function SyncApprovalQueue({ items }: { items: StagedRow[] }) {
                 setCurrentPage(1)
               }}
               placeholder="Search pending titles, ep #, or slug..."
-              className="w-full h-9 rounded-lg border border-slate-200 bg-surface pl-9 pr-3 text-xs text-ink placeholder:text-ink-faint focus:border-accent focus:outline-none"
+              className="w-full h-9 rounded-lg border border-ink-dim/20 bg-surface pl-9 pr-3 text-xs text-ink placeholder:text-ink-faint focus:border-accent focus:outline-none"
             />
             <Search className="absolute left-3 top-2.5 h-4 w-4 text-ink-faint" />
           </div>
@@ -224,7 +224,7 @@ export function SyncApprovalQueue({ items }: { items: StagedRow[] }) {
                 setSortOrder(e.target.value as SortOption)
                 setCurrentPage(1)
               }}
-              className="w-full h-9 rounded-lg border border-slate-200 bg-surface pl-8 pr-3 text-xs text-ink focus:border-accent focus:outline-none font-display"
+              className="w-full h-9 rounded-lg border border-ink-dim/20 bg-surface pl-8 pr-3 text-xs text-ink focus:border-accent focus:outline-none font-display"
             >
               <option value="newest">Sort: Newest to Oldest</option>
               <option value="oldest">Sort: Oldest to Newest</option>
@@ -242,7 +242,7 @@ export function SyncApprovalQueue({ items }: { items: StagedRow[] }) {
                 setTypeFilter(e.target.value)
                 setCurrentPage(1)
               }}
-              className="w-full h-9 rounded-lg border border-slate-200 bg-surface pl-8 pr-3 text-xs text-ink focus:border-accent focus:outline-none font-display"
+              className="w-full h-9 rounded-lg border border-ink-dim/20 bg-surface pl-8 pr-3 text-xs text-ink focus:border-accent focus:outline-none font-display"
             >
               <option value="all">Filter: All Types</option>
               <option value="episode">Episodes</option>
@@ -261,7 +261,7 @@ export function SyncApprovalQueue({ items }: { items: StagedRow[] }) {
 
       {/* Page Splitter / Count Bar */}
       {filteredPendingItems.length > 0 && (
-        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 rounded-lg border border-slate-200 bg-surface-muted/50 px-4 py-2.5 text-xs text-ink-dim">
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 rounded-lg border border-ink-dim/20 bg-surface-muted/50 px-4 py-2.5 text-xs text-ink-dim">
           <div className="flex items-center gap-2 font-mono">
             <span>
               Showing <strong className="text-ink font-semibold">{startIndex + 1}</strong> to{" "}
@@ -285,7 +285,7 @@ export function SyncApprovalQueue({ items }: { items: StagedRow[] }) {
                   setPageSize(Number(e.target.value))
                   setCurrentPage(1)
                 }}
-                className="h-7 rounded border border-slate-200 bg-surface px-2 text-xs font-mono text-ink focus:border-accent focus:outline-none"
+                className="h-7 rounded border border-ink-dim/20 bg-surface px-2 text-xs font-mono text-ink focus:border-accent focus:outline-none"
               >
                 <option value={12}>12</option>
                 <option value={24}>24</option>
@@ -328,8 +328,8 @@ export function SyncApprovalQueue({ items }: { items: StagedRow[] }) {
 
       {/* Pending Items List */}
       {filteredPendingItems.length === 0 ? (
-        <div className="rounded-xl border border-slate-200 bg-surface p-10 text-center shadow-card">
-          <CheckCheck className="mx-auto h-10 w-10 text-green-500 mb-2" />
+        <div className="rounded-xl border border-ink-dim/20 bg-surface p-10 text-center shadow-card">
+          <CheckCheck className="mx-auto h-10 w-10 text-green-400 mb-2" />
           <h4 className="font-display text-base text-ink font-semibold">
             {pendingItems.length === 0 ? "Queue is Clean!" : "No Matching Pending Items"}
           </h4>
@@ -347,11 +347,11 @@ export function SyncApprovalQueue({ items }: { items: StagedRow[] }) {
             return (
               <div
                 key={item.id}
-                className="flex flex-col justify-between rounded-xl border border-slate-200 bg-surface p-4 shadow-card hover:border-slate-300 transition-colors"
+                className="flex flex-col justify-between rounded-xl border border-ink-dim/20 bg-surface p-4 shadow-card hover:border-ink-dim/30 transition-colors"
               >
                 <div>
                   <div className="flex items-center justify-between gap-2 mb-2">
-                    <span className="inline-flex items-center rounded-md bg-slate-100 px-2 py-0.5 font-mono text-[10px] font-medium text-slate-700 border border-slate-200 uppercase">
+                    <span className="inline-flex items-center rounded-md bg-surface-muted px-2 py-0.5 font-mono text-[10px] font-medium text-ink-dim border border-ink-dim/20 uppercase">
                       {item.type}{" "}
                       {item.episode_number
                         ? `#${item.episode_number}`
@@ -359,7 +359,7 @@ export function SyncApprovalQueue({ items }: { items: StagedRow[] }) {
                         ? `#${item.movie_number}`
                         : ""}
                     </span>
-                    <span className="font-mono text-[10px] text-amber-600 uppercase font-semibold">
+                    <span className="font-mono text-[10px] text-amber-400 uppercase font-semibold">
                       Via {item.source}
                     </span>
                   </div>
@@ -369,10 +369,10 @@ export function SyncApprovalQueue({ items }: { items: StagedRow[] }) {
                       <img
                         src={item.image_url}
                         alt={item.title}
-                        className="h-14 w-10 rounded object-cover border border-slate-200 shrink-0"
+                        className="h-14 w-10 rounded object-cover border border-ink-dim/20 shrink-0"
                       />
                     ) : (
-                      <div className="h-14 w-10 rounded bg-slate-100 border border-slate-200 flex items-center justify-center text-[9px] text-ink-faint shrink-0">
+                      <div className="h-14 w-10 rounded bg-surface-muted border border-ink-dim/20 flex items-center justify-center text-[9px] text-ink-faint shrink-0">
                         No image
                       </div>
                     )}
@@ -387,7 +387,7 @@ export function SyncApprovalQueue({ items }: { items: StagedRow[] }) {
                   </div>
                 </div>
 
-                <div className="flex items-center gap-2 pt-3 border-t border-slate-100">
+                <div className="flex items-center gap-2 pt-3 border-t border-ink-dim/10">
                   <Button
                     size="sm"
                     onClick={() => handleApprove(item.id)}
@@ -406,7 +406,7 @@ export function SyncApprovalQueue({ items }: { items: StagedRow[] }) {
                     size="sm"
                     onClick={() => handleReject(item.id)}
                     disabled={isProcessing}
-                    className="h-8 px-3 text-xs border-red-200 text-red-600 hover:bg-red-50"
+                    className="h-8 px-3 text-xs border-red-500/30 text-red-400 hover:bg-red-500/10"
                   >
                     <X className="h-3.5 w-3.5" />
                     Reject
@@ -420,7 +420,7 @@ export function SyncApprovalQueue({ items }: { items: StagedRow[] }) {
 
       {/* Bottom Pagination Bar */}
       {filteredPendingItems.length > 0 && totalPages > 1 && (
-        <div className="flex items-center justify-between border-t border-slate-200 pt-4">
+        <div className="flex items-center justify-between border-t border-ink-dim/20 pt-4">
           <div className="text-xs font-mono text-ink-faint">
             Page {safePage} of {totalPages} ({filteredPendingItems.length} matching pending)
           </div>
@@ -451,7 +451,7 @@ export function SyncApprovalQueue({ items }: { items: StagedRow[] }) {
 
       {/* Reviewed History */}
       {reviewedItems.length > 0 && (
-        <div className="space-y-3 pt-6 border-t border-slate-200">
+        <div className="space-y-3 pt-6 border-t border-ink-dim/20">
           <div className="flex items-center justify-between">
             <h4 className="font-display text-xs font-semibold text-ink-dim uppercase tracking-wider">
               Recent Staging History ({reviewedItems.length})
@@ -468,9 +468,9 @@ export function SyncApprovalQueue({ items }: { items: StagedRow[] }) {
             </Button>
           </div>
 
-          <div className="overflow-hidden rounded-xl border border-slate-200 bg-surface shadow-sm">
+          <div className="overflow-hidden rounded-xl border border-ink-dim/20 bg-surface shadow-sm">
             <table className="w-full text-left text-xs">
-              <thead className="border-b border-slate-200 bg-surface-muted/50 font-display text-[10px] text-ink-dim uppercase">
+              <thead className="border-b border-ink-dim/20 bg-surface-muted/50 font-display text-[10px] text-ink-dim uppercase">
                 <tr>
                   <th className="px-3 py-2">Title</th>
                   <th className="px-3 py-2">Type</th>
@@ -478,7 +478,7 @@ export function SyncApprovalQueue({ items }: { items: StagedRow[] }) {
                   <th className="px-3 py-2">Status</th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-slate-100">
+              <tbody className="divide-y divide-ink-dim/10">
                 {reviewedItems.slice(0, 10).map((item) => (
                   <tr key={item.id} className="hover:bg-surface-muted/30">
                     <td className="px-3 py-2 font-medium text-ink truncate max-w-xs">{item.title}</td>
@@ -486,11 +486,11 @@ export function SyncApprovalQueue({ items }: { items: StagedRow[] }) {
                     <td className="px-3 py-2 text-ink-faint uppercase font-mono">{item.source}</td>
                     <td className="px-3 py-2">
                       {item.status === "approved" ? (
-                        <span className="inline-flex items-center text-green-600 font-medium font-mono text-[10px]">
+                        <span className="inline-flex items-center text-green-400 font-medium font-mono text-[10px]">
                           ✓ Approved
                         </span>
                       ) : (
-                        <span className="inline-flex items-center text-red-500 font-medium font-mono text-[10px]">
+                        <span className="inline-flex items-center text-red-400 font-medium font-mono text-[10px]">
                           ✕ Rejected
                         </span>
                       )}

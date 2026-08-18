@@ -4,7 +4,7 @@ import { Hero04 } from "@/components/ui/hero-04"
 
 export function BlockScreeningSection() {
   return (
-    <section className="relative overflow-hidden bg-white">
+    <section className="relative overflow-hidden bg-surface">
       <Hero04
         title="DCPH Annual Block Screenings"
         titleLine2="Movie 29 Cinema Event • SM North EDSA"

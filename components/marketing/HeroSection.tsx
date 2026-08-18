@@ -123,7 +123,7 @@ export function HeroSection() {
       {/* Hero Content Area — full-bleed image banner with left-aligned text */}
       <div className="relative min-h-[calc(100dvh-4rem)] w-full flex flex-col items-start justify-center px-6 sm:px-12 lg:px-24 text-left">
         {/* Hero background image */}
-        <div className="absolute inset-0 z-0 bg-white">
+        <div className="absolute inset-0 z-0 bg-surface">
           <picture className="absolute inset-0 h-full w-full">
             <img
               src="/hero-image.jpg"
