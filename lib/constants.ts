@@ -96,12 +96,35 @@ export const FILTER_OPTIONS = {
 export const NAV_ROUTES = [
   { href: "/", label: "Home" },
   { href: "/tracker", label: "Tracker" },
-  { href: "/analytics", label: "Self Analytics" },
   { href: "/arcs", label: "Story Arcs" },
   { href: "/characters", label: "Characters" },
+  { href: "/analytics", label: "Self Analytics" },
   { href: "/community/rankings", label: "Rankings" },
   { href: "/community/chat", label: "Chat" },
 ] as const;
+
+export interface NavSubItem {
+  href: string;
+  label: string;
+  description: string;
+  icon?: string;
+}
+
+export const NAV_MAIN = [
+  { href: "/", label: "Home" },
+  { href: "/tracker", label: "Tracker" },
+] as const;
+
+export const NAV_EXPLORE: NavSubItem[] = [
+  { href: "/arcs", label: "Story Arcs", description: "Watch guide & arc breakdown", icon: "BookOpen" },
+  { href: "/characters", label: "Characters", description: "Character profiles & relationships", icon: "Users" },
+  { href: "/analytics", label: "Self Analytics", description: "Personal stats & viewing insights", icon: "BarChart3" },
+];
+
+export const NAV_COMMUNITY: NavSubItem[] = [
+  { href: "/community/rankings", label: "Rankings", description: "Detective leaderboards & badges", icon: "Trophy" },
+  { href: "/community/chat", label: "Chat", description: "Live detective chat room", icon: "MessageSquare" },
+];
 
 /** Avatar placeholder URL pattern (UI Avatars service) */
 export function avatarUrl(name: string): string {
