@@ -1,10 +1,11 @@
 import type { Config } from "tailwindcss";
 
 // ─────────────────────────────────────────────────────────
-// DESIGN TOKENS — "Modern Clean Light" theme
-// Direction: soft light surfaces, crisp dark ink text, one
-// strong rose-red accent, clean sans typography. Consistent
-// across every page — no dark/mixed surfaces.
+// DESIGN TOKENS — "Modern Clean" theme
+// Direction: soft surfaces, crisp ink text, one strong rose-red
+// accent, clean sans typography. Tokens resolve to CSS variables
+// (defined in app/globals.css) so the `dark` class on <html>
+// swaps the whole palette at once (class-based dark mode).
 // ─────────────────────────────────────────────────────────
 
 const config: Config = {
@@ -16,16 +17,16 @@ const config: Config = {
   theme: {
     extend: {
       colors: {
-        page: "#F8FAFC",          // app background (slate-50)
-        surface: "#FFFFFF",       // cards / panels
-        "surface-muted": "#F1F5F9", // secondary surfaces, hover (slate-100)
-        ink: "#0F172A",           // primary text (slate-900)
-        "ink-dim": "#475569",     // secondary text (slate-600)
-        "ink-faint": "#94A3B8",   // muted / placeholder (slate-400)
-        accent: "#E11D48",        // primary accent (rose-600)
-        "accent-bright": "#F43F5E", // hover / active (rose-500)
-        "accent-soft": "#FFF1F2", // tinted backgrounds (rose-50)
-        "gold-seal": "#F59E0B",   // rare accent — rank badges, seals only (amber-500)
+        page: "rgb(var(--page) / <alpha-value>)",           // app background
+        surface: "rgb(var(--surface) / <alpha-value>)",     // cards / panels
+        "surface-muted": "rgb(var(--surface-muted) / <alpha-value>)", // secondary surfaces, hover
+        ink: "rgb(var(--ink) / <alpha-value>)",             // primary text
+        "ink-dim": "rgb(var(--ink-dim) / <alpha-value>)",   // secondary text
+        "ink-faint": "rgb(var(--ink-faint) / <alpha-value>)", // muted / placeholder
+        accent: "rgb(var(--accent) / <alpha-value>)",       // primary accent (rose)
+        "accent-bright": "rgb(var(--accent-bright) / <alpha-value>)", // hover / active
+        "accent-soft": "rgb(var(--accent-soft) / <alpha-value>)", // tinted backgrounds
+        "gold-seal": "rgb(var(--gold-seal) / <alpha-value>)", // rare accent — rank badges, seals only
       },
       fontFamily: {
         display: ["var(--font-display)", "sans-serif"],   // headings
@@ -36,7 +37,7 @@ const config: Config = {
         stamp: "0.18em",
       },
       boxShadow: {
-        card: "0 1px 3px 0 rgb(15 23 42 / 0.08), 0 1px 2px -1px rgb(15 23 42 / 0.06)",
+        card: "0 1px 3px 0 rgb(var(--ink) / 0.08), 0 1px 2px -1px rgb(var(--ink) / 0.06)",
       },
     },
   },
