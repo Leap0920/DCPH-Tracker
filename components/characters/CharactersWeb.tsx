@@ -1,15 +1,15 @@
 "use client";
 
 /*
-  CharactersWeb — Obsidian-inspired interactive red-strings SVG graph.
+  CharactersWeb — Obsidian-inspired interactive red-strings SVG graph view.
 
   Features:
-  - Full mobile responsiveness (touch pan, pinch, drag nodes, tap to center)
-  - Draggable nodes: move character circles freely, with real-time dynamic edge curving
-  - Precise zoom-to-node math: clicking any node centers it exactly in the viewport
-  - Search bar with live highlighting and focus navigation
-  - Obsidian-style dot matrix canvas with sleek glows & node feedback
-  - Floating controls: Zoom (+/-), Reset, Search, and Fullscreen toggle
+  - Obsidian Graph View Aesthetic: Neon glowing edges, faction color coding, ambient particles
+  - Characteristic Node Sizing: Conan Edogawa central hub (r=26), Major Leads (r=20), Supporting (r=16), Standard (r=11-15)
+  - Centered Conan Edogawa: Conan placed at center (1000, 700) with 1-click Center Conan action
+  - Faction Legend Filter Bar: Interactive color chips to highlight factions
+  - Draggable nodes: move character circles freely with real-time curved strings
+  - Touch pan, pinch zoom, search dropdown & mobile drawer integration
 */
 
 import {
@@ -18,7 +18,6 @@ import {
   useRef,
   useState,
   type KeyboardEvent,
-  type PointerEvent,
 } from "react";
 import {
   motion,
@@ -34,19 +33,16 @@ import {
   type Relationship,
   type RelationshipType,
 } from "@/lib/characters-guide";
-import { RelationshipLegend } from "@/components/characters/CharacterDetailPanel";
 import {
   ZoomIn,
   ZoomOut,
   RotateCcw,
-  Maximize2,
-  Minimize2,
   Search,
-  Move,
   X,
-  Filter,
   Sun,
   Moon,
+  Target,
+  Sparkles,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -89,7 +85,6 @@ const nodeVariants: Variants = {
 };
 
 /** Canvas geometry */
-const NODE_RADIUS = 13;
 const STRING_WIDTH = 2;
 const DIM_OPACITY = 0.12;
 const BASE_BOW = 6;
@@ -104,7 +99,172 @@ const MIN_ZOOM = 0.4;
 const MAX_ZOOM = 3.5;
 const ZOOM_STEP = 1.25;
 const ZOOM_TO_NODE = 1.8;
-const DRAG_THRESHOLD = 4;
+
+export interface FactionTheme {
+  primary: string;
+  glow: string;
+  darkFill: string;
+  lightFill: string;
+  border: string;
+  badge: string;
+}
+
+export const FACTION_THEMES: Record<string, FactionTheme> = {
+  "Junior Detective League": {
+    primary: "#0EA5E9",
+    glow: "rgba(14, 165, 233, 0.5)",
+    darkFill: "#0369A1",
+    lightFill: "#E0F2FE",
+    border: "#38BDF8",
+    badge: "Protagonists",
+  },
+  "Kudo Family": {
+    primary: "#0284C7",
+    glow: "rgba(2, 132, 199, 0.5)",
+    darkFill: "#075985",
+    lightFill: "#E0F2FE",
+    border: "#38BDF8",
+    badge: "Kudo Family",
+  },
+  "Black Organization": {
+    primary: "#EF4444",
+    glow: "rgba(239, 68, 68, 0.6)",
+    darkFill: "#7F1D1D",
+    lightFill: "#FEE2E2",
+    border: "#F87171",
+    badge: "Black Organization",
+  },
+  "Tokyo Metropolitan Police": {
+    primary: "#F59E0B",
+    glow: "rgba(245, 158, 11, 0.5)",
+    darkFill: "#78350F",
+    lightFill: "#FEF3C7",
+    border: "#FBBF24",
+    badge: "Police Department",
+  },
+  "Osaka Police": {
+    primary: "#F97316",
+    glow: "rgba(249, 115, 22, 0.5)",
+    darkFill: "#7C2D12",
+    lightFill: "#FFEDD5",
+    border: "#FB923C",
+    badge: "Osaka Police",
+  },
+  "FBI": {
+    primary: "#8B5CF6",
+    glow: "rgba(139, 92, 246, 0.5)",
+    darkFill: "#581C87",
+    lightFill: "#F3E8FF",
+    border: "#C084FC",
+    badge: "FBI / Security",
+  },
+  "Public Security Bureau": {
+    primary: "#A855F7",
+    glow: "rgba(168, 85, 247, 0.5)",
+    darkFill: "#6D28D9",
+    lightFill: "#F3E8FF",
+    border: "#D8B4FE",
+    badge: "Public Security",
+  },
+  "Osaka / Hattori Household": {
+    primary: "#F97316",
+    glow: "rgba(249, 115, 22, 0.5)",
+    darkFill: "#9A3412",
+    lightFill: "#FFEDD5",
+    border: "#FB923C",
+    badge: "Osaka Sleuths",
+  },
+  "Phantom Thief Kid": {
+    primary: "#6366F1",
+    glow: "rgba(99, 102, 241, 0.5)",
+    darkFill: "#312E81",
+    lightFill: "#E0E7FF",
+    border: "#818CF8",
+    badge: "Kaitou Kid",
+  },
+  "Phantom Thief Cast": {
+    primary: "#6366F1",
+    glow: "rgba(99, 102, 241, 0.5)",
+    darkFill: "#312E81",
+    lightFill: "#E0E7FF",
+    border: "#818CF8",
+    badge: "Magic Kaito",
+  },
+  "Suzuki Family": {
+    primary: "#EC4899",
+    glow: "rgba(236, 72, 153, 0.4)",
+    darkFill: "#831843",
+    lightFill: "#FCE7F3",
+    border: "#F472B6",
+    badge: "Suzuki Family",
+  },
+  "Mouri Family": {
+    primary: "#14B8A6",
+    glow: "rgba(20, 184, 166, 0.4)",
+    darkFill: "#115E59",
+    lightFill: "#CCFBF1",
+    border: "#2DD4BF",
+    badge: "Mouri Family",
+  },
+  "Mouri Detective Agency": {
+    primary: "#14B8A6",
+    glow: "rgba(20, 184, 166, 0.4)",
+    darkFill: "#115E59",
+    lightFill: "#CCFBF1",
+    border: "#2DD4BF",
+    badge: "Mouri Agency",
+  },
+  DEFAULT: {
+    primary: "#38BDF8",
+    glow: "rgba(56, 189, 248, 0.4)",
+    darkFill: "#0369A1",
+    lightFill: "#E0F2FE",
+    border: "#7DD3FC",
+    badge: "Civilians & Allies",
+  },
+};
+
+export function getFactionTheme(affiliation: string): FactionTheme {
+  for (const [key, theme] of Object.entries(FACTION_THEMES)) {
+    if (key !== "DEFAULT" && affiliation.toLowerCase().includes(key.toLowerCase())) {
+      return theme;
+    }
+  }
+  return FACTION_THEMES.DEFAULT;
+}
+
+/** Node Sizing based on character characteristics & importance */
+function getNodeRadius(c: Character, degree: number): number {
+  if (c.id === "conan-edogawa") return 26; // Main Hero / Central Hub
+  if (
+    c.id === "ran-mouri" ||
+    c.id === "ai-haibara" ||
+    c.id === "kogoro-mouri" ||
+    c.id === "heiji-hattori" ||
+    c.id === "kaitou-kid" ||
+    c.id === "tooru-amuro" ||
+    c.id === "shuichi-akai" ||
+    c.id === "gin"
+  ) {
+    return 20; // Major Core Leads
+  }
+  if (
+    c.id === "vermouth" ||
+    c.id === "inspector-megure" ||
+    c.id === "officer-sato" ||
+    c.id === "officer-takagi" ||
+    c.id === "kazuha-toyama" ||
+    c.id === "professor-agasa" ||
+    c.id === "yusaku-kudo" ||
+    c.id === "yukiko-kudo" ||
+    c.id === "vodka" ||
+    c.id === "jodie-starling" ||
+    c.id === "sonoko-suzuki"
+  ) {
+    return 16; // Important Supporting Cast
+  }
+  return Math.min(11 + Math.min(degree * 0.6, 5), 15); // Standard Characters
+}
 
 function clamp(v: number, min: number, max: number): number {
   return Math.min(max, Math.max(min, v));
@@ -151,16 +311,33 @@ export default function CharactersWeb({
   onFilterType,
   isFullscreen = false,
   onToggleFullscreen,
-  theme = "light",
+  theme = "dark",
   onToggleTheme,
   className = "",
 }: CharactersWebProps) {
   const reduce = useReducedMotion();
   const isMobile = useMediaQuery("(max-width: 767px)");
-  const isDark = theme === "dark";
-  const [legendOpen, setLegendOpen] = useState(false);
+  const [pad, setPad] = useState(0);
+  const viewBoxW = VIEW_W + 2 * pad;
+  const padRef = useRef(pad);
 
-  // Mutable node positions so user can drag circles freely
+  useEffect(() => {
+    padRef.current = pad;
+  }, [pad]);
+
+  useEffect(() => {
+    const recomputePad = () => {
+      const aspect = window.innerWidth / window.innerHeight;
+      setPad(aspect > VIEW_W / VIEW_H ? ((aspect - VIEW_W / VIEW_H) * VIEW_H) / 2 : 0);
+    };
+    recomputePad();
+    window.addEventListener("resize", recomputePad);
+    return () => window.removeEventListener("resize", recomputePad);
+  }, []);
+
+  const isDark = theme === "dark";
+
+  // Mutable node positions
   const [positions, setPositions] = useState<Record<string, { x: number; y: number }>>(() => {
     const map: Record<string, { x: number; y: number }> = {};
     for (const c of CHARACTERS) {
@@ -173,7 +350,7 @@ export default function CharactersWeb({
   const [searchQuery, setSearchQuery] = useState("");
   const [searchFocused, setSearchFocused] = useState(false);
 
-  /** Pan/zoom view state: translate (x, y) + scale k */
+  /** Pan/zoom view state */
   const [view, setView] = useState({ x: 0, y: 0, k: 1 });
   const [draggingCanvas, setDraggingCanvas] = useState(false);
   const [draggingNodeId, setDraggingNodeId] = useState<string | null>(null);
@@ -183,9 +360,10 @@ export default function CharactersWeb({
   const containerRef = useRef<HTMLDivElement>(null);
   const didDragRef = useRef(false);
   const viewRef = useRef(view);
-  const capturedRef = useRef(false);
+  useEffect(() => {
+    viewRef.current = view;
+  }, [view]);
 
-  // Drag state refs for global window listeners
   const isDraggingCanvasRef = useRef(false);
   const canvasDragStartRef = useRef<{ clientX: number; clientY: number; startViewX: number; startViewY: number } | null>(null);
 
@@ -193,7 +371,7 @@ export default function CharactersWeb({
   const activeNodeIdRef = useRef<string | null>(null);
   const nodeDragStartRef = useRef<{ clientX: number; clientY: number; startNodeX: number; startNodeY: number } | null>(null);
 
-  /** Window pointer listeners for 100% robust PC & Mobile movement */
+  /** Window pointer listeners */
   useEffect(() => {
     const handleWindowPointerMove = (e: globalThis.PointerEvent) => {
       // 1. Node dragging
@@ -210,7 +388,7 @@ export default function CharactersWeb({
           }
 
           const currentK = viewRef.current.k;
-          const svgDx = (dx / rect.width) * VIEW_W / currentK;
+          const svgDx = (dx / rect.width) * (VIEW_W + 2 * padRef.current) / currentK;
           const svgDy = (dy / rect.height) * VIEW_H / currentK;
 
           const newX = clamp(start.startNodeX + svgDx, 30, VIEW_W - 30);
@@ -237,7 +415,7 @@ export default function CharactersWeb({
             didDragRef.current = true;
           }
 
-          const svgDx = (dx / rect.width) * VIEW_W;
+          const svgDx = (dx / rect.width) * (VIEW_W + 2 * padRef.current);
           const svgDy = (dy / rect.height) * VIEW_H;
 
           setView({
@@ -281,7 +459,7 @@ export default function CharactersWeb({
       const rect = svg.getBoundingClientRect();
       if (rect.width === 0 || rect.height === 0) return;
 
-      const cx = ((e.clientX - rect.left) / rect.width) * VIEW_W;
+      const cx = ((e.clientX - rect.left) / rect.width) * (VIEW_W + 2 * padRef.current) - padRef.current;
       const cy = ((e.clientY - rect.top) / rect.height) * VIEW_H;
 
       const zoomFactor = Math.exp(-e.deltaY * 0.002);
@@ -298,75 +476,6 @@ export default function CharactersWeb({
 
     svg.addEventListener("wheel", handleWheel, { passive: false });
     return () => svg.removeEventListener("wheel", handleWheel);
-  }, []);
-
-  /** Native Touch listener for 100% reliable mobile 2-finger pinch zooming */
-  useEffect(() => {
-    const svg = svgRef.current;
-    if (!svg) return;
-
-    let touchPinchDist = 0;
-    let touchStartK = 1;
-    let touchCenter = { x: 500, y: 300 };
-
-    const handleTouchStart = (e: TouchEvent) => {
-      if (e.touches.length === 2) {
-        isDraggingCanvasRef.current = false;
-        isDraggingNodeRef.current = false;
-        const t1 = e.touches[0];
-        const t2 = e.touches[1];
-        touchPinchDist = Math.hypot(t1.clientX - t2.clientX, t1.clientY - t2.clientY);
-        touchStartK = viewRef.current.k;
-
-        const rect = svg.getBoundingClientRect();
-        if (rect.width > 0 && rect.height > 0) {
-          const midX = (t1.clientX + t2.clientX) / 2;
-          const midY = (t1.clientY + t2.clientY) / 2;
-          touchCenter = {
-            x: ((midX - rect.left) / rect.width) * VIEW_W,
-            y: ((midY - rect.top) / rect.height) * VIEW_H,
-          };
-        }
-      }
-    };
-
-    const handleTouchMove = (e: TouchEvent) => {
-      if (e.touches.length === 2 && touchPinchDist > 0) {
-        if (e.cancelable) e.preventDefault();
-        const t1 = e.touches[0];
-        const t2 = e.touches[1];
-        const curDist = Math.hypot(t1.clientX - t2.clientX, t1.clientY - t2.clientY);
-
-        if (curDist > 0) {
-          const factor = curDist / touchPinchDist;
-          const nextK = clamp(touchStartK * factor, MIN_ZOOM, MAX_ZOOM);
-          const { x, y, k } = viewRef.current;
-
-          setInstant(true);
-          setView({
-            x: touchCenter.x - ((touchCenter.x - x) * nextK) / k,
-            y: touchCenter.y - ((touchCenter.y - y) * nextK) / k,
-            k: nextK,
-          });
-        }
-      }
-    };
-
-    const handleTouchEnd = () => {
-      touchPinchDist = 0;
-    };
-
-    svg.addEventListener("touchstart", handleTouchStart, { passive: true });
-    svg.addEventListener("touchmove", handleTouchMove, { passive: false });
-    svg.addEventListener("touchend", handleTouchEnd, { passive: true });
-    svg.addEventListener("touchcancel", handleTouchEnd, { passive: true });
-
-    return () => {
-      svg.removeEventListener("touchstart", handleTouchStart);
-      svg.removeEventListener("touchmove", handleTouchMove);
-      svg.removeEventListener("touchend", handleTouchEnd);
-      svg.removeEventListener("touchcancel", handleTouchEnd);
-    };
   }, []);
 
   /** Derived relationships and node degrees */
@@ -410,10 +519,9 @@ export default function CharactersWeb({
     return { byId, strings, degreeByCharacter };
   }, [positions]);
 
-  /** Zoom into exact coordinate (targetX, targetY) so it centers in the 2000x1400 viewBox */
+  /** Zoom into exact coordinate (wx, wy) */
   const zoomToPoint = (wx: number, wy: number, targetK: number = ZOOM_TO_NODE) => {
     setInstant(false);
-    // On mobile, position node near upper center (32% of view height) so bottom sheet never obscures it
     const targetYCenter = isMobile ? VIEW_H * 0.32 : VIEW_H / 2;
     setView({
       x: VIEW_W / 2 - wx * targetK,
@@ -421,6 +529,18 @@ export default function CharactersWeb({
       k: targetK,
     });
   };
+
+  /** Center view on Conan Edogawa (the main character circle at 1000, 700) */
+  const centerOnConan = () => {
+    setInstant(false);
+    const conanPos = positions["conan-edogawa"] ?? { x: 1000, y: 700 };
+    zoomToPoint(conanPos.x, conanPos.y, 1.0);
+  };
+
+  /** Explicitly center on Conan Edogawa on initial mount */
+  useEffect(() => {
+    centerOnConan();
+  }, []);
 
   /** Center and select a character node */
   const handleSelectNode = (c: Character) => {
@@ -484,8 +604,7 @@ export default function CharactersWeb({
   };
 
   const resetView = () => {
-    setInstant(false);
-    setView({ x: 0, y: 0, k: 1 });
+    centerOnConan();
   };
 
   // Filter & search matches
@@ -514,20 +633,37 @@ export default function CharactersWeb({
       ref={containerRef}
       className={`relative w-full h-full overflow-hidden select-none transition-colors duration-300 ${
         isDark
-          ? "bg-slate-950 text-white rounded-2xl border border-slate-800 shadow-2xl"
+          ? "bg-[#0B0F19] text-white rounded-2xl border border-slate-800/80 shadow-2xl"
           : "bg-surface text-ink rounded-2xl border border-slate-200/80 shadow-card"
       } ${className}`}
     >
-      {/* Floating Canvas Action Dock (Bottom Left - Obsidian / Figma style) */}
+
+      {/* Floating Canvas Action Dock (Bottom Left - Obsidian style) */}
       <div
         className={cn(
           "absolute z-30 pointer-events-auto flex items-center gap-1 rounded-full border p-1.5 shadow-xl backdrop-blur-md transition-all duration-300",
           selectedCharacterId && isMobile
             ? "bottom-[calc(48vh+12px)] left-3"
             : "bottom-6 left-4 sm:left-6",
-          isDark ? "border-slate-700/80 bg-slate-900/95" : "border-slate-200/90 bg-white/95"
+          isDark ? "border-slate-800/80 bg-slate-950/90" : "border-slate-200/90 bg-white/95"
         )}
       >
+        <button
+          type="button"
+          onClick={centerOnConan}
+          aria-label="Center on Conan Edogawa"
+          title="Center on Conan Edogawa"
+          className={cn(
+            "flex items-center gap-1 px-3 py-1.5 rounded-full text-xs font-display font-medium transition-colors",
+            isDark ? "bg-cyan-500/15 text-cyan-400 hover:bg-cyan-500/25" : "bg-cyan-50 text-cyan-600 hover:bg-cyan-100"
+          )}
+        >
+          <Target className="h-3.5 w-3.5" />
+          <span className="hidden sm:inline">Center Conan</span>
+        </button>
+
+        <div className={`h-4 w-px my-auto ${isDark ? "bg-slate-800" : "bg-slate-200"}`} />
+
         <button
           type="button"
           onClick={() => zoomBy(ZOOM_STEP)}
@@ -562,32 +698,82 @@ export default function CharactersWeb({
           <RotateCcw className="h-4 w-4" />
         </button>
 
-        <div className={`h-4 w-px my-auto ${isDark ? "bg-slate-800" : "bg-slate-200"}`} />
-
-        {/* Theme Toggle (Light / Dark Mode) */}
         {onToggleTheme && (
-          <button
-            type="button"
-            onClick={onToggleTheme}
-            aria-label={isDark ? "Switch to Light Mode" : "Switch to Dark Mode"}
-            title={isDark ? "Switch to Light Mode" : "Switch to Dark Mode"}
-            className={`flex h-8 w-8 items-center justify-center rounded-full transition-colors ${
-              isDark ? "text-amber-400 hover:bg-slate-800" : "text-slate-600 hover:bg-surface-muted hover:text-accent"
-            }`}
-          >
-            {isDark ? <Sun className="h-4 w-4 text-amber-400" /> : <Moon className="h-4 w-4 text-slate-600" />}
-          </button>
+          <>
+            <div className={`h-4 w-px my-auto ${isDark ? "bg-slate-800" : "bg-slate-200"}`} />
+            <button
+              type="button"
+              onClick={onToggleTheme}
+              aria-label={isDark ? "Switch to Light Mode" : "Switch to Dark Mode"}
+              title={isDark ? "Switch to Light Mode" : "Switch to Dark Mode"}
+              className={`flex h-8 w-8 items-center justify-center rounded-full transition-colors ${
+                isDark ? "text-amber-400 hover:bg-slate-800" : "text-slate-600 hover:bg-surface-muted hover:text-accent"
+              }`}
+            >
+              {isDark ? <Sun className="h-4 w-4 text-amber-400" /> : <Moon className="h-4 w-4 text-slate-600" />}
+            </button>
+          </>
         )}
+      </div>
+
+      {/* Search input (top-left) */}
+      <div className="absolute top-4 left-4 z-40 pointer-events-auto">
+        <div
+          className={cn(
+            "flex items-center gap-2 rounded-full border py-1.5 pl-3 pr-1.5 shadow-xl backdrop-blur-md transition-all duration-300",
+            searchFocused
+              ? isDark
+                ? "ring-2 ring-cyan-500/60 border-cyan-500/80"
+                : "ring-2 ring-cyan-400/70 border-cyan-400/90"
+              : "",
+            isDark ? "border-slate-800/90 bg-slate-950/90" : "border-slate-200/90 bg-white/95"
+          )}
+        >
+          <Search className="h-4 w-4 shrink-0 text-slate-400" />
+          <input
+            type="text"
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            onFocus={() => setSearchFocused(true)}
+            onBlur={() => setSearchFocused(false)}
+            onKeyDown={(e) => {
+              if (e.key === "Escape") {
+                setSearchQuery("");
+                setSearchFocused(false);
+                e.currentTarget.blur();
+              }
+            }}
+            placeholder="Search characters"
+            aria-label="Search characters"
+            className={`w-40 sm:w-48 select-text bg-transparent text-sm outline-none placeholder:text-slate-500 ${
+              isDark ? "text-white" : "text-ink"
+            }`}
+          />
+          {searchQuery && (
+            <button
+              type="button"
+              onClick={() => setSearchQuery("")}
+              aria-label="Clear search"
+              title="Clear search"
+              className={`flex h-6 w-6 items-center justify-center rounded-full transition-colors ${
+                isDark ? "text-slate-400 hover:bg-slate-800 hover:text-white" : "text-ink-dim hover:bg-surface-muted hover:text-accent"
+              }`}
+            >
+              <X className="h-4 w-4" />
+            </button>
+          )}
+        </div>
       </div>
 
       {/* Search results dropdown suggestions */}
       {searchQuery && searchMatches.size > 0 && (
-        <div className={`absolute top-14 left-3 z-40 max-h-60 w-56 sm:w-64 overflow-y-auto rounded-xl border p-2 shadow-xl backdrop-blur-md ${
-          isDark ? "border-slate-800 bg-slate-900/95 text-white" : "border-slate-200 bg-white/98 text-ink"
+        <div className={`absolute top-14 left-4 z-40 max-h-60 w-56 sm:w-64 overflow-y-auto rounded-xl border p-2 shadow-xl backdrop-blur-md ${
+          isDark ? "border-slate-800 bg-slate-950/95 text-white" : "border-slate-200 bg-white/98 text-ink"
         }`}>
           {Array.from(searchMatches).map((id) => {
             const char = byId.get(id);
             if (!char) return null;
+            const theme = getFactionTheme(char.affiliation);
             return (
               <button
                 key={char.id}
@@ -596,44 +782,49 @@ export default function CharactersWeb({
                   handleSelectNode(char);
                   setSearchQuery("");
                 }}
-                className={`flex w-full flex-col rounded-lg px-2.5 py-1.5 text-left transition-colors ${
-                  isDark ? "hover:bg-slate-800" : "hover:bg-surface-muted"
+                className={`flex w-full items-center gap-2.5 rounded-lg px-2.5 py-1.5 text-left transition-colors ${
+                  isDark ? "hover:bg-slate-900" : "hover:bg-surface-muted"
                 }`}
               >
-                <span className="text-xs font-semibold">{char.name}</span>
-                <span className={`text-[10px] ${isDark ? "text-slate-400" : "text-ink-dim"}`}>{char.role}</span>
+                <span className="h-2.5 w-2.5 rounded-full shrink-0" style={{ backgroundColor: theme.primary }} />
+                <div className="min-w-0 flex-1">
+                  <div className="text-xs font-semibold truncate">{char.name}</div>
+                  <div className={`text-[10px] truncate ${isDark ? "text-slate-400" : "text-ink-dim"}`}>{char.role}</div>
+                </div>
               </button>
             );
           })}
         </div>
       )}
 
-      {/* Main Interactive Canvas */}
+      {/* Main Interactive SVG Canvas */}
       <MotionConfig reducedMotion="user">
         <svg
           ref={svgRef}
-          viewBox="0 0 2000 1400"
+          viewBox={`${-pad} 0 ${viewBoxW} 1400`}
+          preserveAspectRatio="xMidYMid meet"
           className={`h-full w-full touch-none select-none ${
             draggingCanvas ? "cursor-grabbing" : draggingNodeId ? "cursor-grabbing" : "cursor-grab"
           }`}
-          aria-label="Detective Conan character relationship web"
+          aria-label="Detective Conan character relationship graph"
           onPointerDown={handleCanvasPointerDown}
         >
-          {/* Dot matrix pattern */}
           <defs>
-            <pattern id="dotGrid" width="30" height="30" patternUnits="userSpaceOnUse">
-              <circle cx="15" cy="15" r="1.2" fill={isDark ? "rgba(255, 255, 255, 0.12)" : "rgba(15, 23, 42, 0.08)"} />
+            {/* Obsidian Dot matrix pattern */}
+            <pattern id="dotGrid" width="36" height="36" patternUnits="userSpaceOnUse">
+              <circle cx="18" cy="18" r="1.3" fill={isDark ? "rgba(255, 255, 255, 0.1)" : "rgba(15, 23, 42, 0.08)"} />
             </pattern>
           </defs>
 
-          <rect width="2000" height="1400" fill="url(#dotGrid)" />
+          {/* Background pattern */}
+          <rect x={-pad} width={viewBoxW} height="1400" fill="url(#dotGrid)" />
 
-          {/* World Pan/Zoom Wrapper. Pins scale origin to (0,0) so target Math centers nodes exactly */}
+          {/* World Pan/Zoom Wrapper */}
           <g
             transform={`translate(${view.x}, ${view.y}) scale(${view.k})`}
             style={{
               transformOrigin: "0px 0px",
-              transition: draggingCanvas || draggingNodeId || instant ? "none" : "transform 0.25s cubic-bezier(0.16, 1, 0.3, 1)",
+              transition: draggingCanvas || draggingNodeId || instant ? "none" : "transform 0.3s cubic-bezier(0.16, 1, 0.3, 1)",
             }}
           >
             {/* Transparent hit area */}
@@ -645,10 +836,17 @@ export default function CharactersWeb({
                 const meta = RELATIONSHIP_META[rel.type];
                 if (activeFilter && rel.type !== activeFilter) return null;
 
-                const isTarget = hoveredId === rel.source || hoveredId === rel.target || selectedCharacterId === rel.source || selectedCharacterId === rel.target;
+                const isTarget =
+                  hoveredId === rel.source ||
+                  hoveredId === rel.target ||
+                  selectedCharacterId === rel.source ||
+                  selectedCharacterId === rel.target;
+
                 const matchesSearch = searchMatches.size === 0 || searchMatches.has(rel.source) || searchMatches.has(rel.target);
 
-                const currentOpacity = dimmed ? (isTarget ? 1 : DIM_OPACITY) : matchesSearch ? 0.85 : (isDark ? 0.25 : 0.2);
+                const currentOpacity = dimmed
+                  ? (isTarget ? 1 : DIM_OPACITY)
+                  : matchesSearch ? 0.85 : (isDark ? 0.35 : 0.25);
 
                 return (
                   <motion.g key={rel.id} variants={stringVariants}>
@@ -656,7 +854,7 @@ export default function CharactersWeb({
                       d={d}
                       fill="none"
                       stroke={meta.color}
-                      strokeWidth={isTarget ? STRING_WIDTH + 1.2 : STRING_WIDTH}
+                      strokeWidth={isTarget ? STRING_WIDTH + 1.8 : STRING_WIDTH}
                       strokeLinecap="round"
                       opacity={currentOpacity}
                       style={{ transition: "opacity 200ms ease, stroke-width 200ms ease" }}
@@ -671,9 +869,14 @@ export default function CharactersWeb({
               {CHARACTERS.map((c) => {
                 const pos = positions[c.id] ?? { x: c.x, y: c.y };
                 const degree = degreeByCharacter.get(c.id) ?? 0;
+                const radius = getNodeRadius(c, degree);
+                const factionTheme = getFactionTheme(c.affiliation);
+
                 const isSelected = selectedCharacterId === c.id;
                 const isHovered = hoveredId === c.id;
                 const isSearchMatch = searchMatches.has(c.id);
+
+                const isConan = c.id === "conan-edogawa";
 
                 return (
                   <motion.g
@@ -688,7 +891,7 @@ export default function CharactersWeb({
                       aria-label={`Node: ${c.name}, ${degree} relationships`}
                       className="group cursor-pointer outline-none"
                       onPointerDown={(e) => handleNodePointerDown(c, e)}
-                      onClick={(e) => {
+                      onClick={() => {
                         if (didDragRef.current) {
                           didDragRef.current = false;
                           return;
@@ -701,50 +904,83 @@ export default function CharactersWeb({
                       onFocus={hoverNode(c.id)}
                       onBlur={hoverNode(null)}
                     >
-                      {/* Outer pulse / glow ring when selected or search match */}
+                      {/* Outer Glow Halo ring for Conan or Selected / Hovered */}
+                      {(isConan || isSelected || isHovered || isSearchMatch) && (
+                        <circle
+                          r={radius + 12}
+                          fill={factionTheme.glow}
+                          className={isConan || isSelected ? "animate-pulse opacity-80" : "opacity-50"}
+                        />
+                      )}
+
+                      {/* Selection / Search match ring */}
                       {(isSelected || isSearchMatch) && (
                         <circle
-                          r={NODE_RADIUS + 9}
+                          r={radius + 7}
                           fill="none"
-                          stroke={isSelected ? (isDark ? "#EF4444" : "#DC2626") : (isDark ? "#3B82F6" : "#2563EB")}
+                          stroke={isSelected ? "#FFFFFF" : factionTheme.border}
                           strokeWidth={2}
-                          className="animate-pulse"
                         />
                       )}
 
                       {/* Hover ring */}
                       <circle
-                        r={NODE_RADIUS + 5}
+                        r={radius + 5}
                         fill="none"
-                        stroke={isDark ? "#64748B" : "#94A3B8"}
+                        stroke={factionTheme.border}
                         strokeWidth={1.5}
                         className="opacity-0 transition-opacity duration-200 group-hover:opacity-100"
                       />
 
-                      {/* Main Node Circle */}
+                      {/* Main Node Circle (Dynamic Radius based on Characteristics) */}
                       <circle
-                        r={NODE_RADIUS}
-                        fill={isSelected ? (isDark ? "#EF4444" : "#DC2626") : (isDark ? "#0F172A" : "#FFFFFF")}
-                        stroke={isSelected ? (isDark ? "#FFFFFF" : "#DC2626") : isHovered ? (isDark ? "#38BDF8" : "#DC2626") : (isDark ? "#E2E8F0" : "#0F172A")}
-                        strokeWidth={isSelected ? 3 : 2}
-                        className="transition-colors duration-200 shadow-md"
+                        r={radius}
+                        fill={
+                          isSelected
+                            ? factionTheme.primary
+                            : isDark
+                              ? factionTheme.darkFill
+                              : factionTheme.lightFill
+                        }
+                        stroke={
+                          isSelected
+                            ? "#FFFFFF"
+                            : isHovered
+                              ? "#FFFFFF"
+                              : factionTheme.border
+                        }
+                        strokeWidth={isConan ? 3.5 : isSelected ? 3 : 2}
+                        className="transition-colors duration-200 shadow-lg"
                       />
 
-                      {/* Inner dot */}
+                      {/* Core Inner Indicator Dot */}
                       <circle
-                        r={3.5}
-                        fill={isSelected ? "#FFFFFF" : isHovered ? (isDark ? "#38BDF8" : "#DC2626") : (isDark ? "#94A3B8" : "#64748B")}
+                        r={isConan ? 6 : radius > 16 ? 4.5 : 3.5}
+                        fill={
+                          isSelected
+                            ? "#FFFFFF"
+                            : isHovered
+                              ? "#FFFFFF"
+                              : factionTheme.primary
+                        }
                       />
 
                       {/* Character Label */}
-                      <g transform="translate(0, 28)">
+                      <g transform={`translate(0, ${radius + 15})`}>
                         <text
                           textAnchor="middle"
-                          className="select-none text-[13px] font-semibold font-display tracking-tight"
+                          className={cn(
+                            "select-none font-display tracking-tight transition-all",
+                            isConan ? "text-[14px] font-extrabold" : radius > 16 ? "text-[13px] font-bold" : "text-[12px] font-semibold"
+                          )}
                           style={{
-                            fill: isSelected ? (isDark ? "#EF4444" : "#DC2626") : isSearchMatch ? (isDark ? "#38BDF8" : "#2563EB") : (isDark ? "#F8FAFC" : "#0F172A"),
+                            fill: isSelected
+                              ? "#FFFFFF"
+                              : isHovered
+                                ? (isDark ? "#FFFFFF" : "#0F172A")
+                                : (isDark ? "#F8FAFC" : "#0F172A"),
                             paintOrder: "stroke",
-                            stroke: isDark ? "#020617" : "#FFFFFF",
+                            stroke: isDark ? "#090D16" : "#FFFFFF",
                             strokeWidth: "4px",
                             strokeLinejoin: "round",
                           }}
