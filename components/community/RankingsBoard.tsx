@@ -2,7 +2,7 @@
 
 import { useState, useMemo, useRef } from "react"
 import Link from "next/link"
-import { Trophy, Medal, Crown, Search, Clock, Film, Tv, UserCheck } from "lucide-react"
+import { Trophy, Medal, Crown, Search, Clock, Film, Tv, UserCheck, ChevronDown } from "lucide-react"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { Button } from "@/components/ui/button"
 import { avatarUrl } from "@/lib/constants"
@@ -23,9 +23,9 @@ function RankBadge({ watchedCount }: { watchedCount: number }) {
 }
 
 const podiumStyles: Record<number, { border: string; medal: string; label: string }> = {
-  1: { border: "border-amber-300/80 bg-amber-50/30", medal: "text-amber-500", label: "1st Place" },
-  2: { border: "border-slate-200 bg-surface", medal: "text-slate-400", label: "2nd Place" },
-  3: { border: "border-amber-700/30 bg-amber-900/5", medal: "text-amber-700", label: "3rd Place" },
+  1: { border: "border-gold-seal/40 bg-gold-seal/10", medal: "text-gold-seal", label: "1st Place" },
+  2: { border: "border-ink-dim/20 bg-surface", medal: "text-ink-faint", label: "2nd Place" },
+  3: { border: "border-gold-seal/20 bg-gold-seal/5", medal: "text-gold-seal", label: "3rd Place" },
 }
 
 function PodiumCard({
@@ -65,7 +65,7 @@ function PodiumCard({
         </span>
       </div>
 
-      <Avatar className={`${featured ? "h-16 w-16 sm:h-18 sm:w-18" : "h-12 w-12 sm:h-14 sm:w-14"} ring-2 ring-slate-200/80 shadow-sm`}>
+      <Avatar className={`${featured ? "h-16 w-16 sm:h-18 sm:w-18" : "h-12 w-12 sm:h-14 sm:w-14"} ring-2 ring-ink-dim/20 shadow-sm`}>
         <AvatarImage src={row.avatar_url ?? avatarUrl(row.display_name)} />
         <AvatarFallback className="bg-accent font-display text-white text-xs">
           {row.display_name.slice(0, 2).toUpperCase()}
@@ -107,6 +107,7 @@ export function RankingsBoard({
   const [timeframe, setTimeframe] = useState<"all" | "month" | "week">("all")
   const [category, setCategory] = useState<"episodes" | "movies" | "hours">("episodes")
   const [searchQuery, setSearchQuery] = useState("")
+  const [visibleCount, setVisibleCount] = useState(25)
 
   const youRowRef = useRef<HTMLDivElement>(null)
 
@@ -150,7 +151,7 @@ export function RankingsBoard({
 
   if (rankings.length === 0) {
     return (
-      <div className="rounded-2xl border border-slate-200/80 bg-surface p-12 text-center shadow-card">
+      <div className="rounded-2xl border border-ink-dim/20 bg-surface p-12 text-center shadow-card">
         <Trophy className="mx-auto h-7 w-7 text-ink-faint" />
         <p className="mt-3 font-display text-sm font-semibold text-ink-dim">
           No rankings yet
@@ -173,7 +174,7 @@ export function RankingsBoard({
   return (
     <div className="space-y-6">
       {/* Clean Control & Filter Bar */}
-      <div className="flex flex-col gap-3 rounded-2xl border border-slate-200/80 bg-surface p-3.5 shadow-card sm:flex-row sm:items-center sm:justify-between">
+      <div className="flex flex-col gap-3 rounded-2xl border border-ink-dim/20 bg-surface p-3.5 shadow-card sm:flex-row sm:items-center sm:justify-between">
         {/* Timeframe Selector */}
         <div className="flex items-center gap-1 rounded-xl bg-surface-muted p-1">
           <button
@@ -259,9 +260,12 @@ export function RankingsBoard({
           <input
             type="text"
             value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
+            onChange={(e) => {
+              setSearchQuery(e.target.value)
+              setVisibleCount(25)
+            }}
             placeholder="Search detective username..."
-            className="w-full rounded-xl border border-slate-200/80 bg-surface pl-9 pr-4 py-2 text-xs text-ink outline-none transition-all placeholder:text-ink-faint focus:border-slate-400"
+            className="w-full rounded-xl border border-ink-dim/20 bg-surface pl-9 pr-4 py-2 text-xs text-ink outline-none transition-all placeholder:text-ink-faint focus:border-ink-dim/40"
           />
         </div>
 
@@ -270,7 +274,7 @@ export function RankingsBoard({
             variant="outline"
             size="sm"
             onClick={scrollToYou}
-            className="gap-2 rounded-xl border-slate-200 text-xs font-display text-ink-dim hover:text-ink"
+            className="gap-2 rounded-xl border-ink-dim/20 text-xs font-display text-ink-dim hover:text-ink"
           >
             <UserCheck className="h-3.5 w-3.5 text-accent" />
             Jump to My Rank (#{you.rank > 0 ? you.rank : "N/A"})
@@ -288,9 +292,9 @@ export function RankingsBoard({
       )}
 
       {/* Full Leaderboard List */}
-      <div className="overflow-hidden rounded-2xl border border-slate-200/80 bg-surface shadow-card">
-        <div className="divide-y divide-slate-100">
-          {filteredRankings.map((row) => {
+      <div className="overflow-hidden rounded-2xl border border-ink-dim/20 bg-surface shadow-card">
+        <div className="divide-y divide-ink-dim/10">
+          {filteredRankings.slice(0, visibleCount).map((row) => {
             const isYou = row.user_id === currentUserId
             const pct = Math.max(
               4,
@@ -309,7 +313,7 @@ export function RankingsBoard({
                   #{row.rank}
                 </span>
 
-                <Avatar className="h-9 w-9 shrink-0 border border-slate-200/60">
+                <Avatar className="h-9 w-9 shrink-0 border border-ink-dim/20">
                   <AvatarImage src={row.avatar_url ?? avatarUrl(row.display_name)} />
                   <AvatarFallback className="bg-accent text-xs font-display text-white">
                     {row.display_name.slice(0, 2).toUpperCase()}
@@ -354,6 +358,23 @@ export function RankingsBoard({
           })}
         </div>
       </div>
+
+      {/* Show more pagination */}
+      {filteredRankings.length > visibleCount && (
+        <div className="flex justify-center">
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() =>
+              setVisibleCount((c) => Math.min(c + 25, filteredRankings.length))
+            }
+            className="gap-2 rounded-xl border-ink-dim/20 text-xs font-display text-ink-dim hover:text-ink"
+          >
+            <ChevronDown className="h-3.5 w-3.5" />
+            Show more
+          </Button>
+        </div>
+      )}
     </div>
   )
 }
