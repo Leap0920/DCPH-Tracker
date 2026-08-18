@@ -5,10 +5,12 @@ import { useRouter, useSearchParams } from "next/navigation"
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query"
 import { ContentGrid, type StatusFilter } from "@/components/tracker/ContentGrid"
 import { MotivationStats } from "@/components/tracker/MotivationStats"
+import { ContinueWatchingStrip } from "@/components/tracker/ContinueWatchingStrip"
 import { Button } from "@/components/ui/button"
 import { createClient } from "@/utils/supabase/client"
 import { openAuthModal } from "@/lib/auth-modal"
 import { fetchContentEntries } from "@/lib/queries/client/content"
+import { getContinueWatching, getNextUp } from "@/lib/queries/client/continue-watching"
 import {
   fetchUserWatchStatuses,
   setWatchStatus,
@@ -128,6 +130,20 @@ function TrackerPageContent() {
 
   const statusKey = () => queryKeys.watchStatus.all(user as string)
 
+  // ── Continue Watching strip (authenticated only) ──
+  const continueWatchingQuery = useQuery({
+    queryKey: queryKeys.continueWatching.all(user ?? ""),
+    queryFn: () => getContinueWatching(user as string),
+    enabled: !!user,
+  })
+  const nextUpQuery = useQuery({
+    queryKey: queryKeys.continueWatching.nextUp(user ?? ""),
+    queryFn: () => getNextUp(user as string),
+    enabled: !!user,
+  })
+  const continueWatchingKey = () => queryKeys.continueWatching.all(user as string)
+  const nextUpKey = () => queryKeys.continueWatching.nextUp(user as string)
+
   // ── Mutations (optimistic with rollback) ──
   const setStatusMutation = useMutation({
     mutationFn: ({
@@ -165,6 +181,8 @@ function TrackerPageContent() {
     onSuccess: () => setMutationError(null),
     onSettled: () => {
       queryClient.invalidateQueries({ queryKey: statusKey() })
+      queryClient.invalidateQueries({ queryKey: continueWatchingKey() })
+      queryClient.invalidateQueries({ queryKey: nextUpKey() })
     },
   })
 
@@ -196,6 +214,8 @@ function TrackerPageContent() {
     onSuccess: () => setMutationError(null),
     onSettled: () => {
       queryClient.invalidateQueries({ queryKey: statusKey() })
+      queryClient.invalidateQueries({ queryKey: continueWatchingKey() })
+      queryClient.invalidateQueries({ queryKey: nextUpKey() })
     },
   })
 
@@ -384,6 +404,12 @@ function TrackerPageContent() {
                   Sign In
                 </Button>
               </div>
+            )}
+            {user && (
+              <ContinueWatchingStrip
+                entries={continueWatchingQuery.data ?? []}
+                nextUp={nextUpQuery.data ?? null}
+              />
             )}
             <div className="bg-surface border border-slate-200 rounded-lg overflow-hidden shadow-card">
               <ContentGrid
