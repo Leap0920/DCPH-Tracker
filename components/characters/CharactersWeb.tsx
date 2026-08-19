@@ -93,6 +93,18 @@ const CAM_TAU = 85;
 const PAN_INERTIA_MS = 140;
 
 const DRIFT_AMP = 5.5;
+/* ── anti-collision ───────────────────────────────────────────────
+ * Circles push each other apart when their radii overlap. The push is
+ * stored as a persistent per-node offset that decays back toward the
+ * node's home position, so a collision reads as an impact-and-settle
+ * rather than a snap. Offsets never touch `base` — drag / fit /
+ * zoomToConan keep reading the untouched seeded layout.
+ * ---------------------------------------------------------------- */
+const COLLIDE_PAD = 6;          // world px of breathing room beyond r_i + r_j
+const COLLIDE_ITERS = 4;        // Gauss-Seidel relaxation passes per frame
+const COLLIDE_STIFF = 0.6;      // fraction of each overlap resolved per pass
+const COLLIDE_MAX_OFFSET = 28;  // hard cap on displacement from home (world px)
+const COLLIDE_RELAX_TAU = 260;  // ms; how fast a pushed circle drifts back home
 const BASE_BOW = 6;
 const PARALLEL_GAP = 22;
 const STRING_WIDTH = 2;
@@ -519,6 +531,14 @@ export default function CharactersWeb({
     let lastLabelK = -1;
     let lastZoomLabel = -1;
 
+    /* Persistent separation offsets + the frame's drifted home positions.
+       Recreated whenever the effect re-runs (i.e. when `nodes` changes),
+       so they can never outlive the layout they describe. */
+    const offX = new Float64Array(nodes.length);
+    const offY = new Float64Array(nodes.length);
+    const homeX = new Float64Array(nodes.length);
+    const homeY = new Float64Array(nodes.length);
+
     const loop = (now: number) => {
       raf = requestAnimationFrame(loop);
       const dt = Math.min(50, now - last);
@@ -541,11 +561,16 @@ export default function CharactersWeb({
         `translate(${cam.x.toFixed(2)} ${cam.y.toFixed(2)}) scale(${cam.k.toFixed(4)})`
       );
 
-      /* 2 — node drift (positions feed BOTH nodes and strings) */
+      /* 2 — node drift + anti-collision (positions feed BOTH nodes and strings) */
       const amp = reduceRef.current ? 0 : DRIFT_AMP;
       const { base, curX, curY } = geom;
       const dragIdx = dragNodeRef.current?.index ?? -1;
-      for (let i = 0; i < nodes.length; i++) {
+      const N = nodes.length;
+
+      /* 2a — drifted home positions, plus last frame's separation offsets
+              decayed toward zero so circles ease back once they are clear */
+      const decay = Math.exp(-dt / COLLIDE_RELAX_TAU);
+      for (let i = 0; i < N; i++) {
         const n = nodes[i];
         let x = base[i * 2];
         let y = base[i * 2 + 1];
@@ -557,10 +582,107 @@ export default function CharactersWeb({
             Math.cos(t * n.f3 + n.p3) * amp * 0.9 +
             Math.cos(t * n.f4 + n.p4) * amp * 0.4;
         }
-        curX[i] = x;
-        curY[i] = y;
+        homeX[i] = x;
+        homeY[i] = y;
+        if (i === dragIdx) {
+          // The dragged circle is pinned to the pointer: it displaces others
+          // but is never displaced itself.
+          offX[i] = 0;
+          offY[i] = 0;
+        } else {
+          offX[i] *= decay;
+          offY[i] *= decay;
+        }
+        curX[i] = x + offX[i];
+        curY[i] = y + offY[i];
+      }
+
+      /* 2b — pairwise separation. Gauss-Seidel: each pass reads the positions
+              the previous pair already corrected, so a few passes untangle
+              clusters instead of fighting over one axis. ~60 nodes = 1770
+              pairs per pass; trivial next to the SVG attribute writes. */
+      for (let iter = 0; iter < COLLIDE_ITERS; iter++) {
+        for (let i = 0; i < N; i++) {
+          const ri = nodes[i].r;
+          const iFixed = i === dragIdx;
+          let xi = curX[i];
+          let yi = curY[i];
+
+          for (let j = i + 1; j < N; j++) {
+            const min = ri + nodes[j].r + COLLIDE_PAD;
+            let dx = curX[j] - xi;
+            let dy = curY[j] - yi;
+            const d2 = dx * dx + dy * dy;
+            if (d2 >= min * min) continue; // not touching
+
+            let d = Math.sqrt(d2);
+            if (d < 1e-4) {
+              // Exactly coincident: pick a deterministic axis from the index
+              // pair (golden-angle) so the split is stable frame to frame.
+              const ang = i * 2.3999632 + j * 0.7853982;
+              dx = Math.cos(ang);
+              dy = Math.sin(ang);
+              d = 1e-4;
+            } else {
+              dx /= d;
+              dy /= d;
+            }
+
+            const push = (min - d) * COLLIDE_STIFF;
+            const jFixed = j === dragIdx;
+            // A pinned neighbour transfers its whole share to the other node.
+            const si = iFixed ? 0 : jFixed ? 1 : 0.5;
+            const sj = jFixed ? 0 : iFixed ? 1 : 0.5;
+
+            if (si > 0) {
+              const px = dx * push * si;
+              const py = dy * push * si;
+              xi -= px;
+              yi -= py;
+              offX[i] -= px;
+              offY[i] -= py;
+            }
+            if (sj > 0) {
+              const px = dx * push * sj;
+              const py = dy * push * sj;
+              curX[j] += px;
+              curY[j] += py;
+              offX[j] += px;
+              offY[j] += py;
+            }
+          }
+
+          curX[i] = xi;
+          curY[i] = yi;
+        }
+      }
+
+      /* 2c — cap total displacement so a dense cluster can never shred the
+              seeded composition; the offset is clamped, then the position is
+              rebuilt from the drifted home to stay exact. */
+      for (let i = 0; i < N; i++) {
+        if (i === dragIdx) continue;
+        const ox = offX[i];
+        const oy = offY[i];
+        const m2 = ox * ox + oy * oy;
+        if (m2 > COLLIDE_MAX_OFFSET * COLLIDE_MAX_OFFSET) {
+          const s = COLLIDE_MAX_OFFSET / Math.sqrt(m2);
+          offX[i] = ox * s;
+          offY[i] = oy * s;
+          curX[i] = homeX[i] + offX[i];
+          curY[i] = homeY[i] + offY[i];
+        }
+      }
+
+      /* 2d — commit the corrected positions to the DOM */
+      for (let i = 0; i < N; i++) {
         const g = nodeEls.current[i];
-        if (g) g.setAttribute("transform", `translate(${x.toFixed(2)} ${y.toFixed(2)})`);
+        if (g) {
+          g.setAttribute(
+            "transform",
+            `translate(${curX[i].toFixed(2)} ${curY[i].toFixed(2)})`
+          );
+        }
       }
 
       /* 3 — strings follow the same drifted coordinates */
