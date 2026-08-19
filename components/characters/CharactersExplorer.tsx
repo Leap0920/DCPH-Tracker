@@ -15,6 +15,7 @@ import {
   CharacterDetailPanel,
   RelationshipLegend,
 } from "@/components/characters/CharacterDetailPanel"
+import { useTheme } from "@/components/theme-provider"
 import { X, Filter } from "lucide-react"
 import type {
   Character,
@@ -41,11 +42,11 @@ export default function CharactersExplorer({
   const [selection, setSelection] = useState<Character | null>(null)
   const [filter, setFilter] = useState<RelationshipType | null>(null)
   const [legendOpen, setLegendOpen] = useState(false)
-  const [graphTheme, setGraphTheme] = useState<"light" | "dark">("light")
 
-  const isDark = graphTheme === "dark"
-
-  const toggleTheme = () => setGraphTheme(graphTheme === "light" ? "dark" : "light")
+  // Theme follows the app-wide navbar toggle (ThemeProvider .dark class) —
+  // no local dark/light button on /characters.
+  const { theme } = useTheme()
+  const isDark = theme === "dark"
 
   /** A character's threads in both directions, trimmed by the active filter. */
   const threadsFor = (characterId: string): Relationship[] => {
@@ -68,8 +69,7 @@ export default function CharactersExplorer({
           selectedCharacterId={selection?.id}
           activeFilter={filter}
           onFilterType={setFilter}
-          theme={graphTheme}
-          onToggleTheme={toggleTheme}
+          theme={theme}
           className="h-full w-full rounded-none border-none"
         />
 
