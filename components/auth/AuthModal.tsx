@@ -9,7 +9,10 @@ import {
   Loader2,
   Lock,
   Mail,
+  MessageSquare,
+  Phone,
   ShieldAlert,
+  Smartphone,
   User,
   Calendar,
 } from "lucide-react"
@@ -25,7 +28,7 @@ import {
 } from "@/components/ui/dialog"
 import { createClient } from "@/utils/supabase/client"
 import { cn } from "@/lib/utils"
-import type { AuthModalMode } from "@/lib/auth-modal"
+import type { AuthModalMode, AuthMethod } from "@/lib/auth-modal"
 
 type AuthErrorKind = "credentials" | "unconfirmed" | "other"
 
@@ -44,6 +47,7 @@ function classifyAuthError(message: string): AuthErrorKind {
 export function AuthModal() {
   const [open, setOpen] = useState(false)
   const [mode, setMode] = useState<AuthModalMode>("signin")
+  const [method, setMethod] = useState<AuthMethod>("email")
   const router = useRouter()
   const pathname = usePathname()
   const supabase = createClient()
@@ -71,11 +75,20 @@ export function AuthModal() {
   const [needsConfirmation, setNeedsConfirmation] = useState(false)
   const [resendState, setResendState] = useState<"idle" | "sending" | "sent">("idle")
 
+  // Phone OTP fields
+  const [phone, setPhone] = useState("")
+  const [phoneError, setPhoneError] = useState<string | null>(null)
+  const [otpSent, setOtpSent] = useState(false)
+  const [otpCode, setOtpCode] = useState("")
+  const [otpLoading, setOtpLoading] = useState(false)
+  const [oauthLoading, setOauthLoading] = useState(false)
+
   // Listen for the global "open-auth-modal" event dispatched by openAuthModal()
   useEffect(() => {
     const handler = (e: Event) => {
-      const detail = (e as CustomEvent<{ mode?: AuthModalMode }>).detail
+      const detail = (e as CustomEvent<{ mode?: AuthModalMode; method?: AuthMethod }>).detail
       setMode(detail?.mode === "signup" ? "signup" : "signin")
+      setMethod(detail?.method === "phone" ? "phone" : "email")
       setOpen(true)
     }
     window.addEventListener("open-auth-modal", handler)
@@ -116,6 +129,11 @@ export function AuthModal() {
       setResendSent(false)
       setNeedsConfirmation(false)
       setResendState("idle")
+      setPhoneError(null)
+      setOtpSent(false)
+      setOtpCode("")
+      setOtpLoading(false)
+      setOauthLoading(false)
     }
   }, [open])
 
@@ -125,6 +143,18 @@ export function AuthModal() {
     setErrorKind(null)
     setNeedsConfirmation(false)
     setResendState("idle")
+    setPhoneError(null)
+    setOtpSent(false)
+    setOtpCode("")
+  }
+
+  function switchMethod(next: AuthMethod) {
+    setMethod(next)
+    setError(null)
+    setErrorKind(null)
+    setPhoneError(null)
+    setOtpSent(false)
+    setOtpCode("")
   }
 
   async function handleSignIn(e: React.FormEvent) {
@@ -275,6 +305,307 @@ export function AuthModal() {
     setResendState("sent")
   }
 
+  /** Start Google OAuth. Supabase redirects to the callback route on success. */
+  async function handleGoogleSignIn() {
+    setOauthLoading(true)
+    setError(null)
+    setErrorKind(null)
+    const { error: oauthError } = await supabase.auth.signInWithOAuth({
+      provider: "google",
+      options: {
+        redirectTo: `${window.location.origin}/callback?next=/tracker`,
+      },
+    })
+    if (oauthError) {
+      setError(oauthError.message)
+      setErrorKind("other")
+      setOauthLoading(false)
+    }
+    // On success the browser navigates to Google — the modal stays mounted.
+  }
+
+  /** Normalize a PH-style number into E.164 (e.g. "09171234567" → "+639171234567"). */
+  function normalizePhone(raw: string): string {
+    const digits = raw.replace(/[^\d]/g, "")
+    if (digits.startsWith("0")) return `+63${digits.slice(1)}`
+    if (digits.startsWith("63")) return `+${digits}`
+    return `+${digits}`
+  }
+
+  function validatePhone(raw: string): string | null {
+    const normalized = normalizePhone(raw)
+    // E.164: +63 (2) + 9/10-digit local number
+    if (normalized.length < 12 || normalized.length > 15) {
+      return "Enter a valid phone number (e.g. 0917 123 4567)"
+    }
+    return null
+  }
+
+  /** Send the SMS one-time code (creates an account on signup, or just signs in). */
+  async function handleSendOtp(e: React.FormEvent) {
+    e.preventDefault()
+    const phoneErrorMsg = validatePhone(phone)
+    if (phoneErrorMsg) {
+      setPhoneError(phoneErrorMsg)
+      return
+    }
+    setPhoneError(null)
+    setOtpLoading(true)
+    setError(null)
+    setErrorKind(null)
+
+    const normalizedPhone = normalizePhone(phone)
+
+    if (mode === "signup") {
+      // Signup via phone — create the account with a generated username.
+      const generatedUsername = await generateUniqueUsername(displayName, `${normalizedPhone}@phone.local`)
+      const { error: otpError } = await supabase.auth.signInWithOtp({
+        phone: normalizedPhone,
+        options: {
+          shouldCreateUser: true,
+          data: {
+            username: generatedUsername,
+            display_name: displayName || generatedUsername,
+            birthday: birthday || null,
+          },
+        },
+      })
+      if (otpError) {
+        setPhoneError(otpError.message)
+        setOtpLoading(false)
+        return
+      }
+      setOtpSent(true)
+      setOtpLoading(false)
+      return
+    }
+
+    // Signin via phone — do NOT create an account for unknown numbers.
+    const { error: otpError } = await supabase.auth.signInWithOtp({
+      phone: normalizedPhone,
+      options: { shouldCreateUser: false },
+    })
+    if (otpError) {
+      setPhoneError(otpError.message)
+      setOtpLoading(false)
+      return
+    }
+    setOtpSent(true)
+    setOtpLoading(false)
+  }
+
+  /** Verify the SMS code and complete sign-in / signup. */
+  async function handleVerifyOtp(e: React.FormEvent) {
+    e.preventDefault()
+    if (otpCode.trim().length < 6) {
+      setPhoneError("Enter the 6-digit code from your SMS.")
+      return
+    }
+    setPhoneError(null)
+    setOtpLoading(true)
+    setError(null)
+    setErrorKind(null)
+
+    const { error: verifyError } = await supabase.auth.verifyOtp({
+      phone: normalizePhone(phone),
+      token: otpCode.trim(),
+      type: "sms",
+    })
+
+    if (verifyError) {
+      setPhoneError(verifyError.message)
+      setOtpLoading(false)
+      return
+    }
+
+    setOpen(false)
+    router.push("/tracker")
+    router.refresh()
+  }
+
+  /** Resend the SMS one-time code. */
+  async function handleResendOtp() {
+    setOtpLoading(true)
+    setPhoneError(null)
+    const normalizedPhone = normalizePhone(phone)
+    const { error: resendError } = await supabase.auth.signInWithOtp({
+      phone: normalizedPhone,
+      options: {
+        shouldCreateUser: mode === "signup",
+        ...(mode === "signup" && {
+          data: {
+            username: displayName || "detective",
+            display_name: displayName || "Detective",
+            birthday: birthday || null,
+          },
+        }),
+      },
+    })
+    if (resendError) {
+      setPhoneError(resendError.message)
+      setOtpLoading(false)
+      return
+    }
+    setOtpLoading(false)
+  }
+
+  /** Render the phone OTP flow (shared by signin and signup). */
+  const phoneFlow = (
+    <form onSubmit={otpSent ? handleVerifyOtp : handleSendOtp} aria-busy={otpLoading} className="space-y-4">
+      {phoneError && (
+        <div
+          role="status"
+          aria-live="polite"
+          className="bg-red-500/10 border border-red-500/30 rounded-lg p-3.5 flex gap-2 items-start text-xs text-red-400"
+        >
+          <ShieldAlert className="h-4 w-4 shrink-0 mt-0.5 text-red-400" />
+          <span>{phoneError}</span>
+        </div>
+      )}
+
+      {mode === "signup" && (
+        <>
+          <div className="space-y-1.5">
+            <Label htmlFor="auth-phone-name" className="font-display text-xs font-semibold text-ink-dim">
+              Display Name
+            </Label>
+            <div className="relative">
+              <User className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-ink-faint" />
+              <Input
+                id="auth-phone-name"
+                placeholder="Conan Edogawa"
+                value={displayName}
+                onChange={(e) => setDisplayName(e.target.value)}
+                required
+                className="pl-10 bg-surface border border-ink-dim/20 focus:border-accent focus:ring-1 focus:ring-accent rounded-lg text-ink placeholder:text-ink-faint text-sm h-11 transition-colors"
+              />
+            </div>
+          </div>
+
+          <div className="space-y-1.5">
+            <Label htmlFor="auth-phone-birthday" className="font-display text-xs font-semibold text-ink-dim">
+              Birthday
+            </Label>
+            <div className="relative">
+              <Calendar className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-ink-faint" />
+              <Input
+                id="auth-phone-birthday"
+                type="date"
+                value={birthday}
+                onChange={(e) => setBirthday(e.target.value)}
+                required
+                className="pl-10 bg-surface border border-ink-dim/20 focus:border-accent focus:ring-1 focus:ring-accent rounded-lg text-ink text-sm h-11 transition-colors"
+              />
+            </div>
+          </div>
+        </>
+      )}
+
+      <div className="space-y-1.5">
+        <Label htmlFor="auth-phone" className="font-display text-xs font-semibold text-ink-dim">
+          Phone Number
+        </Label>
+        <div className="relative">
+          <Phone className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-ink-faint" />
+          <Input
+            id="auth-phone"
+            type="tel"
+            inputMode="tel"
+            autoComplete="tel"
+            placeholder="0917 123 4567"
+            value={phone}
+            onChange={(e) => setPhone(e.target.value)}
+            disabled={otpSent}
+            required
+            className="pl-10 bg-surface border border-ink-dim/20 focus:border-accent focus:ring-1 focus:ring-accent rounded-lg text-ink placeholder:text-ink-faint text-sm h-11 transition-colors disabled:opacity-60"
+          />
+        </div>
+        <p className="text-xs text-ink-faint px-1">
+          Philippine numbers: 0917 123 4567. International: include your country code.
+        </p>
+      </div>
+
+      {!otpSent ? (
+        <Button
+          type="submit"
+          className="w-full bg-accent hover:bg-accent-bright text-white font-semibold text-sm h-11 rounded-full transition-all shadow-card hover:scale-[1.01] mt-2"
+          disabled={otpLoading}
+        >
+          {otpLoading ? (
+            <>
+              <Loader2 className="h-4 w-4 animate-spin mr-2" />
+              Sending code…
+            </>
+          ) : (
+            <>
+              <MessageSquare className="h-4 w-4 mr-2" />
+              Send Verification Code
+            </>
+          )}
+        </Button>
+      ) : (
+        <>
+          <div className="space-y-1.5">
+            <Label htmlFor="auth-otp" className="font-display text-xs font-semibold text-ink-dim">
+              Verification Code
+            </Label>
+            <div className="relative">
+              <Smartphone className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-ink-faint" />
+              <Input
+                id="auth-otp"
+                type="text"
+                inputMode="numeric"
+                autoComplete="one-time-code"
+                placeholder="6-digit code"
+                value={otpCode}
+                onChange={(e) => setOtpCode(e.target.value.replace(/[^\d]/g, "").slice(0, 6))}
+                required
+                pattern="\d{6}"
+                maxLength={6}
+                className="pl-10 bg-surface border border-ink-dim/20 focus:border-accent focus:ring-1 focus:ring-accent rounded-lg text-ink placeholder:text-ink-faint text-sm h-11 transition-colors tracking-[0.3em] text-center"
+              />
+            </div>
+          </div>
+
+          <Button
+            type="submit"
+            className="w-full bg-accent hover:bg-accent-bright text-white font-semibold text-sm h-11 rounded-full transition-all shadow-card hover:scale-[1.01] mt-2"
+            disabled={otpLoading}
+          >
+            {otpLoading ? (
+              <>
+                <Loader2 className="h-4 w-4 animate-spin mr-2" />
+                Verifying…
+              </>
+            ) : mode === "signup" ? (
+              "Create Account"
+            ) : (
+              "Sign In"
+            )}
+          </Button>
+
+          <div className="flex items-center justify-between text-xs">
+            <button
+              type="button"
+              onClick={handleResendOtp}
+              disabled={otpLoading}
+              className="text-ink-dim hover:text-ink hover:underline transition-colors disabled:opacity-50"
+            >
+              {otpLoading ? "Resending…" : "Resend code"}
+            </button>
+            <button
+              type="button"
+              onClick={() => switchMethod("email")}
+              className="text-ink-dim hover:text-ink hover:underline transition-colors"
+            >
+              Use email instead
+            </button>
+          </div>
+        </>
+      )}
+    </form>
+  )
+
   return (
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-md">
@@ -327,7 +658,77 @@ export function AuthModal() {
           ))}
         </div>
 
-        {mode === "signin" ? (
+        {/* Google OAuth */}
+        <button
+          type="button"
+          onClick={handleGoogleSignIn}
+          disabled={oauthLoading}
+          className={cn(
+            "w-full flex items-center justify-center gap-3 h-11 rounded-full border border-ink-dim/20 bg-surface text-ink text-sm font-semibold transition-all",
+            "hover:bg-surface-muted hover:scale-[1.01] disabled:opacity-60 disabled:pointer-events-none shadow-card"
+          )}
+        >
+          {oauthLoading ? (
+            <Loader2 className="h-4 w-4 animate-spin" />
+          ) : (
+            <svg className="h-4 w-4" viewBox="0 0 24 24" aria-hidden="true">
+              <path
+                fill="#4285F4"
+                d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"
+              />
+              <path
+                fill="#34A853"
+                d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"
+              />
+              <path
+                fill="#FBBC05"
+                d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z"
+              />
+              <path
+                fill="#EA4335"
+                d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"
+              />
+            </svg>
+          )}
+          {oauthLoading ? "Redirecting to Google…" : "Continue with Google"}
+        </button>
+
+        {/* Divider */}
+        <div className="flex items-center gap-3">
+          <div className="h-px flex-1 bg-ink-dim/10" />
+          <span className="text-xs font-display text-ink-faint">or</span>
+          <div className="h-px flex-1 bg-ink-dim/10" />
+        </div>
+
+        {/* Method switcher: Email / Phone */}
+        <div className="flex rounded-full border border-ink-dim/15 bg-surface-muted p-1">
+          {(["email", "phone"] as const).map((m) => (
+            <button
+              key={m}
+              type="button"
+              onClick={() => switchMethod(m)}
+              className={cn(
+                "flex-1 rounded-full py-2 text-sm font-display transition-colors",
+                method === m
+                  ? "bg-accent text-white shadow-sm"
+                  : "text-ink-dim hover:text-ink"
+              )}
+            >
+              {m === "email" ? "Email" : "Phone"}
+            </button>
+          ))}
+        </div>
+
+        {/* Email/Phone method hint */}
+        {method === "phone" && (
+          <p className="text-xs text-ink-faint text-center -mt-2">
+            {mode === "signup"
+              ? "Enter your phone number — we'll send a verification code."
+              : "No password needed — we'll text you a one-time code."}
+          </p>
+        )}
+
+        {mode === "signin" && method === "email" ? (
           <form onSubmit={handleSignIn} aria-busy={loading} className="space-y-5">
             {/* Cold-start status: shown while the (possibly hibernating) server wakes */}
             {loading && connectStatus === "connecting" && (
@@ -492,6 +893,8 @@ export function AuthModal() {
               )}
             </Button>
           </form>
+        ) : mode === "signin" && method === "phone" ? (
+          phoneFlow
         ) : needsConfirmation ? (
           <div className="space-y-4 text-center">
             <div className="bg-green-500/10 border border-green-500/30 rounded-lg p-4 text-sm text-green-400">
@@ -525,6 +928,8 @@ export function AuthModal() {
               Go to Sign In
             </Button>
           </div>
+        ) : method === "phone" ? (
+          phoneFlow
         ) : (
           <form onSubmit={handleSignUp} className="space-y-4">
             {error && (

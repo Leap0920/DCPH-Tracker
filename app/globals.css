@@ -138,3 +138,197 @@
     }
   }
 }
+
+/* ═════════════════════════════════════════════════════════════════
+   DCPH MOTION SYSTEM (additive — no token changes above this line)
+
+   Everything here is CSS-driven on purpose: the graph has 62 nodes, and
+   62 JS-driven breathing rings competing with the 60fps rAF loop that
+   owns the camera, node drift and edge geometry would contend for the
+   main thread. Keyframed transforms stay on the compositor instead.
+
+   The global prefers-reduced-motion rule further up already neutralises
+   every animation below (0.01ms, 1 iteration), so none of these need
+   their own media guard.
+   ═════════════════════════════════════════════════════════════════ */
+
+@layer utilities {
+  /* Per-node "alive" breathing ring. Duration/delay are injected inline
+     from a deterministic hash of the character id, so the cast never
+     pulses in lockstep and the phase is identical on every reload. */
+  .dcph-breathe {
+    transform-box: fill-box;
+    transform-origin: center;
+    animation: dcph-breathe var(--dcph-dur, 4s) ease-in-out infinite;
+    animation-delay: var(--dcph-delay, 0s);
+    will-change: transform, opacity;
+  }
+
+  .dcph-ripple {
+    transform-box: fill-box;
+    transform-origin: center;
+    animation: dcph-ripple 2.8s cubic-bezier(0.16, 1, 0.3, 1) infinite;
+  }
+
+  .dcph-aura-a,
+  .dcph-aura-b {
+    transform-box: fill-box;
+    transform-origin: center;
+  }
+  .dcph-aura-a {
+    animation: dcph-aura-a 26s ease-in-out infinite;
+  }
+  .dcph-aura-b {
+    animation: dcph-aura-b 34s ease-in-out infinite;
+  }
+
+  /* Left-to-right accent hairline reveal. */
+  .dcph-underline-sweep {
+    transform-origin: left center;
+    animation: dcph-sweep 0.9s cubic-bezier(0.16, 1, 0.3, 1) both;
+  }
+
+  /* Light sweep across a surface on hover — used on primary CTAs. */
+  .dcph-sheen {
+    position: relative;
+    overflow: hidden;
+    isolation: isolate;
+  }
+  .dcph-sheen::after {
+    content: "";
+    position: absolute;
+    inset: 0;
+    z-index: 1;
+    pointer-events: none;
+    background: linear-gradient(
+      115deg,
+      transparent 32%,
+      rgb(255 255 255 / 0.38) 50%,
+      transparent 68%
+    );
+    transform: translateX(-130%);
+  }
+  .dcph-sheen:hover::after,
+  .dcph-sheen:focus-visible::after {
+    animation: dcph-sheen 900ms ease-out;
+  }
+
+  /* Slow ambient drift for decorative blobs. */
+  .dcph-drift-slow {
+    animation: dcph-drift 22s ease-in-out infinite;
+  }
+  .dcph-drift-slower {
+    animation: dcph-drift 32s ease-in-out infinite reverse;
+  }
+
+  /* Animated gradient text — reserved for single hero-level accents. */
+  .dcph-gradient-text {
+    background-image: linear-gradient(
+      100deg,
+      rgb(var(--ink)) 0%,
+      rgb(var(--accent)) 45%,
+      rgb(var(--ink)) 90%
+    );
+    background-size: 220% 100%;
+    -webkit-background-clip: text;
+    background-clip: text;
+    color: transparent;
+    animation: dcph-gradient-pan 8s linear infinite;
+  }
+}
+
+@keyframes dcph-breathe {
+  0%,
+  100% {
+    transform: scale(1);
+    opacity: 0.22;
+  }
+  50% {
+    transform: scale(1.13);
+    opacity: 0.6;
+  }
+}
+
+@keyframes dcph-ripple {
+  0% {
+    transform: scale(1);
+    opacity: 0.6;
+  }
+  70% {
+    transform: scale(1.45);
+    opacity: 0;
+  }
+  100% {
+    transform: scale(1.45);
+    opacity: 0;
+  }
+}
+
+@keyframes dcph-aura-a {
+  0%,
+  100% {
+    transform: translate3d(0, 0, 0) scale(1);
+  }
+  50% {
+    transform: translate3d(4%, 3%, 0) scale(1.08);
+  }
+}
+
+@keyframes dcph-aura-b {
+  0%,
+  100% {
+    transform: translate3d(0, 0, 0) scale(1.04);
+  }
+  50% {
+    transform: translate3d(-5%, -3%, 0) scale(0.96);
+  }
+}
+
+@keyframes dcph-sweep {
+  from {
+    transform: scaleX(0);
+    opacity: 0;
+  }
+  to {
+    transform: scaleX(1);
+    opacity: 1;
+  }
+}
+
+@keyframes dcph-sheen {
+  from {
+    transform: translateX(-130%);
+  }
+  to {
+    transform: translateX(130%);
+  }
+}
+
+@keyframes dcph-drift {
+  0%,
+  100% {
+    transform: translate3d(0, 0, 0) scale(1);
+  }
+  33% {
+    transform: translate3d(3%, -4%, 0) scale(1.06);
+  }
+  66% {
+    transform: translate3d(-3%, 3%, 0) scale(0.97);
+  }
+}
+
+@keyframes dcph-gradient-pan {
+  0% {
+    background-position: 0% 50%;
+  }
+  100% {
+    background-position: 220% 50%;
+  }
+}
+
+/* Graph canvas: never let a stray text selection drag ruin a pan. */
+.dcph-graph-root text,
+.dcph-graph-root circle {
+  -webkit-user-select: none;
+  user-select: none;
+}

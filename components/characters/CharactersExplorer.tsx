@@ -1,22 +1,25 @@
 "use client"
 
 /*
-  CharactersExplorer — Interactive Orchestrator for /characters
+  CharactersExplorer — orchestrator for /characters.
 
-  Features:
-  - Fullscreen Graph Mode: maximizes to 100vw x 100vh with floating controls & dossier
-  - Mobile Responsiveness: Interactive Graph View on phone screens with a toggle to directory list
-  - Real-time character dossier drawer and filter controls
+  The relationship filter chip and legend popover are handed to the graph as
+  `topLeftSlot`, so they live in the SAME flex column as the search field and
+  can no longer overlap it (they used to be independent absolutely-positioned
+  siblings at top-4 and top-16).
 */
 
 import { useState } from "react"
+import { AnimatePresence, motion } from "framer-motion"
 import CharactersWeb from "@/components/characters/CharactersWeb"
 import {
   CharacterDetailPanel,
   RelationshipLegend,
 } from "@/components/characters/CharacterDetailPanel"
 import { useTheme } from "@/components/theme-provider"
-import { X, Filter } from "lucide-react"
+import { getRelationshipColor } from "@/components/characters/graph-theme"
+import { ChevronDown, Filter } from "lucide-react"
+import { cn } from "@/lib/utils"
 import type {
   Character,
   Relationship,
@@ -34,6 +37,8 @@ export interface CharactersExplorerProps {
   relationshipMeta: RelationshipMeta
 }
 
+const EASE = [0.16, 1, 0.3, 1] as const
+
 export default function CharactersExplorer({
   characters,
   relationships,
@@ -43,12 +48,9 @@ export default function CharactersExplorer({
   const [filter, setFilter] = useState<RelationshipType | null>(null)
   const [legendOpen, setLegendOpen] = useState(false)
 
-  // Theme follows the app-wide navbar toggle (ThemeProvider .dark class) —
-  // no local dark/light button on /characters.
   const { theme } = useTheme()
   const isDark = theme === "dark"
 
-  /** A character's threads in both directions, trimmed by the active filter. */
   const threadsFor = (characterId: string): Relationship[] => {
     const all = relationships.filter(
       (r) => r.source === characterId || r.target === characterId
@@ -58,62 +60,86 @@ export default function CharactersExplorer({
 
   const panelRelationships = selection ? threadsFor(selection.id) : []
 
-  return (
-    <div className={`relative h-full w-full overflow-hidden transition-colors duration-300 ${
-      isDark ? "bg-slate-950 text-white" : "bg-page text-ink"
-    }`}>
-      {/* Fullscreen Interactive Graph View */}
-      <div className="h-full w-full relative">
-        <CharactersWeb
-          onSelectCharacter={setSelection}
-          selectedCharacterId={selection?.id}
-          activeFilter={filter}
-          onFilterType={setFilter}
-          theme={theme}
-          className="h-full w-full rounded-none border-none"
-        />
-
-        {/* Floating Filter Button / Legend */}
-        <div className="absolute top-16 left-3 z-30">
-          <button
-            type="button"
-            onClick={() => setLegendOpen(!legendOpen)}
-            className={`flex items-center gap-1.5 rounded-full border px-3.5 py-1.5 text-xs font-semibold shadow-md backdrop-blur-md transition-all ${
-              isDark
-                ? "border-slate-700/80 bg-slate-900/90 text-white hover:border-slate-500"
-                : "border-slate-200/90 bg-white/95 text-ink hover:bg-surface-muted hover:border-slate-300"
-            }`}
-          >
-            <Filter className="h-3.5 w-3.5 text-accent" />
-            {filter ? `Filter: ${relationshipMeta[filter].label}` : "All Relationships"}
-          </button>
-
-          {legendOpen && (
-            <div className={`mt-2 w-72 sm:w-80 rounded-2xl border p-4 shadow-2xl backdrop-blur-xl ${
-              isDark ? "border-slate-800 bg-slate-900/95 text-white" : "border-slate-200 bg-white/98 text-ink"
-            }`}>
-              <div className="flex items-center justify-between mb-3">
-                <span className={`font-mono text-xs font-semibold uppercase tracking-wider ${
-                  isDark ? "text-slate-400" : "text-ink-faint"
-                }`}>
-                  Filter by Relationship
-                </span>
-                <button
-                  type="button"
-                  onClick={() => setLegendOpen(false)}
-                  className={`p-1 ${isDark ? "text-slate-400 hover:text-white" : "text-ink-faint hover:text-ink"}`}
-                >
-                  <X className="h-4 w-4" />
-                </button>
-              </div>
-              <RelationshipLegend activeFilter={filter} onFilterType={setFilter} />
-            </div>
+  const filterControls = (
+    <div className="flex flex-col gap-2">
+      <button
+        type="button"
+        onClick={() => setLegendOpen((v) => !v)}
+        aria-expanded={legendOpen}
+        className={cn(
+          "group flex w-full items-center gap-1.5 rounded-full border px-3.5 py-1.5 text-xs font-semibold shadow-md backdrop-blur-md transition-all",
+          "border-slate-200/90 bg-white/95 text-ink hover:border-slate-300 hover:bg-surface-muted",
+          "dark:border-slate-700/80 dark:bg-slate-900/90 dark:text-white dark:hover:border-slate-500"
+        )}
+      >
+        <Filter className="h-3.5 w-3.5 shrink-0 text-accent transition-transform duration-300 group-hover:rotate-12" />
+        <span className="min-w-0 flex-1 truncate text-left">
+          {filter ? relationshipMeta[filter].label : "All Relationships"}
+        </span>
+        {filter && (
+          <span
+            className="h-2 w-2 shrink-0 rounded-full"
+            style={{ backgroundColor: getRelationshipColor(filter, isDark) }}
+          />
+        )}
+        <ChevronDown
+          className={cn(
+            "h-3.5 w-3.5 shrink-0 opacity-60 transition-transform duration-300",
+            legendOpen && "rotate-180"
           )}
-        </div>
+        />
+      </button>
 
-        {/* Floating Character Detail Panel */}
+      <AnimatePresence initial={false}>
+        {legendOpen && (
+          <motion.div
+            initial={{ opacity: 0, y: -8, height: 0 }}
+            animate={{ opacity: 1, y: 0, height: "auto" }}
+            exit={{ opacity: 0, y: -8, height: 0 }}
+            transition={{ duration: 0.28, ease: EASE }}
+            className="overflow-hidden"
+          >
+            <div className="max-h-[52vh] overflow-y-auto rounded-2xl border border-slate-200 bg-white/98 p-3 text-ink shadow-2xl backdrop-blur-xl dark:border-slate-800 dark:bg-slate-900/95 dark:text-white">
+              <div className="mb-2.5 font-mono text-[10px] font-semibold uppercase tracking-wider text-ink-faint dark:text-slate-400">
+                Filter by relationship
+              </div>
+              <RelationshipLegend
+                activeFilter={filter}
+                onFilterType={setFilter}
+                compact
+              />
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+    </div>
+  )
+
+  return (
+    <div
+      className={cn(
+        "relative h-full w-full overflow-hidden transition-colors duration-300",
+        isDark ? "bg-slate-950 text-white" : "bg-page text-ink"
+      )}
+    >
+      <CharactersWeb
+        characters={characters}
+        onSelectCharacter={setSelection}
+        selectedCharacterId={selection?.id}
+        activeFilter={filter}
+        topLeftSlot={filterControls}
+        theme={theme}
+        className="h-full w-full rounded-none border-none"
+      />
+
+      {/* AnimatePresence so the dossier's exit transition actually plays —
+          previously the conditional unmount skipped it entirely. */}
+      <AnimatePresence>
         {selection && (
-          <div className="fixed inset-x-0 bottom-0 sm:absolute sm:inset-auto sm:bottom-4 sm:right-4 z-40 w-full sm:w-96 sm:max-w-md pointer-events-auto">
+          <div
+            key={selection.id}
+            className="pointer-events-auto fixed inset-x-0 bottom-0 z-40 w-full sm:absolute sm:inset-auto sm:bottom-4 sm:right-4 sm:w-96 sm:max-w-md"
+          >
             <CharacterDetailPanel
               character={selection}
               relationships={panelRelationships}
@@ -121,7 +147,7 @@ export default function CharactersExplorer({
             />
           </div>
         )}
-      </div>
+      </AnimatePresence>
     </div>
   )
 }

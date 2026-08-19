@@ -6,6 +6,10 @@ import type { Config } from "tailwindcss";
 // accent, clean sans typography. Tokens resolve to CSS variables
 // (defined in app/globals.css) so the `dark` class on <html>
 // swaps the whole palette at once (class-based dark mode).
+//
+// The keyframes/animation/boxShadow blocks below are ADDITIVE motion
+// primitives for the graph + marketing polish. No token, color or font
+// values were changed.
 // ─────────────────────────────────────────────────────────
 
 const config: Config = {
@@ -38,6 +42,40 @@ const config: Config = {
       },
       boxShadow: {
         card: "0 1px 3px 0 rgb(var(--ink) / 0.08), 0 1px 2px -1px rgb(var(--ink) / 0.06)",
+        // Additive: accent-tinted lift for interactive surfaces.
+        glow: "0 0 0 1px rgb(var(--accent) / 0.18), 0 8px 24px -8px rgb(var(--accent) / 0.35)",
+        "glow-lg": "0 0 0 1px rgb(var(--accent) / 0.22), 0 20px 48px -12px rgb(var(--accent) / 0.45)",
+        lift: "0 12px 32px -12px rgb(var(--ink) / 0.22), 0 2px 6px -2px rgb(var(--ink) / 0.1)",
+      },
+      keyframes: {
+        "dcph-float": {
+          "0%, 100%": { transform: "translateY(0)" },
+          "50%": { transform: "translateY(-8px)" },
+        },
+        "dcph-pulse-ring": {
+          "0%": { transform: "scale(1)", opacity: "0.55" },
+          "70%": { transform: "scale(1.6)", opacity: "0" },
+          "100%": { transform: "scale(1.6)", opacity: "0" },
+        },
+        "dcph-shimmer": {
+          "0%": { backgroundPosition: "200% 0" },
+          "100%": { backgroundPosition: "-200% 0" },
+        },
+        "dcph-rise": {
+          from: { opacity: "0", transform: "translateY(14px)" },
+          to: { opacity: "1", transform: "translateY(0)" },
+        },
+        "dcph-tick": {
+          "0%, 100%": { transform: "translateX(0)" },
+          "50%": { transform: "translateX(3px)" },
+        },
+      },
+      animation: {
+        "dcph-float": "dcph-float 6s ease-in-out infinite",
+        "dcph-pulse-ring": "dcph-pulse-ring 2.6s cubic-bezier(0.16,1,0.3,1) infinite",
+        "dcph-shimmer": "dcph-shimmer 2.4s linear infinite",
+        "dcph-rise": "dcph-rise 0.6s cubic-bezier(0.16,1,0.3,1) both",
+        "dcph-tick": "dcph-tick 1.4s ease-in-out infinite",
       },
     },
   },
