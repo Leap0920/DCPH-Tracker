@@ -1,41 +1,41 @@
-import { createServerClient } from "@supabase/ssr";
-import { cookies } from "next/headers";
-import type { Database } from "@/types/database.types";
+import "server-only"
+import { createServerClient } from "@supabase/ssr"
+import { cookies } from "next/headers"
+import type { Database } from "@/types/database.types"
+import { SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY } from "@/lib/env"
 
-const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
-const supabaseKey = process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY!;
+const isProd = process.env.NODE_ENV === "production"
 
-// Call this inside Server Components / Server Actions / Route Handlers.
-// Each call reads the current cookie store, so session state stays in sync
-// with middleware-refreshed tokens.
+/**
+ * Call inside Server Components / Server Actions / Route Handlers.
+ * Each call reads the current cookie store, so session state stays in sync
+ * with middleware-refreshed tokens.
+ */
 export const createClient = async () => {
-  const cookieStore = await cookies();
+  const cookieStore = await cookies()
 
-  return createServerClient<Database>(supabaseUrl, supabaseKey, {
+  return createServerClient<Database>(SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY, {
     cookies: {
       getAll() {
-        return cookieStore.getAll();
+        return cookieStore.getAll()
       },
       setAll(cookiesToSet) {
         try {
-          // Hardened cookie attributes: httpOnly is intentionally NOT set —
-          // the browser-side client (createBrowserClient) reads the auth token
-          // from document.cookie, so an httpOnly token would log the client
-          // out on every navigation. sameSite=lax blocks cross-site CSRF and
-          // secure is enforced in production.
+          // httpOnly intentionally unset — see utils/supabase/middleware.ts
+          // for the full rationale and the compensating CSP control.
           cookiesToSet.forEach(({ name, value, options }) =>
             cookieStore.set(name, value, {
               ...options,
-              secure: process.env.NODE_ENV === "production",
+              secure: isProd,
               sameSite: "lax",
               path: "/",
             })
-          );
+          )
         } catch {
-          // Called from a Server Component — safe to ignore because
-          // middleware.ts below refreshes the session on every request.
+          // Called from a Server Component, where the cookie store is
+          // read-only. Safe to ignore: middleware refreshes every request.
         }
       },
     },
-  });
-};
+  })
+}
