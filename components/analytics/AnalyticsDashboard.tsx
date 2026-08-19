@@ -314,12 +314,12 @@ export function AnalyticsDashboard({ analytics }: AnalyticsDashboardProps) {
           <div className="grid gap-6 lg:grid-cols-2">
             {/* Release Years */}
             <div className="min-w-0 flex flex-col rounded-xl border border-ink-dim/20 bg-surface p-6 shadow-card">
-              <h2 className="mb-4 flex items-center justify-between font-display text-base tracking-tight text-ink">
-                <span className="flex items-center gap-2">
-                  <Calendar className="h-4 w-4 text-ink-dim" />
-                  Watched by Release Year
+              <h2 className="mb-4 flex items-center justify-between gap-2 font-display text-base tracking-tight text-ink">
+                <span className="flex min-w-0 items-center gap-2">
+                  <Calendar className="h-4 w-4 shrink-0 text-ink-dim" />
+                  <span className="truncate">Watched by Release Year</span>
                 </span>
-                <span className="font-mono text-xs text-ink-dim">
+                <span className="shrink-0 whitespace-nowrap font-mono text-xs text-ink-dim">
                   {analytics.perYear.length} Years Active
                 </span>
               </h2>
@@ -328,27 +328,39 @@ export function AnalyticsDashboard({ analytics }: AnalyticsDashboardProps) {
                 <p className="py-12 text-center text-sm text-ink-dim">No watch history by release year.</p>
               ) : (
                 <div className="flex flex-1 flex-col justify-between gap-4">
-                  {analytics.perYear.map((row) => {
+                  {(() => {
+                    // Hoisted out of the map: one pass instead of one per row.
                     const maxViews = Math.max(1, ...analytics.perYear.map((y) => y.views))
-                    return (
-                      <div key={row.year} className="flex items-center gap-3">
-                        <span className="w-12 shrink-0 font-mono text-xs text-ink">
+                    return analytics.perYear.map((row) => (
+                      <div
+                        key={row.year}
+                        /* Phones (~360px): `year | bar` on line 1, counts on
+                           line 2 under the bar. From sm up it collapses back to
+                           a single row. Grid (not flex) so the year column and
+                           the bar start at the same x on every row even when
+                           the counts text changes width. */
+                        className="grid grid-cols-[2.75rem_minmax(0,1fr)] items-center gap-x-3 gap-y-1.5 sm:grid-cols-[2.75rem_minmax(0,1fr)_auto]"
+                      >
+                        <span className="font-mono text-xs text-ink tabular-nums">
                           {row.year}
                         </span>
-                        <div className="flex-1">
-                          <div className="h-2 overflow-hidden rounded-full bg-surface-muted">
-                            <div
-                              className="h-full rounded-full bg-ink"
-                              style={{ width: `${(row.views / maxViews) * 100}%` }}
-                            />
-                          </div>
+
+                        <div
+                          aria-hidden
+                          className="h-2 w-full overflow-hidden rounded-full bg-surface-muted"
+                        >
+                          <div
+                            className="h-full rounded-full bg-ink"
+                            style={{ width: `${(row.views / maxViews) * 100}%` }}
+                          />
                         </div>
-                        <span className="w-28 shrink-0 text-right font-mono text-xs text-ink-dim">
+
+                        <span className="col-start-2 whitespace-nowrap font-mono text-[11px] tabular-nums text-ink-dim sm:col-start-3 sm:text-right sm:text-xs">
                           {row.views} view{row.views === 1 ? "" : "s"} · {row.watched} seen
                         </span>
                       </div>
-                    )
-                  })}
+                    ))
+                  })()}
                 </div>
               )}
             </div>
