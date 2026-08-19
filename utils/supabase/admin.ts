@@ -1,26 +1,34 @@
-import { createClient as createSupabaseClient } from "@supabase/supabase-js";
-import type { Database } from "@/types/database.types";
+import "server-only"
+import { createClient as createSupabaseClient } from "@supabase/supabase-js"
+import type { Database } from "@/types/database.types"
+import { SUPABASE_URL } from "@/lib/env"
 
-const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
-const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY
 
 /**
  * Creates a Supabase client authenticated with the service-role key.
  *
- * This BYPASSES Row Level Security and must ONLY be used in trusted
- * server-side code (e.g. the cron-triggered /api/sync route). Never
- * import this into a client component or expose the key to the browser.
+ * BYPASSES Row Level Security. Server-side trusted code only.
  *
- * Returns null if SUPABASE_SERVICE_ROLE_KEY is not configured, so callers
- * can fail gracefully instead of silently using an under-privileged client.
+ * The `server-only` import above turns an accidental client-component
+ * import into a BUILD error rather than a leaked service-role key.
+ * The runtime guard is a second line of defence for any code path that
+ * bypasses the bundler boundary.
+ *
+ * Returns null if SUPABASE_SERVICE_ROLE_KEY is unset so callers fail
+ * gracefully instead of silently using an under-privileged client.
  */
 export function createAdminClient() {
-  if (!serviceRoleKey) return null;
+  if (typeof window !== "undefined") {
+    throw new Error(
+      "[security] createAdminClient() was reached in a browser context. " +
+        "This must never happen — audit the import chain immediately."
+    )
+  }
 
-  return createSupabaseClient<Database>(supabaseUrl, serviceRoleKey, {
-    auth: {
-      autoRefreshToken: false,
-      persistSession: false,
-    },
-  });
+  if (!serviceRoleKey) return null
+
+  return createSupabaseClient<Database>(SUPABASE_URL, serviceRoleKey, {
+    auth: { autoRefreshToken: false, persistSession: false },
+  })
 }
