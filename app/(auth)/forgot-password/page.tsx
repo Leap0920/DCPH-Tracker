@@ -1,7 +1,7 @@
 "use client"
 
 import { useState } from "react"
-import { Mail, ShieldAlert, KeyRound, ArrowLeft } from "lucide-react"
+import { Mail, Phone, ShieldAlert, KeyRound, ArrowLeft } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
@@ -112,7 +112,7 @@ export default function ForgotPasswordPage() {
         )}
 
         {!success && (
-          <div className="mt-8 pt-6 border-t border-ink-dim/10 text-center">
+          <div className="mt-8 pt-6 border-t border-ink-dim/10 space-y-3">
             <button
               type="button"
               onClick={() => openAuthModal("signin")}
@@ -120,6 +120,15 @@ export default function ForgotPasswordPage() {
             >
               <ArrowLeft className="h-3.5 w-3.5" />
               Back to Sign In
+            </button>
+            <div className="h-px bg-ink-dim/10" />
+            <button
+              type="button"
+              onClick={() => openAuthModal("signin", "phone")}
+              className="inline-flex items-center gap-2 text-sm text-ink-dim hover:text-ink hover:underline transition-colors"
+            >
+              <Phone className="h-3.5 w-3.5" />
+              Forgot password? Sign in with your phone number instead
             </button>
           </div>
         )}

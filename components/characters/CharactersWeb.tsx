@@ -1,55 +1,75 @@
 "use client";
 
 /*
-  CharactersWeb — Obsidian-inspired interactive red-strings SVG graph view.
+  CharactersWeb — Obsidian-inspired interactive red-strings graph.
 
-  Features:
-  - Obsidian Graph View Aesthetic: Neon glowing edges, faction color coding, ambient particles
-  - Characteristic Node Sizing: Conan Edogawa central hub (r=26), Major Leads (r=20), Supporting (r=16), Standard (r=11-15)
-  - Centered Conan Edogawa: Conan placed at center (1000, 700) with 1-click Center Conan action
-  - Faction Legend Filter Bar: Interactive color chips to highlight factions
-  - Draggable nodes: move character circles freely with real-time curved strings
-  - Touch pan, pinch zoom, search dropdown & mobile drawer integration
+  Camera model
+  ------------
+  The SVG viewBox is exactly the container's CSS-pixel box (driven by a
+  ResizeObserver), so ONE world unit at k=1 is ONE CSS pixel and
+  screen -> world is exactly ((sx - cam.x) / k, (sy - cam.y) / k). The old
+  `pad` letterbox hack is gone; it made every pan/zoom anchor computation
+  wrong on any container taller than 2000x1400.
+
+  Motion model
+  ------------
+  A single requestAnimationFrame loop owns three things and writes straight
+  to the DOM (no React state at 60fps):
+    1. camera  — cam glides toward target with exponential smoothing, so
+                 queued wheel events accumulate into one continuous zoom
+                 instead of stepping. There is NO CSS transition on the
+                 world transform.
+    2. drift   — each node floats on a sum of two sines seeded from its id.
+                 Node transforms AND edge path `d`s are recomputed from the
+                 same drifted coordinates each frame, so strings never
+                 detach from the circles.
+    3. particles — ambient screen-space motes behind the graph.
+
+  React renders structure once; the loop renders every frame. Node
+  positions live in a mutable ref, so dragging a node costs zero renders.
 */
 
 import {
+  useCallback,
   useEffect,
+  useLayoutEffect,
   useMemo,
   useRef,
   useState,
-  type KeyboardEvent,
+  type CSSProperties,
+  type KeyboardEvent as ReactKeyboardEvent,
+  type PointerEvent as ReactPointerEvent,
 } from "react";
-import {
-  motion,
-  MotionConfig,
-  useReducedMotion,
-  type Variants,
-} from "framer-motion";
+import { motion, MotionConfig, useReducedMotion, type Variants } from "framer-motion";
 import {
   CHARACTERS,
   RELATIONSHIPS,
-  RELATIONSHIP_META,
   type Character,
   type Relationship,
   type RelationshipType,
 } from "@/lib/characters-guide";
 import {
-  ZoomIn,
-  ZoomOut,
-  RotateCcw,
-  Search,
-  X,
-  Target,
-  Sparkles,
-} from "lucide-react";
+  FACTION_KEYS,
+  FACTION_THEMES,
+  clamp,
+  factionSlug,
+  getNodeRadius,
+  getRelationshipColor,
+  hash32,
+  rand01,
+  resolveFaction,
+  type FactionTheme,
+} from "@/components/characters/graph-theme";
+import { RotateCcw, Search, Sparkles, Target, X, ZoomIn, ZoomOut } from "lucide-react";
 import { cn } from "@/lib/utils";
 
-/**
- * Hydration-safe matchMedia hook.
- */
+export { FACTION_THEMES, getFactionTheme } from "@/components/characters/graph-theme";
+
+const useIsoLayoutEffect = typeof window !== "undefined" ? useLayoutEffect : useEffect;
+
+/** Hydration-safe matchMedia hook. */
 export function useMediaQuery(query: string): boolean {
   const [matches, setMatches] = useState(false);
-
   useEffect(() => {
     const mql = window.matchMedia(query);
     const onChange = () => setMatches(mql.matches);
@@ -57,21 +77,27 @@ export function useMediaQuery(query: string): boolean {
     mql.addEventListener("change", onChange);
     return () => mql.removeEventListener("change", onChange);
   }, [query]);
-
   return matches;
 }
 
-const EASE = [0.16, 1, 0.3, 1] as const;
+/* ── tuning ───────────────────────────────────────────────────────── */
+const MAX_ZOOM = 4;
+const ZOOM_STEP = 1.35;
+const ZOOM_TO_NODE = 1.9;
+const FIT_MIN_K = 0.25;
+const FIT_MAX_K = 1.6;
 
-const containerVariants: Variants = {
-  hidden: {},
-  show: { transition: { staggerChildren: 0.03 } },
-};
+/** Camera smoothing time constant (ms). Lower = snappier. */
+const CAM_TAU = 85;
+/** Inertia applied to the pan target on release (ms of projected travel). */
+const PAN_INERTIA_MS = 140;
 
-const stringVariants: Variants = {
-  hidden: { opacity: 0 },
-  show: { opacity: 1, transition: { duration: 0.5, ease: EASE } },
-};
+const DRIFT_AMP = 5.5;
+const BASE_BOW = 6;
+const PARALLEL_GAP = 22;
+const STRING_WIDTH = 2;
+const DIM_OPACITY = 0.1;
+const PARTICLE_COUNT = 30;
 
 const nodeVariants: Variants = {
   hidden: { opacity: 0, scale: 0.3 },
@@ -82,536 +108,286 @@ const nodeVariants: Variants = {
   },
 };
 
-/** Canvas geometry */
-const STRING_WIDTH = 2;
-const DIM_OPACITY = 0.12;
-const BASE_BOW = 6;
-const PARALLEL_GAP = 22;
-
-/** World geometry — 2000x1400 coordinate canvas */
-const VIEW_W = 2000;
-const VIEW_H = 1400;
-
-/** Pan/zoom limits */
-const MIN_ZOOM = 0.4;
-const MAX_ZOOM = 3.5;
-const ZOOM_STEP = 1.25;
-const ZOOM_TO_NODE = 1.8;
-
-export interface FactionTheme {
-  primary: string;
-  glow: string;
-  darkFill: string;
-  lightFill: string;
-  border: string;
-  badge: string;
-}
-
-export const FACTION_THEMES: Record<string, FactionTheme> = {
-  "Junior Detective League": {
-    primary: "#0EA5E9",
-    glow: "rgba(14, 165, 233, 0.5)",
-    darkFill: "#0369A1",
-    lightFill: "#E0F2FE",
-    border: "#38BDF8",
-    badge: "Protagonists",
-  },
-  "Kudo Family": {
-    primary: "#0284C7",
-    glow: "rgba(2, 132, 199, 0.5)",
-    darkFill: "#075985",
-    lightFill: "#E0F2FE",
-    border: "#38BDF8",
-    badge: "Kudo Family",
-  },
-  "Black Organization": {
-    primary: "#EF4444",
-    glow: "rgba(239, 68, 68, 0.6)",
-    darkFill: "#7F1D1D",
-    lightFill: "#FEE2E2",
-    border: "#F87171",
-    badge: "Black Organization",
-  },
-  "Tokyo Metropolitan Police": {
-    primary: "#F59E0B",
-    glow: "rgba(245, 158, 11, 0.5)",
-    darkFill: "#78350F",
-    lightFill: "#FEF3C7",
-    border: "#FBBF24",
-    badge: "Police Department",
-  },
-  "Osaka Police": {
-    primary: "#F97316",
-    glow: "rgba(249, 115, 22, 0.5)",
-    darkFill: "#7C2D12",
-    lightFill: "#FFEDD5",
-    border: "#FB923C",
-    badge: "Osaka Police",
-  },
-  "FBI": {
-    primary: "#8B5CF6",
-    glow: "rgba(139, 92, 246, 0.5)",
-    darkFill: "#581C87",
-    lightFill: "#F3E8FF",
-    border: "#C084FC",
-    badge: "FBI / Security",
-  },
-  "Public Security Bureau": {
-    primary: "#A855F7",
-    glow: "rgba(168, 85, 247, 0.5)",
-    darkFill: "#6D28D9",
-    lightFill: "#F3E8FF",
-    border: "#D8B4FE",
-    badge: "Public Security",
-  },
-  "Osaka / Hattori Household": {
-    primary: "#F97316",
-    glow: "rgba(249, 115, 22, 0.5)",
-    darkFill: "#9A3412",
-    lightFill: "#FFEDD5",
-    border: "#FB923C",
-    badge: "Osaka Sleuths",
-  },
-  "Phantom Thief Kid": {
-    primary: "#6366F1",
-    glow: "rgba(99, 102, 241, 0.5)",
-    darkFill: "#312E81",
-    lightFill: "#E0E7FF",
-    border: "#818CF8",
-    badge: "Kaitou Kid",
-  },
-  "Phantom Thief Cast": {
-    primary: "#6366F1",
-    glow: "rgba(99, 102, 241, 0.5)",
-    darkFill: "#312E81",
-    lightFill: "#E0E7FF",
-    border: "#818CF8",
-    badge: "Magic Kaito",
-  },
-  "Suzuki Family": {
-    primary: "#EC4899",
-    glow: "rgba(236, 72, 153, 0.4)",
-    darkFill: "#831843",
-    lightFill: "#FCE7F3",
-    border: "#F472B6",
-    badge: "Suzuki Family",
-  },
-  "Mouri Family": {
-    primary: "#14B8A6",
-    glow: "rgba(20, 184, 166, 0.4)",
-    darkFill: "#115E59",
-    lightFill: "#CCFBF1",
-    border: "#2DD4BF",
-    badge: "Mouri Family",
-  },
-  "Mouri Detective Agency": {
-    primary: "#14B8A6",
-    glow: "rgba(20, 184, 166, 0.4)",
-    darkFill: "#115E59",
-    lightFill: "#CCFBF1",
-    border: "#2DD4BF",
-    badge: "Mouri Agency",
-  },
-  DEFAULT: {
-    primary: "#38BDF8",
-    glow: "rgba(56, 189, 248, 0.4)",
-    darkFill: "#0369A1",
-    lightFill: "#E0F2FE",
-    border: "#7DD3FC",
-    badge: "Civilians & Allies",
-  },
+const containerVariants: Variants = {
+  hidden: {},
+  show: { transition: { staggerChildren: 0.012 } },
 };
 
-export function getFactionTheme(affiliation: string): FactionTheme {
-  for (const [key, theme] of Object.entries(FACTION_THEMES)) {
-    if (key !== "DEFAULT" && affiliation.toLowerCase().includes(key.toLowerCase())) {
-      return theme;
-    }
-  }
-  return FACTION_THEMES.DEFAULT;
+/* ── geometry helpers ─────────────────────────────────────────────── */
+
+function quadPath(
+  sx: number,
+  sy: number,
+  tx: number,
+  ty: number,
+  offsetIndex: number
+): string {
+  const mx = (sx + tx) / 2;
+  const my = (sy + ty) / 2;
+  const dx = tx - sx;
+  const dy = ty - sy;
+  const len = Math.hypot(dx, dy) || 1;
+  const arc = BASE_BOW + offsetIndex * PARALLEL_GAP;
+  const cx = mx + (-dy / len) * arc;
+  const cy = my + (dx / len) * arc;
+  return `M ${sx.toFixed(1)} ${sy.toFixed(1)} Q ${cx.toFixed(1)} ${cy.toFixed(
+    1
+  )} ${tx.toFixed(1)} ${ty.toFixed(1)}`;
 }
 
-/** Node Sizing based on character characteristics & importance */
-function getNodeRadius(c: Character, degree: number): number {
-  if (c.id === "conan-edogawa") return 26; // Main Hero / Central Hub
-  if (
-    c.id === "ran-mouri" ||
-    c.id === "ai-haibara" ||
-    c.id === "kogoro-mouri" ||
-    c.id === "heiji-hattori" ||
-    c.id === "kaitou-kid" ||
-    c.id === "tooru-amuro" ||
-    c.id === "shuichi-akai" ||
-    c.id === "gin"
-  ) {
-    return 20; // Major Core Leads
-  }
-  if (
-    c.id === "vermouth" ||
-    c.id === "inspector-megure" ||
-    c.id === "officer-sato" ||
-    c.id === "officer-takagi" ||
-    c.id === "kazuha-toyama" ||
-    c.id === "professor-agasa" ||
-    c.id === "yusaku-kudo" ||
-    c.id === "yukiko-kudo" ||
-    c.id === "vodka" ||
-    c.id === "jodie-starling" ||
-    c.id === "sonoko-suzuki"
-  ) {
-    return 16; // Important Supporting Cast
-  }
-  return Math.min(11 + Math.min(degree * 0.6, 5), 15); // Standard Characters
+type Rect = { x: number; y: number; w: number; h: number };
+
+/**
+ * The rectangle of the viewport that is actually free of floating chrome.
+ * Fit and center math targets THIS, not the raw container — which is why the
+ * mobile bottom sheet and the desktop dossier no longer bury the graph.
+ */
+function usableRect(
+  w: number,
+  h: number,
+  isMobile: boolean,
+  panelOpen: boolean
+): Rect {
+  const top = 100; // search + filter control column
+  const left = isMobile ? 16 : 28;
+  const right = panelOpen && !isMobile ? 416 : isMobile ? 16 : 28;
+  const bottom = panelOpen && isMobile ? Math.round(h * 0.48) + 20 : 92;
+  return {
+    x: left,
+    y: top,
+    w: Math.max(140, w - left - right),
+    h: Math.max(140, h - top - bottom),
+  };
 }
 
-function clamp(v: number, min: number, max: number): number {
-  return Math.min(max, Math.max(min, v));
+function labelOpacityFor(k: number, tier: 0 | 1 | 2): number {
+  const start = tier === 0 ? 0.3 : tier === 1 ? 0.46 : 0.62;
+  return clamp((k - start) / 0.22, 0, 1);
 }
+
+/* ── per-node / per-edge specs ────────────────────────────────────── */
+
+type NodeSpec = {
+  c: Character;
+  r: number;
+  tier: 0 | 1 | 2;
+  factionKey: string;
+  theme: FactionTheme;
+  degree: number;
+  f1: number;
+  f2: number;
+  f3: number;
+  f4: number;
+  p1: number;
+  p2: number;
+  p3: number;
+  p4: number;
+  breatheDur: number;
+  breatheDelay: number;
+};
+
+type EdgeSpec = { rel: Relationship; s: number; t: number; off: number };
+
+type Particle = {
+  x0: number;
+  y0: number;
+  r: number;
+  base: number;
+  vy: number;
+  fx: number;
+  px: number;
+  fo: number;
+  po: number;
+};
 
 function pairKey(r: Relationship): string {
   return [r.source, r.target].sort().join("|");
 }
 
-function buildStringDFromPos(
-  source: { x: number; y: number },
-  target: { x: number; y: number },
-  offsetIndex: number
-): string {
-  const mx = (source.x + target.x) / 2;
-  const my = (source.y + target.y) / 2;
-  const dx = target.x - source.x;
-  const dy = target.y - source.y;
-  const len = Math.hypot(dx, dy) || 1;
-  const px = -dy / len;
-  const py = dx / len;
-  const arc = BASE_BOW + offsetIndex * PARALLEL_GAP;
-  const cx = mx + px * arc;
-  const cy = my + py * arc;
-  return `M ${source.x} ${source.y} Q ${cx} ${cy} ${target.x} ${target.y}`;
-}
-
 export interface CharactersWebProps {
+  characters?: Character[];
   onSelectCharacter: (character: Character | null) => void;
   selectedCharacterId?: string | null;
   activeFilter?: RelationshipType | null;
-  onFilterType?: (type: RelationshipType | null) => void;
-  isFullscreen?: boolean;
-  onToggleFullscreen?: () => void;
+  /** Rendered inside the top-left control column, below the search field. */
+  topLeftSlot?: React.ReactNode;
   theme?: "light" | "dark";
   className?: string;
 }
 
 export default function CharactersWeb({
+  characters = CHARACTERS,
   onSelectCharacter,
   selectedCharacterId,
   activeFilter,
-  onFilterType,
-  isFullscreen = false,
-  onToggleFullscreen,
+  topLeftSlot,
   theme = "light",
   className = "",
 }: CharactersWebProps) {
   const reduce = useReducedMotion();
   const isMobile = useMediaQuery("(max-width: 767px)");
-  const [pad, setPad] = useState(0);
-  const viewBoxW = VIEW_W + 2 * pad;
-  const padRef = useRef(pad);
-
-  useEffect(() => {
-    padRef.current = pad;
-  }, [pad]);
-
-  useEffect(() => {
-    const recomputePad = () => {
-      const aspect = window.innerWidth / window.innerHeight;
-      setPad(aspect > VIEW_W / VIEW_H ? ((aspect - VIEW_W / VIEW_H) * VIEW_H) / 2 : 0);
-    };
-    recomputePad();
-    window.addEventListener("resize", recomputePad);
-    return () => window.removeEventListener("resize", recomputePad);
-  }, []);
-
   const isDark = theme === "dark";
-
-  // Mutable node positions
-  const [positions, setPositions] = useState<Record<string, { x: number; y: number }>>(() => {
-    const map: Record<string, { x: number; y: number }> = {};
-    for (const c of CHARACTERS) {
-      map[c.id] = { x: c.x, y: c.y };
-    }
-    return map;
-  });
 
   const [hoveredId, setHoveredId] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState("");
   const [searchFocused, setSearchFocused] = useState(false);
+  const [size, setSize] = useState({ w: 0, h: 0 });
+  const [ready, setReady] = useState(false);
+  const [grabbing, setGrabbing] = useState(false);
 
-  /** Pan/zoom view state */
-  const [view, setView] = useState({ x: 0, y: 0, k: 1 });
-  const [draggingCanvas, setDraggingCanvas] = useState(false);
-  const [draggingNodeId, setDraggingNodeId] = useState<string | null>(null);
-  const [instant, setInstant] = useState(false);
-
-  const svgRef = useRef<SVGSVGElement>(null);
+  /* ── refs the rAF loop reads ───────────────────────────────────── */
   const containerRef = useRef<HTMLDivElement>(null);
-  const didDragRef = useRef(false);
-  const viewRef = useRef(view);
+  const svgRef = useRef<SVGSVGElement>(null);
+  const worldRef = useRef<SVGGElement>(null);
+  const zoomLabelRef = useRef<HTMLSpanElement>(null);
+
+  const camRef = useRef({ x: 0, y: 0, k: 1 });
+  const targetRef = useRef({ x: 0, y: 0, k: 1 });
+  const minZoomRef = useRef(FIT_MIN_K);
+  const sizeRef = useRef({ w: 0, h: 0 });
+  const isMobileRef = useRef(isMobile);
+  const panelOpenRef = useRef(Boolean(selectedCharacterId));
+  const reduceRef = useRef(Boolean(reduce));
+  const userAdjustedRef = useRef(false);
+  const didFitRef = useRef(false);
+  const forcedLabelsRef = useRef<Set<number>>(new Set());
+
   useEffect(() => {
-    viewRef.current = view;
-  }, [view]);
-
-  const isDraggingCanvasRef = useRef(false);
-  const canvasDragStartRef = useRef<{ clientX: number; clientY: number; startViewX: number; startViewY: number } | null>(null);
-
-  const isDraggingNodeRef = useRef(false);
-  const activeNodeIdRef = useRef<string | null>(null);
-  const nodeDragStartRef = useRef<{ clientX: number; clientY: number; startNodeX: number; startNodeY: number } | null>(null);
-
-  /** Window pointer listeners */
+    isMobileRef.current = isMobile;
+  }, [isMobile]);
   useEffect(() => {
-    const handleWindowPointerMove = (e: globalThis.PointerEvent) => {
-      // 1. Node dragging
-      if (isDraggingNodeRef.current && activeNodeIdRef.current && nodeDragStartRef.current && svgRef.current) {
-        const start = nodeDragStartRef.current;
-        const rect = svgRef.current.getBoundingClientRect();
-        if (rect.width > 0 && rect.height > 0) {
-          const dx = e.clientX - start.clientX;
-          const dy = e.clientY - start.clientY;
-
-          const threshold = e.pointerType === "touch" ? 12 : 4;
-          if (Math.hypot(dx, dy) > threshold) {
-            didDragRef.current = true;
-          }
-
-          const currentK = viewRef.current.k;
-          const svgDx = (dx / rect.width) * (VIEW_W + 2 * padRef.current) / currentK;
-          const svgDy = (dy / rect.height) * VIEW_H / currentK;
-
-          const newX = clamp(start.startNodeX + svgDx, 30, VIEW_W - 30);
-          const newY = clamp(start.startNodeY + svgDy, 30, VIEW_H - 30);
-
-          setPositions((prev) => ({
-            ...prev,
-            [activeNodeIdRef.current!]: { x: newX, y: newY },
-          }));
-        }
-        return;
-      }
-
-      // 2. Canvas panning
-      if (isDraggingCanvasRef.current && canvasDragStartRef.current && svgRef.current) {
-        const start = canvasDragStartRef.current;
-        const rect = svgRef.current.getBoundingClientRect();
-        if (rect.width > 0 && rect.height > 0) {
-          const dx = e.clientX - start.clientX;
-          const dy = e.clientY - start.clientY;
-
-          const threshold = e.pointerType === "touch" ? 12 : 4;
-          if (Math.hypot(dx, dy) > threshold) {
-            didDragRef.current = true;
-          }
-
-          const svgDx = (dx / rect.width) * (VIEW_W + 2 * padRef.current);
-          const svgDy = (dy / rect.height) * VIEW_H;
-
-          setView({
-            x: start.startViewX + svgDx,
-            y: start.startViewY + svgDy,
-            k: viewRef.current.k,
-          });
-        }
-      }
-    };
-
-    const handleWindowPointerUp = () => {
-      isDraggingCanvasRef.current = false;
-      canvasDragStartRef.current = null;
-      isDraggingNodeRef.current = false;
-      activeNodeIdRef.current = null;
-      nodeDragStartRef.current = null;
-      setDraggingCanvas(false);
-      setDraggingNodeId(null);
-    };
-
-    window.addEventListener("pointermove", handleWindowPointerMove);
-    window.addEventListener("pointerup", handleWindowPointerUp);
-    window.addEventListener("pointercancel", handleWindowPointerUp);
-
-    return () => {
-      window.removeEventListener("pointermove", handleWindowPointerMove);
-      window.removeEventListener("pointerup", handleWindowPointerUp);
-      window.removeEventListener("pointercancel", handleWindowPointerUp);
-    };
-  }, []);
-
-  /** Wheel / Trackpad Zoom */
+    panelOpenRef.current = Boolean(selectedCharacterId);
+  }, [selectedCharacterId]);
   useEffect(() => {
-    const svg = svgRef.current;
-    if (!svg) return;
+    reduceRef.current = Boolean(reduce);
+  }, [reduce]);
 
-    const handleWheel = (e: WheelEvent) => {
-      e.preventDefault();
-      const { x, y, k } = viewRef.current;
-      const rect = svg.getBoundingClientRect();
-      if (rect.width === 0 || rect.height === 0) return;
+  /* ── derived graph model ───────────────────────────────────────── */
 
-      const cx = ((e.clientX - rect.left) / rect.width) * (VIEW_W + 2 * padRef.current) - padRef.current;
-      const cy = ((e.clientY - rect.top) / rect.height) * VIEW_H;
+  const { nodes, edges, indexById } = useMemo(() => {
+    const indexById = new Map<string, number>();
+    characters.forEach((c, i) => indexById.set(c.id, i));
 
-      const zoomFactor = Math.exp(-e.deltaY * 0.002);
-      const nextK = clamp(k * zoomFactor, MIN_ZOOM, MAX_ZOOM);
-      if (nextK === k) return;
+    const degree = new Map<string, number>();
+    for (const r of RELATIONSHIPS) {
+      degree.set(r.source, (degree.get(r.source) ?? 0) + 1);
+      degree.set(r.target, (degree.get(r.target) ?? 0) + 1);
+    }
 
-      setInstant(true);
-      setView({
-        x: cx - ((cx - x) * nextK) / k,
-        y: cy - ((cy - y) * nextK) / k,
-        k: nextK,
-      });
-    };
-
-    svg.addEventListener("wheel", handleWheel, { passive: false });
-    return () => svg.removeEventListener("wheel", handleWheel);
-  }, []);
-
-  /** Derived relationships and node degrees */
-  const { byId, strings, degreeByCharacter } = useMemo(() => {
-    const byId = new Map(CHARACTERS.map((c) => [c.id, c]));
+    const nodes: NodeSpec[] = characters.map((c) => {
+      const seed = hash32(c.id);
+      const d = degree.get(c.id) ?? 0;
+      const r = getNodeRadius(c, d);
+      // Destructured (not spread) so the faction key lands on `factionKey` —
+      // resolveFaction returns it as `key`, which collides conceptually with
+      // React's reserved prop name and does not match NodeSpec.
+      const { key: factionKey, theme } = resolveFaction(c.affiliation);
+      return {
+        c,
+        r,
+        tier: r >= 20 ? 0 : r >= 16 ? 1 : 2,
+        factionKey,
+        theme,
+        degree: d,
+        // Periods land between ~12s and ~30s — slow enough to read as "alive",
+        // never fast enough to look like a physics simulation.
+        f1: 0.00021 + rand01(seed, 1) * 0.00028,
+        f2: 0.00033 + rand01(seed, 2) * 0.00035,
+        f3: 0.00019 + rand01(seed, 3) * 0.00027,
+        f4: 0.00036 + rand01(seed, 4) * 0.00032,
+        p1: rand01(seed, 5) * Math.PI * 2,
+        p2: rand01(seed, 6) * Math.PI * 2,
+        p3: rand01(seed, 7) * Math.PI * 2,
+        p4: rand01(seed, 8) * Math.PI * 2,
+        breatheDur: 3.2 + rand01(seed, 9) * 2.4,
+        breatheDelay: rand01(seed, 10) * 3,
+      };
+    });
 
     const counts = new Map<string, number>();
     for (const r of RELATIONSHIPS) {
       const key = pairKey(r);
       counts.set(key, (counts.get(key) ?? 0) + 1);
     }
-
     const used = new Map<string, number>();
-    const strings: { rel: Relationship; d: string }[] = [];
+    const edges: EdgeSpec[] = [];
     for (const r of RELATIONSHIPS) {
-      const source = byId.get(r.source);
-      const target = byId.get(r.target);
-      if (!source || !target) continue;
-
-      const sourcePos = positions[r.source] ?? { x: source.x, y: source.y };
-      const targetPos = positions[r.target] ?? { x: target.x, y: target.y };
-
+      const s = indexById.get(r.source);
+      const t = indexById.get(r.target);
+      if (s === undefined || t === undefined) continue;
       const key = pairKey(r);
       const total = counts.get(key) ?? 1;
-      const index = used.get(key) ?? 0;
-      used.set(key, index + 1);
+      const idx = used.get(key) ?? 0;
+      used.set(key, idx + 1);
+      edges.push({ rel: r, s, t, off: idx - (total - 1) / 2 });
+    }
 
-      strings.push({
-        rel: r,
-        d: buildStringDFromPos(sourcePos, targetPos, index - (total - 1) / 2),
+    return { nodes, edges, indexById };
+  }, [characters]);
+
+  /** Base (authored, drag-mutated) positions + per-frame drifted positions. */
+  const geom = useMemo(() => {
+    const n = nodes.length;
+    const base = new Float64Array(n * 2);
+    nodes.forEach((node, i) => {
+      base[i * 2] = node.c.x;
+      base[i * 2 + 1] = node.c.y;
+    });
+    return { base, curX: new Float64Array(n), curY: new Float64Array(n) };
+  }, [nodes]);
+
+  /** Content bounding box, inflated for label boxes and drift headroom. */
+  const bbox = useMemo(() => {
+    let minX = Infinity;
+    let minY = Infinity;
+    let maxX = -Infinity;
+    let maxY = -Infinity;
+    for (const n of nodes) {
+      const halfLabel = Math.max(n.r + 8, 48);
+      minX = Math.min(minX, n.c.x - halfLabel);
+      maxX = Math.max(maxX, n.c.x + halfLabel);
+      minY = Math.min(minY, n.c.y - n.r - 12);
+      maxY = Math.max(maxY, n.c.y + n.r + 30);
+    }
+    const m = DRIFT_AMP + 6;
+    return {
+      minX: minX - m,
+      minY: minY - m,
+      w: maxX - minX + m * 2,
+      h: maxY - minY + m * 2,
+    };
+  }, [nodes]);
+
+  const particles = useMemo<Particle[]>(() => {
+    const out: Particle[] = [];
+    for (let i = 0; i < PARTICLE_COUNT; i++) {
+      out.push({
+        x0: rand01(9176, i * 4 + 1),
+        y0: rand01(9176, i * 4 + 2),
+        r: 0.9 + rand01(9176, i * 4 + 3) * 1.7,
+        base: 0.14 + rand01(9176, i * 4 + 4) * 0.24,
+        vy: 0.000006 + rand01(4471, i) * 0.000016,
+        fx: 0.00012 + rand01(4471, i + 99) * 0.0003,
+        px: rand01(4471, i + 7) * Math.PI * 2,
+        fo: 0.0004 + rand01(4471, i + 31) * 0.0008,
+        po: rand01(4471, i + 53) * Math.PI * 2,
       });
     }
-
-    const degreeByCharacter = new Map<string, number>();
-    for (const c of CHARACTERS) degreeByCharacter.set(c.id, 0);
-    for (const r of RELATIONSHIPS) {
-      degreeByCharacter.set(r.source, (degreeByCharacter.get(r.source) ?? 0) + 1);
-      degreeByCharacter.set(r.target, (degreeByCharacter.get(r.target) ?? 0) + 1);
-    }
-
-    return { byId, strings, degreeByCharacter };
-  }, [positions]);
-
-  /** Zoom into exact coordinate (wx, wy) */
-  const zoomToPoint = (wx: number, wy: number, targetK: number = ZOOM_TO_NODE) => {
-    setInstant(false);
-    const targetYCenter = isMobile ? VIEW_H * 0.32 : VIEW_H / 2;
-    setView({
-      x: VIEW_W / 2 - wx * targetK,
-      y: targetYCenter - wy * targetK,
-      k: targetK,
-    });
-  };
-
-  /** Center view on Conan Edogawa (the main character circle at 1000, 700) */
-  const centerOnConan = () => {
-    setInstant(false);
-    const conanPos = positions["conan-edogawa"] ?? { x: 1000, y: 700 };
-    zoomToPoint(conanPos.x, conanPos.y, 1.0);
-  };
-
-  /** Explicitly center on Conan Edogawa on initial mount */
-  useEffect(() => {
-    centerOnConan();
+    return out;
   }, []);
 
-  /** Center and select a character node */
-  const handleSelectNode = (c: Character) => {
-    const pos = positions[c.id] ?? { x: c.x, y: c.y };
-    zoomToPoint(pos.x, pos.y, ZOOM_TO_NODE);
-    onSelectCharacter(c);
-  };
+  /* ── element refs ──────────────────────────────────────────────── */
+  const nodeEls = useRef<(SVGGElement | null)[]>([]);
+  const labelEls = useRef<(SVGGElement | null)[]>([]);
+  const edgeEls = useRef<(SVGPathElement | null)[]>([]);
+  const particleEls = useRef<(SVGCircleElement | null)[]>([]);
 
-  const handleNodeKeyDown = (character: Character) => (e: KeyboardEvent) => {
-    if (e.key === "Enter" || e.key === " ") {
-      e.preventDefault();
-      handleSelectNode(character);
-    }
-  };
-
-  const hoverNode = (id: string | null) => () => setHoveredId(id);
-
-  /** Canvas pointer down */
-  const handleCanvasPointerDown = (e: React.PointerEvent<SVGSVGElement>) => {
-    if (e.pointerType === "touch" && e.isPrimary === false) return;
-    didDragRef.current = false;
-    isDraggingCanvasRef.current = true;
-    canvasDragStartRef.current = {
-      clientX: e.clientX,
-      clientY: e.clientY,
-      startViewX: viewRef.current.x,
-      startViewY: viewRef.current.y,
-    };
-    setDraggingCanvas(true);
-  };
-
-  /** Node pointer down */
-  const handleNodePointerDown = (c: Character, e: React.PointerEvent) => {
-    e.stopPropagation();
-    didDragRef.current = false;
-    isDraggingNodeRef.current = true;
-    activeNodeIdRef.current = c.id;
-
-    const pos = positions[c.id] ?? { x: c.x, y: c.y };
-    nodeDragStartRef.current = {
-      clientX: e.clientX,
-      clientY: e.clientY,
-      startNodeX: pos.x,
-      startNodeY: pos.y,
-    };
-    setDraggingNodeId(c.id);
-  };
-
-  const zoomBy = (factor: number) => {
-    setInstant(false);
-    setView((v) => {
-      const nextK = clamp(v.k * factor, MIN_ZOOM, MAX_ZOOM);
-      const cx = VIEW_W / 2;
-      const cy = VIEW_H / 2;
-      return {
-        x: cx - ((cx - v.x) * nextK) / v.k,
-        y: cy - ((cy - v.y) * nextK) / v.k,
-        k: nextK,
-      };
-    });
-  };
-
-  const resetView = () => {
-    centerOnConan();
-  };
-
-  // Filter & search matches
-  const activeChar = selectedCharacterId ? byId.get(selectedCharacterId) : null;
-  const dimmed = hoveredId !== null || activeChar !== null;
-
+  /* ── search / highlight ────────────────────────────────────────── */
   const searchLower = searchQuery.trim().toLowerCase();
   const searchMatches = useMemo(() => {
     if (!searchLower) return new Set<string>();
     const set = new Set<string>();
-    for (const c of CHARACTERS) {
+    for (const c of characters) {
       if (
         c.name.toLowerCase().includes(searchLower) ||
         c.role.toLowerCase().includes(searchLower) ||
@@ -622,90 +398,776 @@ export default function CharactersWeb({
       }
     }
     return set;
-  }, [searchLower]);
+  }, [searchLower, characters]);
+
+  // Labels that must stay fully legible regardless of zoom.
+  useEffect(() => {
+    const forced = new Set<number>();
+    const add = (id?: string | null) => {
+      if (!id) return;
+      const i = indexById.get(id);
+      if (i !== undefined) forced.add(i);
+    };
+    add(hoveredId);
+    add(selectedCharacterId ?? null);
+    searchMatches.forEach(add);
+    forcedLabelsRef.current = forced;
+  }, [hoveredId, selectedCharacterId, searchMatches, indexById]);
+
+  /* ── camera commands ──────────────────────────────────────────── */
+
+  const fitToContent = useCallback(
+    (instant = false) => {
+      const { w, h } = sizeRef.current;
+      if (!w || !h) return;
+      const vp = usableRect(w, h, isMobileRef.current, panelOpenRef.current);
+      const k = clamp(
+        Math.min(vp.w / bbox.w, vp.h / bbox.h),
+        FIT_MIN_K,
+        FIT_MAX_K
+      );
+      minZoomRef.current = Math.min(0.2, k * 0.6);
+      const next = {
+        k,
+        x: vp.x + (vp.w - bbox.w * k) / 2 - bbox.minX * k,
+        y: vp.y + (vp.h - bbox.h * k) / 2 - bbox.minY * k,
+      };
+      targetRef.current = next;
+      if (instant || reduceRef.current) camRef.current = { ...next };
+      userAdjustedRef.current = false;
+    },
+    [bbox]
+  );
+
+  const zoomToPoint = useCallback(
+    (wx: number, wy: number, k = ZOOM_TO_NODE, panelOpen?: boolean) => {
+      const { w, h } = sizeRef.current;
+      if (!w || !h) return;
+      const vp = usableRect(
+        w,
+        h,
+        isMobileRef.current,
+        panelOpen ?? panelOpenRef.current
+      );
+      const kk = clamp(k, minZoomRef.current, MAX_ZOOM);
+      targetRef.current = {
+        k: kk,
+        x: vp.x + vp.w / 2 - wx * kk,
+        y: vp.y + vp.h / 2 - wy * kk,
+      };
+      if (reduceRef.current) camRef.current = { ...targetRef.current };
+      userAdjustedRef.current = true;
+    },
+    []
+  );
+
+  const zoomBy = useCallback((factor: number) => {
+    const { w, h } = sizeRef.current;
+    if (!w || !h) return;
+    const vp = usableRect(w, h, isMobileRef.current, panelOpenRef.current);
+    const t = targetRef.current;
+    const cx = vp.x + vp.w / 2;
+    const cy = vp.y + vp.h / 2;
+    const nk = clamp(t.k * factor, minZoomRef.current, MAX_ZOOM);
+    targetRef.current = {
+      k: nk,
+      x: cx - ((cx - t.x) * nk) / t.k,
+      y: cy - ((cy - t.y) * nk) / t.k,
+    };
+    if (reduceRef.current) camRef.current = { ...targetRef.current };
+    userAdjustedRef.current = true;
+  }, []);
+
+  const centerOnConan = useCallback(() => {
+    const i = indexById.get("conan-edogawa");
+    if (i === undefined) {
+      fitToContent();
+      return;
+    }
+    zoomToPoint(geom.base[i * 2], geom.base[i * 2 + 1], 1.35);
+  }, [indexById, geom, zoomToPoint, fitToContent]);
+
+  /* ── size observation + initial fit ───────────────────────────── */
+  useIsoLayoutEffect(() => {
+    const el = containerRef.current;
+    if (!el) return;
+    const ro = new ResizeObserver((entries) => {
+      const cr = entries[0]?.contentRect;
+      if (!cr || cr.width < 1 || cr.height < 1) return;
+      const w = Math.round(cr.width);
+      const h = Math.round(cr.height);
+      if (w === sizeRef.current.w && h === sizeRef.current.h) return;
+      sizeRef.current = { w, h };
+      setSize({ w, h });
+      if (!didFitRef.current) {
+        didFitRef.current = true;
+        fitToContent(true);
+        setReady(true);
+      } else if (!userAdjustedRef.current) {
+        fitToContent();
+      }
+    });
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, [fitToContent]);
+
+  /* ── the single animation loop ────────────────────────────────── */
+  useEffect(() => {
+    let raf = 0;
+    const t0 = performance.now();
+    let last = t0;
+    let lastLabelK = -1;
+    let lastZoomLabel = -1;
+
+    const loop = (now: number) => {
+      raf = requestAnimationFrame(loop);
+      const dt = Math.min(50, now - last);
+      last = now;
+      const t = now - t0;
+
+      /* 1 — camera */
+      const cam = camRef.current;
+      const tgt = targetRef.current;
+      const a = reduceRef.current ? 1 : 1 - Math.exp(-dt / CAM_TAU);
+      cam.x += (tgt.x - cam.x) * a;
+      cam.y += (tgt.y - cam.y) * a;
+      cam.k += (tgt.k - cam.k) * a;
+      if (Math.abs(tgt.x - cam.x) < 0.04) cam.x = tgt.x;
+      if (Math.abs(tgt.y - cam.y) < 0.04) cam.y = tgt.y;
+      if (Math.abs(tgt.k - cam.k) < 0.0004) cam.k = tgt.k;
+
+      worldRef.current?.setAttribute(
+        "transform",
+        `translate(${cam.x.toFixed(2)} ${cam.y.toFixed(2)}) scale(${cam.k.toFixed(4)})`
+      );
+
+      /* 2 — node drift (positions feed BOTH nodes and strings) */
+      const amp = reduceRef.current ? 0 : DRIFT_AMP;
+      const { base, curX, curY } = geom;
+      const dragIdx = dragNodeRef.current?.index ?? -1;
+      for (let i = 0; i < nodes.length; i++) {
+        const n = nodes[i];
+        let x = base[i * 2];
+        let y = base[i * 2 + 1];
+        if (amp > 0 && i !== dragIdx) {
+          x +=
+            Math.sin(t * n.f1 + n.p1) * amp +
+            Math.sin(t * n.f2 + n.p2) * amp * 0.45;
+          y +=
+            Math.cos(t * n.f3 + n.p3) * amp * 0.9 +
+            Math.cos(t * n.f4 + n.p4) * amp * 0.4;
+        }
+        curX[i] = x;
+        curY[i] = y;
+        const g = nodeEls.current[i];
+        if (g) g.setAttribute("transform", `translate(${x.toFixed(2)} ${y.toFixed(2)})`);
+      }
+
+      /* 3 — strings follow the same drifted coordinates */
+      for (let i = 0; i < edges.length; i++) {
+        const el = edgeEls.current[i];
+        if (!el || el.style.display === "none") continue;
+        const e = edges[i];
+        el.setAttribute("d", quadPath(curX[e.s], curY[e.s], curX[e.t], curY[e.t], e.off));
+      }
+
+      /* 4 — zoom-dependent label opacity (only when zoom actually moved) */
+      if (Math.abs(cam.k - lastLabelK) > 0.004) {
+        lastLabelK = cam.k;
+        const forced = forcedLabelsRef.current;
+        for (let i = 0; i < nodes.length; i++) {
+          const el = labelEls.current[i];
+          if (!el) continue;
+          const o = forced.has(i) ? 1 : labelOpacityFor(cam.k, nodes[i].tier);
+          el.style.opacity = o.toFixed(2);
+        }
+      }
+
+      /* 5 — ambient particles (screen space, behind the world) */
+      if (!reduceRef.current) {
+        const { w, h } = sizeRef.current;
+        if (w && h) {
+          for (let i = 0; i < particles.length; i++) {
+            const el = particleEls.current[i];
+            if (!el) continue;
+            const p = particles[i];
+            const nx = p.x0 + Math.sin(t * p.fx + p.px) * 0.035;
+            let ny = (p.y0 - t * p.vy) % 1;
+            if (ny < 0) ny += 1;
+            el.setAttribute(
+              "transform",
+              `translate(${(nx * w).toFixed(1)} ${(ny * h).toFixed(1)})`
+            );
+            el.setAttribute(
+              "opacity",
+              (p.base * (0.55 + 0.45 * Math.sin(t * p.fo + p.po))).toFixed(3)
+            );
+          }
+        }
+      }
+
+      /* 6 — zoom readout */
+      const pct = Math.round(cam.k * 100);
+      if (pct !== lastZoomLabel && zoomLabelRef.current) {
+        lastZoomLabel = pct;
+        zoomLabelRef.current.textContent = `${pct}%`;
+      }
+    };
+
+    raf = requestAnimationFrame(loop);
+    return () => cancelAnimationFrame(raf);
+  }, [nodes, edges, geom, particles]);
+
+  /* ── pointer gestures: pan, node drag, pinch ─────────────────── */
+
+  const pointersRef = useRef(new Map<number, { x: number; y: number }>());
+  const rectRef = useRef<DOMRect | null>(null);
+  const didDragRef = useRef(false);
+  const panRef = useRef<{
+    cx: number;
+    cy: number;
+    vx: number;
+    vy: number;
+    lastT: number;
+  } | null>(null);
+  const dragNodeRef = useRef<{
+    index: number;
+    cx: number;
+    cy: number;
+    bx: number;
+    by: number;
+  } | null>(null);
+  const pinchRef = useRef<{
+    dist: number;
+    k: number;
+    wx: number;
+    wy: number;
+  } | null>(null);
+
+  const localPoint = (clientX: number, clientY: number) => {
+    const r = rectRef.current ?? svgRef.current?.getBoundingClientRect();
+    if (!r) return { sx: 0, sy: 0 };
+    return { sx: clientX - r.left, sy: clientY - r.top };
+  };
+
+  const beginPinch = () => {
+    const pts = Array.from(pointersRef.current.values());
+    if (pts.length < 2) return;
+    panRef.current = null;
+    dragNodeRef.current = null;
+    const dist = Math.hypot(pts[0].x - pts[1].x, pts[0].y - pts[1].y) || 1;
+    const midX = (pts[0].x + pts[1].x) / 2;
+    const midY = (pts[0].y + pts[1].y) / 2;
+    const { sx, sy } = localPoint(midX, midY);
+    const cam = camRef.current;
+    pinchRef.current = {
+      dist,
+      k: cam.k,
+      wx: (sx - cam.x) / cam.k,
+      wy: (sy - cam.y) / cam.k,
+    };
+  };
+
+  /** Capture phase: every pointer that touches the canvas is registered here,
+   *  including ones that land on a node, so pinch works anywhere. */
+  const handleCapturePointerDown = (e: ReactPointerEvent<SVGSVGElement>) => {
+    rectRef.current = svgRef.current?.getBoundingClientRect() ?? null;
+    pointersRef.current.set(e.pointerId, { x: e.clientX, y: e.clientY });
+    if (pointersRef.current.size === 2) beginPinch();
+  };
+
+  const handleCanvasPointerDown = (e: ReactPointerEvent<SVGSVGElement>) => {
+    if (pointersRef.current.size > 1) return;
+    didDragRef.current = false;
+    pinchRef.current = null;
+    panRef.current = {
+      cx: e.clientX,
+      cy: e.clientY,
+      vx: 0,
+      vy: 0,
+      lastT: performance.now(),
+    };
+    setGrabbing(true);
+    userAdjustedRef.current = true;
+  };
+
+  const handleNodePointerDown = (index: number, e: ReactPointerEvent) => {
+    if (pointersRef.current.size > 1) return;
+    e.stopPropagation();
+    didDragRef.current = false;
+    panRef.current = null;
+    dragNodeRef.current = {
+      index,
+      cx: e.clientX,
+      cy: e.clientY,
+      bx: geom.base[index * 2],
+      by: geom.base[index * 2 + 1],
+    };
+    setGrabbing(true);
+  };
+
+  useEffect(() => {
+    const onMove = (e: PointerEvent) => {
+      const pts = pointersRef.current;
+      if (pts.has(e.pointerId)) pts.set(e.pointerId, { x: e.clientX, y: e.clientY });
+
+      // Pinch zoom — anchored on the pinch midpoint, applied directly for 1:1 feel.
+      const pinch = pinchRef.current;
+      if (pinch && pts.size >= 2) {
+        const p = Array.from(pts.values());
+        const dist = Math.hypot(p[0].x - p[1].x, p[0].y - p[1].y) || 1;
+        const { sx, sy } = localPoint((p[0].x + p[1].x) / 2, (p[0].y + p[1].y) / 2);
+        const nk = clamp(
+          (pinch.k * dist) / pinch.dist,
+          minZoomRef.current,
+          MAX_ZOOM
+        );
+        const next = { k: nk, x: sx - pinch.wx * nk, y: sy - pinch.wy * nk };
+        camRef.current = { ...next };
+        targetRef.current = { ...next };
+        didDragRef.current = true;
+        userAdjustedRef.current = true;
+        return;
+      }
+
+      // Node drag — world delta is a plain pixel delta over k.
+      const drag = dragNodeRef.current;
+      if (drag) {
+        const k = camRef.current.k || 1;
+        const dx = (e.clientX - drag.cx) / k;
+        const dy = (e.clientY - drag.cy) / k;
+        if (Math.hypot(e.clientX - drag.cx, e.clientY - drag.cy) >
+          (e.pointerType === "touch" ? 12 : 4)) {
+          didDragRef.current = true;
+        }
+        geom.base[drag.index * 2] = clamp(drag.bx + dx, bbox.minX - 400, bbox.minX + bbox.w + 400);
+        geom.base[drag.index * 2 + 1] = clamp(drag.by + dy, bbox.minY - 400, bbox.minY + bbox.h + 400);
+        return;
+      }
+
+      // Canvas pan — direct, with velocity captured for release inertia.
+      const pan = panRef.current;
+      if (pan) {
+        const dx = e.clientX - pan.cx;
+        const dy = e.clientY - pan.cy;
+        const now = performance.now();
+        const dt = Math.max(1, now - pan.lastT);
+        pan.vx = dx / dt;
+        pan.vy = dy / dt;
+        pan.lastT = now;
+        pan.cx = e.clientX;
+        pan.cy = e.clientY;
+        if (Math.abs(dx) + Math.abs(dy) > 1) didDragRef.current = true;
+        const cam = camRef.current;
+        const next = { k: cam.k, x: cam.x + dx, y: cam.y + dy };
+        camRef.current = { ...next };
+        targetRef.current = { ...next };
+      }
+    };
+
+    const onUp = (e: PointerEvent) => {
+      pointersRef.current.delete(e.pointerId);
+      if (pointersRef.current.size < 2) pinchRef.current = null;
+
+      const pan = panRef.current;
+      if (pan && !reduceRef.current) {
+        const speed = Math.hypot(pan.vx, pan.vy);
+        if (speed > 0.25) {
+          const t = targetRef.current;
+          targetRef.current = {
+            k: t.k,
+            x: t.x + clamp(pan.vx, -4, 4) * PAN_INERTIA_MS,
+            y: t.y + clamp(pan.vy, -4, 4) * PAN_INERTIA_MS,
+          };
+        }
+      }
+      panRef.current = null;
+      dragNodeRef.current = null;
+      setGrabbing(false);
+    };
+
+    window.addEventListener("pointermove", onMove);
+    window.addEventListener("pointerup", onUp);
+    window.addEventListener("pointercancel", onUp);
+    return () => {
+      window.removeEventListener("pointermove", onMove);
+      window.removeEventListener("pointerup", onUp);
+      window.removeEventListener("pointercancel", onUp);
+    };
+  }, [geom, bbox]);
+
+  /* ── wheel zoom: accumulates into the target, loop glides there ── */
+  useEffect(() => {
+    const svg = svgRef.current;
+    if (!svg) return;
+    const onWheel = (e: WheelEvent) => {
+      e.preventDefault();
+      const { sx, sy } = localPoint(e.clientX, e.clientY);
+      const t = targetRef.current;
+      // Anchor against the TARGET so rapid wheel bursts compound coherently
+      // instead of fighting the in-flight animation.
+      const wx = (sx - t.x) / t.k;
+      const wy = (sy - t.y) / t.k;
+      const step = e.deltaMode === 1 ? e.deltaY * 16 : e.deltaY;
+      const nk = clamp(
+        t.k * Math.exp(-clamp(step, -180, 180) * 0.0016),
+        minZoomRef.current,
+        MAX_ZOOM
+      );
+      if (nk === t.k) return;
+      targetRef.current = { k: nk, x: sx - wx * nk, y: sy - wy * nk };
+      if (reduceRef.current) camRef.current = { ...targetRef.current };
+      userAdjustedRef.current = true;
+    };
+    svg.addEventListener("wheel", onWheel, { passive: false });
+    return () => svg.removeEventListener("wheel", onWheel);
+  }, []);
+
+  /* ── keyboard shortcuts ───────────────────────────────────────── */
+  useEffect(() => {
+    const onKey = (e: globalThis.KeyboardEvent) => {
+      const el = document.activeElement;
+      if (el instanceof HTMLInputElement || el instanceof HTMLTextAreaElement) return;
+      if (e.key === "+" || e.key === "=") zoomBy(ZOOM_STEP);
+      else if (e.key === "-" || e.key === "_") zoomBy(1 / ZOOM_STEP);
+      else if (e.key === "0") fitToContent();
+      else if (e.key.toLowerCase() === "c") centerOnConan();
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [zoomBy, fitToContent, centerOnConan]);
+
+  /* ── selection ────────────────────────────────────────────────── */
+  const handleSelectNode = (index: number) => {
+    const n = nodes[index];
+    zoomToPoint(geom.base[index * 2], geom.base[index * 2 + 1], ZOOM_TO_NODE, true);
+    onSelectCharacter(n.c);
+  };
+
+  const handleNodeKeyDown =
+    (index: number) => (e: ReactKeyboardEvent) => {
+      if (e.key === "Enter" || e.key === " ") {
+        e.preventDefault();
+        handleSelectNode(index);
+      }
+    };
+
+  /* ── theme-derived palette ────────────────────────────────────── */
+  const bg0 = isDark ? "#16203A" : "#FFFFFF";
+  const bg1 = isDark ? "#070A12" : "#E7ECF3";
+  const dotColor = isDark ? "rgba(148,197,255,0.16)" : "rgba(100,116,139,0.34)";
+  const labelFill = isDark ? "#F1F5F9" : "#0F172A";
+  const labelFillStrong = isDark ? "#FFFFFF" : "#08101F";
+  const labelHalo = isDark ? "#070A12" : "#FFFFFF";
+
+  const dimmed = hoveredId !== null || Boolean(selectedCharacterId);
+  const vw = Math.max(1, size.w);
+  const vh = Math.max(1, size.h);
 
   return (
     <div
       ref={containerRef}
-      className={`relative w-full h-full overflow-hidden select-none transition-colors duration-300 ${
+      className={cn(
+        "relative h-full w-full select-none overflow-hidden transition-colors duration-300",
         isDark
-          ? "bg-[#0B0F19] text-white rounded-2xl border border-slate-800/80 shadow-2xl"
-          : "bg-[#F8FAFC] text-ink rounded-2xl border border-slate-200/90 shadow-card"
-      } ${className}`}
+          ? "bg-[#070A12] text-white rounded-2xl border border-slate-800/80 shadow-2xl"
+          : "bg-[#F1F5F9] text-ink rounded-2xl border border-slate-200/90 shadow-card",
+        className
+      )}
     >
-
-      {/* Floating Canvas Action Dock (Bottom Left - Obsidian style) */}
-      <div
-        className={cn(
-          "absolute z-30 pointer-events-auto flex items-center gap-1 rounded-full border p-1.5 shadow-xl backdrop-blur-md transition-all duration-300",
-          selectedCharacterId && isMobile
-            ? "bottom-[calc(48vh+12px)] left-3"
-            : "bottom-6 left-4 sm:left-6",
-          isDark ? "border-slate-800/80 bg-slate-950/90" : "border-slate-200/90 bg-white/95"
-        )}
-      >
-        <button
-          type="button"
-          onClick={centerOnConan}
-          aria-label="Center on Conan Edogawa"
-          title="Center on Conan Edogawa"
+      <MotionConfig reducedMotion="user">
+        <svg
+          ref={svgRef}
+          viewBox={`0 0 ${vw} ${vh}`}
+          preserveAspectRatio="xMidYMid meet"
           className={cn(
-            "flex items-center gap-1 px-3 py-1.5 rounded-full text-xs font-display font-medium transition-colors",
-            isDark ? "bg-cyan-500/15 text-cyan-400 hover:bg-cyan-500/25" : "bg-cyan-50 text-cyan-600 hover:bg-cyan-100"
+            "h-full w-full touch-none select-none transition-opacity duration-700",
+            ready ? "opacity-100" : "opacity-0",
+            grabbing ? "cursor-grabbing" : "cursor-grab"
           )}
+          aria-label="Detective Conan character relationship graph"
+          onPointerDownCapture={handleCapturePointerDown}
+          onPointerDown={handleCanvasPointerDown}
         >
-          <Target className="h-3.5 w-3.5" />
-          <span className="hidden sm:inline">Center Conan</span>
-        </button>
+          <defs>
+            <radialGradient id="dcph-bg" cx="50%" cy="42%" r="78%">
+              <stop offset="0%" stopColor={bg0} />
+              <stop offset="100%" stopColor={bg1} />
+            </radialGradient>
 
-        <div className={`h-4 w-px my-auto ${isDark ? "bg-slate-800" : "bg-slate-200"}`} />
+            <radialGradient id="dcph-aura-a" cx="50%" cy="50%" r="50%">
+              <stop offset="0%" stopColor="#22D3EE" stopOpacity={isDark ? 0.22 : 0.13} />
+              <stop offset="100%" stopColor="#22D3EE" stopOpacity="0" />
+            </radialGradient>
+            <radialGradient id="dcph-aura-b" cx="50%" cy="50%" r="50%">
+              <stop offset="0%" stopColor="#F43F5E" stopOpacity={isDark ? 0.2 : 0.11} />
+              <stop offset="100%" stopColor="#F43F5E" stopOpacity="0" />
+            </radialGradient>
 
-        <button
-          type="button"
-          onClick={() => zoomBy(ZOOM_STEP)}
-          aria-label="Zoom in"
-          title="Zoom in (+)"
-          className={`flex h-8 w-8 items-center justify-center rounded-full transition-colors ${
-            isDark ? "text-slate-300 hover:bg-slate-800 hover:text-white" : "text-ink-dim hover:bg-surface-muted hover:text-accent"
-          }`}
-        >
-          <ZoomIn className="h-4 w-4" />
-        </button>
-        <button
-          type="button"
-          onClick={() => zoomBy(1 / ZOOM_STEP)}
-          aria-label="Zoom out"
-          title="Zoom out (-)"
-          className={`flex h-8 w-8 items-center justify-center rounded-full transition-colors ${
-            isDark ? "text-slate-300 hover:bg-slate-800 hover:text-white" : "text-ink-dim hover:bg-surface-muted hover:text-accent"
-          }`}
-        >
-          <ZoomOut className="h-4 w-4" />
-        </button>
-        <button
-          type="button"
-          onClick={resetView}
-          aria-label="Reset view"
-          title="Reset View"
-          className={`flex h-8 w-8 items-center justify-center rounded-full transition-colors ${
-            isDark ? "text-slate-300 hover:bg-slate-800 hover:text-white" : "text-ink-dim hover:bg-surface-muted hover:text-accent"
-          }`}
-        >
-          <RotateCcw className="h-4 w-4" />
-        </button>
-      </div>
+            <pattern id="dcph-dots" width="26" height="26" patternUnits="userSpaceOnUse">
+              <circle cx="13" cy="13" r={isDark ? 1.1 : 1.3} fill={dotColor} />
+            </pattern>
 
-      {/* Search input (top-left) */}
-      <div className="absolute top-4 left-4 z-40 pointer-events-auto">
+            {/* One soft-glow gradient per faction — gives every node a real
+                neon halo with zero SVG filters (filters at 62x kill the frame). */}
+            {FACTION_KEYS.map((key) => {
+              const t = FACTION_THEMES[key];
+              return (
+                <radialGradient
+                  key={key}
+                  id={`dcph-glow-${factionSlug(key)}`}
+                  cx="50%"
+                  cy="50%"
+                  r="50%"
+                >
+                  <stop offset="0%" stopColor={t.primary} stopOpacity={isDark ? 0.5 : 0.34} />
+                  <stop offset="55%" stopColor={t.primary} stopOpacity={isDark ? 0.2 : 0.13} />
+                  <stop offset="100%" stopColor={t.primary} stopOpacity="0" />
+                </radialGradient>
+              );
+            })}
+          </defs>
+
+          {/* Background stack: vignette → drifting auras → dot matrix → motes */}
+          <rect width={vw} height={vh} fill="url(#dcph-bg)" />
+          <g>
+            <ellipse
+              className="dcph-aura-a"
+              cx={vw * 0.32}
+              cy={vh * 0.3}
+              rx={vw * 0.42}
+              ry={vh * 0.4}
+              fill="url(#dcph-aura-a)"
+            />
+            <ellipse
+              className="dcph-aura-b"
+              cx={vw * 0.74}
+              cy={vh * 0.68}
+              rx={vw * 0.38}
+              ry={vh * 0.36}
+              fill="url(#dcph-aura-b)"
+            />
+          </g>
+          <rect width={vw} height={vh} fill="url(#dcph-dots)" />
+
+          <g aria-hidden>
+            {particles.map((p, i) => (
+              <circle
+                key={i}
+                ref={(el) => {
+                  particleEls.current[i] = el;
+                }}
+                r={p.r}
+                fill={isDark ? "#BAE6FD" : "#64748B"}
+                opacity={0}
+              />
+            ))}
+          </g>
+
+          {/* World layer — transform written by the rAF loop, never by CSS */}
+          <g ref={worldRef} style={{ transformOrigin: "0px 0px" }}>
+            <motion.g
+              variants={containerVariants}
+              initial={reduce ? "show" : "hidden"}
+              animate="show"
+            >
+              {/* Strings — `d` is owned by the loop; React owns only paint props */}
+              {edges.map((e, i) => {
+                const hidden = Boolean(activeFilter && e.rel.type !== activeFilter);
+                const isTarget =
+                  hoveredId === e.rel.source ||
+                  hoveredId === e.rel.target ||
+                  selectedCharacterId === e.rel.source ||
+                  selectedCharacterId === e.rel.target;
+                const matchesSearch =
+                  searchMatches.size === 0 ||
+                  searchMatches.has(e.rel.source) ||
+                  searchMatches.has(e.rel.target);
+                const opacity = dimmed
+                  ? isTarget
+                    ? 1
+                    : DIM_OPACITY
+                  : matchesSearch
+                    ? isDark ? 0.72 : 0.62
+                    : isDark ? 0.24 : 0.18;
+                const color = getRelationshipColor(e.rel.type, isDark);
+                return (
+                  <path
+                    key={e.rel.id}
+                    ref={(el) => {
+                      edgeEls.current[i] = el;
+                    }}
+                    fill="none"
+                    stroke={color}
+                    strokeWidth={isTarget ? STRING_WIDTH + 1.8 : STRING_WIDTH}
+                    strokeLinecap="round"
+                    opacity={opacity}
+                    style={{
+                      display: hidden ? "none" : undefined,
+                      transition: "opacity 220ms ease, stroke-width 220ms ease",
+                      filter: isTarget
+                        ? `drop-shadow(0 0 6px ${color})`
+                        : undefined,
+                    }}
+                  />
+                );
+              })}
+
+              {/* Nodes — outer <g> transform is owned by the loop */}
+              {nodes.map((n, i) => {
+                const isSelected = selectedCharacterId === n.c.id;
+                const isHovered = hoveredId === n.c.id;
+                const isSearchMatch = searchMatches.has(n.c.id);
+                const isConan = n.c.id === "conan-edogawa";
+                const glowUrl = `url(#dcph-glow-${factionSlug(n.factionKey)})`;
+                const emphasised = isSelected || isHovered;
+
+                return (
+                  <g
+                    key={n.c.id}
+                    ref={(el) => {
+                      nodeEls.current[i] = el;
+                    }}
+                  >
+                    <motion.g variants={nodeVariants} style={{ transformOrigin: "0px 0px" }}>
+                      <g
+                        role="button"
+                        tabIndex={0}
+                        aria-label={`${n.c.name}, ${n.c.role}, ${n.degree} relationships`}
+                        className="group cursor-pointer outline-none"
+                        onPointerDown={(e) => handleNodePointerDown(i, e)}
+                        onClick={() => {
+                          if (didDragRef.current) {
+                            didDragRef.current = false;
+                            return;
+                          }
+                          handleSelectNode(i);
+                        }}
+                        onKeyDown={handleNodeKeyDown(i)}
+                        onMouseEnter={grabbing ? undefined : () => setHoveredId(n.c.id)}
+                        onMouseLeave={grabbing ? undefined : () => setHoveredId(null)}
+                        onFocus={() => setHoveredId(n.c.id)}
+                        onBlur={() => setHoveredId(null)}
+                      >
+                        {/* Ambient faction halo — always on, stronger when active */}
+                        <circle
+                          r={n.r * 2.6}
+                          fill={glowUrl}
+                          opacity={
+                            emphasised || isConan ? 1 : isSearchMatch ? 0.85 : 0.42
+                          }
+                          style={{ transition: "opacity 220ms ease" }}
+                          pointerEvents="none"
+                        />
+
+                        {isConan && (
+                          <circle
+                            className="dcph-ripple"
+                            r={n.r + 12}
+                            fill="none"
+                            stroke={n.theme.primary}
+                            strokeWidth={2}
+                            pointerEvents="none"
+                          />
+                        )}
+
+                        {/* Breathing ring — CSS keyframes, not 62 JS animations */}
+                        <circle
+                          className="dcph-breathe"
+                          r={n.r + 3}
+                          fill="none"
+                          stroke={n.theme.border}
+                          strokeWidth={1}
+                          pointerEvents="none"
+                          style={
+                            {
+                              "--dcph-dur": `${n.breatheDur}s`,
+                              "--dcph-delay": `${n.breatheDelay}s`,
+                            } as CSSProperties
+                          }
+                        />
+
+                        {(isSelected || isSearchMatch) && (
+                          <circle
+                            r={n.r + 7}
+                            fill="none"
+                            stroke={isSelected ? (isDark ? "#FFFFFF" : "#0F172A") : n.theme.border}
+                            strokeWidth={2}
+                            pointerEvents="none"
+                          />
+                        )}
+
+                        <circle
+                          r={n.r + 5}
+                          fill="none"
+                          stroke={n.theme.border}
+                          strokeWidth={1.5}
+                          className="opacity-0 transition-opacity duration-200 group-hover:opacity-100"
+                          pointerEvents="none"
+                        />
+
+                        <circle
+                          r={n.r}
+                          fill={isSelected ? n.theme.primary : isDark ? n.theme.darkFill : n.theme.lightFill}
+                          stroke={emphasised ? (isDark ? "#FFFFFF" : "#0F172A") : n.theme.border}
+                          strokeWidth={isConan ? 3.5 : isSelected ? 3 : 2}
+                          className="transition-[fill,stroke] duration-200"
+                        />
+
+                        <circle
+                          r={isConan ? 6 : n.r > 16 ? 4.5 : 3.5}
+                          fill={emphasised ? (isDark ? "#FFFFFF" : "#0F172A") : n.theme.primary}
+                          pointerEvents="none"
+                        />
+
+                        {/* Label — halo never matches the fill, in either theme */}
+                        <g
+                          ref={(el) => {
+                            labelEls.current[i] = el;
+                          }}
+                          transform={`translate(0, ${n.r + 15})`}
+                          pointerEvents="none"
+                        >
+                          <text
+                            textAnchor="middle"
+                            className={cn(
+                              "select-none font-display tracking-tight",
+                              isConan
+                                ? "text-[14px] font-extrabold"
+                                : n.r > 16
+                                  ? "text-[13px] font-bold"
+                                  : "text-[12px] font-semibold"
+                            )}
+                            style={{
+                              fill: emphasised ? labelFillStrong : labelFill,
+                              paintOrder: "stroke",
+                              stroke: labelHalo,
+                              strokeWidth: 3,
+                              strokeLinejoin: "round",
+                              vectorEffect: "non-scaling-stroke",
+                            }}
+                          >
+                            {n.c.name.split("/")[0].trim()}
+                          </text>
+                        </g>
+                      </g>
+                    </motion.g>
+                  </g>
+                );
+              })}
+            </motion.g>
+          </g>
+        </svg>
+      </MotionConfig>
+
+      {/* ── top-left control column: search → host slot → results ──
+           One flex column of flow siblings, so nothing can overlap. */}
+      <div className="pointer-events-none absolute left-3 top-4 z-40 flex w-[16rem] flex-col gap-2 sm:left-4 sm:w-[18rem] md:top-5">
         <div
           className={cn(
-            "flex items-center gap-2 rounded-full border py-1.5 pl-3 pr-1.5 shadow-xl backdrop-blur-md transition-all duration-300",
-            searchFocused
-              ? isDark
-                ? "ring-2 ring-cyan-500/60 border-cyan-500/80"
-                : "ring-2 ring-cyan-400/70 border-cyan-400/90"
-              : "",
-            isDark ? "border-slate-800/90 bg-slate-950/90" : "border-slate-200/90 bg-white/95"
+            "pointer-events-auto flex items-center gap-2 rounded-full border py-1.5 pl-3 pr-1.5 shadow-xl backdrop-blur-md transition-all duration-300",
+            "border-slate-200/90 bg-white/95 dark:border-slate-800/90 dark:bg-slate-950/90",
+            searchFocused && "ring-2 ring-accent/50 border-accent/70 dark:border-accent/70"
           )}
         >
           <Search className="h-4 w-4 shrink-0 text-slate-400" />
@@ -718,293 +1180,132 @@ export default function CharactersWeb({
             onKeyDown={(e) => {
               if (e.key === "Escape") {
                 setSearchQuery("");
-                setSearchFocused(false);
                 e.currentTarget.blur();
               }
             }}
             placeholder="Search characters"
             aria-label="Search characters"
-            className={`w-40 sm:w-48 select-text bg-transparent text-sm outline-none placeholder:text-slate-500 ${
-              isDark ? "text-white" : "text-ink"
-            }`}
+            className="w-full min-w-0 select-text bg-transparent text-sm text-ink outline-none placeholder:text-slate-500 dark:text-white"
           />
           {searchQuery && (
             <button
               type="button"
               onClick={() => setSearchQuery("")}
               aria-label="Clear search"
-              title="Clear search"
-              className={`flex h-6 w-6 items-center justify-center rounded-full transition-colors ${
-                isDark ? "text-slate-400 hover:bg-slate-800 hover:text-white" : "text-ink-dim hover:bg-surface-muted hover:text-accent"
-              }`}
+              className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full text-ink-dim transition-colors hover:bg-surface-muted hover:text-accent dark:text-slate-400 dark:hover:bg-slate-800 dark:hover:text-white"
             >
               <X className="h-4 w-4" />
             </button>
           )}
         </div>
+
+        {topLeftSlot && <div className="pointer-events-auto">{topLeftSlot}</div>}
+
+        {searchQuery && searchMatches.size > 0 && (
+          <div className="pointer-events-auto max-h-[46vh] overflow-y-auto rounded-xl border border-slate-200 bg-white/98 p-2 text-ink shadow-xl backdrop-blur-md dark:border-slate-800 dark:bg-slate-950/95 dark:text-white">
+            {Array.from(searchMatches).map((id) => {
+              const idx = indexById.get(id);
+              if (idx === undefined) return null;
+              const n = nodes[idx];
+              return (
+                <button
+                  key={id}
+                  type="button"
+                  onClick={() => {
+                    handleSelectNode(idx);
+                    setSearchQuery("");
+                  }}
+                  className="flex w-full items-center gap-2.5 rounded-lg px-2.5 py-1.5 text-left transition-colors hover:bg-surface-muted dark:hover:bg-slate-900"
+                >
+                  <span
+                    className="h-2.5 w-2.5 shrink-0 rounded-full"
+                    style={{ backgroundColor: n.theme.primary }}
+                  />
+                  <span className="min-w-0 flex-1">
+                    <span className="block truncate text-xs font-semibold">{n.c.name}</span>
+                    <span className="block truncate text-[10px] text-ink-dim dark:text-slate-400">
+                      {n.c.role}
+                    </span>
+                  </span>
+                </button>
+              );
+            })}
+          </div>
+        )}
       </div>
 
-      {/* Search results dropdown suggestions */}
-      {searchQuery && searchMatches.size > 0 && (
-        <div className={`absolute top-14 left-4 z-40 max-h-60 w-56 sm:w-64 overflow-y-auto rounded-xl border p-2 shadow-xl backdrop-blur-md ${
-          isDark ? "border-slate-800 bg-slate-950/95 text-white" : "border-slate-200 bg-white/98 text-ink"
-        }`}>
-          {Array.from(searchMatches).map((id) => {
-            const char = byId.get(id);
-            if (!char) return null;
-            const theme = getFactionTheme(char.affiliation);
-            return (
-              <button
-                key={char.id}
-                type="button"
-                onClick={() => {
-                  handleSelectNode(char);
-                  setSearchQuery("");
-                }}
-                className={`flex w-full items-center gap-2.5 rounded-lg px-2.5 py-1.5 text-left transition-colors ${
-                  isDark ? "hover:bg-slate-900" : "hover:bg-surface-muted"
-                }`}
-              >
-                <span className="h-2.5 w-2.5 rounded-full shrink-0" style={{ backgroundColor: theme.primary }} />
-                <div className="min-w-0 flex-1">
-                  <div className="text-xs font-semibold truncate">{char.name}</div>
-                  <div className={`text-[10px] truncate ${isDark ? "text-slate-400" : "text-ink-dim"}`}>{char.role}</div>
-                </div>
-              </button>
-            );
-          })}
-        </div>
-      )}
-
-      {/* Main Interactive SVG Canvas */}
-      <MotionConfig reducedMotion="user">
-        <svg
-          ref={svgRef}
-          viewBox={`${-pad} 0 ${viewBoxW} 1400`}
-          preserveAspectRatio="xMidYMid meet"
-          className={`h-full w-full touch-none select-none ${
-            draggingCanvas ? "cursor-grabbing" : draggingNodeId ? "cursor-grabbing" : "cursor-grab"
-          }`}
-          aria-label="Detective Conan character relationship graph"
-          onPointerDown={handleCanvasPointerDown}
+      {/* ── bottom-left dock ─────────────────────────────────────── */}
+      <div
+        className={cn(
+          "absolute z-30 flex items-center gap-1 rounded-full border p-1.5 shadow-xl backdrop-blur-md transition-all duration-300",
+          "border-slate-200/90 bg-white/95 dark:border-slate-800/80 dark:bg-slate-950/90",
+          selectedCharacterId && isMobile
+            ? "bottom-[calc(48vh+12px)] left-3"
+            : "bottom-6 left-4 sm:left-6"
+        )}
+      >
+        <button
+          type="button"
+          onClick={centerOnConan}
+          aria-label="Center on Conan Edogawa"
+          title="Center on Conan Edogawa (C)"
+          className="flex items-center gap-1 rounded-full px-3 py-1.5 font-display text-xs font-medium text-cyan-600 transition-colors hover:bg-cyan-100 dark:text-cyan-400 dark:hover:bg-cyan-500/25 bg-cyan-50 dark:bg-cyan-500/15"
         >
-          <defs>
-            {/* Obsidian Dot matrix pattern */}
-            <pattern id="dotGrid" width="24" height="24" patternUnits="userSpaceOnUse">
-              <circle
-                cx="12"
-                cy="12"
-                r={isDark ? 1.3 : 1.6}
-                fill={isDark ? "rgba(255, 255, 255, 0.12)" : "#94A3B8"}
-                opacity={isDark ? 1 : 0.55}
-              />
-            </pattern>
-          </defs>
+          <Target className="h-3.5 w-3.5" />
+          <span className="hidden sm:inline">Center Conan</span>
+        </button>
 
-          {/* Background pattern */}
-          <rect x={-pad} width={viewBoxW} height="1400" fill={isDark ? "transparent" : "#F8FAFC"} />
-          <rect x={-pad} width={viewBoxW} height="1400" fill="url(#dotGrid)" />
+        <div className="my-auto h-4 w-px bg-slate-200 dark:bg-slate-800" />
 
-          {/* World Pan/Zoom Wrapper */}
-          <g
-            transform={`translate(${view.x}, ${view.y}) scale(${view.k})`}
-            style={{
-              transformOrigin: "0px 0px",
-              transition: draggingCanvas || draggingNodeId || instant ? "none" : "transform 0.3s cubic-bezier(0.16, 1, 0.3, 1)",
-            }}
-          >
-            {/* Transparent hit area */}
-            <rect width="2000" height="1400" fill="transparent" />
+        <button
+          type="button"
+          onClick={() => zoomBy(ZOOM_STEP)}
+          aria-label="Zoom in"
+          title="Zoom in (+)"
+          className="flex h-8 w-8 items-center justify-center rounded-full text-ink-dim transition-colors hover:bg-surface-muted hover:text-accent dark:text-slate-300 dark:hover:bg-slate-800 dark:hover:text-white"
+        >
+          <ZoomIn className="h-4 w-4" />
+        </button>
 
-            <motion.g variants={containerVariants} initial={reduce ? "show" : "hidden"} animate="show">
-              {/* Relationship Strings */}
-              {strings.map(({ rel, d }) => {
-                const meta = RELATIONSHIP_META[rel.type];
-                if (activeFilter && rel.type !== activeFilter) return null;
+        <span
+          ref={zoomLabelRef}
+          className="w-10 text-center font-mono text-[10px] tabular-nums text-ink-faint dark:text-slate-500"
+          aria-hidden
+        >
+          100%
+        </span>
 
-                const isTarget =
-                  hoveredId === rel.source ||
-                  hoveredId === rel.target ||
-                  selectedCharacterId === rel.source ||
-                  selectedCharacterId === rel.target;
+        <button
+          type="button"
+          onClick={() => zoomBy(1 / ZOOM_STEP)}
+          aria-label="Zoom out"
+          title="Zoom out (-)"
+          className="flex h-8 w-8 items-center justify-center rounded-full text-ink-dim transition-colors hover:bg-surface-muted hover:text-accent dark:text-slate-300 dark:hover:bg-slate-800 dark:hover:text-white"
+        >
+          <ZoomOut className="h-4 w-4" />
+        </button>
+        <button
+          type="button"
+          onClick={() => fitToContent()}
+          aria-label="Fit graph to view"
+          title="Fit graph to view (0)"
+          className="flex h-8 w-8 items-center justify-center rounded-full text-ink-dim transition-colors hover:bg-surface-muted hover:text-accent dark:text-slate-300 dark:hover:bg-slate-800 dark:hover:text-white"
+        >
+          <RotateCcw className="h-4 w-4" />
+        </button>
+      </div>
 
-                const matchesSearch = searchMatches.size === 0 || searchMatches.has(rel.source) || searchMatches.has(rel.target);
-
-                const currentOpacity = dimmed
-                  ? (isTarget ? 1 : DIM_OPACITY)
-                  : matchesSearch ? 0.85 : (isDark ? 0.35 : 0.25);
-
-                return (
-                  <motion.g key={rel.id} variants={stringVariants}>
-                    <path
-                      d={d}
-                      fill="none"
-                      stroke={meta.color}
-                      strokeWidth={isTarget ? STRING_WIDTH + 1.8 : STRING_WIDTH}
-                      strokeLinecap="round"
-                      opacity={currentOpacity}
-                      style={{ transition: "opacity 200ms ease, stroke-width 200ms ease" }}
-                    />
-                  </motion.g>
-                );
-              })}
-
-              {/* Character Nodes */}
-              {CHARACTERS.map((c, idx) => {
-                const pos = positions[c.id] ?? { x: c.x, y: c.y };
-                const degree = degreeByCharacter.get(c.id) ?? 0;
-                const radius = getNodeRadius(c, degree);
-                const factionTheme = getFactionTheme(c.affiliation);
-
-                const isSelected = selectedCharacterId === c.id;
-                const isHovered = hoveredId === c.id;
-                const isSearchMatch = searchMatches.has(c.id);
-                const isConan = c.id === "conan-edogawa";
-
-                return (
-                  <motion.g
-                    key={c.id}
-                    variants={nodeVariants}
-                    style={{ transformOrigin: "0px 0px" }}
-                  >
-                    <g
-                      transform={`translate(${pos.x}, ${pos.y})`}
-                      role="button"
-                      tabIndex={0}
-                      aria-label={`Node: ${c.name}, ${degree} relationships`}
-                      className="group cursor-pointer outline-none"
-                      onPointerDown={(e) => handleNodePointerDown(c, e)}
-                      onClick={() => {
-                        if (didDragRef.current) {
-                          didDragRef.current = false;
-                          return;
-                        }
-                        handleSelectNode(c);
-                      }}
-                      onKeyDown={handleNodeKeyDown(c)}
-                      onMouseEnter={draggingCanvas || draggingNodeId ? undefined : hoverNode(c.id)}
-                      onMouseLeave={draggingCanvas || draggingNodeId ? undefined : hoverNode(null)}
-                      onFocus={hoverNode(c.id)}
-                      onBlur={hoverNode(null)}
-                    >
-                      {/* Animated pulsing wave ripple ring for Conan Edogawa */}
-                      {isConan && (
-                        <motion.circle
-                          r={radius + 12}
-                          fill="none"
-                          stroke={factionTheme.primary}
-                          strokeWidth={2}
-                          animate={{ scale: [1, 1.3, 1], opacity: [0.6, 0.1, 0.6] }}
-                          transition={{ duration: 2.8, repeat: Infinity, ease: "easeInOut" }}
-                        />
-                      )}
-
-                      {/* Gentle organic breathing motion ring for all nodes */}
-                      <motion.circle
-                        r={radius + 3}
-                        fill="none"
-                        stroke={factionTheme.border}
-                        strokeWidth={1}
-                        animate={{ scale: [1, 1.12, 1], opacity: [0.25, 0.65, 0.25] }}
-                        transition={{
-                          duration: 3 + (idx % 3) * 0.8,
-                          repeat: Infinity,
-                          ease: "easeInOut",
-                          delay: (idx * 0.2) % 2,
-                        }}
-                      />
-                      {/* Outer Glow Halo ring for Conan or Selected / Hovered */}
-                      {(isConan || isSelected || isHovered || isSearchMatch) && (
-                        <circle
-                          r={radius + 12}
-                          fill={factionTheme.glow}
-                          className={isConan || isSelected ? "animate-pulse opacity-80" : "opacity-50"}
-                        />
-                      )}
-
-                      {/* Selection / Search match ring */}
-                      {(isSelected || isSearchMatch) && (
-                        <circle
-                          r={radius + 7}
-                          fill="none"
-                          stroke={isSelected ? "#FFFFFF" : factionTheme.border}
-                          strokeWidth={2}
-                        />
-                      )}
-
-                      {/* Hover ring */}
-                      <circle
-                        r={radius + 5}
-                        fill="none"
-                        stroke={factionTheme.border}
-                        strokeWidth={1.5}
-                        className="opacity-0 transition-opacity duration-200 group-hover:opacity-100"
-                      />
-
-                      {/* Main Node Circle (Dynamic Radius based on Characteristics) */}
-                      <circle
-                        r={radius}
-                        fill={
-                          isSelected
-                            ? factionTheme.primary
-                            : isDark
-                              ? factionTheme.darkFill
-                              : factionTheme.lightFill
-                        }
-                        stroke={
-                          isSelected
-                            ? "#FFFFFF"
-                            : isHovered
-                              ? "#FFFFFF"
-                              : factionTheme.border
-                        }
-                        strokeWidth={isConan ? 3.5 : isSelected ? 3 : 2}
-                        className="transition-colors duration-200 shadow-lg"
-                      />
-
-                      {/* Core Inner Indicator Dot */}
-                      <circle
-                        r={isConan ? 6 : radius > 16 ? 4.5 : 3.5}
-                        fill={
-                          isSelected
-                            ? "#FFFFFF"
-                            : isHovered
-                              ? "#FFFFFF"
-                              : factionTheme.primary
-                        }
-                      />
-
-                      {/* Character Label */}
-                      <g transform={`translate(0, ${radius + 15})`}>
-                        <text
-                          textAnchor="middle"
-                          className={cn(
-                            "select-none font-display tracking-tight transition-all",
-                            isConan ? "text-[14px] font-extrabold" : radius > 16 ? "text-[13px] font-bold" : "text-[12px] font-semibold"
-                          )}
-                          style={{
-                            fill: isSelected
-                              ? "#FFFFFF"
-                              : isHovered
-                                ? (isDark ? "#FFFFFF" : "#0F172A")
-                                : (isDark ? "#F8FAFC" : "#0F172A"),
-                            paintOrder: "stroke",
-                            stroke: isDark ? "#090D16" : "#FFFFFF",
-                            strokeWidth: "4px",
-                            strokeLinejoin: "round",
-                          }}
-                        >
-                          {c.name.split("/")[0].trim()}
-                        </text>
-                      </g>
-                    </g>
-                  </motion.g>
-                );
-              })}
-            </motion.g>
-          </g>
-        </svg>
-      </MotionConfig>
+      {/* ── ambient stat badge ───────────────────────────────────── */}
+      <div
+        className={cn(
+          "pointer-events-none absolute right-4 z-20 hidden items-center gap-1.5 rounded-full border px-3 py-1 font-mono text-[10px] uppercase tracking-wider shadow-sm backdrop-blur-md sm:flex",
+          "border-slate-200/80 bg-white/80 text-ink-faint dark:border-slate-800/80 dark:bg-slate-950/70 dark:text-slate-500",
+          selectedCharacterId && !isMobile ? "bottom-[calc(1.5rem+2px)] right-[26rem]" : "bottom-6"
+        )}
+      >
+        <Sparkles className="h-3 w-3 text-accent" />
+        {nodes.length} characters · {edges.length} threads
+      </div>
     </div>
   );
 }

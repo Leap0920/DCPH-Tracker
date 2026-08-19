@@ -1,0 +1,1271 @@
+- generic [active] [ref=f1e1]:
+  - generic [ref=f1e2]:
+    - banner [ref=f1e3]:
+      - navigation [ref=f1e4]:
+        - link "Detective Conan PH Logo Detective Conan PH" [ref=f1e5] [cursor=pointer]:
+          - /url: /
+          - img "Detective Conan PH Logo" [ref=f1e6]
+          - generic [ref=f1e7]: Detective Conan PH
+        - generic [ref=f1e8]:
+          - link "Home" [ref=f1e9] [cursor=pointer]:
+            - /url: /
+          - link "Tracker" [ref=f1e10] [cursor=pointer]:
+            - /url: /tracker
+          - button "Explore" [ref=f1e11] [cursor=pointer]
+          - button "Community" [ref=f1e14] [cursor=pointer]
+        - generic [ref=f1e17]:
+          - link [ref=f1e18] [cursor=pointer]:
+            - /url: /search
+            - button "Search" [ref=f1e19]
+          - button "Notifications" [ref=f1e24] [cursor=pointer]
+          - button "Demo Member Demo Member" [ref=f1e36] [cursor=pointer]:
+            - img "Demo Member" [ref=f1e37]
+            - generic [ref=f1e38]: Demo Member
+    - main [ref=f1e28]:
+      - generic [ref=f1e31]:
+        - generic [ref=f1e41]:
+          - generic [ref=f1e42]:
+            - heading "Series Totals" [level=3] [ref=f1e43]
+            - generic [ref=f1e45]:
+              - generic [ref=f1e46]:
+                - generic [ref=f1e49]: 1,209
+                - generic [ref=f1e50]: Episodes
+              - generic [ref=f1e51]:
+                - generic [ref=f1e54]: "29"
+                - generic [ref=f1e55]: Movies
+              - generic [ref=f1e56]:
+                - generic [ref=f1e61]: 1,378
+                - generic [ref=f1e62]: Total
+              - generic [ref=f1e63]:
+                - generic [ref=f1e66]: 1683h 42m
+                - generic [ref=f1e67]: Runtime
+              - generic [ref=f1e68]:
+                - generic [ref=f1e73]: "33"
+                - generic [ref=f1e74]: Years
+            - paragraph [ref=f1e75]: Every case file in the tracker. The truth is out there, one episode at a time.
+          - generic [ref=f1e76]:
+            - heading "Your Progress" [level=3] [ref=f1e77]
+            - generic [ref=f1e79]:
+              - generic [ref=f1e80]: 13%
+              - generic [ref=f1e81]:
+                - generic [ref=f1e82]:
+                  - generic [ref=f1e83]: 174 watched
+                  - generic [ref=f1e84]: 1204 remaining
+                - generic [ref=f1e87]: 72h 30m spent
+            - generic [ref=f1e88]:
+              - generic [ref=f1e93]:
+                - generic [ref=f1e94]: Episode
+                - generic [ref=f1e95]: 174/1209
+              - generic [ref=f1e102]:
+                - generic [ref=f1e103]: Movie
+                - generic [ref=f1e104]: 0/29
+              - generic [ref=f1e110]:
+                - generic [ref=f1e111]: Special
+                - generic [ref=f1e112]: 0/24
+              - generic [ref=f1e119]:
+                - generic [ref=f1e120]: OVA
+                - generic [ref=f1e121]: 0/64
+              - generic [ref=f1e130]:
+                - generic [ref=f1e131]: Live Action
+                - generic [ref=f1e132]: 0/10
+              - generic [ref=f1e138]:
+                - generic [ref=f1e139]: Magic Kaito
+                - generic [ref=f1e140]: 0/22
+              - generic [ref=f1e147]:
+                - generic [ref=f1e148]: The Culprit Hanzawa
+                - generic [ref=f1e149]: 0/12
+              - generic [ref=f1e155]:
+                - generic [ref=f1e156]: Zero's Tea Time
+                - generic [ref=f1e157]: 0/6
+              - generic [ref=f1e170]:
+                - generic [ref=f1e171]: Yaiba
+                - generic [ref=f1e172]: 0/2
+          - generic [ref=f1e174]:
+            - heading "Finish Line" [level=3] [ref=f1e175]
+            - generic [ref=f1e177]:
+              - generic [ref=f1e178]:
+                - generic [ref=f1e179]: At
+                - spinbutton "At eps/day you'll finish by" [ref=f1e180]: "50"
+                - generic [ref=f1e181]: eps/day you'll finish by
+              - paragraph [ref=f1e182]: September 9, 2026
+            - paragraph [ref=f1e188]: 12% to your next milestone. 25% complete. Keep going!
+        - generic [ref=f1e190]:
+          - generic [ref=f1e195]:
+            - heading "Detective Conan" [level=1] [ref=f1e196]
+            - generic [ref=f1e197]:
+              - generic [ref=f1e198]: 33 years
+              - generic [ref=f1e199]: ·
+              - generic [ref=f1e200]: 1209 episodes
+              - generic [ref=f1e201]: ·
+              - generic [ref=f1e202]: 39 movies
+            - generic [ref=f1e203]: 13%
+          - generic [ref=f1e207]:
+            - textbox "Search episodes, movies, specials..." [ref=f1e212]
+            - generic [ref=f1e213]:
+              - combobox [ref=f1e214] [cursor=pointer]:
+                - generic: By Year
+              - combobox [ref=f1e217] [cursor=pointer]:
+                - generic: All
+              - combobox [ref=f1e220] [cursor=pointer]:
+                - generic: All
+            - generic [ref=f1e223]:
+              - generic [ref=f1e224]:
+                - spinbutton "EP no." [ref=f1e227]
+                - button "Jump" [ref=f1e228] [cursor=pointer]
+              - generic [ref=f1e229]:
+                - generic [ref=f1e230]: Mark up to
+                - spinbutton "EP no." [ref=f1e231]
+                - button "Mark" [ref=f1e232] [cursor=pointer]
+          - generic [ref=f1e235]:
+            - generic [ref=f1e236]:
+              - generic [ref=f1e237]:
+                - heading "Continue Tracking" [level=2] [ref=f1e241]
+                - generic [ref=f1e242]: "12"
+              - generic [ref=f1e243]:
+                - generic [ref=f1e245]:
+                  - generic [ref=f1e246]: EP 174
+                  - generic [ref=f1e247]:
+                    - 'img "The 20 Year Old Murder Case: The Symphony Serial Murders" [ref=f1e248]'
+                    - button "Add to favorites" [ref=f1e249] [cursor=pointer]
+                    - button "Mark as watched" [ref=f1e253] [cursor=pointer]
+                  - generic [ref=f1e259]:
+                    - generic [ref=f1e260]:
+                      - generic [ref=f1e261]: Episode
+                      - generic [ref=f1e262]: "2000"
+                    - link [ref=f1e263] [cursor=pointer]:
+                      - /url: /tracker/ep-174
+                      - 'heading "The 20 Year Old Murder Case: The Symphony Serial Murders" [level=3] [ref=f1e264]'
+                    - generic "Rated 0 of 5 stars" [ref=f1e265]:
+                      - button "Rate 1 star" [ref=f1e266] [cursor=pointer]
+                      - button "Rate 2 stars" [ref=f1e269] [cursor=pointer]
+                      - button "Rate 3 stars" [ref=f1e272] [cursor=pointer]
+                      - button "Rate 4 stars" [ref=f1e275] [cursor=pointer]
+                      - button "Rate 5 stars" [ref=f1e278] [cursor=pointer]
+                - generic [ref=f1e282]:
+                  - generic [ref=f1e283]: EP 175
+                  - generic [ref=f1e284]:
+                    - img "The Man Who Was Killed Four Times" [ref=f1e285]
+                    - button "Add to favorites" [ref=f1e286] [cursor=pointer]
+                    - button "Mark as watched" [ref=f1e290] [cursor=pointer]
+                  - generic [ref=f1e296]:
+                    - generic [ref=f1e297]:
+                      - generic [ref=f1e298]: Episode
+                      - generic [ref=f1e299]: "2000"
+                    - link [ref=f1e300] [cursor=pointer]:
+                      - /url: /tracker/ep-175
+                      - heading "The Man Who Was Killed Four Times" [level=3] [ref=f1e301]
+                    - generic "Rated 0 of 5 stars" [ref=f1e302]:
+                      - button "Rate 1 star" [ref=f1e303] [cursor=pointer]
+                      - button "Rate 2 stars" [ref=f1e306] [cursor=pointer]
+                      - button "Rate 3 stars" [ref=f1e309] [cursor=pointer]
+                      - button "Rate 4 stars" [ref=f1e312] [cursor=pointer]
+                      - button "Rate 5 stars" [ref=f1e315] [cursor=pointer]
+                - generic [ref=f1e319]:
+                  - generic [ref=f1e320]: EP 176
+                  - generic [ref=f1e321]:
+                    - img "Meeting with the Black Organization Again (Haibara Part)" [ref=f1e322]
+                    - button "Add to favorites" [ref=f1e323] [cursor=pointer]
+                    - button "Mark as watched" [ref=f1e327] [cursor=pointer]
+                  - generic [ref=f1e333]:
+                    - generic [ref=f1e334]:
+                      - generic [ref=f1e335]: Episode
+                      - generic [ref=f1e336]: "2000"
+                    - link [ref=f1e337] [cursor=pointer]:
+                      - /url: /tracker/ep-176
+                      - heading "Meeting with the Black Organization Again (Haibara Part)" [level=3] [ref=f1e338]
+                    - generic "Rated 0 of 5 stars" [ref=f1e339]:
+                      - button "Rate 1 star" [ref=f1e340] [cursor=pointer]
+                      - button "Rate 2 stars" [ref=f1e343] [cursor=pointer]
+                      - button "Rate 3 stars" [ref=f1e346] [cursor=pointer]
+                      - button "Rate 4 stars" [ref=f1e349] [cursor=pointer]
+                      - button "Rate 5 stars" [ref=f1e352] [cursor=pointer]
+                - generic [ref=f1e356]:
+                  - generic [ref=f1e357]: EP 177
+                  - generic [ref=f1e358]:
+                    - img "Meeting with the Black Organization Again (Conan Part)" [ref=f1e359]
+                    - button "Add to favorites" [ref=f1e360] [cursor=pointer]
+                    - button "Mark as watched" [ref=f1e364] [cursor=pointer]
+                  - generic [ref=f1e370]:
+                    - generic [ref=f1e371]:
+                      - generic [ref=f1e372]: Episode
+                      - generic [ref=f1e373]: "2000"
+                    - link [ref=f1e374] [cursor=pointer]:
+                      - /url: /tracker/ep-177
+                      - heading "Meeting with the Black Organization Again (Conan Part)" [level=3] [ref=f1e375]
+                    - generic "Rated 0 of 5 stars" [ref=f1e376]:
+                      - button "Rate 1 star" [ref=f1e377] [cursor=pointer]
+                      - button "Rate 2 stars" [ref=f1e380] [cursor=pointer]
+                      - button "Rate 3 stars" [ref=f1e383] [cursor=pointer]
+                      - button "Rate 4 stars" [ref=f1e386] [cursor=pointer]
+                      - button "Rate 5 stars" [ref=f1e389] [cursor=pointer]
+                - generic [ref=f1e393]:
+                  - generic [ref=f1e394]: EP 178
+                  - generic [ref=f1e395]:
+                    - img "Meeting with the Black Organization Again (Resolution)" [ref=f1e396]
+                    - button "Add to favorites" [ref=f1e397] [cursor=pointer]
+                    - button "Mark as watched" [ref=f1e401] [cursor=pointer]
+                  - generic [ref=f1e407]:
+                    - generic [ref=f1e408]:
+                      - generic [ref=f1e409]: Episode
+                      - generic [ref=f1e410]: "2000"
+                    - link [ref=f1e411] [cursor=pointer]:
+                      - /url: /tracker/ep-178
+                      - heading "Meeting with the Black Organization Again (Resolution)" [level=3] [ref=f1e412]
+                    - generic "Rated 0 of 5 stars" [ref=f1e413]:
+                      - button "Rate 1 star" [ref=f1e414] [cursor=pointer]
+                      - button "Rate 2 stars" [ref=f1e417] [cursor=pointer]
+                      - button "Rate 3 stars" [ref=f1e420] [cursor=pointer]
+                      - button "Rate 4 stars" [ref=f1e423] [cursor=pointer]
+                      - button "Rate 5 stars" [ref=f1e426] [cursor=pointer]
+                - generic [ref=f1e430]:
+                  - generic [ref=f1e431]: EP 179
+                  - generic [ref=f1e432]:
+                    - img "The Coffee Shop Truck's Wild Entrance Case" [ref=f1e433]
+                    - button "Add to favorites" [ref=f1e434] [cursor=pointer]
+                    - button "Mark as watched" [ref=f1e438] [cursor=pointer]
+                  - generic [ref=f1e444]:
+                    - generic [ref=f1e445]:
+                      - generic [ref=f1e446]: Episode
+                      - generic [ref=f1e447]: "2000"
+                    - link [ref=f1e448] [cursor=pointer]:
+                      - /url: /tracker/ep-179
+                      - heading "The Coffee Shop Truck's Wild Entrance Case" [level=3] [ref=f1e449]
+                    - generic "Rated 0 of 5 stars" [ref=f1e450]:
+                      - button "Rate 1 star" [ref=f1e451] [cursor=pointer]
+                      - button "Rate 2 stars" [ref=f1e454] [cursor=pointer]
+                      - button "Rate 3 stars" [ref=f1e457] [cursor=pointer]
+                      - button "Rate 4 stars" [ref=f1e460] [cursor=pointer]
+                      - button "Rate 5 stars" [ref=f1e463] [cursor=pointer]
+                - generic [ref=f1e467]:
+                  - generic [ref=f1e468]: EP 180
+                  - generic [ref=f1e469]:
+                    - img "The Nocturne of Red Murderous Intent (Part 1)" [ref=f1e470]
+                    - button "Add to favorites" [ref=f1e471] [cursor=pointer]
+                    - button "Mark as watched" [ref=f1e475] [cursor=pointer]
+                  - generic [ref=f1e481]:
+                    - generic [ref=f1e482]:
+                      - generic [ref=f1e483]: Episode
+                      - generic [ref=f1e484]: "2000"
+                    - link [ref=f1e485] [cursor=pointer]:
+                      - /url: /tracker/ep-180
+                      - heading "The Nocturne of Red Murderous Intent (Part 1)" [level=3] [ref=f1e486]
+                    - generic "Rated 0 of 5 stars" [ref=f1e487]:
+                      - button "Rate 1 star" [ref=f1e488] [cursor=pointer]
+                      - button "Rate 2 stars" [ref=f1e491] [cursor=pointer]
+                      - button "Rate 3 stars" [ref=f1e494] [cursor=pointer]
+                      - button "Rate 4 stars" [ref=f1e497] [cursor=pointer]
+                      - button "Rate 5 stars" [ref=f1e500] [cursor=pointer]
+                - generic [ref=f1e504]:
+                  - generic [ref=f1e505]: EP 181
+                  - generic [ref=f1e506]:
+                    - img "The Nocturne of Red Murderous Intent (Part 2)" [ref=f1e507]
+                    - button "Add to favorites" [ref=f1e508] [cursor=pointer]
+                    - button "Mark as watched" [ref=f1e512] [cursor=pointer]
+                  - generic [ref=f1e518]:
+                    - generic [ref=f1e519]:
+                      - generic [ref=f1e520]: Episode
+                      - generic [ref=f1e521]: "2000"
+                    - link [ref=f1e522] [cursor=pointer]:
+                      - /url: /tracker/ep-181
+                      - heading "The Nocturne of Red Murderous Intent (Part 2)" [level=3] [ref=f1e523]
+                    - generic "Rated 0 of 5 stars" [ref=f1e524]:
+                      - button "Rate 1 star" [ref=f1e525] [cursor=pointer]
+                      - button "Rate 2 stars" [ref=f1e528] [cursor=pointer]
+                      - button "Rate 3 stars" [ref=f1e531] [cursor=pointer]
+                      - button "Rate 4 stars" [ref=f1e534] [cursor=pointer]
+                      - button "Rate 5 stars" [ref=f1e537] [cursor=pointer]
+                - generic [ref=f1e541]:
+                  - generic [ref=f1e542]: EP 182
+                  - generic [ref=f1e543]:
+                    - img "The Big Investigation of the Nine Doors" [ref=f1e544]
+                    - button "Add to favorites" [ref=f1e545] [cursor=pointer]
+                    - button "Mark as watched" [ref=f1e549] [cursor=pointer]
+                  - generic [ref=f1e555]:
+                    - generic [ref=f1e556]:
+                      - generic [ref=f1e557]: Episode
+                      - generic [ref=f1e558]: "2000"
+                    - link [ref=f1e559] [cursor=pointer]:
+                      - /url: /tracker/ep-182
+                      - heading "The Big Investigation of the Nine Doors" [level=3] [ref=f1e560]
+                    - generic "Rated 0 of 5 stars" [ref=f1e561]:
+                      - button "Rate 1 star" [ref=f1e562] [cursor=pointer]
+                      - button "Rate 2 stars" [ref=f1e565] [cursor=pointer]
+                      - button "Rate 3 stars" [ref=f1e568] [cursor=pointer]
+                      - button "Rate 4 stars" [ref=f1e571] [cursor=pointer]
+                      - button "Rate 5 stars" [ref=f1e574] [cursor=pointer]
+                - generic [ref=f1e578]:
+                  - generic [ref=f1e579]: EP 183
+                  - generic [ref=f1e580]:
+                    - img "A Dangerous Recipe" [ref=f1e581]
+                    - button "Add to favorites" [ref=f1e582] [cursor=pointer]
+                    - button "Mark as watched" [ref=f1e586] [cursor=pointer]
+                  - generic [ref=f1e592]:
+                    - generic [ref=f1e593]:
+                      - generic [ref=f1e594]: Episode
+                      - generic [ref=f1e595]: "2000"
+                    - link [ref=f1e596] [cursor=pointer]:
+                      - /url: /tracker/ep-183
+                      - heading "A Dangerous Recipe" [level=3] [ref=f1e597]
+                    - generic "Rated 0 of 5 stars" [ref=f1e598]:
+                      - button "Rate 1 star" [ref=f1e599] [cursor=pointer]
+                      - button "Rate 2 stars" [ref=f1e602] [cursor=pointer]
+                      - button "Rate 3 stars" [ref=f1e605] [cursor=pointer]
+                      - button "Rate 4 stars" [ref=f1e608] [cursor=pointer]
+                      - button "Rate 5 stars" [ref=f1e611] [cursor=pointer]
+                - generic [ref=f1e615]:
+                  - generic [ref=f1e616]: EP 184
+                  - generic [ref=f1e617]:
+                    - img "A Cursed Mask Coldly Laughs" [ref=f1e618]
+                    - button "Add to favorites" [ref=f1e619] [cursor=pointer]
+                    - button "Mark as watched" [ref=f1e623] [cursor=pointer]
+                  - generic [ref=f1e629]:
+                    - generic [ref=f1e630]:
+                      - generic [ref=f1e631]: Episode
+                      - generic [ref=f1e632]: "2000"
+                    - link [ref=f1e633] [cursor=pointer]:
+                      - /url: /tracker/ep-184
+                      - heading "A Cursed Mask Coldly Laughs" [level=3] [ref=f1e634]
+                    - generic "Rated 0 of 5 stars" [ref=f1e635]:
+                      - button "Rate 1 star" [ref=f1e636] [cursor=pointer]
+                      - button "Rate 2 stars" [ref=f1e639] [cursor=pointer]
+                      - button "Rate 3 stars" [ref=f1e642] [cursor=pointer]
+                      - button "Rate 4 stars" [ref=f1e645] [cursor=pointer]
+                      - button "Rate 5 stars" [ref=f1e648] [cursor=pointer]
+                - generic [ref=f1e652]:
+                  - generic [ref=f1e653]: EP 185
+                  - generic [ref=f1e654]:
+                    - img "The Murdered Famous Detective (Part 1)" [ref=f1e655]
+                    - button "Add to favorites" [ref=f1e656] [cursor=pointer]
+                    - button "Mark as watched" [ref=f1e660] [cursor=pointer]
+                  - generic [ref=f1e666]:
+                    - generic [ref=f1e667]:
+                      - generic [ref=f1e668]: Episode
+                      - generic [ref=f1e669]: "2000"
+                    - link [ref=f1e670] [cursor=pointer]:
+                      - /url: /tracker/ep-185
+                      - heading "The Murdered Famous Detective (Part 1)" [level=3] [ref=f1e671]
+                    - generic "Rated 0 of 5 stars" [ref=f1e672]:
+                      - button "Rate 1 star" [ref=f1e673] [cursor=pointer]
+                      - button "Rate 2 stars" [ref=f1e676] [cursor=pointer]
+                      - button "Rate 3 stars" [ref=f1e679] [cursor=pointer]
+                      - button "Rate 4 stars" [ref=f1e682] [cursor=pointer]
+                      - button "Rate 5 stars" [ref=f1e685] [cursor=pointer]
+            - generic [ref=f1e688]:
+              - button "1996 42 42/42" [expanded] [ref=f1e689] [cursor=pointer]:
+                - generic [ref=f1e693]:
+                  - generic [ref=f1e694]:
+                    - heading "1996" [level=2] [ref=f1e695]
+                    - generic [ref=f1e696]: "42"
+                  - generic [ref=f1e697]: 42/42
+              - generic [ref=f1e704]:
+                - generic [ref=f1e705]:
+                  - generic [ref=f1e706]:
+                    - generic [ref=f1e707]: EP 01
+                    - generic "Watched 3 times" [ref=f1e708]: ×3
+                    - generic [ref=f1e714]:
+                      - img "Roller Coaster Murder Case" [ref=f1e715]
+                      - button "Add to favorites" [ref=f1e716] [cursor=pointer]
+                      - generic [ref=f1e719]:
+                        - button "Count another rewatch" [ref=f1e720] [cursor=pointer]
+                        - button "Mark as unwatched" [ref=f1e726] [cursor=pointer]
+                    - generic [ref=f1e729]:
+                      - generic [ref=f1e730]:
+                        - generic [ref=f1e731]: Episode
+                        - generic [ref=f1e732]: "1996"
+                      - link [ref=f1e733] [cursor=pointer]:
+                        - /url: /tracker/ep-001
+                        - heading "Roller Coaster Murder Case" [level=3] [ref=f1e734]
+                      - generic "Rated 5 of 5 stars" [ref=f1e735]:
+                        - button "Rate 1 star" [ref=f1e736] [cursor=pointer]
+                        - button "Rate 2 stars" [ref=f1e739] [cursor=pointer]
+                        - button "Rate 3 stars" [ref=f1e742] [cursor=pointer]
+                        - button "Rate 4 stars" [ref=f1e745] [cursor=pointer]
+                        - button "Rate 5 stars" [ref=f1e748] [cursor=pointer]
+                  - generic [ref=f1e751]:
+                    - generic [ref=f1e752]: EP 02
+                    - generic [ref=f1e753]:
+                      - img "President's Daughter Kidnapping Case" [ref=f1e754]
+                      - button "Add to favorites" [ref=f1e755] [cursor=pointer]
+                      - generic [ref=f1e758]:
+                        - button "Count another rewatch" [ref=f1e759] [cursor=pointer]
+                        - button "Mark as unwatched" [ref=f1e765] [cursor=pointer]
+                    - generic [ref=f1e768]:
+                      - generic [ref=f1e769]:
+                        - generic [ref=f1e770]: Episode
+                        - generic [ref=f1e771]: "1996"
+                      - link [ref=f1e772] [cursor=pointer]:
+                        - /url: /tracker/ep-002
+                        - heading "President's Daughter Kidnapping Case" [level=3] [ref=f1e773]
+                      - generic "Rated 5 of 5 stars" [ref=f1e774]:
+                        - button "Rate 1 star" [ref=f1e775] [cursor=pointer]
+                        - button "Rate 2 stars" [ref=f1e778] [cursor=pointer]
+                        - button "Rate 3 stars" [ref=f1e781] [cursor=pointer]
+                        - button "Rate 4 stars" [ref=f1e784] [cursor=pointer]
+                        - button "Rate 5 stars" [ref=f1e787] [cursor=pointer]
+                  - generic [ref=f1e790]:
+                    - generic [ref=f1e791]: EP 03
+                    - generic [ref=f1e792]:
+                      - img "An Idol's Locked Room Murder Case" [ref=f1e793]
+                      - button "Add to favorites" [ref=f1e794] [cursor=pointer]
+                      - generic [ref=f1e797]:
+                        - button "Count another rewatch" [ref=f1e798] [cursor=pointer]
+                        - button "Mark as unwatched" [ref=f1e804] [cursor=pointer]
+                    - generic [ref=f1e807]:
+                      - generic [ref=f1e808]:
+                        - generic [ref=f1e809]: Episode
+                        - generic [ref=f1e810]: "1996"
+                      - link [ref=f1e811] [cursor=pointer]:
+                        - /url: /tracker/ep-003
+                        - heading "An Idol's Locked Room Murder Case" [level=3] [ref=f1e812]
+                      - generic "Rated 5 of 5 stars" [ref=f1e813]:
+                        - button "Rate 1 star" [ref=f1e814] [cursor=pointer]
+                        - button "Rate 2 stars" [ref=f1e817] [cursor=pointer]
+                        - button "Rate 3 stars" [ref=f1e820] [cursor=pointer]
+                        - button "Rate 4 stars" [ref=f1e823] [cursor=pointer]
+                        - button "Rate 5 stars" [ref=f1e826] [cursor=pointer]
+                  - generic [ref=f1e829]:
+                    - generic [ref=f1e830]: EP 04
+                    - generic [ref=f1e831]:
+                      - img "City Coded Map Case" [ref=f1e832]
+                      - button "Add to favorites" [ref=f1e833] [cursor=pointer]
+                      - generic [ref=f1e836]:
+                        - button "Count another rewatch" [ref=f1e837] [cursor=pointer]
+                        - button "Mark as unwatched" [ref=f1e843] [cursor=pointer]
+                    - generic [ref=f1e846]:
+                      - generic [ref=f1e847]:
+                        - generic [ref=f1e848]: Episode
+                        - generic [ref=f1e849]: "1996"
+                      - link [ref=f1e850] [cursor=pointer]:
+                        - /url: /tracker/ep-004
+                        - heading "City Coded Map Case" [level=3] [ref=f1e851]
+                      - generic "Rated 5 of 5 stars" [ref=f1e852]:
+                        - button "Rate 1 star" [ref=f1e853] [cursor=pointer]
+                        - button "Rate 2 stars" [ref=f1e856] [cursor=pointer]
+                        - button "Rate 3 stars" [ref=f1e859] [cursor=pointer]
+                        - button "Rate 4 stars" [ref=f1e862] [cursor=pointer]
+                        - button "Rate 5 stars" [ref=f1e865] [cursor=pointer]
+                  - generic [ref=f1e868]:
+                    - generic [ref=f1e869]: EP 05
+                    - generic "Watched 3 times" [ref=f1e870]: ×3
+                    - generic [ref=f1e876]:
+                      - img "The Bullet Train Bombing Case" [ref=f1e877]
+                      - button "Add to favorites" [ref=f1e878] [cursor=pointer]
+                      - generic [ref=f1e881]:
+                        - button "Count another rewatch" [ref=f1e882] [cursor=pointer]
+                        - button "Mark as unwatched" [ref=f1e888] [cursor=pointer]
+                    - generic [ref=f1e891]:
+                      - generic [ref=f1e892]:
+                        - generic [ref=f1e893]: Episode
+                        - generic [ref=f1e894]: "1996"
+                      - link [ref=f1e895] [cursor=pointer]:
+                        - /url: /tracker/ep-005
+                        - heading "The Bullet Train Bombing Case" [level=3] [ref=f1e896]
+                      - generic "Rated 0 of 5 stars" [ref=f1e897]:
+                        - button "Rate 1 star" [ref=f1e898] [cursor=pointer]
+                        - button "Rate 2 stars" [ref=f1e901] [cursor=pointer]
+                        - button "Rate 3 stars" [ref=f1e904] [cursor=pointer]
+                        - button "Rate 4 stars" [ref=f1e907] [cursor=pointer]
+                        - button "Rate 5 stars" [ref=f1e910] [cursor=pointer]
+                  - generic [ref=f1e913]:
+                    - generic [ref=f1e914]: EP 06
+                    - generic [ref=f1e915]:
+                      - img "Valentine Murder Case" [ref=f1e916]
+                      - button "Add to favorites" [ref=f1e917] [cursor=pointer]
+                      - generic [ref=f1e920]:
+                        - button "Count another rewatch" [ref=f1e921] [cursor=pointer]
+                        - button "Mark as unwatched" [ref=f1e927] [cursor=pointer]
+                    - generic [ref=f1e930]:
+                      - generic [ref=f1e931]:
+                        - generic [ref=f1e932]: Episode
+                        - generic [ref=f1e933]: "1996"
+                      - link [ref=f1e934] [cursor=pointer]:
+                        - /url: /tracker/ep-006
+                        - heading "Valentine Murder Case" [level=3] [ref=f1e935]
+                      - generic "Rated 0 of 5 stars" [ref=f1e936]:
+                        - button "Rate 1 star" [ref=f1e937] [cursor=pointer]
+                        - button "Rate 2 stars" [ref=f1e940] [cursor=pointer]
+                        - button "Rate 3 stars" [ref=f1e943] [cursor=pointer]
+                        - button "Rate 4 stars" [ref=f1e946] [cursor=pointer]
+                        - button "Rate 5 stars" [ref=f1e949] [cursor=pointer]
+                  - generic [ref=f1e952]:
+                    - generic [ref=f1e953]: EP 07
+                    - generic [ref=f1e954]:
+                      - img "Incident Of Monthly Presents And Threats" [ref=f1e955]
+                      - button "Add to favorites" [ref=f1e956] [cursor=pointer]
+                      - generic [ref=f1e959]:
+                        - button "Count another rewatch" [ref=f1e960] [cursor=pointer]
+                        - button "Mark as unwatched" [ref=f1e966] [cursor=pointer]
+                    - generic [ref=f1e969]:
+                      - generic [ref=f1e970]:
+                        - generic [ref=f1e971]: Episode
+                        - generic [ref=f1e972]: "1996"
+                      - link [ref=f1e973] [cursor=pointer]:
+                        - /url: /tracker/ep-007
+                        - heading "Incident Of Monthly Presents And Threats" [level=3] [ref=f1e974]
+                      - generic "Rated 0 of 5 stars" [ref=f1e975]:
+                        - button "Rate 1 star" [ref=f1e976] [cursor=pointer]
+                        - button "Rate 2 stars" [ref=f1e979] [cursor=pointer]
+                        - button "Rate 3 stars" [ref=f1e982] [cursor=pointer]
+                        - button "Rate 4 stars" [ref=f1e985] [cursor=pointer]
+                        - button "Rate 5 stars" [ref=f1e988] [cursor=pointer]
+                  - generic [ref=f1e991]:
+                    - generic [ref=f1e992]: EP 08
+                    - generic [ref=f1e993]:
+                      - img "Art Gallery Owner Murder Case" [ref=f1e994]
+                      - button "Add to favorites" [ref=f1e995] [cursor=pointer]
+                      - generic [ref=f1e998]:
+                        - button "Count another rewatch" [ref=f1e999] [cursor=pointer]
+                        - button "Mark as unwatched" [ref=f1e1005] [cursor=pointer]
+                    - generic [ref=f1e1008]:
+                      - generic [ref=f1e1009]:
+                        - generic [ref=f1e1010]: Episode
+                        - generic [ref=f1e1011]: "1996"
+                      - link [ref=f1e1012] [cursor=pointer]:
+                        - /url: /tracker/ep-008
+                        - heading "Art Gallery Owner Murder Case" [level=3] [ref=f1e1013]
+                      - generic "Rated 0 of 5 stars" [ref=f1e1014]:
+                        - button "Rate 1 star" [ref=f1e1015] [cursor=pointer]
+                        - button "Rate 2 stars" [ref=f1e1018] [cursor=pointer]
+                        - button "Rate 3 stars" [ref=f1e1021] [cursor=pointer]
+                        - button "Rate 4 stars" [ref=f1e1024] [cursor=pointer]
+                        - button "Rate 5 stars" [ref=f1e1027] [cursor=pointer]
+                  - generic [ref=f1e1030]:
+                    - generic [ref=f1e1031]: EP 09
+                    - generic [ref=f1e1032]:
+                      - img "Tenkaichi Festival Murder Case" [ref=f1e1033]
+                      - button "Add to favorites" [ref=f1e1034] [cursor=pointer]
+                      - generic [ref=f1e1037]:
+                        - button "Count another rewatch" [ref=f1e1038] [cursor=pointer]
+                        - button "Mark as unwatched" [ref=f1e1044] [cursor=pointer]
+                    - generic [ref=f1e1047]:
+                      - generic [ref=f1e1048]:
+                        - generic [ref=f1e1049]: Episode
+                        - generic [ref=f1e1050]: "1996"
+                      - link [ref=f1e1051] [cursor=pointer]:
+                        - /url: /tracker/ep-009
+                        - heading "Tenkaichi Festival Murder Case" [level=3] [ref=f1e1052]
+                      - generic "Rated 0 of 5 stars" [ref=f1e1053]:
+                        - button "Rate 1 star" [ref=f1e1054] [cursor=pointer]
+                        - button "Rate 2 stars" [ref=f1e1057] [cursor=pointer]
+                        - button "Rate 3 stars" [ref=f1e1060] [cursor=pointer]
+                        - button "Rate 4 stars" [ref=f1e1063] [cursor=pointer]
+                        - button "Rate 5 stars" [ref=f1e1066] [cursor=pointer]
+                  - generic [ref=f1e1069]:
+                    - generic [ref=f1e1070]: EP 10
+                    - generic [ref=f1e1071]:
+                      - img "Blackmailing A Pro Soccer Player Case" [ref=f1e1072]
+                      - button "Add to favorites" [ref=f1e1073] [cursor=pointer]
+                      - generic [ref=f1e1076]:
+                        - button "Count another rewatch" [ref=f1e1077] [cursor=pointer]
+                        - button "Mark as unwatched" [ref=f1e1083] [cursor=pointer]
+                    - generic [ref=f1e1086]:
+                      - generic [ref=f1e1087]:
+                        - generic [ref=f1e1088]: Episode
+                        - generic [ref=f1e1089]: "1996"
+                      - link [ref=f1e1090] [cursor=pointer]:
+                        - /url: /tracker/ep-010
+                        - heading "Blackmailing A Pro Soccer Player Case" [level=3] [ref=f1e1091]
+                      - generic "Rated 0 of 5 stars" [ref=f1e1092]:
+                        - button "Rate 1 star" [ref=f1e1093] [cursor=pointer]
+                        - button "Rate 2 stars" [ref=f1e1096] [cursor=pointer]
+                        - button "Rate 3 stars" [ref=f1e1099] [cursor=pointer]
+                        - button "Rate 4 stars" [ref=f1e1102] [cursor=pointer]
+                        - button "Rate 5 stars" [ref=f1e1105] [cursor=pointer]
+                  - generic [ref=f1e1108]:
+                    - generic [ref=f1e1109]: EP 11
+                    - generic [ref=f1e1110]:
+                      - img "Moonlight Sonata Murder Case" [ref=f1e1111]
+                      - button "Add to favorites" [ref=f1e1112] [cursor=pointer]
+                      - generic [ref=f1e1115]:
+                        - button "Count another rewatch" [ref=f1e1116] [cursor=pointer]
+                        - button "Mark as unwatched" [ref=f1e1122] [cursor=pointer]
+                    - generic [ref=f1e1125]:
+                      - generic [ref=f1e1126]:
+                        - generic [ref=f1e1127]: Episode
+                        - generic [ref=f1e1128]: "1996"
+                      - link [ref=f1e1129] [cursor=pointer]:
+                        - /url: /tracker/ep-011
+                        - heading "Moonlight Sonata Murder Case" [level=3] [ref=f1e1130]
+                      - generic "Rated 0 of 5 stars" [ref=f1e1131]:
+                        - button "Rate 1 star" [ref=f1e1132] [cursor=pointer]
+                        - button "Rate 2 stars" [ref=f1e1135] [cursor=pointer]
+                        - button "Rate 3 stars" [ref=f1e1138] [cursor=pointer]
+                        - button "Rate 4 stars" [ref=f1e1141] [cursor=pointer]
+                        - button "Rate 5 stars" [ref=f1e1144] [cursor=pointer]
+                  - generic [ref=f1e1147]:
+                    - generic [ref=f1e1148]: EP 12
+                    - generic [ref=f1e1149]:
+                      - img "Ayumi's Kidnapping Case" [ref=f1e1150]
+                      - button "Add to favorites" [ref=f1e1151] [cursor=pointer]
+                      - generic [ref=f1e1154]:
+                        - button "Count another rewatch" [ref=f1e1155] [cursor=pointer]
+                        - button "Mark as unwatched" [ref=f1e1161] [cursor=pointer]
+                    - generic [ref=f1e1164]:
+                      - generic [ref=f1e1165]:
+                        - generic [ref=f1e1166]: Episode
+                        - generic [ref=f1e1167]: "1996"
+                      - link [ref=f1e1168] [cursor=pointer]:
+                        - /url: /tracker/ep-012
+                        - heading "Ayumi's Kidnapping Case" [level=3] [ref=f1e1169]
+                      - generic "Rated 0 of 5 stars" [ref=f1e1170]:
+                        - button "Rate 1 star" [ref=f1e1171] [cursor=pointer]
+                        - button "Rate 2 stars" [ref=f1e1174] [cursor=pointer]
+                        - button "Rate 3 stars" [ref=f1e1177] [cursor=pointer]
+                        - button "Rate 4 stars" [ref=f1e1180] [cursor=pointer]
+                        - button "Rate 5 stars" [ref=f1e1183] [cursor=pointer]
+                  - generic [ref=f1e1186]:
+                    - generic [ref=f1e1187]: EP 13
+                    - generic [ref=f1e1188]:
+                      - img "The Strange Person Finding Murder Case" [ref=f1e1189]
+                      - button "Add to favorites" [ref=f1e1190] [cursor=pointer]
+                      - generic [ref=f1e1193]:
+                        - button "Count another rewatch" [ref=f1e1194] [cursor=pointer]
+                        - button "Mark as unwatched" [ref=f1e1200] [cursor=pointer]
+                    - generic [ref=f1e1203]:
+                      - generic [ref=f1e1204]:
+                        - generic [ref=f1e1205]: Episode
+                        - generic [ref=f1e1206]: "1996"
+                      - link [ref=f1e1207] [cursor=pointer]:
+                        - /url: /tracker/ep-013
+                        - heading "The Strange Person Finding Murder Case" [level=3] [ref=f1e1208]
+                      - generic "Rated 0 of 5 stars" [ref=f1e1209]:
+                        - button "Rate 1 star" [ref=f1e1210] [cursor=pointer]
+                        - button "Rate 2 stars" [ref=f1e1213] [cursor=pointer]
+                        - button "Rate 3 stars" [ref=f1e1216] [cursor=pointer]
+                        - button "Rate 4 stars" [ref=f1e1219] [cursor=pointer]
+                        - button "Rate 5 stars" [ref=f1e1222] [cursor=pointer]
+                  - generic [ref=f1e1225]:
+                    - generic [ref=f1e1226]: EP 14
+                    - generic [ref=f1e1227]:
+                      - img "The Mysterious Shooting Message Case" [ref=f1e1228]
+                      - button "Add to favorites" [ref=f1e1229] [cursor=pointer]
+                      - generic [ref=f1e1232]:
+                        - button "Count another rewatch" [ref=f1e1233] [cursor=pointer]
+                        - button "Mark as unwatched" [ref=f1e1239] [cursor=pointer]
+                    - generic [ref=f1e1242]:
+                      - generic [ref=f1e1243]:
+                        - generic [ref=f1e1244]: Episode
+                        - generic [ref=f1e1245]: "1996"
+                      - link [ref=f1e1246] [cursor=pointer]:
+                        - /url: /tracker/ep-014
+                        - heading "The Mysterious Shooting Message Case" [level=3] [ref=f1e1247]
+                      - generic "Rated 0 of 5 stars" [ref=f1e1248]:
+                        - button "Rate 1 star" [ref=f1e1249] [cursor=pointer]
+                        - button "Rate 2 stars" [ref=f1e1252] [cursor=pointer]
+                        - button "Rate 3 stars" [ref=f1e1255] [cursor=pointer]
+                        - button "Rate 4 stars" [ref=f1e1258] [cursor=pointer]
+                        - button "Rate 5 stars" [ref=f1e1261] [cursor=pointer]
+                  - generic [ref=f1e1264]:
+                    - generic [ref=f1e1265]: EP 15
+                    - generic [ref=f1e1266]:
+                      - img "Disappearing Corpse Murder Case" [ref=f1e1267]
+                      - button "Add to favorites" [ref=f1e1268] [cursor=pointer]
+                      - generic [ref=f1e1271]:
+                        - button "Count another rewatch" [ref=f1e1272] [cursor=pointer]
+                        - button "Mark as unwatched" [ref=f1e1278] [cursor=pointer]
+                    - generic [ref=f1e1281]:
+                      - generic [ref=f1e1282]:
+                        - generic [ref=f1e1283]: Episode
+                        - generic [ref=f1e1284]: "1996"
+                      - link [ref=f1e1285] [cursor=pointer]:
+                        - /url: /tracker/ep-015
+                        - heading "Disappearing Corpse Murder Case" [level=3] [ref=f1e1286]
+                      - generic "Rated 0 of 5 stars" [ref=f1e1287]:
+                        - button "Rate 1 star" [ref=f1e1288] [cursor=pointer]
+                        - button "Rate 2 stars" [ref=f1e1291] [cursor=pointer]
+                        - button "Rate 3 stars" [ref=f1e1294] [cursor=pointer]
+                        - button "Rate 4 stars" [ref=f1e1297] [cursor=pointer]
+                        - button "Rate 5 stars" [ref=f1e1300] [cursor=pointer]
+                  - generic [ref=f1e1303]:
+                    - generic [ref=f1e1304]: EP 16
+                    - generic [ref=f1e1305]:
+                      - img "The Antique Collector Murder Case" [ref=f1e1306]
+                      - button "Add to favorites" [ref=f1e1307] [cursor=pointer]
+                      - generic [ref=f1e1310]:
+                        - button "Count another rewatch" [ref=f1e1311] [cursor=pointer]
+                        - button "Mark as unwatched" [ref=f1e1317] [cursor=pointer]
+                    - generic [ref=f1e1320]:
+                      - generic [ref=f1e1321]:
+                        - generic [ref=f1e1322]: Episode
+                        - generic [ref=f1e1323]: "1996"
+                      - link [ref=f1e1324] [cursor=pointer]:
+                        - /url: /tracker/ep-016
+                        - heading "The Antique Collector Murder Case" [level=3] [ref=f1e1325]
+                      - generic "Rated 0 of 5 stars" [ref=f1e1326]:
+                        - button "Rate 1 star" [ref=f1e1327] [cursor=pointer]
+                        - button "Rate 2 stars" [ref=f1e1330] [cursor=pointer]
+                        - button "Rate 3 stars" [ref=f1e1333] [cursor=pointer]
+                        - button "Rate 4 stars" [ref=f1e1336] [cursor=pointer]
+                        - button "Rate 5 stars" [ref=f1e1339] [cursor=pointer]
+                  - generic [ref=f1e1342]:
+                    - generic [ref=f1e1343]: EP 17
+                    - generic [ref=f1e1344]:
+                      - img "Department Store Hijacking Case" [ref=f1e1345]
+                      - button "Add to favorites" [ref=f1e1346] [cursor=pointer]
+                      - generic [ref=f1e1349]:
+                        - button "Count another rewatch" [ref=f1e1350] [cursor=pointer]
+                        - button "Mark as unwatched" [ref=f1e1356] [cursor=pointer]
+                    - generic [ref=f1e1359]:
+                      - generic [ref=f1e1360]:
+                        - generic [ref=f1e1361]: Episode
+                        - generic [ref=f1e1362]: "1996"
+                      - link [ref=f1e1363] [cursor=pointer]:
+                        - /url: /tracker/ep-017
+                        - heading "Department Store Hijacking Case" [level=3] [ref=f1e1364]
+                      - generic "Rated 5 of 5 stars" [ref=f1e1365]:
+                        - button "Rate 1 star" [ref=f1e1366] [cursor=pointer]
+                        - button "Rate 2 stars" [ref=f1e1369] [cursor=pointer]
+                        - button "Rate 3 stars" [ref=f1e1372] [cursor=pointer]
+                        - button "Rate 4 stars" [ref=f1e1375] [cursor=pointer]
+                        - button "Rate 5 stars" [ref=f1e1378] [cursor=pointer]
+                  - generic [ref=f1e1381]:
+                    - generic [ref=f1e1382]: EP 18
+                    - generic [ref=f1e1383]:
+                      - img "A June Bride Murder Case" [ref=f1e1384]
+                      - button "Add to favorites" [ref=f1e1385] [cursor=pointer]
+                      - generic [ref=f1e1388]:
+                        - button "Count another rewatch" [ref=f1e1389] [cursor=pointer]
+                        - button "Mark as unwatched" [ref=f1e1395] [cursor=pointer]
+                    - generic [ref=f1e1398]:
+                      - generic [ref=f1e1399]:
+                        - generic [ref=f1e1400]: Episode
+                        - generic [ref=f1e1401]: "1996"
+                      - link [ref=f1e1402] [cursor=pointer]:
+                        - /url: /tracker/ep-018
+                        - heading "A June Bride Murder Case" [level=3] [ref=f1e1403]
+                      - generic "Rated 0 of 5 stars" [ref=f1e1404]:
+                        - button "Rate 1 star" [ref=f1e1405] [cursor=pointer]
+                        - button "Rate 2 stars" [ref=f1e1408] [cursor=pointer]
+                        - button "Rate 3 stars" [ref=f1e1411] [cursor=pointer]
+                        - button "Rate 4 stars" [ref=f1e1414] [cursor=pointer]
+                        - button "Rate 5 stars" [ref=f1e1417] [cursor=pointer]
+                  - generic [ref=f1e1420]:
+                    - generic [ref=f1e1421]: EP 19
+                    - generic [ref=f1e1422]:
+                      - img "An Elevator Murder Case" [ref=f1e1423]
+                      - button "Add to favorites" [ref=f1e1424] [cursor=pointer]
+                      - generic [ref=f1e1427]:
+                        - button "Count another rewatch" [ref=f1e1428] [cursor=pointer]
+                        - button "Mark as unwatched" [ref=f1e1434] [cursor=pointer]
+                    - generic [ref=f1e1437]:
+                      - generic [ref=f1e1438]:
+                        - generic [ref=f1e1439]: Episode
+                        - generic [ref=f1e1440]: "1996"
+                      - link [ref=f1e1441] [cursor=pointer]:
+                        - /url: /tracker/ep-019
+                        - heading "An Elevator Murder Case" [level=3] [ref=f1e1442]
+                      - generic "Rated 0 of 5 stars" [ref=f1e1443]:
+                        - button "Rate 1 star" [ref=f1e1444] [cursor=pointer]
+                        - button "Rate 2 stars" [ref=f1e1447] [cursor=pointer]
+                        - button "Rate 3 stars" [ref=f1e1450] [cursor=pointer]
+                        - button "Rate 4 stars" [ref=f1e1453] [cursor=pointer]
+                        - button "Rate 5 stars" [ref=f1e1456] [cursor=pointer]
+                  - generic [ref=f1e1459]:
+                    - generic [ref=f1e1460]: EP 20
+                    - generic [ref=f1e1461]:
+                      - img "A Haunted Mansion Murder Case" [ref=f1e1462]
+                      - button "Add to favorites" [ref=f1e1463] [cursor=pointer]
+                      - generic [ref=f1e1466]:
+                        - button "Count another rewatch" [ref=f1e1467] [cursor=pointer]
+                        - button "Mark as unwatched" [ref=f1e1473] [cursor=pointer]
+                    - generic [ref=f1e1476]:
+                      - generic [ref=f1e1477]:
+                        - generic [ref=f1e1478]: Episode
+                        - generic [ref=f1e1479]: "1996"
+                      - link [ref=f1e1480] [cursor=pointer]:
+                        - /url: /tracker/ep-020
+                        - heading "A Haunted Mansion Murder Case" [level=3] [ref=f1e1481]
+                      - generic "Rated 0 of 5 stars" [ref=f1e1482]:
+                        - button "Rate 1 star" [ref=f1e1483] [cursor=pointer]
+                        - button "Rate 2 stars" [ref=f1e1486] [cursor=pointer]
+                        - button "Rate 3 stars" [ref=f1e1489] [cursor=pointer]
+                        - button "Rate 4 stars" [ref=f1e1492] [cursor=pointer]
+                        - button "Rate 5 stars" [ref=f1e1495] [cursor=pointer]
+                  - generic [ref=f1e1498]:
+                    - generic [ref=f1e1499]: EP 21
+                    - generic [ref=f1e1500]:
+                      - img "On Location, TV Drama Murder Case" [ref=f1e1501]
+                      - button "Add to favorites" [ref=f1e1502] [cursor=pointer]
+                      - generic [ref=f1e1505]:
+                        - button "Count another rewatch" [ref=f1e1506] [cursor=pointer]
+                        - button "Mark as unwatched" [ref=f1e1512] [cursor=pointer]
+                    - generic [ref=f1e1515]:
+                      - generic [ref=f1e1516]:
+                        - generic [ref=f1e1517]: Episode
+                        - generic [ref=f1e1518]: "1996"
+                      - link [ref=f1e1519] [cursor=pointer]:
+                        - /url: /tracker/ep-021
+                        - heading "On Location, TV Drama Murder Case" [level=3] [ref=f1e1520]
+                      - generic "Rated 0 of 5 stars" [ref=f1e1521]:
+                        - button "Rate 1 star" [ref=f1e1522] [cursor=pointer]
+                        - button "Rate 2 stars" [ref=f1e1525] [cursor=pointer]
+                        - button "Rate 3 stars" [ref=f1e1528] [cursor=pointer]
+                        - button "Rate 4 stars" [ref=f1e1531] [cursor=pointer]
+                        - button "Rate 5 stars" [ref=f1e1534] [cursor=pointer]
+                  - generic [ref=f1e1537]:
+                    - generic [ref=f1e1538]: EP 22
+                    - generic [ref=f1e1539]:
+                      - img "Cruise Ship Serial Murder Case (Part 1)" [ref=f1e1540]
+                      - button "Add to favorites" [ref=f1e1541] [cursor=pointer]
+                      - generic [ref=f1e1544]:
+                        - button "Count another rewatch" [ref=f1e1545] [cursor=pointer]
+                        - button "Mark as unwatched" [ref=f1e1551] [cursor=pointer]
+                    - generic [ref=f1e1554]:
+                      - generic [ref=f1e1555]:
+                        - generic [ref=f1e1556]: Episode
+                        - generic [ref=f1e1557]: "1996"
+                      - link [ref=f1e1558] [cursor=pointer]:
+                        - /url: /tracker/ep-022
+                        - heading "Cruise Ship Serial Murder Case (Part 1)" [level=3] [ref=f1e1559]
+                      - generic "Rated 0 of 5 stars" [ref=f1e1560]:
+                        - button "Rate 1 star" [ref=f1e1561] [cursor=pointer]
+                        - button "Rate 2 stars" [ref=f1e1564] [cursor=pointer]
+                        - button "Rate 3 stars" [ref=f1e1567] [cursor=pointer]
+                        - button "Rate 4 stars" [ref=f1e1570] [cursor=pointer]
+                        - button "Rate 5 stars" [ref=f1e1573] [cursor=pointer]
+                  - generic [ref=f1e1576]:
+                    - generic [ref=f1e1577]: EP 23
+                    - generic [ref=f1e1578]:
+                      - img "Cruise Ship Serial Murder Case (Part 2)" [ref=f1e1579]
+                      - button "Add to favorites" [ref=f1e1580] [cursor=pointer]
+                      - generic [ref=f1e1583]:
+                        - button "Count another rewatch" [ref=f1e1584] [cursor=pointer]
+                        - button "Mark as unwatched" [ref=f1e1590] [cursor=pointer]
+                    - generic [ref=f1e1593]:
+                      - generic [ref=f1e1594]:
+                        - generic [ref=f1e1595]: Episode
+                        - generic [ref=f1e1596]: "1996"
+                      - link [ref=f1e1597] [cursor=pointer]:
+                        - /url: /tracker/ep-023
+                        - heading "Cruise Ship Serial Murder Case (Part 2)" [level=3] [ref=f1e1598]
+                      - generic "Rated 0 of 5 stars" [ref=f1e1599]:
+                        - button "Rate 1 star" [ref=f1e1600] [cursor=pointer]
+                        - button "Rate 2 stars" [ref=f1e1603] [cursor=pointer]
+                        - button "Rate 3 stars" [ref=f1e1606] [cursor=pointer]
+                        - button "Rate 4 stars" [ref=f1e1609] [cursor=pointer]
+                        - button "Rate 5 stars" [ref=f1e1612] [cursor=pointer]
+                  - generic [ref=f1e1615]:
+                    - generic [ref=f1e1616]: EP 24
+                    - generic [ref=f1e1617]:
+                      - img "The Mysterious Woman with Amnesia Case" [ref=f1e1618]
+                      - button "Add to favorites" [ref=f1e1619] [cursor=pointer]
+                      - generic [ref=f1e1622]:
+                        - button "Count another rewatch" [ref=f1e1623] [cursor=pointer]
+                        - button "Mark as unwatched" [ref=f1e1629] [cursor=pointer]
+                    - generic [ref=f1e1632]:
+                      - generic [ref=f1e1633]:
+                        - generic [ref=f1e1634]: Episode
+                        - generic [ref=f1e1635]: "1996"
+                      - link [ref=f1e1636] [cursor=pointer]:
+                        - /url: /tracker/ep-024
+                        - heading "The Mysterious Woman with Amnesia Case" [level=3] [ref=f1e1637]
+                      - generic "Rated 0 of 5 stars" [ref=f1e1638]:
+                        - button "Rate 1 star" [ref=f1e1639] [cursor=pointer]
+                        - button "Rate 2 stars" [ref=f1e1642] [cursor=pointer]
+                        - button "Rate 3 stars" [ref=f1e1645] [cursor=pointer]
+                        - button "Rate 4 stars" [ref=f1e1648] [cursor=pointer]
+                        - button "Rate 5 stars" [ref=f1e1651] [cursor=pointer]
+                  - generic [ref=f1e1654]:
+                    - generic [ref=f1e1655]: EP 25
+                    - generic [ref=f1e1656]:
+                      - img "The Fake Kidnapping and Hostage Case" [ref=f1e1657]
+                      - button "Add to favorites" [ref=f1e1658] [cursor=pointer]
+                      - generic [ref=f1e1661]:
+                        - button "Count another rewatch" [ref=f1e1662] [cursor=pointer]
+                        - button "Mark as unwatched" [ref=f1e1668] [cursor=pointer]
+                    - generic [ref=f1e1671]:
+                      - generic [ref=f1e1672]:
+                        - generic [ref=f1e1673]: Episode
+                        - generic [ref=f1e1674]: "1996"
+                      - link [ref=f1e1675] [cursor=pointer]:
+                        - /url: /tracker/ep-025
+                        - heading "The Fake Kidnapping and Hostage Case" [level=3] [ref=f1e1676]
+                      - generic "Rated 0 of 5 stars" [ref=f1e1677]:
+                        - button "Rate 1 star" [ref=f1e1678] [cursor=pointer]
+                        - button "Rate 2 stars" [ref=f1e1681] [cursor=pointer]
+                        - button "Rate 3 stars" [ref=f1e1684] [cursor=pointer]
+                        - button "Rate 4 stars" [ref=f1e1687] [cursor=pointer]
+                        - button "Rate 5 stars" [ref=f1e1690] [cursor=pointer]
+                  - generic [ref=f1e1693]:
+                    - generic [ref=f1e1694]: EP 26
+                    - generic [ref=f1e1695]:
+                      - img "Pet Dog John Murder Case" [ref=f1e1696]
+                      - button "Add to favorites" [ref=f1e1697] [cursor=pointer]
+                      - generic [ref=f1e1700]:
+                        - button "Count another rewatch" [ref=f1e1701] [cursor=pointer]
+                        - button "Mark as unwatched" [ref=f1e1707] [cursor=pointer]
+                    - generic [ref=f1e1710]:
+                      - generic [ref=f1e1711]:
+                        - generic [ref=f1e1712]: Episode
+                        - generic [ref=f1e1713]: "1996"
+                      - link [ref=f1e1714] [cursor=pointer]:
+                        - /url: /tracker/ep-026
+                        - heading "Pet Dog John Murder Case" [level=3] [ref=f1e1715]
+                      - generic "Rated 0 of 5 stars" [ref=f1e1716]:
+                        - button "Rate 1 star" [ref=f1e1717] [cursor=pointer]
+                        - button "Rate 2 stars" [ref=f1e1720] [cursor=pointer]
+                        - button "Rate 3 stars" [ref=f1e1723] [cursor=pointer]
+                        - button "Rate 4 stars" [ref=f1e1726] [cursor=pointer]
+                        - button "Rate 5 stars" [ref=f1e1729] [cursor=pointer]
+                  - generic [ref=f1e1732]:
+                    - generic [ref=f1e1733]: EP 27
+                    - generic [ref=f1e1734]:
+                      - img "Kogoro's Reunion Murder Case (Part 1)" [ref=f1e1735]
+                      - button "Add to favorites" [ref=f1e1736] [cursor=pointer]
+                      - generic [ref=f1e1739]:
+                        - button "Count another rewatch" [ref=f1e1740] [cursor=pointer]
+                        - button "Mark as unwatched" [ref=f1e1746] [cursor=pointer]
+                    - generic [ref=f1e1749]:
+                      - generic [ref=f1e1750]:
+                        - generic [ref=f1e1751]: Episode
+                        - generic [ref=f1e1752]: "1996"
+                      - link [ref=f1e1753] [cursor=pointer]:
+                        - /url: /tracker/ep-027
+                        - heading "Kogoro's Reunion Murder Case (Part 1)" [level=3] [ref=f1e1754]
+                      - generic "Rated 0 of 5 stars" [ref=f1e1755]:
+                        - button "Rate 1 star" [ref=f1e1756] [cursor=pointer]
+                        - button "Rate 2 stars" [ref=f1e1759] [cursor=pointer]
+                        - button "Rate 3 stars" [ref=f1e1762] [cursor=pointer]
+                        - button "Rate 4 stars" [ref=f1e1765] [cursor=pointer]
+                        - button "Rate 5 stars" [ref=f1e1768] [cursor=pointer]
+                  - generic [ref=f1e1771]:
+                    - generic [ref=f1e1772]: EP 28
+                    - generic [ref=f1e1773]:
+                      - img "Kogoro's Reunion Murder Case (Part 2)" [ref=f1e1774]
+                      - button "Add to favorites" [ref=f1e1775] [cursor=pointer]
+                      - generic [ref=f1e1778]:
+                        - button "Count another rewatch" [ref=f1e1779] [cursor=pointer]
+                        - button "Mark as unwatched" [ref=f1e1785] [cursor=pointer]
+                    - generic [ref=f1e1788]:
+                      - generic [ref=f1e1789]:
+                        - generic [ref=f1e1790]: Episode
+                        - generic [ref=f1e1791]: "1996"
+                      - link [ref=f1e1792] [cursor=pointer]:
+                        - /url: /tracker/ep-028
+                        - heading "Kogoro's Reunion Murder Case (Part 2)" [level=3] [ref=f1e1793]
+                      - generic "Rated 0 of 5 stars" [ref=f1e1794]:
+                        - button "Rate 1 star" [ref=f1e1795] [cursor=pointer]
+                        - button "Rate 2 stars" [ref=f1e1798] [cursor=pointer]
+                        - button "Rate 3 stars" [ref=f1e1801] [cursor=pointer]
+                        - button "Rate 4 stars" [ref=f1e1804] [cursor=pointer]
+                        - button "Rate 5 stars" [ref=f1e1807] [cursor=pointer]
+                  - generic [ref=f1e1810]:
+                    - generic [ref=f1e1811]: EP 29
+                    - generic [ref=f1e1812]:
+                      - img "Computer Murder Case" [ref=f1e1813]
+                      - button "Add to favorites" [ref=f1e1814] [cursor=pointer]
+                      - generic [ref=f1e1817]:
+                        - button "Count another rewatch" [ref=f1e1818] [cursor=pointer]
+                        - button "Mark as unwatched" [ref=f1e1824] [cursor=pointer]
+                    - generic [ref=f1e1827]:
+                      - generic [ref=f1e1828]:
+                        - generic [ref=f1e1829]: Episode
+                        - generic [ref=f1e1830]: "1996"
+                      - link [ref=f1e1831] [cursor=pointer]:
+                        - /url: /tracker/ep-029
+                        - heading "Computer Murder Case" [level=3] [ref=f1e1832]
+                      - generic "Rated 0 of 5 stars" [ref=f1e1833]:
+                        - button "Rate 1 star" [ref=f1e1834] [cursor=pointer]
+                        - button "Rate 2 stars" [ref=f1e1837] [cursor=pointer]
+                        - button "Rate 3 stars" [ref=f1e1840] [cursor=pointer]
+                        - button "Rate 4 stars" [ref=f1e1843] [cursor=pointer]
+                        - button "Rate 5 stars" [ref=f1e1846] [cursor=pointer]
+                  - generic [ref=f1e1849]:
+                    - generic [ref=f1e1850]: EP 30
+                    - generic [ref=f1e1851]:
+                      - img "Alibi Testimony Murder Case" [ref=f1e1852]
+                      - button "Add to favorites" [ref=f1e1853] [cursor=pointer]
+                      - generic [ref=f1e1856]:
+                        - button "Count another rewatch" [ref=f1e1857] [cursor=pointer]
+                        - button "Mark as unwatched" [ref=f1e1863] [cursor=pointer]
+                    - generic [ref=f1e1866]:
+                      - generic [ref=f1e1867]:
+                        - generic [ref=f1e1868]: Episode
+                        - generic [ref=f1e1869]: "1996"
+                      - link [ref=f1e1870] [cursor=pointer]:
+                        - /url: /tracker/ep-030
+                        - heading "Alibi Testimony Murder Case" [level=3] [ref=f1e1871]
+                      - generic "Rated 0 of 5 stars" [ref=f1e1872]:
+                        - button "Rate 1 star" [ref=f1e1873] [cursor=pointer]
+                        - button "Rate 2 stars" [ref=f1e1876] [cursor=pointer]
+                        - button "Rate 3 stars" [ref=f1e1879] [cursor=pointer]
+                        - button "Rate 4 stars" [ref=f1e1882] [cursor=pointer]
+                        - button "Rate 5 stars" [ref=f1e1885] [cursor=pointer]
+                - generic [ref=f1e1888]:
+                  - button "Prev" [disabled] [ref=f1e1889]
+                  - generic [ref=f1e1892]: Page 1 / 2
+                  - button "Next" [ref=f1e1893] [cursor=pointer]
+            - button "1997 43 43/43" [ref=f1e1897] [cursor=pointer]:
+              - generic [ref=f1e1901]:
+                - generic [ref=f1e1902]:
+                  - heading "1997" [level=2] [ref=f1e1903]
+                  - generic [ref=f1e1904]: "43"
+                - generic [ref=f1e1905]: 43/43
+            - button "1998 43 43/43" [ref=f1e1912] [cursor=pointer]:
+              - generic [ref=f1e1916]:
+                - generic [ref=f1e1917]:
+                  - heading "1998" [level=2] [ref=f1e1918]
+                  - generic [ref=f1e1919]: "43"
+                - generic [ref=f1e1920]: 43/43
+            - button "1999 45 45/45" [ref=f1e1927] [cursor=pointer]:
+              - generic [ref=f1e1931]:
+                - generic [ref=f1e1932]:
+                  - heading "1999" [level=2] [ref=f1e1933]
+                  - generic [ref=f1e1934]: "45"
+                - generic [ref=f1e1935]: 45/45
+            - button "2000 45 0/45 Mark all" [ref=f1e1942] [cursor=pointer]:
+              - generic [ref=f1e1946]:
+                - generic [ref=f1e1947]:
+                  - heading "2000" [level=2] [ref=f1e1948]
+                  - generic [ref=f1e1949]: "45"
+                - generic [ref=f1e1950]: 0/45
+              - button "Mark all" [ref=f1e1954]
+            - button "2001 44 0/44 Mark all" [ref=f1e1960] [cursor=pointer]:
+              - generic [ref=f1e1964]:
+                - generic [ref=f1e1965]:
+                  - heading "2001" [level=2] [ref=f1e1966]
+                  - generic [ref=f1e1967]: "44"
+                - generic [ref=f1e1968]: 0/44
+              - button "Mark all" [ref=f1e1972]
+            - button "2002 41 0/41 Mark all" [ref=f1e1978] [cursor=pointer]:
+              - generic [ref=f1e1982]:
+                - generic [ref=f1e1983]:
+                  - heading "2002" [level=2] [ref=f1e1984]
+                  - generic [ref=f1e1985]: "41"
+                - generic [ref=f1e1986]: 0/41
+              - button "Mark all" [ref=f1e1990]
+            - button "2003 41 0/41 Mark all" [ref=f1e1996] [cursor=pointer]:
+              - generic [ref=f1e2000]:
+                - generic [ref=f1e2001]:
+                  - heading "2003" [level=2] [ref=f1e2002]
+                  - generic [ref=f1e2003]: "41"
+                - generic [ref=f1e2004]: 0/41
+              - button "Mark all" [ref=f1e2008]
+            - button "2004 39 0/39 Mark all" [ref=f1e2014] [cursor=pointer]:
+              - generic [ref=f1e2018]:
+                - generic [ref=f1e2019]:
+                  - heading "2004" [level=2] [ref=f1e2020]
+                  - generic [ref=f1e2021]: "39"
+                - generic [ref=f1e2022]: 0/39
+              - button "Mark all" [ref=f1e2026]
+            - button "2005 41 0/41 Mark all" [ref=f1e2032] [cursor=pointer]:
+              - generic [ref=f1e2036]:
+                - generic [ref=f1e2037]:
+                  - heading "2005" [level=2] [ref=f1e2038]
+                  - generic [ref=f1e2039]: "41"
+                - generic [ref=f1e2040]: 0/41
+              - button "Mark all" [ref=f1e2044]
+            - button "2006 35 0/35 Mark all" [ref=f1e2050] [cursor=pointer]:
+              - generic [ref=f1e2054]:
+                - generic [ref=f1e2055]:
+                  - heading "2006" [level=2] [ref=f1e2056]
+                  - generic [ref=f1e2057]: "35"
+                - generic [ref=f1e2058]: 0/35
+              - button "Mark all" [ref=f1e2062]
+            - button "2007 31 0/31 Mark all" [ref=f1e2068] [cursor=pointer]:
+              - generic [ref=f1e2072]:
+                - generic [ref=f1e2073]:
+                  - heading "2007" [level=2] [ref=f1e2074]
+                  - generic [ref=f1e2075]: "31"
+                - generic [ref=f1e2076]: 0/31
+              - button "Mark all" [ref=f1e2080]
+            - button "2008 30 0/30 Mark all" [ref=f1e2086] [cursor=pointer]:
+              - generic [ref=f1e2090]:
+                - generic [ref=f1e2091]:
+                  - heading "2008" [level=2] [ref=f1e2092]
+                  - generic [ref=f1e2093]: "30"
+                - generic [ref=f1e2094]: 0/30
+              - button "Mark all" [ref=f1e2098]
+            - button "2009 41 0/41 Mark all" [ref=f1e2104] [cursor=pointer]:
+              - generic [ref=f1e2108]:
+                - generic [ref=f1e2109]:
+                  - heading "2009" [level=2] [ref=f1e2110]
+                  - generic [ref=f1e2111]: "41"
+                - generic [ref=f1e2112]: 0/41
+              - button "Mark all" [ref=f1e2116]
+            - button "2010 40 0/40 Mark all" [ref=f1e2122] [cursor=pointer]:
+              - generic [ref=f1e2126]:
+                - generic [ref=f1e2127]:
+                  - heading "2010" [level=2] [ref=f1e2128]
+                  - generic [ref=f1e2129]: "40"
+                - generic [ref=f1e2130]: 0/40
+              - button "Mark all" [ref=f1e2134]
+            - button "2011 41 0/41 Mark all" [ref=f1e2140] [cursor=pointer]:
+              - generic [ref=f1e2144]:
+                - generic [ref=f1e2145]:
+                  - heading "2011" [level=2] [ref=f1e2146]
+                  - generic [ref=f1e2147]: "41"
+                - generic [ref=f1e2148]: 0/41
+              - button "Mark all" [ref=f1e2152]
+            - button "2012 38 1/38 Mark all" [ref=f1e2158] [cursor=pointer]:
+              - generic [ref=f1e2162]:
+                - generic [ref=f1e2163]:
+                  - heading "2012" [level=2] [ref=f1e2164]
+                  - generic [ref=f1e2165]: "38"
+                - generic [ref=f1e2166]: 1/38
+              - button "Mark all" [ref=f1e2171]
+            - button "2013 43 0/43 Mark all" [ref=f1e2177] [cursor=pointer]:
+              - generic [ref=f1e2181]:
+                - generic [ref=f1e2182]:
+                  - heading "2013" [level=2] [ref=f1e2183]
+                  - generic [ref=f1e2184]: "43"
+                - generic [ref=f1e2185]: 0/43
+              - button "Mark all" [ref=f1e2189]
+            - button "2014 39 0/39 Mark all" [ref=f1e2195] [cursor=pointer]:
+              - generic [ref=f1e2199]:
+                - generic [ref=f1e2200]:
+                  - heading "2014" [level=2] [ref=f1e2201]
+                  - generic [ref=f1e2202]: "39"
+                - generic [ref=f1e2203]: 0/39
+              - button "Mark all" [ref=f1e2207]
+            - button "2015 41 0/41 Mark all" [ref=f1e2213] [cursor=pointer]:
+              - generic [ref=f1e2217]:
+                - generic [ref=f1e2218]:
+                  - heading "2015" [level=2] [ref=f1e2219]
+                  - generic [ref=f1e2220]: "41"
+                - generic [ref=f1e2221]: 0/41
+              - button "Mark all" [ref=f1e2225]
+            - button "2016 43 0/43 Mark all" [ref=f1e2231] [cursor=pointer]:
+              - generic [ref=f1e2235]:
+                - generic [ref=f1e2236]:
+                  - heading "2016" [level=2] [ref=f1e2237]
+                  - generic [ref=f1e2238]: "43"
+                - generic [ref=f1e2239]: 0/43
+              - button "Mark all" [ref=f1e2243]
+            - button "2017 40 0/40 Mark all" [ref=f1e2249] [cursor=pointer]:
+              - generic [ref=f1e2253]:
+                - generic [ref=f1e2254]:
+                  - heading "2017" [level=2] [ref=f1e2255]
+                  - generic [ref=f1e2256]: "40"
+                - generic [ref=f1e2257]: 0/40
+              - button "Mark all" [ref=f1e2261]
+            - button "2018 40 0/40 Mark all" [ref=f1e2267] [cursor=pointer]:
+              - generic [ref=f1e2271]:
+                - generic [ref=f1e2272]:
+                  - heading "2018" [level=2] [ref=f1e2273]
+                  - generic [ref=f1e2274]: "40"
+                - generic [ref=f1e2275]: 0/40
+              - button "Mark all" [ref=f1e2279]
+            - button "2019 38 0/38 Mark all" [ref=f1e2285] [cursor=pointer]:
+              - generic [ref=f1e2289]:
+                - generic [ref=f1e2290]:
+                  - heading "2019" [level=2] [ref=f1e2291]
+                  - generic [ref=f1e2292]: "38"
+                - generic [ref=f1e2293]: 0/38
+              - button "Mark all" [ref=f1e2297]
+            - button "2020 28 0/28 Mark all" [ref=f1e2303] [cursor=pointer]:
+              - generic [ref=f1e2307]:
+                - generic [ref=f1e2308]:
+                  - heading "2020" [level=2] [ref=f1e2309]
+                  - generic [ref=f1e2310]: "28"
+                - generic [ref=f1e2311]: 0/28
+              - button "Mark all" [ref=f1e2315]
+            - button "2021 40 0/40 Mark all" [ref=f1e2321] [cursor=pointer]:
+              - generic [ref=f1e2325]:
+                - generic [ref=f1e2326]:
+                  - heading "2021" [level=2] [ref=f1e2327]
+                  - generic [ref=f1e2328]: "40"
+                - generic [ref=f1e2329]: 0/40
+              - button "Mark all" [ref=f1e2333]
+            - button "2022 35 0/35 Mark all" [ref=f1e2339] [cursor=pointer]:
+              - generic [ref=f1e2343]:
+                - generic [ref=f1e2344]:
+                  - heading "2022" [level=2] [ref=f1e2345]
+                  - generic [ref=f1e2346]: "35"
+                - generic [ref=f1e2347]: 0/35
+              - button "Mark all" [ref=f1e2351]
+            - button "2023 41 0/41 Mark all" [ref=f1e2357] [cursor=pointer]:
+              - generic [ref=f1e2361]:
+                - generic [ref=f1e2362]:
+                  - heading "2023" [level=2] [ref=f1e2363]
+                  - generic [ref=f1e2364]: "41"
+                - generic [ref=f1e2365]: 0/41
+              - button "Mark all" [ref=f1e2369]
+            - button "2024 39 0/39 Mark all" [ref=f1e2375] [cursor=pointer]:
+              - generic [ref=f1e2379]:
+                - generic [ref=f1e2380]:
+                  - heading "2024" [level=2] [ref=f1e2381]
+                  - generic [ref=f1e2382]: "39"
+                - generic [ref=f1e2383]: 0/39
+              - button "Mark all" [ref=f1e2387]
+            - button "2025 39 0/39 Mark all" [ref=f1e2393] [cursor=pointer]:
+              - generic [ref=f1e2397]:
+                - generic [ref=f1e2398]:
+                  - heading "2025" [level=2] [ref=f1e2399]
+                  - generic [ref=f1e2400]: "39"
+                - generic [ref=f1e2401]: 0/39
+              - button "Mark all" [ref=f1e2405]
+            - button "2026 23 0/23 Mark all" [ref=f1e2411] [cursor=pointer]:
+              - generic [ref=f1e2415]:
+                - generic [ref=f1e2416]:
+                  - heading "2026" [level=2] [ref=f1e2417]
+                  - generic [ref=f1e2418]: "23"
+                - generic [ref=f1e2419]: 0/23
+              - button "Mark all" [ref=f1e2423]
+            - button "Movie 29 0/29" [ref=f1e2429] [cursor=pointer]:
+              - generic [ref=f1e2433]:
+                - generic [ref=f1e2434]:
+                  - heading "Movie" [level=2] [ref=f1e2435]
+                  - generic [ref=f1e2436]: "29"
+                - generic [ref=f1e2437]: 0/29
+              - combobox "Movie subcategory" [ref=f1e2442]:
+                - generic: Official Movies (29)
+            - button "Special 24 0/24" [ref=f1e2448] [cursor=pointer]:
+              - generic [ref=f1e2452]:
+                - generic [ref=f1e2453]:
+                  - heading "Special" [level=2] [ref=f1e2454]
+                  - generic [ref=f1e2455]: "24"
+                - generic [ref=f1e2456]: 0/24
+              - combobox "Special subcategory" [ref=f1e2461]:
+                - generic: TV Specials (24)
+            - button "OVA 2 0/2" [ref=f1e2467] [cursor=pointer]:
+              - generic [ref=f1e2472]:
+                - generic [ref=f1e2473]:
+                  - heading "OVA" [level=2] [ref=f1e2474]
+                  - generic [ref=f1e2475]: "2"
+                - generic [ref=f1e2476]: 0/2
+              - combobox "OVA subcategory" [ref=f1e2481]:
+                - generic: OVA (2)
+            - button "Live Action 10 0/10" [ref=f1e2487] [cursor=pointer]:
+              - generic [ref=f1e2494]:
+                - generic [ref=f1e2495]:
+                  - heading "Live Action" [level=2] [ref=f1e2496]
+                  - generic [ref=f1e2497]: "10"
+                - generic [ref=f1e2498]: 0/10
+            - button "Magic Kaito 9 0/9" [ref=f1e2504] [cursor=pointer]:
+              - generic [ref=f1e2508]:
+                - generic [ref=f1e2509]:
+                  - heading "Magic Kaito" [level=2] [ref=f1e2510]
+                  - generic [ref=f1e2511]: "9"
+                - generic [ref=f1e2512]: 0/9
+              - combobox "Magic Kaito subcategory" [ref=f1e2517]:
+                - generic: Magic Kaito Specials (9)
+            - button "The Culprit Hanzawa 12 0/12" [ref=f1e2523] [cursor=pointer]:
+              - generic [ref=f1e2528]:
+                - generic [ref=f1e2529]:
+                  - heading "The Culprit Hanzawa" [level=2] [ref=f1e2530]
+                  - generic [ref=f1e2531]: "12"
+                - generic [ref=f1e2532]: 0/12
+            - button "Zero's Tea Time 6 0/6" [ref=f1e2538] [cursor=pointer]:
+              - generic [ref=f1e2542]:
+                - generic [ref=f1e2543]:
+                  - heading "Zero's Tea Time" [level=2] [ref=f1e2544]
+                  - generic [ref=f1e2545]: "6"
+                - generic [ref=f1e2546]: 0/6
+            - button "Yaiba 2 0/2" [ref=f1e2552] [cursor=pointer]:
+              - generic [ref=f1e2563]:
+                - generic [ref=f1e2564]:
+                  - heading "Yaiba" [level=2] [ref=f1e2565]
+                  - generic [ref=f1e2566]: "2"
+                - generic [ref=f1e2567]: 0/2
+            - button [ref=f1e2573] [cursor=pointer]:
+              - heading "About the Series" [level=2] [ref=f1e2579]
+  - generic:
+    - generic [ref=f1e2584] [cursor=pointer]:
+      - generic [ref=f1e2587]: 1 error
+      - button "Hide Errors" [ref=f1e2588]
+    - status [ref=f1e2592]:
+      - generic [ref=f1e2597]:
+        - text: Static route
+        - button "Hide static indicator" [ref=f1e2598] [cursor=pointer]
+  - alert [ref=f1e2602]

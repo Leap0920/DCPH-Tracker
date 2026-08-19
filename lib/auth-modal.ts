@@ -13,6 +13,8 @@
 
 export type AuthModalMode = "signin" | "signup"
 
+export type AuthMethod = "email" | "phone"
+
 export type AuthErrorKind = "credentials" | "unconfirmed" | "other"
 
 export type AuthFormData = {
@@ -41,9 +43,9 @@ export function classifyAuthError(message: string): AuthErrorKind {
  * Open the auth modal dialog.
  * Called by Navbar.tsx via `open-auth-modal` event.
  */
-export function openAuthModal(mode: AuthModalMode) {
+export function openAuthModal(mode: AuthModalMode, method: AuthMethod = "email") {
   if (typeof window !== "undefined") {
-    window.dispatchEvent(new CustomEvent("open-auth-modal", { detail: { mode } }))
+    window.dispatchEvent(new CustomEvent("open-auth-modal", { detail: { mode, method } }))
   }
 }
 
