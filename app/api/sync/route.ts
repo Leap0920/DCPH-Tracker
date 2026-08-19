@@ -14,6 +14,11 @@ import {
 } from "@/lib/kitsu"
 import { getNextAiringEpisode } from "@/lib/anilist"
 import type { Database } from "@/types/database.types"
+import { rateLimit, authRateLimitKey } from "@/lib/rate-limit"
+import { rateLimitPersistent } from "@/lib/rate-limit-db"
+import { isSameOrigin } from "@/lib/origin-check"
+
+export const maxDuration = 60
 
 type ContentInsert = Database["public"]["Tables"]["content_entries"]["Insert"]
 
@@ -30,10 +35,9 @@ function headerMatchesSecret(
   secret: string | undefined
 ): boolean {
   if (!secret || !authorization) return false
-  const expected = `Bearer ${secret}`
-  const a = Buffer.from(authorization)
-  const b = Buffer.from(expected)
-  if (a.length !== b.length) return false
+  // Compare fixed-width digests so the secret's length never leaks.
+  const a = crypto.createHash("sha256").update(authorization).digest()
+  const b = crypto.createHash("sha256").update(`Bearer ${secret}`).digest()
   return crypto.timingSafeEqual(a, b)
 }
 
@@ -68,10 +72,23 @@ export async function POST(request: NextRequest) {
   const searchParams = request.nextUrl.searchParams
   const dryRun = searchParams.get("dry_run") === "true"
   const limitParam = searchParams.get("limit")
-  const limit = limitParam ? parseInt(limitParam, 10) : undefined
+  const parsedLimit = limitParam ? Number.parseInt(limitParam, 10) : NaN
+  const limit = Number.isFinite(parsedLimit) && parsedLimit > 0 ? Math.min(parsedLimit, 5000) : undefined
   const mode = searchParams.get("mode") || "all"
 
   try {
+    if (!isSameOrigin(request)) {
+      return NextResponse.json({ error: "Forbidden" }, { status: 403 })
+    }
+    const rl = await rateLimitPersistent(`sync:post:${authRateLimitKey(request)}`, {
+      limit: 2,
+      windowMs: 60_000,
+      failClosed: false,
+    })
+    if (!rl.allowed) {
+      return NextResponse.json({ error: "Too many requests" }, { status: 429 })
+    }
+
     const supabase = await createClient()
 
     // 0. Authorize: cron secret (header-only, timing-safe) OR admin user session.
