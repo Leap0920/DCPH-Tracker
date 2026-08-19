@@ -4,14 +4,23 @@ import { motion, AnimatePresence, useScroll, useTransform, useSpring, useReduced
 import { ArrowRight, ChevronDown } from "lucide-react"
 import { useRouter } from "next/navigation"
 import { Button } from "@/components/ui/button"
-import { useEffect, useState, useCallback, useRef } from "react"
+import { useEffect, useState, useCallback, useRef, type ReactNode } from "react"
 import { createClient } from "@/utils/supabase/client"
 import { openAuthModal } from "@/lib/auth-modal"
 import { LiveStats } from "@/components/marketing/LiveStats"
 
 const EASE = [0.16, 1, 0.3, 1] as const
 
-export function HeroSection() {
+type HeroSectionProps = {
+  /**
+   * Slot for the server-rendered <LiveEpisodeBadge />. This is a client
+   * component, so it cannot await a server component itself — app/page.tsx
+   * creates the element and passes it down as a ReactNode.
+   */
+  liveBadge?: ReactNode
+}
+
+export function HeroSection({ liveBadge }: HeroSectionProps) {
   const [typedText, setTypedText] = useState("")
   const [typingCompleted, setTypingCompleted] = useState(false)
   const reduce = useReducedMotion()
@@ -55,7 +64,9 @@ export function HeroSection() {
     }
   }, [])
 
-  // Render typed text with line break after "episode"
+  // Render typed text with line break after "Conan".
+  // Colour comes from text-ink (flips with the theme via CSS variables) and
+  // .hero-text-shadow adds separation from the photo underneath.
   const renderTypedText = (text: string) => {
     const line1 = "Your ultimate Detective Conan"
     const line2 = "tracking platform"
@@ -66,13 +77,13 @@ export function HeroSection() {
 
     return (
       <>
-        <span className="text-2xl min-[421px]:text-3xl sm:text-5xl font-bold text-ink">
+        <span className="hero-text-shadow text-2xl min-[421px]:text-3xl sm:text-5xl font-bold text-ink">
           {line1Chars}
         </span>
         {line2Chars.length > 0 && (
           <>
             <br />
-            <span className="text-2xl min-[421px]:text-3xl sm:text-5xl font-bold text-ink">
+            <span className="hero-text-shadow text-2xl min-[421px]:text-3xl sm:text-5xl font-bold text-ink">
               {line2Chars}
             </span>
           </>
@@ -122,44 +133,42 @@ export function HeroSection() {
     <section className="relative min-h-[100dvh] flex flex-col items-center bg-page overflow-hidden pt-16 pb-12">
       {/* Hero Content Area — full-bleed image banner with left-aligned text */}
       <div className="relative min-h-[calc(100dvh-4rem)] w-full flex flex-col items-start justify-center px-6 sm:px-12 lg:px-24 text-left">
-        {/* Hero background image */}
+        {/*
+          Hero background image — theme-aware.
+          Both variants live in the DOM but are swapped by CSS on html.dark
+          (see app/globals.css). Because they are CSS background-images, the
+          hidden variant is never downloaded, and the right banner paints on the
+          first frame with no hydration flash.
+        */}
         <div className="absolute inset-0 z-0 bg-surface">
-          <picture className="absolute inset-0 h-full w-full">
-            <img
-              src="/hero-image.jpg"
-              alt=""
-              aria-hidden
-              className="h-full w-full object-cover object-right sm:object-right-bottom pointer-events-none"
-            />
-          </picture>
-          {/* Subtle left-to-right scrim so text stays readable over photo */}
-          <div
-            aria-hidden
-            className="absolute inset-0 bg-gradient-to-r from-white/90 via-white/70 sm:via-white/40 to-transparent pointer-events-none"
-          />
+          <div aria-hidden className="hero-media hero-media-light" />
+          <div aria-hidden className="hero-media hero-media-dark" />
+          {/* Left-to-right scrim so text stays readable over photo, per theme */}
+          <div aria-hidden className="hero-scrim hero-scrim-light" />
+          <div aria-hidden className="hero-scrim hero-scrim-dark" />
         </div>
 
         {/* Left-aligned content above the image */}
         <div className="relative z-10 flex flex-col items-start w-full max-w-3xl">
-          {/* Animated container for Logo and Main Heading */}
+          {/* Animated container for Logo and live-episode badge */}
           <AnimatePresence>
             {typingCompleted && (
               <motion.div
                 initial={reduce ? false : { opacity: 0, y: -28, filter: "blur(6px)" }}
                 animate={{ opacity: 1, y: 0, filter: "blur(0px)" }}
                 transition={{ duration: 0.9, ease: EASE }}
-                className="flex flex-col items-center"
+                className="flex flex-col items-start"
               >
-                {/* Logo and Title in same row */}
+                {/* Logo + live episode badge in the same row. The old
+                    "Detective Conan PH: Anime and Manga" heading was redundant
+                    with the navbar wordmark, so it is replaced by live status. */}
                 <div className="flex items-center gap-3 mb-6">
                   <img
                     src="/img/logo_DCPH.png"
                     alt="Detective Conan PH Logo"
                     className="h-10 w-auto object-contain drop-shadow-card hover:scale-105 transition-transform duration-300 pointer-events-none"
                   />
-                  <h1 className="text-sm sm:text-base font-display font-semibold tracking-widest text-ink leading-tight">
-                    Detective Conan PH: Anime and Manga
-                  </h1>
+                  {liveBadge}
                 </div>
               </motion.div>
             )}
@@ -211,7 +220,7 @@ export function HeroSection() {
           {typingCompleted && (
             <motion.div
               initial={{ opacity: 0 }}
-              animate={{ opacity: 0.4 }}
+              animate={{ opacity: 0.6 }}
               exit={{ opacity: 0 }}
               transition={{ delay: 0.6, duration: 0.8 }}
               className="absolute bottom-8 left-1/2 -translate-x-1/2 cursor-pointer z-20"
@@ -222,7 +231,7 @@ export function HeroSection() {
                 transition={{ duration: 2, repeat: Infinity, ease: "easeInOut" }}
                 className="flex flex-col items-center gap-2 hover:opacity-100 transition-opacity"
               >
-                <span className="text-[10px] font-mono text-ink-dim">
+                <span className="hero-text-shadow text-[10px] font-mono text-ink-dim">
                   Scroll Down
                 </span>
                 <ChevronDown className="h-5 w-5 text-ink-dim" />
@@ -236,7 +245,7 @@ export function HeroSection() {
       <div
         ref={scrollRef}
         style={{ aspectRatio: videoAspect ? String(videoAspect) : "16 / 9" }}
-        className="relative w-full max-w-6xl px-4 sm:px-8 overflow-hidden rounded-2xl z-10 mt-10 sm:mt-24 border-2 border-white/40"
+        className="relative w-full max-w-6xl px-4 sm:px-8 overflow-hidden rounded-2xl z-10 mt-10 sm:mt-24 border-2 border-ink-dim/20"
       >
         <motion.div
           style={{ scale, opacity }}
