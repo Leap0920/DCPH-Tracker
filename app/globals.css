@@ -332,3 +332,109 @@
   -webkit-user-select: none;
   user-select: none;
 }
+
+/* === Hero: class-based dark-mode banner (html.dark) ===================== *
+ * The theme is set on <html> pre-paint by the beforeInteractive script in
+ * app/layout.tsx, so the correct banner + scrim paint on the first frame with
+ * zero JS and zero hydration mismatch. background-image (not <img>) means the
+ * hidden variant is never downloaded.
+ * ----------------------------------------------------------------------- */
+
+.hero-media {
+  position: absolute;
+  inset: 0;
+  background-repeat: no-repeat;
+  background-size: cover;
+  background-position: right center;
+  pointer-events: none;
+}
+
+@media (min-width: 640px) {
+  .hero-media {
+    background-position: right bottom;
+  }
+}
+
+.hero-media-light {
+  display: block;
+  background-image: url("/hero-image.jpg");
+}
+
+.hero-media-dark {
+  display: none;
+  background-image: url("/hero-image-darkM.jpg");
+}
+
+html.dark .hero-media-light {
+  display: none;
+}
+
+html.dark .hero-media-dark {
+  display: block;
+}
+
+/* Left-to-right scrim so the left-aligned copy stays readable over the photo.
+   Light mode fades from white; dark mode fades from slate-950. */
+.hero-scrim {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+}
+
+.hero-scrim-light {
+  display: block;
+  background-image: linear-gradient(
+    to right,
+    rgb(255 255 255 / 0.93) 0%,
+    rgb(255 255 255 / 0.75) 34%,
+    rgb(255 255 255 / 0) 82%
+  );
+}
+
+.hero-scrim-dark {
+  display: none;
+  background-image: linear-gradient(
+    to right,
+    rgb(2 6 23 / 0.94) 0%,
+    rgb(2 6 23 / 0.8) 34%,
+    rgb(2 6 23 / 0) 84%
+  );
+}
+
+html.dark .hero-scrim-light {
+  display: none;
+}
+
+html.dark .hero-scrim-dark {
+  display: block;
+}
+
+@media (min-width: 640px) {
+  .hero-scrim-light {
+    background-image: linear-gradient(
+      to right,
+      rgb(255 255 255 / 0.9) 0%,
+      rgb(255 255 255 / 0.46) 40%,
+      rgb(255 255 255 / 0) 78%
+    );
+  }
+
+  .hero-scrim-dark {
+    background-image: linear-gradient(
+      to right,
+      rgb(2 6 23 / 0.92) 0%,
+      rgb(2 6 23 / 0.55) 40%,
+      rgb(2 6 23 / 0) 80%
+    );
+  }
+}
+
+/* Extra separation for text sitting on the photo edge. Shadow direction flips
+   with the theme so it lifts, never muddies. */
+.hero-text-shadow {
+  text-shadow: 0 1px 2px rgb(255 255 255 / 0.6);
+}
+
+html.dark .hero-text-shadow {
+  text-shadow: 0 1px 3px rgb(2 6 23 / 0.8);
+}

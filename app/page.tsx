@@ -1,3 +1,4 @@
+import { Suspense } from "react"
 import { Navbar } from "@/components/layout/Navbar"
 import { Footer } from "@/components/layout/Footer"
 import { HeroSection } from "@/components/marketing/HeroSection"
@@ -7,6 +8,10 @@ import { LatestContent } from "@/components/marketing/LatestContent"
 import { HomeCta } from "@/components/marketing/HomeCta"
 import { BlockScreeningSection } from "@/components/marketing/BlockScreeningSection"
 import { FourYearsSection } from "@/components/marketing/FourYearsSection"
+import {
+  LiveEpisodeBadge,
+  LiveEpisodeBadgeSkeleton,
+} from "@/components/marketing/LiveEpisodeBadge"
 
 export const metadata = {
   title: "Detective Conan PH · Track, Chat, and Climb the Ranks",
@@ -19,7 +24,15 @@ export default function HomePage() {
     <div className="bg-page text-ink flex min-h-screen flex-col overflow-x-hidden w-full max-w-full">
       <Navbar />
       <main className="flex-1">
-        <HeroSection />
+        {/* The badge is a server component: it is created here and handed to the
+            client HeroSection as a slot, so the episode query stays server-side. */}
+        <HeroSection
+          liveBadge={
+            <Suspense fallback={<LiveEpisodeBadgeSkeleton />}>
+              <LiveEpisodeBadge />
+            </Suspense>
+          }
+        />
 
         {/* Vertical rhythm comes from clean, balanced whitespace */}
         <div className="py-12 sm:py-16 lg:py-20">
