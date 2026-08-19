@@ -6,6 +6,9 @@ import {
   validateDisplayName,
   validateBirthday,
 } from "@/lib/validation"
+import { authRateLimitKey } from "@/lib/rate-limit"
+import { rateLimitPersistent } from "@/lib/rate-limit-db"
+import { isSameOrigin } from "@/lib/origin-check"
 
 export async function GET() {
   try {
@@ -32,6 +35,13 @@ export async function GET() {
 
 export async function PUT(request: NextRequest) {
   try {
+    if (!isSameOrigin(request)) return fail(403, "Forbidden")
+    const rl = await rateLimitPersistent(`profile:put:${authRateLimitKey(request)}`, {
+      limit: 10,
+      windowMs: 60_000,
+      failClosed: false,
+    })
+    if (!rl.allowed) return fail(429, "Too many requests. Please slow down.")
     const body = await request.json()
     const { username, display_name, birthday } = body
 
