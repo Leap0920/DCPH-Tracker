@@ -1,4 +1,5 @@
 import type { Metadata, Viewport } from "next";
+import { headers } from "next/headers";
 import Script from "next/script";
 import { Inter, JetBrains_Mono, Plus_Jakarta_Sans } from "next/font/google";
 import { Providers } from "@/components/providers";
@@ -29,6 +30,9 @@ const jetbrainsMono = JetBrains_Mono({
 const siteUrl = process.env.NEXT_PUBLIC_SITE_URL ?? "http://localhost:3000"
 
 export const viewport: Viewport = {
+  width: "device-width",
+  initialScale: 1,
+  interactiveWidget: "resizes-content",
   themeColor: "#E11D48",
 };
 
@@ -68,15 +72,22 @@ export const metadata: Metadata = {
   },
 };
 
-export default function RootLayout({
+export default async function RootLayout({
   children,
 }: {
   children: React.ReactNode;
 }) {
+  // Middleware forwards the per-request CSP nonce on the request headers.
+  // Passing it to <html> keeps the server render and the client DOM in sync,
+  // which prevents React 19's nonce-mode hydration mismatch.
+  const nonce = (await headers()).get("x-nonce") ?? undefined;
+
   return (
     <html
       lang="en"
       className={`${plusJakartaSans.variable} ${inter.variable} ${jetbrainsMono.variable} scroll-smooth`}
+      nonce={nonce}
+      suppressHydrationWarning
     >
       <body className="min-h-screen bg-page text-ink font-body antialiased overflow-x-hidden w-full max-w-full">
         {/* FOUC guard: apply the persisted theme to <html> BEFORE first
