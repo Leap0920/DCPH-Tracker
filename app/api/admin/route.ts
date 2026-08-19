@@ -6,9 +6,19 @@ import {
   validateDisplayName,
   validateBirthday,
 } from "@/lib/validation"
+import { authRateLimitKey } from "@/lib/rate-limit"
+import { rateLimitPersistent } from "@/lib/rate-limit-db"
+import { isSameOrigin } from "@/lib/origin-check"
 
-export async function GET() {
+export async function GET(request: NextRequest) {
   try {
+    if (!isSameOrigin(request)) return fail(403, "Forbidden")
+    const rl = await rateLimitPersistent(`admin:get:${authRateLimitKey(request)}`, {
+      limit: 30,
+      windowMs: 60_000,
+      failClosed: false,
+    })
+    if (!rl.allowed) return fail(429, "Too many requests. Please slow down.")
     const supabase = await createClient()
     const { data: { user } } = await supabase.auth.getUser()
 
@@ -45,6 +55,13 @@ export async function GET() {
 
 export async function PUT(request: NextRequest) {
   try {
+    if (!isSameOrigin(request)) return fail(403, "Forbidden")
+    const rl = await rateLimitPersistent(`admin:put:${authRateLimitKey(request)}`, {
+      limit: 10,
+      windowMs: 60_000,
+      failClosed: false,
+    })
+    if (!rl.allowed) return fail(429, "Too many requests. Please slow down.")
     const supabase = await createClient()
     const { data: { user } } = await supabase.auth.getUser()
 
