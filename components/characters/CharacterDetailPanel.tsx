@@ -124,7 +124,7 @@ export function CharacterDetailPanel({
         animate={{ opacity: 1, y: 0 }}
         exit={{ opacity: 0, y: 60 }}
         transition={{ duration: 0.3, ease: EASE }}
-        className="dossier-card relative flex flex-col max-h-[48vh] sm:max-h-[85vh] w-full p-0 outline-none rounded-t-2xl sm:rounded-2xl border-t sm:border border-slate-200/90 bg-surface/98 shadow-2xl backdrop-blur-xl overflow-hidden"
+        className="dossier-card relative flex flex-col max-h-[48vh] sm:max-h-[85vh] w-full p-0 outline-none rounded-t-2xl sm:rounded-2xl border-t sm:border border-slate-200/90 dark:border-slate-800/90 bg-surface/98 shadow-2xl backdrop-blur-xl overflow-hidden"
       >
         {/* Drag handle indicator for mobile bottom sheet */}
         <div className="sm:hidden w-full flex justify-center pt-2.5 pb-1 bg-surface/95 shrink-0">
@@ -132,7 +132,7 @@ export function CharacterDetailPanel({
         </div>
 
         {/* Header with fixed Close Button */}
-        <div className="sticky top-0 z-20 flex items-start justify-between gap-3 border-b border-slate-200/80 bg-surface/95 px-4 py-3 sm:p-5 backdrop-blur-md shrink-0">
+        <div className="sticky top-0 z-20 flex items-start justify-between gap-3 border-b border-slate-200/80 dark:border-slate-800/80 bg-surface/95 px-4 py-3 sm:p-5 backdrop-blur-md shrink-0">
           <div className="min-w-0 pr-4">
             <div className="flex flex-wrap items-center gap-1.5">
               <span className="rounded-md bg-accent/10 px-2 py-0.5 font-mono text-[10px] font-semibold uppercase tracking-wide text-accent">
@@ -161,7 +161,7 @@ export function CharacterDetailPanel({
               onClose()
             }}
             aria-label="Close dossier"
-            className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg border border-slate-200 bg-surface text-ink-dim shadow-sm transition-all hover:border-accent/40 hover:bg-accent-soft hover:text-accent"
+            className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg border border-slate-200 dark:border-slate-700 bg-surface text-ink-dim shadow-sm transition-all hover:border-accent/40 hover:bg-accent-soft hover:text-accent"
           >
             <X className="h-4 w-4" />
           </button>
@@ -173,7 +173,7 @@ export function CharacterDetailPanel({
             {character.bio}
           </p>
 
-          <div className="border-t border-slate-200 pt-4">
+          <div className="border-t border-slate-200 dark:border-slate-800 pt-4">
             <h3 className="font-mono text-[10px] uppercase tracking-stamp text-ink-faint">
               Threads ({threads.length})
             </h3>
@@ -186,7 +186,7 @@ export function CharacterDetailPanel({
                 {threads.map(({ relationship, meta, otherName }) => (
                   <li key={relationship.id} className="flex gap-3">
                     <span
-                      className="mt-1 h-2.5 w-2.5 shrink-0 rounded-full ring-2 ring-white shadow-sm"
+                      className="mt-1 h-2.5 w-2.5 shrink-0 rounded-full ring-2 ring-white dark:ring-slate-900 shadow-sm"
                       style={{ backgroundColor: meta.color }}
                     />
                     <div className="min-w-0">
@@ -239,7 +239,7 @@ export function RelationshipLegend({
               "flex items-start gap-2.5 rounded-lg border px-3 py-2 text-left transition-colors",
               active
                 ? "border-accent bg-accent-soft text-accent"
-                : "border-slate-200 bg-surface text-ink-dim hover:border-slate-300 hover:bg-surface-muted"
+                : "border-slate-200 dark:border-slate-700 bg-surface text-ink-dim hover:border-slate-300 dark:hover:border-slate-500 hover:bg-surface-muted"
             )}
           >
             <span

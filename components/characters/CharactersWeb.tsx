@@ -39,8 +39,6 @@ import {
   RotateCcw,
   Search,
   X,
-  Sun,
-  Moon,
   Target,
   Sparkles,
 } from "lucide-react";
@@ -300,7 +298,6 @@ export interface CharactersWebProps {
   isFullscreen?: boolean;
   onToggleFullscreen?: () => void;
   theme?: "light" | "dark";
-  onToggleTheme?: () => void;
   className?: string;
 }
 
@@ -311,8 +308,7 @@ export default function CharactersWeb({
   onFilterType,
   isFullscreen = false,
   onToggleFullscreen,
-  theme = "dark",
-  onToggleTheme,
+  theme = "light",
   className = "",
 }: CharactersWebProps) {
   const reduce = useReducedMotion();
@@ -697,23 +693,6 @@ export default function CharactersWeb({
         >
           <RotateCcw className="h-4 w-4" />
         </button>
-
-        {onToggleTheme && (
-          <>
-            <div className={`h-4 w-px my-auto ${isDark ? "bg-slate-800" : "bg-slate-200"}`} />
-            <button
-              type="button"
-              onClick={onToggleTheme}
-              aria-label={isDark ? "Switch to Light Mode" : "Switch to Dark Mode"}
-              title={isDark ? "Switch to Light Mode" : "Switch to Dark Mode"}
-              className={`flex h-8 w-8 items-center justify-center rounded-full transition-colors ${
-                isDark ? "text-amber-400 hover:bg-slate-800" : "text-slate-600 hover:bg-surface-muted hover:text-accent"
-              }`}
-            >
-              {isDark ? <Sun className="h-4 w-4 text-amber-400" /> : <Moon className="h-4 w-4 text-slate-600" />}
-            </button>
-          </>
-        )}
       </div>
 
       {/* Search input (top-left) */}
