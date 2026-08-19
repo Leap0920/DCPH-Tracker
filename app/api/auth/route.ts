@@ -18,47 +18,37 @@ export async function POST(request: NextRequest) {
     }
 
     const body = await request.json()
-    const { email, password } = body
+    const mode = body?.mode === "signup" ? "signup" : "signin"
+    const email = typeof body?.email === "string" ? body.email.trim() : ""
+    const password = typeof body?.password === "string" ? body.password : ""
 
-    if (email && password) {
-      // Login — keep the response identical whether the email exists or
-      // not, so attackers can't enumerate registered addresses.
+    if (mode === "signin") {
+      if (!email || !password) return fail(400, "Email and password are required")
       const supabase = await createClient()
-      const { error } = await supabase.auth.signInWithPassword({
-        email,
-        password,
-      })
-
-      if (error) {
-        return fail(401, "Invalid email or password")
-      }
-
+      const { error } = await supabase.auth.signInWithPassword({ email, password })
+      if (error) return fail(401, "Invalid email or password")
       return NextResponse.json({ success: true })
     }
 
-    // Registration — validate server-side before touching Supabase.
+    // signup
     const emailError = validateEmail(email)
     if (emailError) return fail(400, emailError)
-
     const passwordError = validatePassword(password)
     if (passwordError) return fail(400, passwordError)
 
-    const usernameError = validateUsername(body.displayName || "")
-    if (usernameError) return fail(400, usernameError)
+    const username = typeof body?.username === "string" ? body.username.trim() : ""
+    const displayName = typeof body?.displayName === "string" ? body.displayName.trim() : ""
 
-    const displayNameError = validateDisplayName(body.displayName || "")
+    const usernameError = validateUsername(username)
+    if (usernameError) return fail(400, usernameError)
+    const displayNameError = validateDisplayName(displayName)
     if (displayNameError) return fail(400, displayNameError)
 
     const supabase = await createClient()
     const { error } = await supabase.auth.signUp({
       email,
       password,
-      options: {
-        data: {
-          username: body.displayName || "",
-          email: email,
-        },
-      },
+      options: { data: { username, display_name: displayName } },
     })
 
     if (error) {
