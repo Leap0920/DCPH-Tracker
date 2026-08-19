@@ -77,6 +77,8 @@ interface ContentGridProps {
   onJumped?: () => void
   /** arc_id -> { slug, title } lookup for episode arc badges. */
   arcMap?: Map<string, { slug: string; title: string }> | null
+  /** Optional: intercept card title clicks (e.g. open a detail modal instead of navigating). */
+  onSelect?: (entry: ContentEntry) => void
 }
 
 /** Order + presentation metadata for each content-type section. */
@@ -137,6 +139,7 @@ export function ContentGrid({
   jumpTarget,
   onJumped,
   arcMap,
+  onSelect,
 }: ContentGridProps) {
   const [search, setSearch] = useState(initialSearch)
   const [typeFilter, setTypeFilter] = useState<ContentType | "all">(initialType)
@@ -683,6 +686,7 @@ export function ContentGrid({
                   watchCount={watchCounts?.get(entry.id) ?? 0}
                   flash={flashId === entry.id}
                   arc={getArcForEntry(entry)}
+                  onSelect={onSelect}
                 />
               ))}
             </div>
@@ -721,6 +725,7 @@ export function ContentGrid({
                       rating={ratings?.get(entry.id) ?? 0}
                       onSetRating={onSetRating}
                       arc={getArcForEntry(entry)}
+                      onSelect={onSelect}
                     />
                   </div>
                 ))}
@@ -809,6 +814,7 @@ export function ContentGrid({
                         onSetRating={onSetRating}
                         flash={flashId === entry.id}
                         arc={getArcForEntry(entry)}
+                        onSelect={onSelect}
                       />
                     ))}
                   </div>
