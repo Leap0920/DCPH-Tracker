@@ -4,9 +4,12 @@ import { useState, useEffect, useRef, Suspense, useCallback } from "react"
 import { useRouter, useSearchParams } from "next/navigation"
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query"
 import { ContentGrid, type StatusFilter } from "@/components/tracker/ContentGrid"
+import { ContentDetail } from "@/components/tracker/ContentDetail"
 import { MotivationStats } from "@/components/tracker/MotivationStats"
 import { fetchContentEntries } from "@/lib/queries/client/content"
 import { Button } from "@/components/ui/button"
+import { X } from "lucide-react"
+import type { Database } from "@/types/database.types"
 import { createClient } from "@/utils/supabase/client"
 import { openAuthModal } from "@/lib/auth-modal"
 import {
@@ -31,6 +34,11 @@ import {
 const VALID_TYPES = new Set<string>([CONTENT_TYPES.EPISODE, CONTENT_TYPES.MOVIE, CONTENT_TYPES.SPECIAL, CONTENT_TYPES.OVA, CONTENT_TYPES.LIVE_ACTION, CONTENT_TYPES.MAGIC_KAITO, CONTENT_TYPES.HANZAWA, CONTENT_TYPES.ZERO_TEA_TIME, CONTENT_TYPES.YAIBA])
 const VALID_STATUS = new Set<string>([WATCH_STATUSES.UNWATCHED, WATCH_STATUSES.WATCHED, WATCH_STATUSES.REWATCHED])
 
+type ContentRow = Database["public"]["Tables"]["content_entries"]["Row"]
+type ContentEntry = ContentRow & {
+  arcs: Database["public"]["Tables"]["arcs"]["Row"] | null
+}
+
 function clampInt(value: string | null, min: number, max: number): number | null {
   if (!value) return null
   const n = Number.parseInt(value, 10)
@@ -46,6 +54,8 @@ function TrackerPageContent() {
   const searchParams = useSearchParams()
   const searchTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
   const queryClient = useQueryClient()
+  const [selectedEntry, setSelectedEntry] = useState<ContentEntry | null>(null)
+  const panelRef = useRef<HTMLDivElement | null>(null)
 
   // ── URL param parsing (invalid values fall back to defaults) ──
   const qParam = searchParams.get("q")?.slice(0, 100) ?? ""
@@ -103,6 +113,32 @@ function TrackerPageContent() {
   })
   const entries = contentQuery.data?.entries ?? []
   const arcMap = contentQuery.data?.arcMap ?? null
+
+  // Open the episode-detail modal instantly from cached data — merge the arc
+  // from arcMap (slug/title) with zero extra fetch. ContentDetail only reads
+  // arcs.slug / arcs.title, so the slimmer object satisfies the arcs Row type.
+  function openEpisode(entry: ContentRow) {
+    setSelectedEntry({
+      ...entry,
+      arcs: (arcMap?.get(entry.arc_id ?? "") ?? null) as ContentEntry["arcs"],
+    })
+  }
+
+  // Modal lifecycle: ESC closes, body scroll locked, focus moves into the panel.
+  useEffect(() => {
+    if (!selectedEntry) return
+    const prevOverflow = document.body.style.overflow
+    document.body.style.overflow = "hidden"
+    panelRef.current?.focus()
+    const onKeyDown = (e: KeyboardEvent) => {
+      if (e.key === "Escape") setSelectedEntry(null)
+    }
+    document.addEventListener("keydown", onKeyDown)
+    return () => {
+      document.body.style.overflow = prevOverflow
+      document.removeEventListener("keydown", onKeyDown)
+    }
+  }, [selectedEntry])
 
   // Highest episode number that exists, so the ?ep= jump param is never
   // rejected by a stale hardcoded ceiling.
@@ -399,6 +435,7 @@ function TrackerPageContent() {
                 onToggleFavorite={user ? handleToggleFavorite : undefined}
                 onSetRating={user ? handleSetRating : undefined}
                 onMarkAll={user ? handleMarkAll : undefined}
+                onSelect={openEpisode}
                 initialMode={initialMode}
                 initialStatusFilter={initialStatus}
                 initialSearch={qParam}
@@ -424,6 +461,44 @@ function TrackerPageContent() {
           </div>
         )}
       </div>
+
+      {selectedEntry && (
+        <div
+          className="fixed inset-0 z-50"
+          role="dialog"
+          aria-modal="true"
+          aria-label={selectedEntry.title}
+        >
+          {/* Backdrop — click to close */}
+          <div
+            className="absolute inset-0 bg-black/60 backdrop-blur-sm"
+            onClick={() => setSelectedEntry(null)}
+            aria-hidden="true"
+          />
+          {/* Panel: bottom sheet on mobile, centered dialog on sm+ */}
+          <div className="relative flex h-full items-end justify-center sm:items-center sm:p-4 sm:py-6">
+            <div
+              ref={panelRef}
+              tabIndex={-1}
+              className="relative w-full max-h-[90dvh] overflow-y-auto rounded-t-2xl border border-ink-dim/20 bg-surface shadow-card outline-none sm:max-h-[85dvh] sm:max-w-3xl sm:rounded-2xl"
+            >
+              <div className="sticky top-0 z-10 flex items-center justify-end border-b border-ink-dim/20 bg-surface/95 px-3 py-2.5 backdrop-blur-sm sm:px-4">
+                <button
+                  type="button"
+                  onClick={() => setSelectedEntry(null)}
+                  aria-label="Close case file"
+                  className="inline-flex h-8 w-8 items-center justify-center rounded-md text-ink-dim transition-colors hover:bg-surface-muted hover:text-ink"
+                >
+                  <X className="h-4 w-4" />
+                </button>
+              </div>
+              <div className="px-4 pt-4 pb-8 sm:px-6">
+                <ContentDetail entry={selectedEntry} inModal />
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
 }

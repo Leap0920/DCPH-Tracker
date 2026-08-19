@@ -74,7 +74,7 @@ function StarRow({ halfStars }: { halfStars: number }) {
   )
 }
 
-export function ContentDetail({ entry }: { entry: ContentEntry }) {
+export function ContentDetail({ entry, inModal }: { entry: ContentEntry; inModal?: boolean }) {
   const supabase = createClient()
   const queryClient = useQueryClient()
   const [userId, setUserId] = useState<string | null>(null)
@@ -270,14 +270,15 @@ export function ContentDetail({ entry }: { entry: ContentEntry }) {
 
   return (
     <div>
-      {/* Back to tracker */}
-      <Link
-        href="/tracker"
-        className="mb-6 inline-flex items-center gap-2 py-2.5 text-sm text-ink-dim hover:text-ink transition-colors"
-      >
-        <ArrowLeft className="h-4 w-4" />
-        Back to Case Files
-      </Link>
+      {!inModal && (
+        <Link
+          href="/tracker"
+          className="mb-6 inline-flex items-center gap-2 py-2.5 text-sm text-ink-dim hover:text-ink transition-colors"
+        >
+          <ArrowLeft className="h-4 w-4" />
+          Back to Case Files
+        </Link>
+      )}
 
       {/* Hero block */}
       <div className="overflow-hidden rounded-xl border border-ink-dim/20 bg-surface shadow-card">
@@ -464,41 +465,43 @@ export function ContentDetail({ entry }: { entry: ContentEntry }) {
       </div>
 
       {/* Prev / Next navigation */}
-      <div className="mt-8 flex items-center justify-between gap-4 border-t border-ink-dim/20 pt-4">
-        {prev ? (
-          <Link
-            href={`/tracker/${prev.slug}`}
-            className="group inline-flex max-w-[45%] items-center gap-2 text-sm text-ink-dim transition-colors hover:text-ink"
-          >
-            <ChevronLeft className="h-4 w-4 shrink-0 transition-transform group-hover:-translate-x-0.5" />
-            <span className="min-w-0">
-              <span className="block font-mono text-[10px] tracking-wide text-ink-faint uppercase">
-                Previous Episode
+      {!inModal && (
+        <div className="mt-8 flex items-center justify-between gap-4 border-t border-ink-dim/20 pt-4">
+          {prev ? (
+            <Link
+              href={`/tracker/${prev.slug}`}
+              className="group inline-flex max-w-[45%] items-center gap-2 text-sm text-ink-dim transition-colors hover:text-ink"
+            >
+              <ChevronLeft className="h-4 w-4 shrink-0 transition-transform group-hover:-translate-x-0.5" />
+              <span className="min-w-0">
+                <span className="block font-mono text-[10px] tracking-wide text-ink-faint uppercase">
+                  Previous Episode
+                </span>
+                <span className="block truncate font-display text-ink">{prev.title}</span>
               </span>
-              <span className="block truncate font-display text-ink">{prev.title}</span>
-            </span>
-          </Link>
-        ) : (
-          <span aria-hidden="true" />
-        )}
+            </Link>
+          ) : (
+            <span aria-hidden="true" />
+          )}
 
-        {next ? (
-          <Link
-            href={`/tracker/${next.slug}`}
-            className="group inline-flex max-w-[45%] items-center justify-end gap-2 text-right text-sm text-ink-dim transition-colors hover:text-ink"
-          >
-            <span className="min-w-0">
-              <span className="block font-mono text-[10px] tracking-wide text-ink-faint uppercase">
-                Next Episode
+          {next ? (
+            <Link
+              href={`/tracker/${next.slug}`}
+              className="group inline-flex max-w-[45%] items-center justify-end gap-2 text-right text-sm text-ink-dim transition-colors hover:text-ink"
+            >
+              <span className="min-w-0">
+                <span className="block font-mono text-[10px] tracking-wide text-ink-faint uppercase">
+                  Next Episode
+                </span>
+                <span className="block truncate font-display text-ink">{next.title}</span>
               </span>
-              <span className="block truncate font-display text-ink">{next.title}</span>
-            </span>
-            <ChevronRight className="h-4 w-4 shrink-0 transition-transform group-hover:translate-x-0.5" />
-          </Link>
-        ) : (
-          <span aria-hidden="true" />
-        )}
-      </div>
+              <ChevronRight className="h-4 w-4 shrink-0 transition-transform group-hover:translate-x-0.5" />
+            </Link>
+          ) : (
+            <span aria-hidden="true" />
+          )}
+        </div>
+      )}
     </div>
   )
 }

@@ -30,6 +30,8 @@ interface ContentCardProps {
   arc?: { slug: string; title: string } | null
   /** Brief highlight ring, used by the jump-to-episode feature. */
   flash?: boolean
+  /** Optional: intercept title clicks (e.g. open a detail modal instead of navigating). */
+  onSelect?: (entry: ContentEntry) => void
 }
 
 const typeBadgeClass: Record<string, string> = {
@@ -55,6 +57,7 @@ export function ContentCard({
   onSetRating,
   arc,
   flash = false,
+  onSelect,
 }: ContentCardProps) {
   const status = watchStatus ?? "none"
   const isSeen = status === "watched" || status === "rewatched"
@@ -183,7 +186,13 @@ export function ContentCard({
           </span>
         </div>
 
-        <Link href={`/tracker/${entry.slug}`}>
+        <Link
+          href={`/tracker/${entry.slug}`}
+          onClick={(e) => {
+            e.preventDefault()
+            onSelect?.(entry)
+          }}
+        >
           <h3 className="font-display text-sm tracking-tight text-ink group-hover:text-ink-dim transition-colors line-clamp-2">
             {entry.title}
           </h3>
