@@ -9,11 +9,11 @@ type DocumentWithViewTransition = Document & {
 }
 
 /**
- * Dark/light toggle. On supported browsers the flip runs through
- * document.startViewTransition so the global CSS plays the diagonal
- * slash wipe reveal (globals.css ::view-transition-* rules). Falls back
- * to an instant swap when the API is missing or the user prefers
- * reduced motion.
+ * Dark/light toggle. Dark is the default; light is a legacy opt-in. On
+ * supported browsers the flip runs through document.startViewTransition so
+ * the global CSS plays the diagonal slash wipe reveal (globals.css
+ * ::view-transition-* rules). Falls back to an instant swap when the API is
+ * missing or the user prefers reduced motion.
  */
 export function ThemeToggle({
   className,
@@ -44,7 +44,7 @@ export function ThemeToggle({
       variant="ghost"
       size={withLabel ? "sm" : "icon"}
       onClick={handleClick}
-      aria-label="Toggle dark mode"
+      aria-label={isDark ? "Switch to light mode" : "Switch to dark mode"}
       aria-pressed={isDark}
       className={className}
     >
