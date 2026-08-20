@@ -1,7 +1,6 @@
 import { createClient } from "@/utils/supabase/server"
 import { requireAdmin } from "@/lib/auth/admin"
 import { MissingCoversPanel } from "@/components/admin/MissingCoversPanel"
-import { Image as ImageIcon } from "lucide-react"
 
 export const dynamic = "force-dynamic"
 
@@ -19,25 +18,21 @@ export default async function AdminMissingCoversPage() {
   const entries = missingEntries ?? []
 
   return (
-    <div className="space-y-6">
-      <div className="flex flex-col gap-2 border-b border-line pb-5">
-        <div className="flex items-center gap-2">
-          <ImageIcon className="h-5 w-5 text-warning" />
-          <h1 className="font-display text-xl font-semibold text-ink">Missing Cover Quick-Fix Panel</h1>
+    <div className="space-y-5">
+      <div className="flex flex-wrap items-end justify-between gap-3 border-b border-line pb-4">
+        <div>
+          <h1 className="text-base font-medium tracking-tight text-ink">Missing Covers</h1>
+          <p className="mt-1 max-w-xl text-xs leading-relaxed text-ink-dim">
+            Content entries with no cover poster image. Paste an image URL or upload a file directly.
+          </p>
         </div>
-        <p className="text-sm text-ink-dim">
-          Direct queue of all content entries missing cover poster images. Paste image URLs or upload files directly.
-        </p>
-      </div>
-
-      <div className="flex items-center justify-between rounded-lg border border-warning/30 bg-warning/10 p-4">
-        <div className="flex items-center gap-3">
-          <span className="flex h-8 w-8 items-center justify-center rounded-full bg-warning/20 text-warning font-mono text-sm font-semibold">
+        <div className="flex items-center gap-2">
+          <span className="font-mono text-[10px] uppercase tracking-[0.12em] text-ink-faint">
+            Missing
+          </span>
+          <span className="inline-flex items-center rounded-md border border-warning/25 bg-warning/10 px-1.5 py-0.5 font-mono text-[10px] tabular-nums text-warning">
             {entries.length}
           </span>
-          <div className="text-sm text-warning font-display">
-            Entries currently missing poster artwork
-          </div>
         </div>
       </div>
 

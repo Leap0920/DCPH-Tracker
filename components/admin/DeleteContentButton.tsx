@@ -28,7 +28,7 @@ export function DeleteContentButton({ id, title }: { id: string; title: string }
         <button
           onClick={handleDelete}
           disabled={pending}
-          className="inline-flex items-center gap-1 rounded-md bg-red-600 px-2 py-1 text-[11px] font-medium text-white hover:bg-red-700 disabled:opacity-60"
+          className="inline-flex h-7 items-center gap-1 rounded-md border border-danger/30 bg-danger/10 px-2 font-mono text-[10px] uppercase tracking-wide text-danger transition-colors hover:bg-danger/20 focus:outline-none focus-visible:ring-1 focus-visible:ring-danger/40 disabled:opacity-50"
         >
           {pending ? <Loader2 className="h-3 w-3 animate-spin" /> : null}
           Confirm
@@ -36,7 +36,7 @@ export function DeleteContentButton({ id, title }: { id: string; title: string }
         <button
           onClick={() => setConfirming(false)}
           disabled={pending}
-          className="rounded-md border border-ink-dim/20 px-2 py-1 text-[11px] text-ink-dim hover:text-ink"
+          className="inline-flex h-7 items-center rounded-md border border-line px-2 font-mono text-[10px] uppercase tracking-wide text-ink-faint transition-colors hover:bg-white/[0.03] hover:text-ink focus:outline-none focus-visible:ring-1 focus-visible:ring-accent/40 disabled:opacity-50"
         >
           Cancel
         </button>
@@ -48,9 +48,9 @@ export function DeleteContentButton({ id, title }: { id: string; title: string }
     <button
       onClick={() => setConfirming(true)}
       aria-label={`Delete ${title}`}
-      className="inline-flex h-8 w-8 items-center justify-center rounded-md text-ink-faint hover:bg-red-500/10 hover:text-red-400 transition-colors"
+      className="inline-flex h-7 w-7 items-center justify-center rounded-md text-ink-faint transition-colors hover:bg-danger/10 hover:text-danger focus:outline-none focus-visible:ring-1 focus-visible:ring-danger/40"
     >
-      <Trash2 className="h-4 w-4" />
+      <Trash2 className="h-3.5 w-3.5" />
     </button>
   )
 }

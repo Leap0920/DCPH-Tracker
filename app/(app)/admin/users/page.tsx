@@ -1,4 +1,5 @@
 import Link from "next/link"
+import { Search } from "lucide-react"
 import { createClient } from "@/utils/supabase/server"
 import { requireAdmin } from "@/lib/auth/admin"
 import { RoleSelect } from "@/components/admin/RoleSelect"
@@ -9,9 +10,9 @@ export const dynamic = "force-dynamic"
 const PAGE_SIZE = 50
 
 const STATUS_LABELS: Record<string, { label: string; className: string }> = {
-  active: { label: "Active", className: "bg-success/10 text-success" },
-  suspended: { label: "Suspended", className: "bg-warning/10 text-warning" },
-  banned: { label: "Banned", className: "bg-danger/10 text-danger" },
+  active: { label: "Active", className: "border-success/25 bg-success/10 text-success" },
+  suspended: { label: "Suspended", className: "border-warning/25 bg-warning/10 text-warning" },
+  banned: { label: "Banned", className: "border-danger/25 bg-danger/10 text-danger" },
 }
 
 export default async function AdminUsersPage({
@@ -57,70 +58,94 @@ export default async function AdminUsersPage({
   const totalPages = Math.max(1, Math.ceil(total / PAGE_SIZE))
 
   return (
-    <div className="space-y-5">
-      <h2 className="font-display text-sm tracking-tight text-ink-dim">
-        Users ({total})
-      </h2>
+    <div className="space-y-4">
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <div className="flex items-baseline gap-2">
+          <h2 className="font-mono text-[10px] uppercase tracking-[0.12em] text-ink-faint">
+            Users
+          </h2>
+          <span className="font-mono text-[10px] tabular-nums text-ink-dim">{total}</span>
+        </div>
 
-      <form className="relative max-w-sm">
-        <input
-          name="q"
-          defaultValue={q}
-          placeholder="Search username or display name…"
-          className="h-10 w-full rounded-lg border border-line bg-surface px-3 text-sm text-ink placeholder:text-ink-faint focus:outline-none focus:ring-2 focus:ring-accent/20 focus:border-accent"
-        />
-      </form>
+        <form className="relative w-full max-w-xs">
+          <Search className="pointer-events-none absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-ink-faint" />
+          <input
+            name="q"
+            defaultValue={q}
+            placeholder="Search username or display name…"
+            className="h-8 w-full rounded-md border border-line bg-surface pl-8 pr-2.5 text-xs text-ink placeholder:text-ink-faint focus:border-accent focus:outline-none focus-visible:ring-1 focus-visible:ring-accent/30"
+          />
+        </form>
+      </div>
 
-      <div className="overflow-x-auto rounded-lg border border-line bg-surface shadow-card">
+      <div className="overflow-x-auto rounded-md border border-line bg-surface">
         <table className="w-full text-sm">
           <thead>
-            <tr className="border-b border-line text-left">
-              <th className="p-3 font-mono text-[10px] text-ink-faint">User</th>
-              <th className="p-3 font-mono text-[10px] text-ink-faint">Joined</th>
-              <th className="p-3 font-mono text-[10px] text-ink-faint">Role</th>
-              <th className="p-3 font-mono text-[10px] text-ink-faint">Status</th>
-              <th className="p-3 font-mono text-[10px] text-ink-faint">Moderation</th>
+            <tr className="border-b border-line bg-white/[0.02] text-left">
+              <th className="px-3 py-2 font-mono text-[10px] font-normal uppercase tracking-wider text-ink-faint">
+                User
+              </th>
+              <th className="px-3 py-2 font-mono text-[10px] font-normal uppercase tracking-wider text-ink-faint">
+                Joined
+              </th>
+              <th className="px-3 py-2 font-mono text-[10px] font-normal uppercase tracking-wider text-ink-faint">
+                Role
+              </th>
+              <th className="px-3 py-2 font-mono text-[10px] font-normal uppercase tracking-wider text-ink-faint">
+                Status
+              </th>
+              <th className="px-3 py-2 font-mono text-[10px] font-normal uppercase tracking-wider text-ink-faint">
+                Moderation
+              </th>
             </tr>
           </thead>
           <tbody>
             {(users ?? []).map((u) => {
               const statusMeta = STATUS_LABELS[u.status] ?? STATUS_LABELS.active
               return (
-              <tr key={u.user_id} className="border-b border-line last:border-0 hover:bg-surface-muted">
-                <td className="p-3">
-                  <Link href={`/profile/${u.username}`} className="font-medium text-ink hover:underline">
-                    {u.display_name}
-                  </Link>
-                  <span className="block font-mono text-[11px] text-ink-faint">@{u.username}</span>
-                </td>
-                <td className="p-3 font-mono text-xs text-ink-dim">
-                  {new Date(u.created_at).toLocaleDateString()}
-                </td>
-                <td className="p-3">
-                  <RoleSelect
-                    userId={u.user_id}
-                    role={u.role}
-                    isSelf={u.user_id === me.user_id}
-                  />
-                </td>
-                <td className="p-3">
-                  <span className={`inline-flex rounded-md px-2 py-0.5 font-mono text-[10px] ${statusMeta.className}`}>
-                    {statusMeta.label}
-                  </span>
-                </td>
-                <td className="p-3">
-                  <UserActions
-                    userId={u.user_id}
-                    status={u.status ?? "active"}
-                    isSelf={u.user_id === me.user_id}
-                  />
-                </td>
-              </tr>
+                <tr
+                  key={u.user_id}
+                  className="border-b border-line transition-colors last:border-0 hover:bg-white/[0.03]"
+                >
+                  <td className="px-3 py-2.5">
+                    <Link
+                      href={`/profile/${u.username}`}
+                      className="rounded-sm text-[13px] text-ink hover:text-accent focus:outline-none focus-visible:ring-1 focus-visible:ring-accent/40"
+                    >
+                      {u.display_name}
+                    </Link>
+                    <span className="block font-mono text-[10px] text-ink-faint">@{u.username}</span>
+                  </td>
+                  <td className="px-3 py-2.5 font-mono text-[11px] tabular-nums text-ink-dim">
+                    {new Date(u.created_at).toLocaleDateString()}
+                  </td>
+                  <td className="px-3 py-2.5">
+                    <RoleSelect
+                      userId={u.user_id}
+                      role={u.role}
+                      isSelf={u.user_id === me.user_id}
+                    />
+                  </td>
+                  <td className="px-3 py-2.5">
+                    <span
+                      className={`inline-flex items-center rounded-md border px-1.5 py-0.5 font-mono text-[10px] uppercase tracking-wide ${statusMeta.className}`}
+                    >
+                      {statusMeta.label}
+                    </span>
+                  </td>
+                  <td className="px-3 py-2.5">
+                    <UserActions
+                      userId={u.user_id}
+                      status={u.status ?? "active"}
+                      isSelf={u.user_id === me.user_id}
+                    />
+                  </td>
+                </tr>
               )
             })}
             {(users ?? []).length === 0 && (
               <tr>
-                <td colSpan={5} className="p-10 text-center text-sm text-ink-dim">
+                <td colSpan={5} className="px-3 py-12 text-center text-xs text-ink-dim">
                   No users found.
                 </td>
               </tr>
@@ -130,24 +155,28 @@ export default async function AdminUsersPage({
       </div>
 
       {totalPages > 1 && (
-        <div className="flex items-center justify-center gap-4 pt-2">
+        <div className="flex items-center justify-center gap-3">
           <Link
             href={`/admin/users?page=${page - 1}${q ? `&q=${encodeURIComponent(q)}` : ""}`}
             aria-disabled={page <= 1}
-            className={`rounded-md border border-line px-3 py-1 font-mono text-xs ${
-              page <= 1 ? "pointer-events-none opacity-40" : "text-ink hover:bg-surface-muted"
+            className={`rounded-md border border-line px-2.5 py-1 font-mono text-[10px] uppercase tracking-wide transition-colors focus:outline-none focus-visible:ring-1 focus-visible:ring-accent/40 ${
+              page <= 1
+                ? "pointer-events-none opacity-40"
+                : "text-ink-dim hover:bg-white/[0.03] hover:text-ink"
             }`}
           >
             ← Prev
           </Link>
-          <span className="font-mono text-xs text-ink-dim">
-            Page {page} / {totalPages}
+          <span className="font-mono text-[10px] tabular-nums text-ink-faint">
+            {page} / {totalPages}
           </span>
           <Link
             href={`/admin/users?page=${page + 1}${q ? `&q=${encodeURIComponent(q)}` : ""}`}
             aria-disabled={page >= totalPages}
-            className={`rounded-md border border-line px-3 py-1 font-mono text-xs ${
-              page >= totalPages ? "pointer-events-none opacity-40" : "text-ink hover:bg-surface-muted"
+            className={`rounded-md border border-line px-2.5 py-1 font-mono text-[10px] uppercase tracking-wide transition-colors focus:outline-none focus-visible:ring-1 focus-visible:ring-accent/40 ${
+              page >= totalPages
+                ? "pointer-events-none opacity-40"
+                : "text-ink-dim hover:bg-white/[0.03] hover:text-ink"
             }`}
           >
             Next →

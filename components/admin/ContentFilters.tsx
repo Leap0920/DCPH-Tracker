@@ -2,8 +2,11 @@
 
 import { useRouter, useSearchParams } from "next/navigation"
 import { useState } from "react"
-import { Search } from "lucide-react"
+import { Search, ChevronDown } from "lucide-react"
 import { CONTENT_TYPE_LABELS } from "@/lib/constants"
+
+const controlCls =
+  "h-10 rounded-md border border-line bg-surface text-sm text-ink placeholder:text-ink-faint transition-colors focus-visible:outline-none focus-visible:border-accent focus-visible:ring-1 focus-visible:ring-accent/40"
 
 export function ContentFilters() {
   const router = useRouter()
@@ -27,28 +30,44 @@ export function ContentFilters() {
   }
 
   return (
-    <div className="flex flex-wrap items-center gap-3">
-      <form onSubmit={onSearch} className="relative flex-1 min-w-[200px]">
-        <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-ink-faint" />
+    <div className="flex flex-wrap items-center gap-2">
+      <form onSubmit={onSearch} role="search" className="relative min-w-[200px] flex-1">
+        <Search
+          className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-ink-faint"
+          aria-hidden="true"
+        />
         <input
+          id="content-search"
+          name="q"
+          type="search"
           value={q}
           onChange={(e) => setQ(e.target.value)}
+          aria-label="Search content by title or slug"
           placeholder="Search title or slug…"
-          className="h-10 w-full rounded-lg border border-ink-dim/20 bg-surface pl-10 pr-3 text-sm text-ink placeholder:text-ink-faint focus:outline-none focus:ring-2 focus:ring-accent/20 focus:border-accent"
+          className={`${controlCls} w-full pl-9 pr-3`}
         />
       </form>
-      <select
-        value={type}
-        onChange={(e) => apply({ type: e.target.value })}
-        className="h-10 rounded-lg border border-ink-dim/20 bg-surface px-3 text-sm text-ink focus:outline-none focus:ring-2 focus:ring-accent/20"
-      >
-        <option value="all">All types</option>
-        {Object.entries(CONTENT_TYPE_LABELS).map(([value, label]) => (
-          <option key={value} value={value}>
-            {label}
-          </option>
-        ))}
-      </select>
+
+      <div className="relative">
+        <select
+          id="content-type-filter"
+          value={type}
+          onChange={(e) => apply({ type: e.target.value })}
+          aria-label="Filter by content type"
+          className={`${controlCls} appearance-none pl-3 pr-9`}
+        >
+          <option value="all">All types</option>
+          {Object.entries(CONTENT_TYPE_LABELS).map(([value, label]) => (
+            <option key={value} value={value}>
+              {label}
+            </option>
+          ))}
+        </select>
+        <ChevronDown
+          className="pointer-events-none absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 text-ink-faint"
+          aria-hidden="true"
+        />
+      </div>
     </div>
   )
 }

@@ -21,18 +21,19 @@ export default async function AdminSyncPage() {
   }
 
   return (
-    <div className="space-y-8">
-      <div>
-        <h1 className="font-display text-xl font-semibold text-ink">API Sync & Approval Queue</h1>
-        <p className="mt-1 text-sm text-ink-dim">
-          Fetch new episodes and franchise metadata from external APIs, review incoming items, and publish approved content to the official tracker.
+    <div className="space-y-6">
+      <div className="border-b border-line pb-4">
+        <h1 className="text-base font-medium tracking-tight text-ink">API Sync &amp; Approval Queue</h1>
+        <p className="mt-1 max-w-2xl text-xs leading-relaxed text-ink-dim">
+          Fetch new episodes and franchise metadata from external APIs, review incoming items, and
+          publish approved content to the official tracker.
         </p>
       </div>
 
       <SyncApprovalQueue items={stagedItems} />
 
-      <div className="pt-6 border-t border-line">
-        <h2 className="font-display text-base font-semibold text-ink mb-4">
+      <div className="space-y-3 border-t border-line pt-6">
+        <h2 className="font-mono text-[10px] uppercase tracking-[0.12em] text-ink-faint">
           Manual API Sync Controls
         </h2>
         <SyncPanel />
