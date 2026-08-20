@@ -105,7 +105,12 @@ export default async function RootLayout({
             components/theme-provider.tsx (same key "dcph-theme-v2", same
             default dark). Carries the CSP nonce because it is inline and a
             nonce-based policy would otherwise block it. */}
-        <Script id="dcph-theme-init" strategy="beforeInteractive" nonce={nonce}>
+        <Script
+          id="dcph-theme-init"
+          strategy="beforeInteractive"
+          suppressHydrationWarning
+          {...(nonce ? { nonce } : {})}
+        >
           {`(function(){try{if(localStorage.getItem("dcph-theme-v2")==="light"){document.documentElement.classList.remove("dark");}}catch(e){}})();`}
         </Script>
         <ThemeProvider>

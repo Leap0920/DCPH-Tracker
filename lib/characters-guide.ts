@@ -739,8 +739,8 @@ export const CHARACTERS: Character[] = [
     role: "Deceased shogi champion, Rum clue",
     affiliation: "Haneda Family",
     bio: "A deceased shogi champion whose dying message first hinted at Rum's existence. His case ties Shukichi, Amanda, and Asaka together.",
-    x: 2000,
-    y: 220,
+    x: 1400,
+    y: 560,
   },
   {
     id: "amanda-hughes",
@@ -748,8 +748,8 @@ export const CHARACTERS: Character[] = [
     role: "Wealthy American investor, victim in Kohji case",
     affiliation: "Civilian",
     bio: "A wealthy American investor found dead alongside Kohji Haneda. Her bodyguard Asaka vanished after her death, deepening the Rum mystery.",
-    x: 2100,
-    y: 300,
+    x: 1500,
+    y: 640,
   },
   {
     id: "asaka",
@@ -757,8 +757,8 @@ export const CHARACTERS: Character[] = [
     role: "Amanda Hughes's missing bodyguard",
     affiliation: "Civilian",
     bio: "Amanda Hughes's bodyguard who vanished after her death. Rum is suspected to be Asaka, tying the 17-year-old case to the present.",
-    x: 2050,
-    y: 340,
+    x: 1450,
+    y: 680,
   },
 
   // ─── FBI Additions ──────────────────────────────────────────────────────
@@ -864,8 +864,8 @@ export const CHARACTERS: Character[] = [
     role: "Kyoto inspector, Karasuma connection",
     affiliation: "Kyoto Police",
     bio: "A refined Kyoto inspector with a chipmunk companion, tied to the Karasuma estate and the Rum investigation.",
-    x: 480,
-    y: 1600,
+    x: 650,
+    y: 950,
   },
   {
     id: "tamekichi-matsushiro",
@@ -900,8 +900,8 @@ export const CHARACTERS: Character[] = [
     role: "Kyoto police, Ayanokoji's aide",
     affiliation: "Kyoto Police",
     bio: "A Kyoto police aide to Inspector Ayanokoji, diligent and soft-spoken.",
-    x: 540,
-    y: 1650,
+    x: 710,
+    y: 1000,
   },
   {
     id: "tsuyoshi-shikatsuno",
