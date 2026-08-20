@@ -17,7 +17,18 @@ type ThemeContextValue = {
   toggleTheme: () => void
 }
 
-const STORAGE_KEY = "dcph-theme"
+/**
+ * v2 = dark is now the DEFAULT rather than an opt-in. The key was bumped
+ * so visitors who had explicitly chosen "light" under the old theme are
+ * migrated to the new default exactly once, instead of being stuck on the
+ * legacy palette forever. Must stay in sync with the beforeInteractive
+ * FOUC script in app/layout.tsx.
+ */
+const STORAGE_KEY = "dcph-theme-v2"
+const LEGACY_STORAGE_KEY = "dcph-theme"
+
+/** Dark is the product identity — light is a legacy opt-in. */
+export const DEFAULT_THEME: Theme = "dark"
 
 const ThemeContext = createContext<ThemeContextValue | null>(null)
 
@@ -35,11 +46,10 @@ function readStoredTheme(): Theme | null {
 export function ThemeProvider({ children }: { children: React.ReactNode }) {
   // Initialise from the exact same source the beforeInteractive FOUC guard
   // in app/layout.tsx used, so provider state and the <html> class can
-  // never disagree after hydration. Defaults to LIGHT (white) — dark mode
-  // is opt-in via the toggle and persists to localStorage.
+  // never disagree after hydration. Defaults to DARK.
   const [theme, setThemeState] = useState<Theme>(() => {
-    if (typeof window === "undefined") return "light"
-    return readStoredTheme() ?? "light"
+    if (typeof window === "undefined") return DEFAULT_THEME
+    return readStoredTheme() ?? DEFAULT_THEME
   })
 
   const applyTheme = useCallback((next: Theme) => {
@@ -65,12 +75,22 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
     setTheme(next)
   }, [setTheme])
 
-  // Reconcile the <html> class with provider state once mounted. Normally the
-  // inline script already did this pre-paint; this covers edge cases where the
-  // script did not run (e.g. streaming hydration).
+  // Reconcile the <html> class with provider state once mounted. Normally
+  // the server-rendered `dark` class + inline script already did this
+  // pre-paint; this covers edge cases where the script did not run.
   useEffect(() => {
     applyTheme(theme)
   }, [theme, applyTheme])
+
+  // One-time migration cleanup: drop the pre-v2 key so a stale bundle can
+  // never read it again.
+  useEffect(() => {
+    try {
+      window.localStorage.removeItem(LEGACY_STORAGE_KEY)
+    } catch {
+      // best-effort
+    }
+  }, [])
 
   const value = useMemo(
     () => ({ theme, setTheme, toggleTheme }),

@@ -210,7 +210,7 @@ export function Navbar() {
       className={cn(
         "fixed top-0 left-0 right-0 z-40 border-b bg-surface/90 backdrop-blur-md transition-[transform,box-shadow,background-color,border-color] duration-300",
         scrolled
-          ? "border-ink-dim/20 shadow-md bg-surface/95"
+          ? "border-line shadow-card bg-surface/95"
           : "border-transparent shadow-none",
         navVisible ? "translate-y-0" : "-translate-y-full"
       )}
@@ -233,7 +233,7 @@ export function Navbar() {
             className="h-8 w-auto object-contain transition-transform duration-300 group-hover:scale-105 group-hover:-rotate-3"
           />
           <span className="font-display text-lg text-ink hidden sm:block">
-            Detective Conan <span className="text-ink-dim transition-colors duration-300 group-hover:text-accent">PH</span>
+            Detective Conan <span className="text-ink-dim transition-colors duration-300 group-hover:text-accent-bright">PH</span>
           </span>
         </Link>
 
@@ -289,7 +289,7 @@ export function Navbar() {
                       )}
                     >
                       {Icon && (
-                        <Icon className="h-4 w-4 mt-0.5 text-accent shrink-0 transition-transform duration-200 group-hover:scale-110" />
+                        <Icon className="h-4 w-4 mt-0.5 text-accent-bright shrink-0 transition-transform duration-200 group-hover:scale-110" />
                       )}
                       <div>
                         <div className="font-display text-xs font-medium text-ink">{item.label}</div>
@@ -333,7 +333,7 @@ export function Navbar() {
                       )}
                     >
                       {Icon && (
-                        <Icon className="h-4 w-4 mt-0.5 text-accent shrink-0 transition-transform duration-200 group-hover:scale-110" />
+                        <Icon className="h-4 w-4 mt-0.5 text-accent-bright shrink-0 transition-transform duration-200 group-hover:scale-110" />
                       )}
                       <div>
                         <div className="font-display text-xs font-medium text-ink">{item.label}</div>
@@ -364,12 +364,12 @@ export function Navbar() {
                   <DropdownMenuTrigger asChild>
                     <button
                       type="button"
-                      className="hidden md:flex items-center gap-2 pl-1.5 pr-2.5 py-1 rounded-full border border-ink-dim/20 bg-surface-muted/50 hover:bg-surface-muted hover:border-accent/40 transition-all outline-none"
+                      className="group hidden md:flex items-center gap-2 pl-1.5 pr-2.5 py-1 rounded-full border border-line bg-surface-muted hover:border-accent/60 transition-all outline-none"
                     >
                       <img
                         src={profile?.avatar_url || avatarUrl(profile?.display_name || user.email || "Detective")}
                         alt={profile?.display_name || "Profile"}
-                        className="h-6 w-6 rounded-full object-cover border border-ink-dim/20"
+                        className="h-6 w-6 rounded-full object-cover border border-line"
                       />
                       <span className="font-display text-xs text-ink font-medium max-w-[110px] truncate">
                         {profile?.display_name || "Detective"}
@@ -386,7 +386,7 @@ export function Navbar() {
                         @{profile?.username || user.email?.split("@")[0]}
                       </div>
                       {profile?.role === "admin" && (
-                        <span className="inline-flex items-center gap-1 mt-1.5 px-1.5 py-0.5 rounded text-[10px] font-mono bg-accent/15 text-accent font-semibold">
+                        <span className="inline-flex items-center gap-1 mt-1.5 px-1.5 py-0.5 rounded text-[10px] font-mono bg-accent/15 text-accent-bright font-semibold">
                           <ShieldCheck className="h-3 w-3" /> Admin
                         </span>
                       )}
@@ -400,7 +400,7 @@ export function Navbar() {
                     </DropdownMenuItem>
                     {profile?.role === "admin" && (
                       <DropdownMenuItem asChild>
-                        <Link href="/admin" className="flex items-center gap-2.5 px-3 py-2 text-xs font-display cursor-pointer text-accent font-medium">
+                        <Link href="/admin" className="flex items-center gap-2.5 px-3 py-2 text-xs font-display cursor-pointer text-accent-bright font-medium">
                           <ShieldCheck className="h-4 w-4" />
                           Admin Console
                         </Link>
@@ -420,7 +420,7 @@ export function Navbar() {
                     <DropdownMenuSeparator />
                     <DropdownMenuItem
                       onClick={handleSignOut}
-                      className="flex items-center gap-2.5 px-3 py-2 text-xs font-display text-red-500 hover:text-red-600 dark:hover:text-red-400 cursor-pointer focus:bg-red-500/10"
+                      className="flex items-center gap-2.5 px-3 py-2 text-xs font-display text-danger hover:text-danger/80 cursor-pointer focus:bg-danger/10"
                     >
                       <LogOut className="h-4 w-4" />
                       Sign Out
@@ -433,7 +433,7 @@ export function Navbar() {
                   <button
                     type="button"
                     onClick={() => openAuthModal("signin")}
-                    className="inline-flex items-center justify-center rounded-md border border-ink-dim/20 bg-surface px-3 h-8 text-xs font-display text-ink-dim hover:text-ink hover:border-accent/40 transition-colors"
+                    className="inline-flex items-center justify-center rounded-md border border-line bg-surface px-3 h-8 text-xs font-display text-ink-dim hover:text-ink hover:border-accent/60 transition-colors"
                   >
                     Sign In
                   </button>
@@ -462,7 +462,7 @@ export function Navbar() {
           initial={{ opacity: 0, y: -8 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.25, ease: [0.16, 1, 0.3, 1] }}
-          className="md:hidden border-t border-ink-dim/20 bg-surface/95 backdrop-blur-md max-h-[calc(100vh-4rem)] overflow-y-auto"
+          className="md:hidden border-t border-line bg-surface/95 backdrop-blur-md max-h-[calc(100vh-4rem)] overflow-y-auto"
         >
           <div className="flex flex-col px-6 py-4 gap-4">
             {/* Section: Main */}
@@ -509,7 +509,7 @@ export function Navbar() {
                           : "text-ink-dim hover:text-ink hover:bg-surface-muted"
                       )}
                     >
-                      {Icon && <Icon className="h-4 w-4 text-accent" />}
+                      {Icon && <Icon className="h-4 w-4 text-accent-bright" />}
                       <span>{item.label}</span>
                     </Link>
                   )
@@ -536,7 +536,7 @@ export function Navbar() {
                           : "text-ink-dim hover:text-ink hover:bg-surface-muted"
                       )}
                     >
-                      {Icon && <Icon className="h-4 w-4 text-accent" />}
+                      {Icon && <Icon className="h-4 w-4 text-accent-bright" />}
                       <span>{item.label}</span>
                     </Link>
                   )
@@ -545,7 +545,7 @@ export function Navbar() {
             </div>
 
             {/* Section: Account / Auth */}
-            <div className="pt-3 border-t border-ink-dim/20">
+            <div className="pt-3 border-t border-line">
               <NotificationBell mobile />
               {!loading && (
                 <>
@@ -553,7 +553,7 @@ export function Navbar() {
                     <div className="flex flex-col gap-1 mt-2">
                       {profile?.role === "admin" && (
                         <Link href="/admin" onClick={() => setMobileOpen(false)}>
-                          <Button variant="ghost" className="w-full justify-start gap-2.5 font-display text-accent">
+                          <Button variant="ghost" className="w-full justify-start gap-2.5 font-display text-accent-bright">
                             <ShieldCheck className="h-4 w-4" />
                             Admin Console
                           </Button>
@@ -578,7 +578,7 @@ export function Navbar() {
                           setMobileOpen(false)
                           handleSignOut()
                         }}
-                        className="w-full justify-start gap-2.5 font-display text-red-500 hover:text-red-600"
+                        className="w-full justify-start gap-2.5 font-display text-danger hover:text-danger/80"
                       >
                         <LogOut className="h-4 w-4" />
                         Sign Out
@@ -593,7 +593,7 @@ export function Navbar() {
                           setMobileOpen(false)
                           openAuthModal("signin")
                         }}
-                        className="w-full inline-flex items-center justify-center rounded-md border border-ink-dim/20 bg-surface px-3 py-2.5 text-sm font-display text-ink-dim hover:text-ink transition-colors"
+                        className="w-full inline-flex items-center justify-center rounded-md border border-line bg-surface px-3 py-2.5 text-sm font-display text-ink-dim hover:text-ink hover:border-accent/60 transition-colors"
                       >
                         Sign In
                       </button>
