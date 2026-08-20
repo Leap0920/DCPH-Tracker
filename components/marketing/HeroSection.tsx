@@ -241,11 +241,11 @@ export function HeroSection({ liveBadge }: HeroSectionProps) {
         </AnimatePresence>
       </div>
 
-      {/* Hero media — scroll-driven video */}
+      {/* Hero media — scroll-driven video — borderless, maximized width */}
       <div
         ref={scrollRef}
         style={{ aspectRatio: videoAspect ? String(videoAspect) : "16 / 9" }}
-        className="relative w-full max-w-6xl px-4 sm:px-8 overflow-hidden rounded-2xl z-10 mt-10 sm:mt-24 border-2 border-ink-dim/20"
+        className="relative w-full max-w-[1600px] px-2 sm:px-4 lg:px-6 overflow-hidden rounded-2xl z-10 mt-10 sm:mt-24 border-0"
       >
         <motion.div
           style={{ scale, opacity }}
