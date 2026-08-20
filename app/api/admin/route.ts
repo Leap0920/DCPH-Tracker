@@ -16,7 +16,7 @@ export async function GET(request: NextRequest) {
     const rl = await rateLimitPersistent(`admin:get:${authRateLimitKey(request)}`, {
       limit: 30,
       windowMs: 60_000,
-      failClosed: false,
+      failClosed: true,
     })
     if (!rl.allowed) return fail(429, "Too many requests. Please slow down.")
     const supabase = await createClient()
@@ -59,7 +59,7 @@ export async function PUT(request: NextRequest) {
     const rl = await rateLimitPersistent(`admin:put:${authRateLimitKey(request)}`, {
       limit: 10,
       windowMs: 60_000,
-      failClosed: false,
+      failClosed: true,
     })
     if (!rl.allowed) return fail(429, "Too many requests. Please slow down.")
     const supabase = await createClient()

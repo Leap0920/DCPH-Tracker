@@ -83,7 +83,7 @@ export async function POST(request: NextRequest) {
     const rl = await rateLimitPersistent(`sync:post:${authRateLimitKey(request)}`, {
       limit: 2,
       windowMs: 60_000,
-      failClosed: false,
+      failClosed: true,
     })
     if (!rl.allowed) {
       return NextResponse.json({ error: "Too many requests" }, { status: 429 })
