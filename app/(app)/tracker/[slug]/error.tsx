@@ -28,7 +28,7 @@ export default function EpisodeError({
         <Button onClick={reset} className="rounded-lg font-display">
           Try again
         </Button>
-        <Button asChild variant="outline" className="rounded-lg border-ink-dim/20 font-display">
+        <Button asChild variant="outline" className="rounded-lg border-line font-display">
           <Link href="/tracker">Back to Case Files</Link>
         </Button>
       </div>

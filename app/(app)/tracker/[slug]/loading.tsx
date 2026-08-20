@@ -11,7 +11,7 @@ export default function Loading() {
       <div className="mx-auto max-w-4xl">
         <Skeleton className="mb-6 h-5 w-40" />
 
-        <div className="overflow-hidden rounded-xl border border-ink-dim/20 bg-surface shadow-card">
+        <div className="overflow-hidden rounded-xl border border-line bg-surface shadow-card">
           <Skeleton className="aspect-video w-full rounded-none" />
 
           <div className="p-6 sm:p-8">
@@ -26,26 +26,26 @@ export default function Loading() {
               <Skeleton className="h-4 w-28" />
             </div>
 
-            <div className="mt-6 flex flex-wrap items-center gap-3 border-t border-ink-dim/20 pt-6">
+            <div className="mt-6 flex flex-wrap items-center gap-3 border-t border-line pt-6">
               <Skeleton className="h-10 w-40 rounded-lg" />
               <Skeleton className="h-10 w-36 rounded-lg" />
               <Skeleton className="h-10 w-32 rounded-lg" />
             </div>
 
-            <div className="mt-6 space-y-3 border-t border-ink-dim/20 pt-6">
+            <div className="mt-6 space-y-3 border-t border-line pt-6">
               <Skeleton className="h-4 w-24" />
               <Skeleton className="h-4 w-full" />
               <Skeleton className="h-4 w-5/6" />
             </div>
 
-            <div className="mt-6 flex items-center gap-3 border-t border-ink-dim/20 pt-6">
+            <div className="mt-6 flex items-center gap-3 border-t border-line pt-6">
               <Skeleton className="h-5 w-28" />
               <Skeleton className="h-4 w-16" />
             </div>
           </div>
         </div>
 
-        <div className="mt-8 flex items-center justify-between gap-4 border-t border-ink-dim/20 pt-4">
+        <div className="mt-8 flex items-center justify-between gap-4 border-t border-line pt-4">
           <Skeleton className="h-8 w-40" />
           <Skeleton className="h-8 w-40" />
         </div>
