@@ -7,6 +7,10 @@
   `topLeftSlot`, so they live in the SAME flex column as the search field and
   can no longer overlap it (they used to be independent absolutely-positioned
   siblings at top-4 and top-16).
+
+  `isDark` is still derived here, but only to resolve relationship colors from
+  graph-theme (SVG/inline paint values cannot read CSS custom properties). All
+  chrome is token-driven and theme-agnostic.
 */
 
 import { useState } from "react"
@@ -67,12 +71,13 @@ export default function CharactersExplorer({
         onClick={() => setLegendOpen((v) => !v)}
         aria-expanded={legendOpen}
         className={cn(
-          "group flex w-full items-center gap-1.5 rounded-full border px-3.5 py-1.5 text-xs font-semibold shadow-md backdrop-blur-md transition-all",
-          "border-slate-200/90 bg-white/95 text-ink hover:border-slate-300 hover:bg-surface-muted",
-          "dark:border-slate-700/80 dark:bg-slate-900/90 dark:text-white dark:hover:border-slate-500"
+          "group flex w-full items-center gap-1.5 rounded-full border px-3.5 py-1.5 text-xs font-semibold shadow-lift backdrop-blur-md transition-all",
+          "border-line bg-surface/90 text-ink hover:border-ink-faint/40 hover:bg-surface-muted"
         )}
       >
-        <Filter className="h-3.5 w-3.5 shrink-0 text-accent transition-transform duration-300 group-hover:rotate-12" />
+        {/* accent-bright, not accent: at icon size the plain crimson is only
+            ~3.3:1 against the near-black surface. */}
+        <Filter className="h-3.5 w-3.5 shrink-0 text-accent-bright transition-transform duration-300 group-hover:rotate-12" />
         <span className="min-w-0 flex-1 truncate text-left">
           {filter ? relationshipMeta[filter].label : "All Relationships"}
         </span>
@@ -99,8 +104,8 @@ export default function CharactersExplorer({
             transition={{ duration: 0.28, ease: EASE }}
             className="overflow-hidden"
           >
-            <div className="max-h-[52vh] overflow-y-auto rounded-2xl border border-slate-200 bg-white/98 p-3 text-ink shadow-2xl backdrop-blur-xl dark:border-slate-800 dark:bg-slate-900/95 dark:text-white">
-              <div className="mb-2.5 font-mono text-[10px] font-semibold uppercase tracking-wider text-ink-faint dark:text-slate-400">
+            <div className="max-h-[52vh] overflow-y-auto rounded-2xl border border-line bg-surface/95 p-3 text-ink shadow-lift backdrop-blur-xl">
+              <div className="mb-2.5 font-mono text-[10px] font-semibold uppercase tracking-wider text-ink-faint">
                 Filter by relationship
               </div>
               <RelationshipLegend
@@ -116,12 +121,7 @@ export default function CharactersExplorer({
   )
 
   return (
-    <div
-      className={cn(
-        "relative h-full w-full overflow-hidden transition-colors duration-300",
-        isDark ? "bg-slate-950 text-white" : "bg-page text-ink"
-      )}
-    >
+    <div className="relative h-full w-full overflow-hidden bg-page text-ink transition-colors duration-300">
       <CharactersWeb
         characters={characters}
         onSelectCharacter={setSelection}
@@ -129,7 +129,7 @@ export default function CharactersExplorer({
         activeFilter={filter}
         topLeftSlot={filterControls}
         theme={theme}
-        className="h-full w-full rounded-none border-none"
+        className="h-full w-full rounded-none border-none shadow-none"
       />
 
       {/* AnimatePresence so the dossier's exit transition actually plays —

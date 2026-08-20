@@ -98,8 +98,8 @@ export const CHARACTERS: Character[] = [
     role: "The shrunken detective of Beika",
     affiliation: "Junior Detective League",
     bio: "High-school sleuth Shinichi Kudo, poisoned by the Black Organization's APTX 4869, shrinks to a child and hides as Conan Edogawa. He lives beside Ran as a child, solving cases he can never claim credit for while hunting the men who shrank him.",
-    x: 1000,
-    y: 700,
+    x: 498,
+    y: 428,
   },
   {
     id: "yusaku-kudo",
