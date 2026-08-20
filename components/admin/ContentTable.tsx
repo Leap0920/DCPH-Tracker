@@ -9,6 +9,8 @@ import type { Database } from "@/types/database.types"
 
 type ContentEntry = Database["public"]["Tables"]["content_entries"]["Row"]
 
+const thCls = "px-3 py-2 font-mono text-[10px] font-normal uppercase tracking-wider text-ink-faint"
+
 function typeLabel(t: string) {
   return CONTENT_TYPE_LABELS[t as ContentType] ?? t
 }
@@ -16,61 +18,90 @@ function typeLabel(t: string) {
 function numberFor(e: ContentEntry) {
   if (e.type === "episode" && e.episode_number != null) return `EP ${e.episode_number}`
   if (e.type === "movie" && e.movie_number != null) return `MOV ${e.movie_number}`
-  return "N/A"
+  return "—"
 }
 
 export function ContentTable({ entries }: { entries: ContentEntry[] }) {
   if (entries.length === 0) {
     return (
-      <div className="rounded-lg border border-ink-dim/20 bg-surface p-10 text-center text-sm text-ink-dim">
-        No entries match your filters.
+      <div className="rounded-md border border-line bg-surface px-6 py-16 text-center">
+        <p className="text-sm text-ink-dim">No entries match your filters.</p>
+        <p className="mt-1 font-mono text-[10px] uppercase tracking-wider text-ink-faint">
+          Adjust the search or type filter
+        </p>
       </div>
     )
   }
 
   return (
-    <div className="overflow-x-auto rounded-lg border border-ink-dim/20 bg-surface shadow-card">
+    <div className="overflow-x-auto rounded-md border border-line bg-surface">
       <table className="w-full text-sm">
         <thead>
-          <tr className="border-b border-ink-dim/20 text-left">
-            <th className="p-3 font-mono text-[10px] text-ink-faint">Cover</th>
-            <th className="p-3 font-mono text-[10px] text-ink-faint">Title</th>
-            <th className="p-3 font-mono text-[10px] text-ink-faint">Category / Relocate</th>
-            <th className="p-3 font-mono text-[10px] text-ink-faint">No.</th>
-            <th className="p-3 font-mono text-[10px] text-ink-faint">Air date</th>
-            <th className="p-3 font-mono text-[10px] text-ink-faint text-right">Actions</th>
+          <tr className="border-b border-line text-left">
+            <th scope="col" className={thCls}>
+              Cover
+            </th>
+            <th scope="col" className={thCls}>
+              Title
+            </th>
+            <th scope="col" className={thCls}>
+              Category / Relocate
+            </th>
+            <th scope="col" className={thCls}>
+              Type
+            </th>
+            <th scope="col" className={thCls}>
+              No.
+            </th>
+            <th scope="col" className={thCls}>
+              Air date
+            </th>
+            <th scope="col" className={`${thCls} text-right`}>
+              Actions
+            </th>
           </tr>
         </thead>
-        <tbody>
+        <tbody className="divide-y divide-line">
           {entries.map((e) => (
-            <tr key={e.id} className="border-b border-ink-dim/10 last:border-0 hover:bg-surface-muted">
-              <td className="p-3">
-                <div className="h-10 w-16 overflow-hidden rounded border border-ink-dim/20 bg-surface-muted flex items-center justify-center">
+            <tr key={e.id} className="transition-colors hover:bg-white/[0.03]">
+              <td className="px-3 py-2">
+                <div className="flex h-10 w-16 items-center justify-center overflow-hidden rounded-md border border-line bg-surface">
                   {e.image_url ? (
                     // eslint-disable-next-line @next/next/no-img-element
                     <img src={e.image_url} alt="" className="h-full w-full object-cover" />
                   ) : (
-                    <span className="text-[9px] font-mono text-red-400">none</span>
+                    <span className="font-mono text-[9px] uppercase tracking-wider text-ink-faint">
+                      none
+                    </span>
                   )}
                 </div>
               </td>
-              <td className="p-3 max-w-xs">
-                <span className="block truncate font-medium text-ink">{e.title}</span>
+              <td className="max-w-xs px-3 py-2">
+                <span className="block truncate text-ink">{e.title}</span>
                 <span className="block truncate font-mono text-[11px] text-ink-faint">{e.slug}</span>
               </td>
-              <td className="p-3">
+              <td className="px-3 py-2">
                 <CategorySelect id={e.id} currentType={e.type as ContentType} />
               </td>
-              <td className="p-3 font-mono text-xs text-ink-dim">{numberFor(e)}</td>
-              <td className="p-3 font-mono text-xs text-ink-dim">{e.air_date}</td>
-              <td className="p-3">
+              <td className="whitespace-nowrap px-3 py-2">
+                <span className="inline-flex items-center rounded-md border border-line px-2 py-0.5 font-mono text-[10px] uppercase tracking-wider text-ink-dim">
+                  {typeLabel(e.type)}
+                </span>
+              </td>
+              <td className="whitespace-nowrap px-3 py-2 font-mono text-xs tabular-nums text-ink-dim">
+                {numberFor(e)}
+              </td>
+              <td className="whitespace-nowrap px-3 py-2 font-mono text-xs tabular-nums text-ink-dim">
+                {e.air_date ?? "—"}
+              </td>
+              <td className="px-3 py-2">
                 <div className="flex items-center justify-end gap-1">
                   <Link
                     href={`/admin/content/${e.id}`}
                     aria-label={`Edit ${e.title}`}
-                    className="inline-flex h-8 w-8 items-center justify-center rounded-md text-ink-faint hover:bg-surface-muted hover:text-ink"
+                    className="inline-flex h-8 w-8 items-center justify-center rounded-md text-ink-faint transition-colors hover:bg-white/[0.06] hover:text-ink focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-accent/40"
                   >
-                    <Pencil className="h-4 w-4" />
+                    <Pencil className="h-4 w-4" aria-hidden="true" />
                   </Link>
                   <DeleteContentButton id={e.id} title={e.title} />
                 </div>

@@ -39,17 +39,33 @@ export function CategorySelect({
         value={selected}
         onChange={handleChange}
         disabled={pending}
-        className="h-8 rounded-md border border-ink-dim/20 bg-surface px-2.5 py-1 font-display text-xs text-ink focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent disabled:opacity-50"
+        aria-label="Content category"
+        className="h-8 appearance-none rounded-md border border-line bg-surface pl-2.5 pr-7 text-xs text-ink transition-colors hover:bg-white/[0.03] focus:border-accent focus:outline-none focus-visible:ring-1 focus-visible:ring-accent/30 disabled:opacity-50"
       >
         {TYPE_OPTIONS.map(([val, label]) => (
-          <option key={val} value={val}>
+          <option key={val} value={val} className="bg-surface text-ink">
             {label}
           </option>
         ))}
       </select>
-      {pending && (
-        <Loader2 className="absolute right-2 h-3.5 w-3.5 animate-spin text-ink-faint pointer-events-none" />
-      )}
+      <span className="pointer-events-none absolute right-2 flex items-center">
+        {pending ? (
+          <Loader2 className="h-3 w-3 animate-spin text-ink-faint" />
+        ) : (
+          <svg
+            viewBox="0 0 12 12"
+            aria-hidden="true"
+            className="h-2.5 w-2.5 text-ink-faint"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="1.5"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+          >
+            <path d="M3 4.5 6 7.5 9 4.5" />
+          </svg>
+        )}
+      </span>
     </div>
   )
 }
