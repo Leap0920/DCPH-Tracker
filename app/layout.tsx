@@ -1,6 +1,5 @@
 import type { Metadata, Viewport } from "next";
 import { headers } from "next/headers";
-import Script from "next/script";
 import { Inter, JetBrains_Mono, Plus_Jakarta_Sans } from "next/font/google";
 import { Providers } from "@/components/providers";
 import { ThemeProvider } from "@/components/theme-provider";
@@ -104,15 +103,17 @@ export default async function RootLayout({
             before first paint. Must stay in sync with
             components/theme-provider.tsx (same key "dcph-theme-v2", same
             default dark). Carries the CSP nonce because it is inline and a
-            nonce-based policy would otherwise block it. */}
-        <Script
+            nonce-based policy would otherwise block it. Plain <script> with
+            suppressHydrationWarning avoids the React 19 nonce-hiding hydration
+            mismatch that next/script + nonce triggers. */}
+        <script
           id="dcph-theme-init"
-          strategy="beforeInteractive"
           suppressHydrationWarning
           {...(nonce ? { nonce } : {})}
-        >
-          {`(function(){try{if(localStorage.getItem("dcph-theme-v2")==="light"){document.documentElement.classList.remove("dark");}}catch(e){}})();`}
-        </Script>
+          dangerouslySetInnerHTML={{
+            __html: `(function(){try{if(localStorage.getItem("dcph-theme-v2")==="light"){document.documentElement.classList.remove("dark");}}catch(e){}})();`,
+          }}
+        />
         <ThemeProvider>
           <Providers>
             {children}
