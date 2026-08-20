@@ -187,7 +187,7 @@ export default function ElegantCarousel({ customSlides }: { customSlides?: Slide
 
   return (
     <div
-      className="relative w-full overflow-hidden rounded-2xl sm:rounded-3xl border border-ink-dim/20 bg-surface text-ink shadow-xl transition-all duration-500"
+      className="relative w-full overflow-hidden rounded-2xl sm:rounded-3xl border border-line bg-surface text-ink shadow-card transition-all duration-500"
       onTouchStart={handleTouchStart}
       onTouchMove={handleTouchMove}
       onTouchEnd={handleTouchEnd}
@@ -198,19 +198,19 @@ export default function ElegantCarousel({ customSlides }: { customSlides?: Slide
           <div className="space-y-3 sm:space-y-4">
             {/* Header Badge & Location Alignment */}
             <div
-              className={`flex items-center justify-between gap-2 sm:gap-3 border-b border-ink-dim/10 pb-3 sm:pb-4 transition-all duration-500 ${
+              className={`flex items-center justify-between gap-2 sm:gap-3 border-b border-line/60 pb-3 sm:pb-4 transition-all duration-500 ${
                 isTransitioning ? 'opacity-0 translate-y-2' : 'opacity-100 translate-y-0'
               }`}
             >
               <div className="flex items-center gap-1.5 sm:gap-2">
-                <span className="h-1.5 w-1.5 sm:h-2 sm:w-2 rounded-full bg-red-600 animate-pulse" />
+                <span className="h-1.5 w-1.5 sm:h-2 sm:w-2 rounded-full bg-accent animate-pulse" />
                 <span className="font-mono text-[10px] sm:text-xs font-bold uppercase tracking-widest text-ink-faint">
                   {String(currentIndex + 1).padStart(2, '0')} / {String(slides.length).padStart(2, '0')}
                 </span>
               </div>
 
-              <span className="inline-flex items-center gap-1.5 rounded-full border border-amber-500/30 bg-amber-500/10 px-2.5 py-0.5 sm:px-3 sm:py-1 font-mono text-[10px] sm:text-xs font-semibold text-amber-400">
-                <MapPin className="w-3 h-3 sm:w-3.5 sm:h-3.5 text-amber-400" />
+              <span className="inline-flex items-center gap-1.5 rounded-full border border-gold-seal/30 bg-gold-seal/10 px-2.5 py-0.5 sm:px-3 sm:py-1 font-mono text-[10px] sm:text-xs font-semibold text-gold-seal">
+                <MapPin className="w-3 h-3 sm:w-3.5 sm:h-3.5 text-gold-seal" />
                 SM North EDSA
               </span>
             </div>
@@ -230,7 +230,7 @@ export default function ElegantCarousel({ customSlides }: { customSlides?: Slide
                 isTransitioning ? 'opacity-0 translate-y-4' : 'opacity-100 translate-y-0'
               }`}
             >
-              <span className="inline-block rounded-md border border-ink-dim/20 bg-surface-muted px-2.5 py-0.5 sm:px-3 sm:py-1 font-mono text-[10px] sm:text-xs font-semibold uppercase tracking-wider text-ink-dim">
+              <span className="inline-block rounded-md border border-line bg-surface-muted px-2.5 py-0.5 sm:px-3 sm:py-1 font-mono text-[10px] sm:text-xs font-semibold uppercase tracking-wider text-ink-dim">
                 {currentSlide.subtitle}
               </span>
             </div>
@@ -246,18 +246,18 @@ export default function ElegantCarousel({ customSlides }: { customSlides?: Slide
           </div>
 
           {/* Navigation Arrows */}
-          <div className="flex items-center justify-between border-t border-ink-dim/10 pt-4 sm:pt-6">
+          <div className="flex items-center justify-between border-t border-line/60 pt-4 sm:pt-6">
             <div className="flex items-center gap-2 sm:gap-3">
               <button
                 onClick={goPrev}
-                className="flex h-8 w-8 sm:h-10 sm:w-10 items-center justify-center rounded-full border border-ink-dim/20 bg-surface-muted text-ink shadow-sm transition-all hover:bg-ink hover:text-page hover:scale-105 active:scale-95"
+                className="flex h-8 w-8 sm:h-10 sm:w-10 items-center justify-center rounded-full border border-line bg-surface-muted text-ink shadow-sm transition-all hover:bg-ink hover:text-page hover:scale-105 active:scale-95"
                 aria-label="Previous slide"
               >
                 <ArrowLeft className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
               </button>
               <button
                 onClick={goNext}
-                className="flex h-8 w-8 sm:h-10 sm:w-10 items-center justify-center rounded-full border border-ink-dim/20 bg-surface-muted text-ink shadow-sm transition-all hover:bg-ink hover:text-page hover:scale-105 active:scale-95"
+                className="flex h-8 w-8 sm:h-10 sm:w-10 items-center justify-center rounded-full border border-line bg-surface-muted text-ink shadow-sm transition-all hover:bg-ink hover:text-page hover:scale-105 active:scale-95"
                 aria-label="Next slide"
               >
                 <ArrowRight className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
@@ -267,7 +267,7 @@ export default function ElegantCarousel({ customSlides }: { customSlides?: Slide
         </div>
 
         {/* Right Column: Media Container with Timeframe Seeker */}
-        <div className="lg:col-span-7 relative h-full w-full min-h-[200px] sm:min-h-[320px] lg:min-h-[400px] overflow-hidden rounded-xl sm:rounded-2xl border border-ink-dim/20 bg-slate-950 shadow-lg">
+        <div className="lg:col-span-7 relative h-full w-full min-h-[200px] sm:min-h-[320px] lg:min-h-[400px] overflow-hidden rounded-xl sm:rounded-2xl border border-line bg-black shadow-card">
           <div
             className={`h-full w-full transition-all duration-500 ease-out ${
               isTransitioning ? 'opacity-0 scale-95' : 'opacity-100 scale-100'
@@ -297,7 +297,7 @@ export default function ElegantCarousel({ customSlides }: { customSlides?: Slide
                     step="0.1"
                     value={progress}
                     onChange={handleSeek}
-                    className="w-full h-1 sm:h-1.5 accent-red-600 bg-white/30 rounded-lg cursor-pointer appearance-none hover:h-2 transition-all"
+                    className="w-full h-1 sm:h-1.5 accent-accent bg-white/30 rounded-lg cursor-pointer appearance-none hover:h-2 transition-all"
                   />
 
                   <div className="flex items-center justify-between text-white text-[10px] sm:text-xs font-mono">
@@ -305,12 +305,12 @@ export default function ElegantCarousel({ customSlides }: { customSlides?: Slide
                       <button
                         type="button"
                         onClick={togglePlay}
-                        className="flex h-6 w-6 sm:h-7 sm:w-7 items-center justify-center rounded-full bg-white/90 text-slate-950 shadow hover:scale-105"
+                        className="flex h-6 w-6 sm:h-7 sm:w-7 items-center justify-center rounded-full bg-white/90 text-black shadow hover:scale-105"
                         aria-label={isPlaying ? 'Pause video' : 'Play video'}
                       >
                         {isPlaying ? <Pause className="h-3 w-3 sm:h-3.5 sm:w-3.5 fill-current" /> : <Play className="h-3 w-3 sm:h-3.5 sm:w-3.5 fill-current ml-0.5" />}
                       </button>
-                      <span className="text-slate-200">
+                      <span className="text-white/80">
                         {formatTime(currentTime)} / {formatTime(duration)}
                       </span>
                     </div>
@@ -318,13 +318,13 @@ export default function ElegantCarousel({ customSlides }: { customSlides?: Slide
                     <button
                       type="button"
                       onClick={toggleMute}
-                      className="flex h-6 w-6 sm:h-7 sm:w-7 items-center justify-center rounded-full bg-white/90 text-slate-950 shadow hover:scale-105"
+                      className="flex h-6 w-6 sm:h-7 sm:w-7 items-center justify-center rounded-full bg-white/90 text-black shadow hover:scale-105"
                       aria-label={isMuted ? 'Unmute sound' : 'Mute sound'}
                     >
                       {isMuted ? (
-                        <VolumeX className="h-3 w-3 sm:h-3.5 sm:w-3.5 text-red-400" />
+                        <VolumeX className="h-3 w-3 sm:h-3.5 sm:w-3.5 text-accent" />
                       ) : (
-                        <Volume2 className="h-3 w-3 sm:h-3.5 sm:w-3.5 text-emerald-400" />
+                        <Volume2 className="h-3 w-3 sm:h-3.5 sm:w-3.5 text-success" />
                       )}
                     </button>
                   </div>
@@ -342,14 +342,14 @@ export default function ElegantCarousel({ customSlides }: { customSlides?: Slide
       </div>
 
       {/* Bottom Slide Navigation Tabs */}
-      <div className="relative z-10 grid grid-cols-3 gap-1.5 sm:gap-3 border-t border-ink-dim/20 bg-surface-muted p-2.5 sm:p-4">
+      <div className="relative z-10 grid grid-cols-3 gap-1.5 sm:gap-3 border-t border-line bg-surface-muted p-2.5 sm:p-4">
         {slides.map((slide, index) => (
           <button
             key={index}
             onClick={() => goToSlide(index)}
             className={`flex flex-col items-start gap-1 sm:gap-2 p-1.5 sm:p-2.5 rounded-lg sm:rounded-xl text-left transition-all ${
               index === currentIndex
-                ? 'bg-surface border border-ink-dim/30 shadow-sm'
+                ? 'bg-surface border border-line shadow-sm'
                 : 'hover:bg-surface-muted opacity-80 border border-transparent'
             }`}
             aria-label={`Go to slide ${index + 1}`}

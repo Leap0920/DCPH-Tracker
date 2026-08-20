@@ -81,7 +81,7 @@ const BentoCard = ({
           : { y: -5, transition: { type: "spring", stiffness: 300, damping: 22 } }
       }
       className={cn(
-        "group relative flex flex-col justify-between overflow-hidden rounded-xl sm:rounded-2xl border border-ink-dim/20 bg-surface p-2.5 sm:p-4 shadow-card transition-[box-shadow,border-color] duration-300 hover:shadow-xl hover:border-ink-dim/30",
+        "group relative flex flex-col justify-between overflow-hidden rounded-xl sm:rounded-2xl border border-line bg-surface p-2.5 sm:p-4 shadow-card transition-[box-shadow,border-color] duration-300 hover:shadow-lift hover:border-ink-faint/40",
         className,
       )}
     >
@@ -91,12 +91,12 @@ const BentoCard = ({
       {/* Header badges */}
       <div className="relative z-10 flex items-center justify-between gap-1">
         {badge && (
-          <span className="inline-flex items-center gap-1 rounded-full bg-white/95 px-2 py-0.5 sm:px-2.5 sm:py-1 font-mono text-[8.5px] min-[400px]:text-[9.5px] sm:text-xs font-semibold text-ink shadow-sm backdrop-blur-sm truncate max-w-[55%]">
+          <span className="inline-flex items-center gap-1 rounded-full bg-surface/95 px-2 py-0.5 sm:px-2.5 sm:py-1 font-mono text-[8.5px] min-[400px]:text-[9.5px] sm:text-xs font-semibold text-ink shadow-sm backdrop-blur-sm truncate max-w-[55%]">
             {badge}
           </span>
         )}
         {date && (
-          <span className="font-mono text-[8.5px] min-[400px]:text-[9.5px] sm:text-xs text-ink-dim bg-white/85 px-1.5 py-0.5 sm:px-2 sm:py-1 rounded-full shadow-sm backdrop-blur-sm shrink-0">
+          <span className="font-mono text-[8.5px] min-[400px]:text-[9.5px] sm:text-xs text-ink-dim bg-surface/85 px-1.5 py-0.5 sm:px-2 sm:py-1 rounded-full shadow-sm backdrop-blur-sm shrink-0">
             {date}
           </span>
         )}
@@ -105,7 +105,7 @@ const BentoCard = ({
       {/* Content Area */}
       <div className="relative z-10 flex transform-gpu flex-col gap-0.5 sm:gap-1 transition-all duration-300 group-hover:-translate-y-1 mt-auto">
         {Icon && (
-          <span className="flex h-5 w-5 sm:h-8 sm:w-8 items-center justify-center rounded-md sm:rounded-lg bg-white/90 text-ink shadow-sm backdrop-blur-md transition-all duration-300 group-hover:scale-110 mb-0.5">
+          <span className="flex h-5 w-5 sm:h-8 sm:w-8 items-center justify-center rounded-md sm:rounded-lg bg-surface/90 text-ink shadow-sm backdrop-blur-md transition-all duration-300 group-hover:scale-110 mb-0.5">
             <Icon className="h-2.5 w-2.5 sm:h-4 sm:w-4" />
           </span>
         )}
@@ -113,7 +113,7 @@ const BentoCard = ({
           {name}
         </h3>
         {description && (
-          <p className="hidden sm:block text-xs font-body text-slate-100 drop-shadow-[0_1px_3px_rgba(0,0,0,0.9)] line-clamp-1">
+          <p className="hidden sm:block text-xs font-body text-white/80 drop-shadow-[0_1px_3px_rgba(0,0,0,0.9)] line-clamp-1">
             {description}
           </p>
         )}
