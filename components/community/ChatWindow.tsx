@@ -15,10 +15,10 @@ import {
   fetchChatMessages,
   fetchOlderChatMessages,
   fetchChatMessageById,
-  sendChatMessage,
   CHAT_PAGE_SIZE,
   type ChatMessage,
 } from "@/lib/queries/client/chat"
+import { MAX_MESSAGE_LENGTH } from "@/lib/chat-constants"
 import type { Database } from "@/types/database.types"
 
 type ChatRoom = Database["public"]["Tables"]["chat_rooms"]["Row"]
@@ -168,8 +168,25 @@ export function ChatWindow({
 
   // ── Send mutation (optimistic temp message, deduped against realtime echo) ──
   const sendMutation = useMutation({
-    mutationFn: ({ content }: { content: string }) =>
-      sendChatMessage(room.id, userId as string, content, me),
+    mutationFn: async ({ content }: { content: string }): Promise<ChatMessage> => {
+      const res = await fetch("/api/chat", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ roomId: room.id, content }),
+      })
+      const json = (await res.json().catch(() => null)) as
+        | { success: true; data: { message: ChatMessage } }
+        | { error?: string }
+        | null
+      if (!res.ok || !json || !("success" in json)) {
+        const detail =
+          json && "error" in json && typeof json.error === "string"
+            ? json.error
+            : "Failed to send message"
+        throw new Error(detail)
+      }
+      return json.data.message
+    },
     onMutate: async ({ content }) => {
       await queryClient.cancelQueries({ queryKey: messagesKey })
       const tempId = `temp-${crypto.randomUUID()}`
@@ -518,6 +535,7 @@ export function ChatWindow({
                 setNewMessage(e.target.value)
                 autoGrow()
               }}
+              maxLength={MAX_MESSAGE_LENGTH}
               onKeyDown={handleKeyDown}
               placeholder={`Message ${room.name}…`}
               className="max-h-40 min-h-[40px] flex-1 resize-none rounded-lg border border-ink-dim/20 bg-surface px-3 py-2 text-sm text-ink placeholder:text-ink-faint focus-visible:border-accent focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-accent"
