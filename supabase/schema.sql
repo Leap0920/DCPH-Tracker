@@ -83,6 +83,7 @@ create table if not exists content_entries (
   synopsis         text,
   image_url        text,
   runtime_minutes  integer,
+  crime_types      text[] not null default '{}'::text[],
   created_at       timestamptz not null default now()
 );
 
@@ -101,6 +102,33 @@ create index if not exists idx_content_canon_order on content_entries(canon_orde
 create index if not exists idx_content_release_order on content_entries(release_order);
 create index if not exists idx_content_type on content_entries(type);
 create index if not exists idx_content_arc on content_entries(arc_id);
+
+-- Crime taxonomy: validated against lib/crime-categories.ts
+alter table content_entries add column if not exists crime_types text[] not null default '{}'::text[];
+alter table content_entries drop constraint if exists content_entries_crime_types_valid;
+alter table content_entries add constraint content_entries_crime_types_valid
+  check (
+    crime_types <@ array[
+      'stabbing',
+      'blunt-force',
+      'strangulation',
+      'poisoning',
+      'shooting',
+      'explosion',
+      'arson',
+      'drowning',
+      'fall',
+      'electrocution',
+      'suffocation',
+      'locked-room',
+      'staged-accident',
+      'serial-murder',
+      'kidnapping',
+      'theft-heist',
+      'no-crime'
+    ]::text[]
+  );
+create index if not exists content_entries_crime_types_idx on content_entries using gin (crime_types);
 
 -- ─────────────────────────────────────────────────────────────
 -- WATCH STATUS

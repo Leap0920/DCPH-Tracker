@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache"
 import { requireAdmin } from "@/lib/auth/admin"
 import { createAdminClient } from "@/utils/supabase/admin"
 import { resolveAndCleanImageUrl } from "@/lib/utils/image-url"
+import { normalizeCrimeSlugs } from "@/lib/crime-categories"
 import type { Database } from "@/types/database.types"
 
 type ContentInsert = Database["public"]["Tables"]["content_entries"]["Insert"]

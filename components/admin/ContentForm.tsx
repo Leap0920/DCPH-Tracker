@@ -1,4 +1,4 @@
-"use client"
+﻿"use client"
 
 import { useEffect, useRef, useState, useTransition } from "react"
 import { useRouter } from "next/navigation"
@@ -20,6 +20,8 @@ import { CONTENT_TYPE_LABELS, type ContentType } from "@/lib/constants"
 import { cleanImageUrl } from "@/lib/utils/image-url"
 import type { Database } from "@/types/database.types"
 import { resolveWikiImageUrl, type ActionResult } from "@/lib/actions/admin-content"
+import { CrimeTypeSelector } from "@/components/admin/CrimeTypeSelector"
+import { normalizeCrimeSlugs, type CrimeSlug } from "@/lib/crime-categories"
 
 type ContentEntry = Database["public"]["Tables"]["content_entries"]["Row"]
 type CopyKey = "raw" | "clean"
@@ -138,7 +140,7 @@ function UrlRow({
           hasValue ? "text-ink-dim" : "text-ink-faint"
         )}
       >
-        {hasValue ? value : "—"}
+        {hasValue ? value : "ΓÇö"}
       </p>
 
       {hint && <p className="mt-1 text-[10px] text-ink-faint">{hint}</p>}
@@ -170,6 +172,9 @@ export function ContentForm({
   const [filePreview, setFilePreview] = useState<string | null>(null)
   const [copied, setCopied] = useState<CopyKey | null>(null)
   const [copyStatus, setCopyStatus] = useState<string>("")
+  const [crimeTypes, setCrimeTypes] = useState<CrimeSlug[]>(() =>
+    normalizeCrimeSlugs((entry as unknown as { crime_types?: string[] })?.crime_types),
+  )
 
   const fileRef = useRef<HTMLInputElement>(null)
   const resolveSeq = useRef(0)
@@ -232,7 +237,7 @@ export function ContentForm({
       } else {
         setCleanUrl(cleanImageUrl(target) ?? target)
         setResolveNote(
-          "Could not extract a direct image from that Wiki page. Try right-click → Copy image address on the full-size image."
+          "Could not extract a direct image from that Wiki page. Try right-click ΓåÆ Copy image address on the full-size image."
         )
       }
     } catch {
@@ -269,7 +274,7 @@ export function ContentForm({
       }, 1600)
     } else {
       setCopied(null)
-      setCopyStatus("Copy failed — select the link and copy manually.")
+      setCopyStatus("Copy failed ΓÇö select the link and copy manually.")
       copyTimer.current = setTimeout(() => setCopyStatus(""), 2600)
     }
   }
@@ -307,6 +312,7 @@ export function ContentForm({
 
     // Always submit the cleaned/resolved URL, never the raw paste.
     formData.set("image_url", effectiveUrl)
+    formData.set("crime_types", JSON.stringify(crimeTypes))
 
     startTransition(async () => {
       const result = await action(formData)
@@ -483,6 +489,14 @@ export function ContentForm({
           />
         </div>
 
+        <div className="rounded-md border border-white/10 p-4">
+          <CrimeTypeSelector
+            value={crimeTypes}
+            onChange={setCrimeTypes}
+            disabled={pending || isResolving}
+          />
+        </div>
+
         {/* Cover image section */}
         <div className="rounded-xl border border-ink-dim/20 bg-surface-muted p-5 space-y-4">
           <div className="flex items-center justify-between gap-3">
@@ -492,7 +506,7 @@ export function ContentForm({
             {isResolving && (
               <span className="inline-flex items-center gap-1.5 font-mono text-[11px] text-amber-400">
                 <Loader2 className="h-3.5 w-3.5 animate-spin" />
-                Resolving Wiki file page…
+                Resolving Wiki file pageΓÇª
               </span>
             )}
           </div>
@@ -528,13 +542,13 @@ export function ContentForm({
                   onPaste={onUrlPaste}
                   onBlur={(e) => void resolveNow(e.target.value)}
                   className={inputCls}
-                  placeholder="Paste image link address or Wiki File page link…"
+                  placeholder="Paste image link address or Wiki File page linkΓÇª"
                   spellCheck={false}
                   autoComplete="off"
                 />
                 <p className="mt-1 text-[10px] text-ink-faint">
-                  Right-click the poster on the Wiki → Copy image address, or paste the{" "}
-                  <span className="font-mono">/wiki/File:…</span> page link and it will be resolved
+                  Right-click the poster on the Wiki ΓåÆ Copy image address, or paste the{" "}
+                  <span className="font-mono">/wiki/File:ΓÇª</span> page link and it will be resolved
                   for you.
                 </p>
               </div>
@@ -555,7 +569,7 @@ export function ContentForm({
                     hint={
                       cleanDiffers
                         ? "Thumbnail sizing and query strings stripped for full-resolution loading."
-                        : "Already clean — nothing to strip."
+                        : "Already clean ΓÇö nothing to strip."
                     }
                     copyLabel="Copy clean link"
                     copied={copied === "clean"}
