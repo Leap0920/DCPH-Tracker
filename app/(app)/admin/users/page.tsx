@@ -9,9 +9,9 @@ export const dynamic = "force-dynamic"
 const PAGE_SIZE = 50
 
 const STATUS_LABELS: Record<string, { label: string; className: string }> = {
-  active: { label: "Active", className: "bg-green-500/10 text-green-400" },
-  suspended: { label: "Suspended", className: "bg-amber-500/10 text-amber-400" },
-  banned: { label: "Banned", className: "bg-red-500/10 text-red-400" },
+  active: { label: "Active", className: "bg-success/10 text-success" },
+  suspended: { label: "Suspended", className: "bg-warning/10 text-warning" },
+  banned: { label: "Banned", className: "bg-danger/10 text-danger" },
 }
 
 export default async function AdminUsersPage({
@@ -67,14 +67,14 @@ export default async function AdminUsersPage({
           name="q"
           defaultValue={q}
           placeholder="Search username or display name…"
-          className="h-10 w-full rounded-lg border border-ink-dim/20 bg-surface px-3 text-sm text-ink placeholder:text-ink-faint focus:outline-none focus:ring-2 focus:ring-accent/20 focus:border-accent"
+          className="h-10 w-full rounded-lg border border-line bg-surface px-3 text-sm text-ink placeholder:text-ink-faint focus:outline-none focus:ring-2 focus:ring-accent/20 focus:border-accent"
         />
       </form>
 
-      <div className="overflow-x-auto rounded-lg border border-ink-dim/20 bg-surface shadow-card">
+      <div className="overflow-x-auto rounded-lg border border-line bg-surface shadow-card">
         <table className="w-full text-sm">
           <thead>
-            <tr className="border-b border-ink-dim/20 text-left">
+            <tr className="border-b border-line text-left">
               <th className="p-3 font-mono text-[10px] text-ink-faint">User</th>
               <th className="p-3 font-mono text-[10px] text-ink-faint">Joined</th>
               <th className="p-3 font-mono text-[10px] text-ink-faint">Role</th>
@@ -86,7 +86,7 @@ export default async function AdminUsersPage({
             {(users ?? []).map((u) => {
               const statusMeta = STATUS_LABELS[u.status] ?? STATUS_LABELS.active
               return (
-              <tr key={u.user_id} className="border-b border-ink-dim/10 last:border-0 hover:bg-surface-muted">
+              <tr key={u.user_id} className="border-b border-line last:border-0 hover:bg-surface-muted">
                 <td className="p-3">
                   <Link href={`/profile/${u.username}`} className="font-medium text-ink hover:underline">
                     {u.display_name}
@@ -134,7 +134,7 @@ export default async function AdminUsersPage({
           <Link
             href={`/admin/users?page=${page - 1}${q ? `&q=${encodeURIComponent(q)}` : ""}`}
             aria-disabled={page <= 1}
-            className={`rounded-md border border-ink-dim/20 px-3 py-1 font-mono text-xs ${
+            className={`rounded-md border border-line px-3 py-1 font-mono text-xs ${
               page <= 1 ? "pointer-events-none opacity-40" : "text-ink hover:bg-surface-muted"
             }`}
           >
@@ -146,7 +146,7 @@ export default async function AdminUsersPage({
           <Link
             href={`/admin/users?page=${page + 1}${q ? `&q=${encodeURIComponent(q)}` : ""}`}
             aria-disabled={page >= totalPages}
-            className={`rounded-md border border-ink-dim/20 px-3 py-1 font-mono text-xs ${
+            className={`rounded-md border border-line px-3 py-1 font-mono text-xs ${
               page >= totalPages ? "pointer-events-none opacity-40" : "text-ink hover:bg-surface-muted"
             }`}
           >
