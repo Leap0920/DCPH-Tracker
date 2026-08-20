@@ -89,7 +89,7 @@ export default async function ArcDetailPage({
           <span
             className={`rounded-md px-2 py-0.5 font-mono text-[10px] ${
               arc.status === "ongoing"
-                ? "bg-green-500/10 text-green-400"
+                ? "bg-success/10 text-success"
                 : "bg-surface-muted text-ink-dim"
             }`}
           >
@@ -115,7 +115,7 @@ export default async function ArcDetailPage({
           </span>
         </div>
 
-        <p className="mt-3 text-base font-medium text-accent">
+        <p className="mt-3 text-base font-medium text-accent-bright">
           {arc.tagline}
         </p>
         <p className="mt-4 text-sm leading-relaxed text-ink-dim">
@@ -123,7 +123,7 @@ export default async function ArcDetailPage({
         </p>
 
         {/* Live per-arc progress */}
-        <div className="mt-6 rounded-lg border border-ink-dim/20 bg-surface p-5 shadow-card">
+        <div className="mt-6 rounded-lg border border-line bg-surface p-5 shadow-card">
           <div className="flex items-center justify-between mb-2">
             <span className="font-display text-sm tracking-tight text-ink">
               Your progress in this arc
@@ -148,13 +148,13 @@ export default async function ArcDetailPage({
                 <ArrowRight className="h-3.5 w-3.5" />
               </Link>
             ) : signedIn && nextEpisode === null ? (
-              <span className="text-xs font-mono text-green-400">
+              <span className="text-xs font-mono text-success">
                 Arc complete! Nice work!
               </span>
             ) : (
               <AuthModalButton
                 mode="signin"
-                className="inline-flex items-center gap-1.5 rounded-md border border-ink-dim/30 px-3 py-1.5 h-auto text-xs font-mono text-ink-dim transition-colors hover:border-ink hover:text-ink"
+                className="inline-flex items-center gap-1.5 rounded-md border border-line px-3 py-1.5 h-auto text-xs font-mono text-ink-dim transition-colors hover:border-ink hover:text-ink"
               >
                 Sign in to track progress
                 <ArrowRight className="h-3.5 w-3.5" />
@@ -166,14 +166,14 @@ export default async function ArcDetailPage({
         {/* Key characters */}
         <section className="mt-10">
           <h2 className="mb-3 flex items-center gap-2 font-display text-xl tracking-tight text-ink">
-            <Users className="h-4 w-4 text-accent" />
+            <Users className="h-4 w-4 text-accent-bright" />
             Key figures
           </h2>
           <div className="grid gap-3 sm:grid-cols-2">
             {arc.keyCharacters.map((c) => (
               <div
                 key={c.name}
-                className="rounded-lg border border-ink-dim/20 bg-surface p-4"
+                className="rounded-lg border border-line bg-surface p-4"
               >
                 <p className="font-medium text-ink">{c.name}</p>
                 <p className="text-xs text-ink-dim">{c.role}</p>
@@ -211,13 +211,13 @@ export default async function ArcDetailPage({
           {prev ? (
             <Link
               href={`/arcs/${prev.slug}`}
-              className="group flex flex-col rounded-lg border border-ink-dim/20 bg-surface p-4 transition-colors hover:border-ink-dim/30 hover:bg-surface-muted"
+              className="group flex flex-col rounded-lg border border-line bg-surface p-4 transition-colors hover:border-ink-faint/40 hover:bg-surface-muted"
             >
               <span className="flex items-center gap-1 text-xs text-ink-faint">
                 <ArrowRightIcon className="h-3.5 w-3.5 rotate-180" />
                 Previous arc
               </span>
-              <span className="mt-1 font-display text-sm tracking-tight text-ink group-hover:text-accent">
+              <span className="mt-1 font-display text-sm tracking-tight text-ink group-hover:text-accent-bright">
                 {prev.title}
               </span>
             </Link>
@@ -228,13 +228,13 @@ export default async function ArcDetailPage({
           {next ? (
             <Link
               href={`/arcs/${next.slug}`}
-              className="group flex flex-col items-end rounded-lg border border-ink-dim/20 bg-surface p-4 text-right transition-colors hover:border-ink-dim/30 hover:bg-surface-muted"
+              className="group flex flex-col items-end rounded-lg border border-line bg-surface p-4 text-right transition-colors hover:border-ink-faint/40 hover:bg-surface-muted"
             >
               <span className="flex items-center gap-1 text-xs text-ink-faint">
                 Next arc
                 <ArrowRightIcon className="h-3.5 w-3.5" />
               </span>
-              <span className="mt-1 font-display text-sm tracking-tight text-ink group-hover:text-accent">
+              <span className="mt-1 font-display text-sm tracking-tight text-ink group-hover:text-accent-bright">
                 {next.title}
               </span>
             </Link>
@@ -251,7 +251,7 @@ function PlayIcon() {
   return (
     <svg
       viewBox="0 0 24 24"
-      className="h-4 w-4 text-accent"
+      className="h-4 w-4 text-accent-bright"
       fill="none"
       stroke="currentColor"
       strokeWidth="2"

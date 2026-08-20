@@ -51,9 +51,9 @@ export default async function ArcsPage() {
         </p>
 
         {/* Premise */}
-        <div className="mt-8 rounded-lg border border-ink-dim/20 bg-surface p-6 shadow-card">
+        <div className="mt-8 rounded-lg border border-line bg-surface p-6 shadow-card">
           <div className="flex items-start gap-3">
-            <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-md bg-accent/10 text-accent">
+            <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-md bg-accent/10 text-accent-bright">
               <BookOpen className="h-5 w-5" />
             </span>
             <div>
@@ -69,7 +69,7 @@ export default async function ArcsPage() {
         {/* How the story works */}
         <section className="mt-12">
           <div className="mb-4 flex items-center gap-2">
-            <Compass className="h-5 w-5 text-accent" />
+            <Compass className="h-5 w-5 text-accent-bright" />
             <h2 className="font-display text-2xl tracking-tight text-ink">
               How the story works
             </h2>
@@ -78,7 +78,7 @@ export default async function ArcsPage() {
             {HOW_IT_WORKS.map((item) => (
               <div
                 key={item.title}
-                className="rounded-lg border border-ink-dim/20 bg-surface p-5"
+                className="rounded-lg border border-line bg-surface p-5"
               >
                 <h3 className="font-display text-base tracking-tight text-ink">
                   {item.title}
@@ -92,7 +92,7 @@ export default async function ArcsPage() {
         {/* Main plot timeline */}
         <section className="mt-12">
           <div className="mb-4 flex items-center gap-2">
-            <Layers className="h-5 w-5 text-accent" />
+            <Layers className="h-5 w-5 text-accent-bright" />
             <h2 className="font-display text-2xl tracking-tight text-ink">
               The main plot: S1 to latest
             </h2>
@@ -102,7 +102,7 @@ export default async function ArcsPage() {
             Episode ranges use the original Japanese numbering.
           </p>
 
-          <ol className="relative space-y-4 border-l border-ink-dim/20 pl-6">
+          <ol className="relative space-y-4 border-l border-line pl-6">
             {STORY_ARCS.map((arc) => {
               const progress = progressBySlug.get(arc.slug)!
               return (
@@ -110,7 +110,7 @@ export default async function ArcsPage() {
                 <span className="absolute -left-[31px] top-5 h-3 w-3 rounded-full border-2 border-accent bg-surface" />
                 <Link
                   href={`/arcs/${arc.slug}`}
-                  className="group block rounded-lg border border-ink-dim/20 bg-surface p-5 shadow-card transition-colors hover:border-ink-dim/30 hover:bg-surface-muted"
+                  className="group block rounded-lg border border-line bg-surface p-5 shadow-card transition-colors hover:border-ink-faint/40 hover:bg-surface-muted"
                 >
                   <div className="flex flex-wrap items-center gap-2">
                     <span className="font-mono text-xs text-ink-faint">
@@ -119,7 +119,7 @@ export default async function ArcsPage() {
                     <span
                       className={`rounded-md px-2 py-0.5 font-mono text-[10px] ${
                         arc.status === "ongoing"
-                          ? "bg-green-500/10 text-green-400"
+                          ? "bg-success/10 text-success"
                           : "bg-surface-muted text-ink-dim"
                       }`}
                     >
@@ -128,7 +128,7 @@ export default async function ArcsPage() {
                   </div>
 
                   <div className="mt-2 flex flex-wrap items-baseline justify-between gap-2">
-                    <h3 className="font-display text-xl tracking-tight text-ink group-hover:text-accent">
+                    <h3 className="font-display text-xl tracking-tight text-ink group-hover:text-accent-bright">
                       {arc.title}
                     </h3>
                     <span className="font-mono text-xs text-ink-faint">
@@ -136,7 +136,7 @@ export default async function ArcsPage() {
                     </span>
                   </div>
 
-                  <p className="mt-1 text-sm font-medium text-accent">
+                  <p className="mt-1 text-sm font-medium text-accent-bright">
                     {arc.tagline}
                   </p>
                   <p className="mt-2 line-clamp-2 text-sm text-ink-dim">
@@ -187,7 +187,7 @@ export default async function ArcsPage() {
         {/* Recurring threads */}
         <section className="mt-12">
           <div className="mb-4 flex items-center gap-2">
-            <Sparkles className="h-5 w-5 text-accent" />
+            <Sparkles className="h-5 w-5 text-accent-bright" />
             <h2 className="font-display text-2xl tracking-tight text-ink">
               Recurring threads
             </h2>
@@ -196,12 +196,12 @@ export default async function ArcsPage() {
             {RECURRING_THREADS.map((thread) => (
               <div
                 key={thread.slug}
-                className="rounded-lg border border-ink-dim/20 bg-surface p-5"
+                className="rounded-lg border border-line bg-surface p-5"
               >
                 <h3 className="font-display text-lg tracking-tight text-ink">
                   {thread.title}
                 </h3>
-                <p className="mt-1 text-sm font-medium text-accent">
+                <p className="mt-1 text-sm font-medium text-accent-bright">
                   {thread.tagline}
                 </p>
                 <p className="mt-2 text-sm text-ink-dim">
@@ -218,7 +218,7 @@ export default async function ArcsPage() {
         {/* Watch guide */}
         <section className="mt-12">
           <div className="mb-4 flex items-center gap-2">
-            <PlayCircle className="h-5 w-5 text-accent" />
+            <PlayCircle className="h-5 w-5 text-accent-bright" />
             <h2 className="font-display text-2xl tracking-tight text-ink">
               New here? How to watch
             </h2>
@@ -227,7 +227,7 @@ export default async function ArcsPage() {
             {WATCH_GUIDE.map((step) => (
               <div
                 key={step.step}
-                className="flex gap-4 rounded-lg border border-ink-dim/20 bg-surface p-5"
+                className="flex gap-4 rounded-lg border border-line bg-surface p-5"
               >
                 <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-accent font-mono text-sm text-white">
                   {step.step}
