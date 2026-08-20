@@ -3,6 +3,7 @@ import { ArrowRight, BookOpen, Users, Video } from "lucide-react"
 import { searchAll } from "@/lib/queries/search"
 import { SearchInput } from "@/components/search/SearchInput"
 import { CONTENT_TYPE_LABELS, type ContentType } from "@/lib/constants"
+import { typeBadgeClass } from "@/lib/badges"
 import { cn } from "@/lib/utils"
 
 export const dynamic = "force-dynamic"
@@ -10,17 +11,6 @@ export const dynamic = "force-dynamic"
 export const metadata = {
   title: "Search · Detective Conan PH",
   description: "Search episodes, story arcs, and detectives.",
-}
-
-const typeBadgeClass: Record<string, string> = {
-  movie: "bg-amber-500/10 text-amber-400 border-amber-500/30",
-  special: "bg-rose-100 text-rose-700 border-rose-300",
-  ova: "bg-violet-100 text-violet-700 border-violet-300",
-  live_action: "bg-sky-100 text-sky-700 border-sky-300",
-  magic_kaito: "bg-fuchsia-100 text-fuchsia-700 border-fuchsia-300",
-  hanzawa: "bg-zinc-200 text-zinc-700 border-zinc-300",
-  zero_tea_time: "bg-teal-100 text-teal-700 border-teal-300",
-  episode: "bg-surface-muted text-ink-dim border-ink-dim/30",
 }
 
 function SectionHeading({
@@ -52,7 +42,7 @@ function EntryCard({
   return (
     <Link
       href={`/tracker/${entry.slug}`}
-      className="flex items-center gap-3 rounded-lg border border-ink-dim/20 bg-surface p-2.5 transition-colors hover:border-ink-dim/30 hover:bg-surface-muted/60"
+      className="flex items-center gap-3 rounded-lg border border-line bg-surface p-2.5 transition-colors hover:border-ink-faint/40 hover:bg-surface-muted"
     >
       <div className="relative h-14 w-20 shrink-0 overflow-hidden rounded-md bg-surface-muted">
         {entry.image_url ? (
@@ -88,7 +78,7 @@ function ArcRow({ arc }: { arc: { slug: string; title: string } }) {
   return (
     <Link
       href={`/arcs/${arc.slug}`}
-      className="flex items-center justify-between gap-3 rounded-lg border border-ink-dim/20 bg-surface px-4 py-3 transition-colors hover:border-ink-dim/30 hover:bg-surface-muted/60"
+      className="flex items-center justify-between gap-3 rounded-lg border border-line bg-surface px-4 py-3 transition-colors hover:border-ink-faint/40 hover:bg-surface-muted"
     >
       <span className="flex items-center gap-2.5 text-sm font-display tracking-tight text-ink">
         <BookOpen className="h-4 w-4 shrink-0 text-ink-faint" />
@@ -108,7 +98,7 @@ function UserRow({
   return (
     <Link
       href={`/profile/${user.username}`}
-      className="flex items-center gap-3 rounded-lg border border-ink-dim/20 bg-surface px-4 py-3 transition-colors hover:border-ink-dim/30 hover:bg-surface-muted/60"
+      className="flex items-center gap-3 rounded-lg border border-line bg-surface px-4 py-3 transition-colors hover:border-ink-faint/40 hover:bg-surface-muted"
     >
       <div className="h-9 w-9 shrink-0 overflow-hidden rounded-full bg-surface-muted">
         {user.avatar_url ? (
@@ -165,7 +155,7 @@ export default async function SearchPage({
         </div>
 
         {!q && (
-          <div className="mt-16 rounded-2xl border border-dashed border-ink-dim/30 bg-surface-muted p-10 text-center">
+          <div className="mt-16 rounded-2xl border border-dashed border-line bg-surface-muted p-10 text-center">
             <p className="font-display text-lg tracking-tight text-ink">
               Search episodes, arcs, and detectives
             </p>
@@ -176,7 +166,7 @@ export default async function SearchPage({
         )}
 
         {q && !hasResults && (
-          <div className="mt-16 rounded-2xl border border-dashed border-ink-dim/30 bg-surface-muted p-10 text-center">
+          <div className="mt-16 rounded-2xl border border-dashed border-line bg-surface-muted p-10 text-center">
             <p className="font-display text-lg tracking-tight text-ink">
               No results for &quot;{q}&quot;
             </p>

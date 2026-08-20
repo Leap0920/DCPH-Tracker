@@ -3,23 +3,13 @@ import { redirect } from "next/navigation"
 import { createClient } from "@/utils/supabase/server"
 import { getUserFavorites, type FavoriteEntry } from "@/lib/queries/favorites"
 import { CONTENT_TYPE_LABELS, type ContentType } from "@/lib/constants"
+import { typeBadgeClass } from "@/lib/badges"
 import { padNumber } from "@/lib/utils"
 import { cn } from "@/lib/utils"
 
 export const metadata = {
   title: "Favorites · Detective Conan PH",
   description: "Your locked favorite episodes and movies.",
-}
-
-const typeBadgeClass: Record<string, string> = {
-  movie: "bg-amber-500/10 text-amber-400 border-amber-500/30",
-  special: "bg-rose-100 text-rose-700 border-rose-300",
-  ova: "bg-violet-100 text-violet-700 border-violet-300",
-  live_action: "bg-sky-100 text-sky-700 border-sky-300",
-  magic_kaito: "bg-fuchsia-100 text-fuchsia-700 border-fuchsia-300",
-  hanzawa: "bg-zinc-200 text-zinc-700 border-zinc-300",
-  zero_tea_time: "bg-teal-100 text-teal-700 border-teal-300",
-  episode: "bg-surface-muted text-ink-dim border-ink-dim/30",
 }
 
 function FavoriteCard({ entry }: { entry: FavoriteEntry }) {
@@ -31,7 +21,7 @@ function FavoriteCard({ entry }: { entry: FavoriteEntry }) {
         : entry.type.toUpperCase()
 
   return (
-    <div className="relative bg-surface border border-ink-dim/20 rounded-lg overflow-hidden group transition-all hover:border-ink-dim/30 hover:shadow-md">
+    <div className="relative bg-surface border border-line rounded-lg overflow-hidden group transition-all hover:border-ink-faint/40 hover:shadow-card">
       {entry.type !== "movie" && (
         <span className="absolute top-2 right-2 z-10 bg-ink text-page text-[10px] font-mono px-2 py-0.5 rounded-md">
           {displayNumber}
@@ -106,7 +96,7 @@ export default async function FavoritesPage() {
         </p>
 
         {favorites.length === 0 ? (
-          <div className="mt-10 rounded-2xl border border-dashed border-ink-dim/30 bg-surface-muted p-10 text-center">
+          <div className="mt-10 rounded-2xl border border-dashed border-line bg-surface-muted p-10 text-center">
             <p className="font-display text-lg tracking-tight text-ink">
               No favorites yet
             </p>
@@ -115,7 +105,7 @@ export default async function FavoritesPage() {
             </p>
             <Link
               href="/tracker"
-              className="mt-5 inline-flex items-center rounded-md border border-ink-dim/30 bg-surface px-4 py-2 text-xs font-mono text-ink-faint transition-colors hover:border-ink hover:text-ink"
+              className="mt-5 inline-flex items-center rounded-md border border-line bg-surface px-4 py-2 text-xs font-mono text-ink-faint transition-colors hover:border-ink hover:text-ink"
             >
               OPEN THE TRACKER
             </Link>
