@@ -116,6 +116,7 @@ export interface Database {
           synopsis: string | null;
           image_url: string | null;
           runtime_minutes: number | null;
+          crime_types: string[];
           created_at: string;
         };
         Insert: {
@@ -132,6 +133,7 @@ export interface Database {
           synopsis?: string | null;
           image_url?: string | null;
           runtime_minutes?: number | null;
+          crime_types?: string[] | null;
           created_at?: string;
         };
         Update: {
@@ -148,6 +150,7 @@ export interface Database {
           synopsis?: string | null;
           image_url?: string | null;
           runtime_minutes?: number | null;
+          crime_types?: string[] | null;
           created_at?: string;
         };
         Relationships: [
