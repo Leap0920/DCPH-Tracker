@@ -20,9 +20,9 @@ export default async function AdminMissingCoversPage() {
 
   return (
     <div className="space-y-6">
-      <div className="flex flex-col gap-2 border-b border-ink-dim/20 pb-5">
+      <div className="flex flex-col gap-2 border-b border-line pb-5">
         <div className="flex items-center gap-2">
-          <ImageIcon className="h-5 w-5 text-amber-400" />
+          <ImageIcon className="h-5 w-5 text-warning" />
           <h1 className="font-display text-xl font-semibold text-ink">Missing Cover Quick-Fix Panel</h1>
         </div>
         <p className="text-sm text-ink-dim">
@@ -30,12 +30,12 @@ export default async function AdminMissingCoversPage() {
         </p>
       </div>
 
-      <div className="flex items-center justify-between rounded-lg border border-amber-500/30 bg-amber-500/10 p-4">
+      <div className="flex items-center justify-between rounded-lg border border-warning/30 bg-warning/10 p-4">
         <div className="flex items-center gap-3">
-          <span className="flex h-8 w-8 items-center justify-center rounded-full bg-amber-500/10 text-amber-400 font-mono text-sm font-semibold">
+          <span className="flex h-8 w-8 items-center justify-center rounded-full bg-warning/20 text-warning font-mono text-sm font-semibold">
             {entries.length}
           </span>
-          <div className="text-sm text-amber-300 font-display">
+          <div className="text-sm text-warning font-display">
             Entries currently missing poster artwork
           </div>
         </div>
