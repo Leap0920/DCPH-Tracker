@@ -15,7 +15,7 @@ import {
   fetchProfileByUserId,
   updateProfile,
 } from "@/lib/queries/client/profile"
-import { Camera, Trash2, Check, Loader2, LogOut } from "lucide-react"
+import { Camera, Trash2, Check, Loader2, LogOut, Lock, Eye, EyeOff, Mail, Smartphone } from "lucide-react"
 import type { Database } from "@/types/database.types"
 
 type Profile = Database["public"]["Tables"]["profiles"]["Row"]
@@ -42,6 +42,16 @@ export default function SettingsPage() {
   const [pendingFile, setPendingFile] = useState<File | null>(null)
   const [previewUrl, setPreviewUrl] = useState<string | null>(null)
   const fileInputRef = useRef<HTMLInputElement>(null)
+
+  // Change password state
+  const [currentPassword, setCurrentPassword] = useState("")
+  const [newPassword, setNewPassword] = useState("")
+  const [confirmNewPassword, setConfirmNewPassword] = useState("")
+  const [showNewPassword, setShowNewPassword] = useState(false)
+  const [otpCode, setOtpCode] = useState("")
+  const [otpSent, setOtpSent] = useState(false)
+  const [otpLoading, setOtpLoading] = useState(false)
+  const [passwordMessage, setPasswordMessage] = useState<{ type: "success" | "error", text: string } | null>(null)
 
   const router = useRouter()
   const supabase = createClient()
@@ -207,6 +217,105 @@ export default function SettingsPage() {
     await supabase.auth.signOut()
     router.push("/")
     router.refresh()
+  }
+
+  async function handleSendPasswordOtp() {
+    if (!email) {
+      setPasswordMessage({ type: "error", text: "No email found for your account." })
+      return
+    }
+    setOtpLoading(true)
+    setPasswordMessage(null)
+    try {
+      const res = await fetch("/api/auth/otp", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email, mode: "signin" }),
+      })
+      const data = await res.json().catch(() => null)
+      if (!res.ok) {
+        setPasswordMessage({ type: "error", text: data?.error || "Failed to send verification code." })
+        setOtpLoading(false)
+        return
+      }
+      setOtpSent(true)
+      setPasswordMessage({ type: "success", text: "Verification code sent to your Gmail. Check your inbox." })
+    } catch {
+      setPasswordMessage({ type: "error", text: "Failed to send verification code." })
+    } finally {
+      setOtpLoading(false)
+    }
+  }
+
+  async function handleChangePassword(e: React.FormEvent) {
+    e.preventDefault()
+    if (!currentPassword) {
+      setPasswordMessage({ type: "error", text: "Please enter your current password." })
+      return
+    }
+    if (newPassword.length < 6) {
+      setPasswordMessage({ type: "error", text: "New password must be at least 6 characters." })
+      return
+    }
+    if (newPassword !== confirmNewPassword) {
+      setPasswordMessage({ type: "error", text: "New passwords do not match." })
+      return
+    }
+    if (!otpSent) {
+      setPasswordMessage({ type: "error", text: "Please send and verify the Gmail code first." })
+      return
+    }
+    if (otpCode.trim().length < 6) {
+      setPasswordMessage({ type: "error", text: "Please enter the 6-digit verification code." })
+      return
+    }
+
+    setOtpLoading(true)
+    setPasswordMessage(null)
+
+    // 1. Verify Gmail OTP
+    const { error: verifyError } = await supabase.auth.verifyOtp({
+      email: email!,
+      token: otpCode.trim(),
+      type: "email",
+    })
+
+    if (verifyError) {
+      setPasswordMessage({ type: "error", text: `Verification failed: ${verifyError.message}` })
+      setOtpLoading(false)
+      return
+    }
+
+    // 2. Verify current password by attempting to sign in
+    const { error: signInError } = await supabase.auth.signInWithPassword({
+      email: email!,
+      password: currentPassword,
+    })
+
+    if (signInError) {
+      setPasswordMessage({ type: "error", text: "Current password is incorrect." })
+      setOtpLoading(false)
+      return
+    }
+
+    // 3. Update to new password
+    const { error: updateError } = await supabase.auth.updateUser({
+      password: newPassword,
+    })
+
+    if (updateError) {
+      setPasswordMessage({ type: "error", text: updateError.message })
+      setOtpLoading(false)
+      return
+    }
+
+    setPasswordMessage({ type: "success", text: "Password changed successfully." })
+    setCurrentPassword("")
+    setNewPassword("")
+    setConfirmNewPassword("")
+    setOtpCode("")
+    setOtpSent(false)
+    setOtpLoading(false)
   }
 
   if (loading) {
@@ -442,6 +551,129 @@ export default function SettingsPage() {
               Sign Out
             </Button>
           </div>
+        </div>
+
+        {/* Change Password */}
+        <div className="mt-6 rounded-lg border border-line bg-surface p-6 shadow-card">
+          <h2 className="font-display text-base tracking-tight text-ink">
+            Change Password
+          </h2>
+          <p className="mt-1 text-sm text-ink-dim">
+            Update your password with Gmail verification for security.
+          </p>
+
+          {passwordMessage && (
+            <div
+              className={`mt-4 flex items-center gap-2 rounded-lg border px-4 py-3 text-sm ${
+                passwordMessage.type === "success"
+                  ? "border-success/30 bg-success/10 text-success"
+                  : "border-danger/30 bg-danger/10 text-danger"
+              }`}
+            >
+              {passwordMessage.text}
+            </div>
+          )}
+
+          <form onSubmit={handleChangePassword} className="mt-4 space-y-4">
+            <div className="space-y-2">
+              <Label htmlFor="currentPassword">Current Password</Label>
+              <div className="relative">
+                <Lock className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-ink-faint" />
+                <Input
+                  id="currentPassword"
+                  type={showNewPassword ? "text" : "password"}
+                  value={currentPassword}
+                  onChange={(e) => setCurrentPassword(e.target.value)}
+                  required
+                  className="pl-10 pr-10 bg-surface border border-line focus:border-accent focus:ring-1 focus:ring-accent rounded-lg text-ink placeholder:text-ink-faint text-sm h-11"
+                  placeholder="Enter current password"
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowNewPassword(!showNewPassword)}
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-ink-faint hover:text-ink-dim"
+                  aria-label={showNewPassword ? "Hide password" : "Show password"}
+                >
+                  {showNewPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                </button>
+              </div>
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="newPassword">New Password</Label>
+              <div className="relative">
+                <Lock className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-ink-faint" />
+                <Input
+                  id="newPassword"
+                  type={showNewPassword ? "text" : "password"}
+                  value={newPassword}
+                  onChange={(e) => setNewPassword(e.target.value)}
+                  required
+                  minLength={6}
+                  className="pl-10 pr-10 bg-surface border border-line focus:border-accent focus:ring-1 focus:ring-accent rounded-lg text-ink placeholder:text-ink-faint text-sm h-11"
+                  placeholder="Min 6 characters"
+                />
+              </div>
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="confirmNewPassword">Confirm New Password</Label>
+              <div className="relative">
+                <Lock className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-ink-faint" />
+                <Input
+                  id="confirmNewPassword"
+                  type={showNewPassword ? "text" : "password"}
+                  value={confirmNewPassword}
+                  onChange={(e) => setConfirmNewPassword(e.target.value)}
+                  required
+                  className="pl-10 pr-10 bg-surface border border-line focus:border-accent focus:ring-1 focus:ring-accent rounded-lg text-ink placeholder:text-ink-faint text-sm h-11"
+                  placeholder="Re-enter new password"
+                />
+              </div>
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="otpCode">Gmail Verification Code</Label>
+              <div className="flex gap-2">
+                <div className="relative flex-1">
+                  <Smartphone className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-ink-faint" />
+                  <Input
+                    id="otpCode"
+                    type="text"
+                    inputMode="numeric"
+                    placeholder="6-digit code"
+                    value={otpCode}
+                    onChange={(e) => setOtpCode(e.target.value.replace(/[^\d]/g, "").slice(0, 6))}
+                    required
+                    maxLength={6}
+                    className="pl-10 bg-surface border border-line focus:border-accent focus:ring-1 focus:ring-accent rounded-lg text-ink placeholder:text-ink-faint text-sm h-11 tracking-[0.3em] text-center"
+                  />
+                </div>
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={handleSendPasswordOtp}
+                  disabled={otpLoading}
+                  className="shrink-0 rounded-lg border-line"
+                >
+                  {otpLoading ? "Sending..." : otpSent ? "Resend Code" : "Send Code"}
+                </Button>
+              </div>
+              <p className="text-xs text-ink-faint">
+                We&apos;ll send a 6-digit code to <span className="font-medium text-ink">{email}</span>. Check spam if not received. Code expires shortly.
+              </p>
+            </div>
+
+            <div className="flex justify-end">
+              <Button
+                type="submit"
+                disabled={otpLoading}
+                className="min-w-[160px] rounded-lg"
+              >
+                {otpLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : "Change Password"}
+              </Button>
+            </div>
+          </form>
         </div>
       </div>
     </div>
