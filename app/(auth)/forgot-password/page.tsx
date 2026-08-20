@@ -1,7 +1,7 @@
 "use client"
 
 import { useState } from "react"
-import { Mail, Phone, ShieldAlert, KeyRound, ArrowLeft } from "lucide-react"
+import { Mail, Phone, ShieldAlert, ArrowLeft } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
@@ -48,7 +48,7 @@ export default function ForgotPasswordPage() {
   }
 
   return (
-    <Card className="w-full max-w-md bg-surface border border-ink-dim/20 shadow-card rounded-2xl relative overflow-hidden">
+    <Card className="w-full max-w-md bg-surface border border-line shadow-card rounded-2xl relative overflow-hidden">
       
       <CardHeader className="text-center pb-4 pt-6">
         <div className="flex justify-center mb-4">
@@ -69,13 +69,13 @@ export default function ForgotPasswordPage() {
       <CardContent className="px-6 pb-8">
         {success ? (
           <div className="space-y-4">
-            <div className="bg-green-500/10 border border-green-500/30 rounded-lg p-4 text-sm text-green-400">
+            <div className="bg-success/10 border border-success/30 rounded-lg p-4 text-sm text-success">
               <p className="font-semibold mb-1">Recovery Email Sent</p>
               <p>Check your email for the password recovery link. Follow the instructions in the email to reset your password.</p>
             </div>
             <Button
               variant="outline"
-              className="w-full gap-2 border-ink-dim/20 text-ink-dim hover:bg-surface-muted rounded-full h-11 text-sm font-semibold transition-all"
+              className="w-full gap-2 border-line text-ink-dim hover:bg-surface-muted rounded-full h-11 text-sm font-semibold transition-all"
               onClick={() => openAuthModal("signin")}
             >
               <ArrowLeft className="h-4 w-4" />
@@ -85,8 +85,8 @@ export default function ForgotPasswordPage() {
         ) : (
           <form onSubmit={handleResetRequest} className="space-y-5">
             {error && (
-              <div className="bg-red-500/10 border border-red-500/30 rounded-lg p-3.5 flex gap-2 items-start text-xs text-red-400">
-                <ShieldAlert className="h-4 w-4 shrink-0 mt-0.5 text-red-400" />
+              <div className="bg-danger/10 border border-danger/30 rounded-lg p-3.5 flex gap-2 items-start text-xs text-danger">
+                <ShieldAlert className="h-4 w-4 shrink-0 mt-0.5 text-danger" />
                 <span>{error}</span>
               </div>
             )}
@@ -104,7 +104,7 @@ export default function ForgotPasswordPage() {
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
                   required
-                  className="pl-10 bg-surface border border-ink-dim/20 focus:border-accent focus:ring-1 focus:ring-accent rounded-lg text-ink placeholder:text-ink-faint text-sm h-11 transition-colors"
+                  className="pl-10 bg-surface border border-line focus:border-accent focus:ring-1 focus:ring-accent rounded-lg text-ink placeholder:text-ink-faint text-sm h-11 transition-colors"
                 />
               </div>
             </div>
@@ -120,7 +120,7 @@ export default function ForgotPasswordPage() {
         )}
 
         {!success && (
-          <div className="mt-8 pt-6 border-t border-ink-dim/10 space-y-3">
+          <div className="mt-8 pt-6 border-t border-line space-y-3">
             <button
               type="button"
               onClick={() => openAuthModal("signin")}
@@ -129,7 +129,7 @@ export default function ForgotPasswordPage() {
               <ArrowLeft className="h-3.5 w-3.5" />
               Back to Sign In
             </button>
-            <div className="h-px bg-ink-dim/10" />
+            <div className="border-t border-line" />
             <button
               type="button"
               onClick={() => openAuthModal("signin", "phone")}
