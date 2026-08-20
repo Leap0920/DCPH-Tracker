@@ -1,15 +1,14 @@
 import type { Config } from "tailwindcss";
 
 // ─────────────────────────────────────────────────────────
-// DESIGN TOKENS — "Modern Clean" theme
-// Direction: soft surfaces, crisp ink text, one strong rose-red
-// accent, clean sans typography. Tokens resolve to CSS variables
-// (defined in app/globals.css) so the `dark` class on <html>
-// swaps the whole palette at once (class-based dark mode).
+// DESIGN TOKENS
+// Direction: flat near-black surfaces, subtle hairline borders, a plain
+// gray text hierarchy, one restrained crimson accent. Tokens resolve to
+// CSS variables (defined in app/globals.css) so the `dark` class on
+// <html> swaps the whole palette at once. DARK IS THE DEFAULT.
 //
-// The keyframes/animation/boxShadow blocks below are ADDITIVE motion
-// primitives for the graph + marketing polish. No token, color or font
-// values were changed.
+// The keyframes/animation blocks are motion primitives for the graph +
+// marketing polish and are unchanged.
 // ─────────────────────────────────────────────────────────
 
 const config: Config = {
@@ -24,13 +23,18 @@ const config: Config = {
         page: "rgb(var(--page) / <alpha-value>)",           // app background
         surface: "rgb(var(--surface) / <alpha-value>)",     // cards / panels
         "surface-muted": "rgb(var(--surface-muted) / <alpha-value>)", // secondary surfaces, hover
+        line: "rgb(var(--line) / <alpha-value>)",           // hairline borders / dividers
         ink: "rgb(var(--ink) / <alpha-value>)",             // primary text
         "ink-dim": "rgb(var(--ink-dim) / <alpha-value>)",   // secondary text
         "ink-faint": "rgb(var(--ink-faint) / <alpha-value>)", // muted / placeholder
-        accent: "rgb(var(--accent) / <alpha-value>)",       // primary accent (rose)
-        "accent-bright": "rgb(var(--accent-bright) / <alpha-value>)", // hover / active
+        accent: "rgb(var(--accent) / <alpha-value>)",       // crimson — FILLS (white text = 6:1)
+        "accent-bright": "rgb(var(--accent-bright) / <alpha-value>)", // crimson — TEXT + hover
         "accent-soft": "rgb(var(--accent-soft) / <alpha-value>)", // tinted backgrounds
-        "gold-seal": "rgb(var(--gold-seal) / <alpha-value>)", // rare accent — rank badges, seals only
+        danger: "rgb(var(--danger) / <alpha-value>)",       // errors / destructive
+        success: "rgb(var(--success) / <alpha-value>)",     // approve / completed
+        warning: "rgb(var(--warning) / <alpha-value>)",     // amber — pending/suspended
+        "gold-seal": "rgb(var(--gold-seal) / <alpha-value>)", // rare accent — rank badges only
+        overlay: "rgb(var(--overlay) / <alpha-value>)",     // modal scrims, image gradients
       },
       fontFamily: {
         display: ["var(--font-display)", "sans-serif"],   // headings
@@ -41,11 +45,13 @@ const config: Config = {
         stamp: "0.18em",
       },
       boxShadow: {
-        card: "0 1px 3px 0 rgb(var(--ink) / 0.08), 0 1px 2px -1px rgb(var(--ink) / 0.06)",
-        // Additive: accent-tinted lift for interactive surfaces.
-        glow: "0 0 0 1px rgb(var(--accent) / 0.18), 0 8px 24px -8px rgb(var(--accent) / 0.35)",
-        "glow-lg": "0 0 0 1px rgb(var(--accent) / 0.22), 0 20px 48px -12px rgb(var(--accent) / 0.45)",
-        lift: "0 12px 32px -12px rgb(var(--ink) / 0.22), 0 2px 6px -2px rgb(var(--ink) / 0.1)",
+        // These use --shadow, NOT --ink. --ink is near-white on the dark
+        // theme, so the previous rgb(var(--ink)/0.08) rendered every
+        // "shadow" as a white glow in dark mode.
+        card: "0 1px 3px 0 rgb(var(--shadow) / 0.5), 0 1px 2px -1px rgb(var(--shadow) / 0.4)",
+        lift: "0 12px 32px -12px rgb(var(--shadow) / 0.7), 0 2px 6px -2px rgb(var(--shadow) / 0.5)",
+        glow: "0 0 0 1px rgb(var(--accent) / 0.25), 0 8px 24px -8px rgb(var(--accent) / 0.4)",
+        "glow-lg": "0 0 0 1px rgb(var(--accent) / 0.3), 0 20px 48px -12px rgb(var(--accent) / 0.5)",
       },
       keyframes: {
         "dcph-float": {

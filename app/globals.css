@@ -11,37 +11,63 @@
 @tailwind utilities;
 
 /*
-  THEME TOKENS — light palette lives on :root, the `dark` class on
-  <html> (set by components/theme-provider.tsx + the beforeInteractive
-  script in app/layout.tsx) overrides it with the night palette.
-  Values are "R G B" triples consumed by tailwind.config.ts colors as
+  ═══════════════════════════════════════════════════════════════════
+  THEME TOKENS
+
+  DARK IS THE DEFAULT. The `dark` class ships on <html> from the server
+  render (app/layout.tsx); the beforeInteractive script only REMOVES it
+  when the visitor explicitly opted into the light theme.
+
+  Direction: flat near-black surfaces, subtle hairline borders, a plain
+  gray text hierarchy, and ONE restrained crimson accent. Borders do the
+  separation work that shadows do in light mode.
+
+  :root  = light (legacy opt-in)
+  .dark  = dark (default)
+
+  Values are "R G B" triples consumed by tailwind.config.ts as
   `rgb(var(--x) / <alpha-value>)`.
+  ═══════════════════════════════════════════════════════════════════
 */
 :root {
-  --page: 248 250 252;           /* slate-50 */
-  --surface: 255 255 255;        /* white */
-  --surface-muted: 241 245 249;  /* slate-100 */
-  --ink: 15 23 42;               /* slate-900 */
-  --ink-dim: 71 85 105;          /* slate-600 */
-  --ink-faint: 148 163 184;      /* slate-400 */
-  --accent: 225 29 72;           /* rose-600 */
-  --accent-bright: 244 63 94;    /* rose-500 */
-  --accent-soft: 255 241 242;    /* rose-50 */
-  --gold-seal: 245 158 11;       /* amber-500 */
+  /* ── LIGHT (legacy opt-in) ────────────────────────────────────── */
+  --page: 250 250 250;           /* #FAFAFA                         */
+  --surface: 255 255 255;        /* #FFFFFF                         */
+  --surface-muted: 245 245 245;  /* #F5F5F5                         */
+  --line: 229 229 229;           /* #E5E5E5 hairline                */
+  --ink: 23 23 23;               /* #171717                         */
+  --ink-dim: 82 82 82;           /* #525252                         */
+  --ink-faint: 163 163 163;      /* #A3A3A3                         */
+  --accent: 179 12 37;           /* #B30C25 — 7.0:1 on white        */
+  --accent-bright: 200 16 46;    /* #C8102E hover                   */
+  --accent-soft: 253 242 243;    /* #FDF2F3                         */
+  --danger: 220 38 38;           /* #DC2626                         */
+  --success: 22 163 74;          /* #16A34A                         */
+  --warning: 217 119 6;           /* #D97706 amber — pending/suspended */
+  --gold-seal: 156 122 46;       /* #9C7A2E — rare                  */
+  --shadow: 23 23 23;            /* shadow ink — NEVER --ink        */
+  --overlay: 23 23 23;           /* modal scrim base                */
   color-scheme: light;
 }
 
 .dark {
-  --page: 2 6 23;                /* slate-950 */
-  --surface: 15 23 42;           /* slate-900 */
-  --surface-muted: 30 41 59;     /* slate-800 */
-  --ink: 226 232 240;            /* slate-200 */
-  --ink-dim: 148 163 184;        /* slate-400 */
-  --ink-faint: 100 116 139;      /* slate-500 */
-  --accent: 244 63 94;           /* rose-500 */
-  --accent-bright: 251 113 133;  /* rose-400 */
-  --accent-soft: 76 5 25;        /* deep rose tint */
-  --gold-seal: 251 191 36;       /* amber-400 */
+  /* ── DARK (default) ───────────────────────────────────────────── */
+  --page: 0 0 0;                 /* #000000                         */
+  --surface: 10 10 10;           /* #0A0A0A cards / panels          */
+  --surface-muted: 23 23 23;     /* #171717 hover / secondary       */
+  --line: 38 38 38;              /* #262626 hairline (~white/10)    */
+  --ink: 237 237 237;            /* #EDEDED          15.7:1         */
+  --ink-dim: 161 161 161;        /* #A1A1A1           7.6:1         */
+  --ink-faint: 115 115 115;      /* #737373           3.9:1         */
+  --accent: 200 16 46;           /* #C8102E crimson — FILLS         */
+  --accent-bright: 237 42 66;    /* #ED2A42 crimson — TEXT + hover  */
+  --accent-soft: 38 8 13;        /* #26080D tinted background       */
+  --danger: 239 68 68;           /* #EF4444                         */
+  --success: 34 197 94;          /* #22C55E                         */
+  --warning: 251 191 36;          /* #FBBF24 amber — pending/suspended */
+  --gold-seal: 212 175 55;       /* #D4AF37 — rare                  */
+  --shadow: 0 0 0;               /* true black, not --ink           */
+  --overlay: 0 0 0;              /* opaque black scrim              */
   color-scheme: dark;
 }
 
@@ -61,19 +87,77 @@
     @apply bg-accent text-white;
   }
 
-  /* visible keyboard focus everywhere — non-negotiable a11y floor */
+  /* Native controls (range sliders, checkboxes, radios) inherit the accent
+     instead of the UA blue. Also neutralises the hardcoded
+     `accent-red-600` on the carousel slider. */
+  :root {
+    accent-color: rgb(var(--accent));
+  }
+
+  html {
+    caret-color: rgb(var(--accent-bright));
+  }
+
+  /* Visible keyboard focus everywhere — non-negotiable a11y floor.
+     Written as a literal rgb() rather than theme("colors.accent"): that
+     token carries an <alpha-value> placeholder which CSS theme() does not
+     substitute, producing an invalid declaration and no ring at all.
+     accent-bright (not accent) so the ring clears 3:1 against #000. */
   :focus-visible {
-    outline: 2px solid theme("colors.accent");
+    outline: 2px solid rgb(var(--accent-bright));
     outline-offset: 2px;
+  }
+
+  /* Thin neutral scrollbar, faint accent on hover. */
+  * {
+    scrollbar-width: thin;
+    scrollbar-color: rgb(var(--line)) transparent;
+  }
+
+  ::-webkit-scrollbar {
+    width: 10px;
+    height: 10px;
+  }
+
+  ::-webkit-scrollbar-track {
+    background: transparent;
+  }
+
+  ::-webkit-scrollbar-thumb {
+    background: rgb(var(--line));
+    border: 2px solid rgb(var(--page));
+    border-radius: 9999px;
+  }
+
+  ::-webkit-scrollbar-thumb:hover {
+    background: rgb(var(--accent) / 0.7);
+  }
+
+  ::-webkit-scrollbar-corner {
+    background: transparent;
+  }
+
+  /* Chrome autofill paints its own near-white box, which shreds every dark
+     form (login, admin, chat). Force it back onto the tokens. */
+  input:-webkit-autofill,
+  input:-webkit-autofill:hover,
+  input:-webkit-autofill:focus,
+  textarea:-webkit-autofill,
+  select:-webkit-autofill {
+    -webkit-text-fill-color: rgb(var(--ink));
+    -webkit-box-shadow: inset 0 0 0 1000px rgb(var(--surface-muted));
+    caret-color: rgb(var(--ink));
+    transition: background-color 9999s ease-out 0s;
   }
 }
 
 @layer components {
 
-  /* Signature card surface: clean surface card with a soft shadow
-     and a thin accent strip on the left edge. */
+  /* Signature card surface: flat surface, hairline border, thin accent
+     strip on the left edge. On near-black the border does the separation
+     work a drop shadow does in light mode. */
   .dossier-card {
-    @apply relative bg-surface border border-ink-dim/20 shadow-card rounded-xl overflow-hidden;
+    @apply relative bg-surface border border-line shadow-card rounded-xl overflow-hidden;
   }
 
   .dossier-card::before {
@@ -82,7 +166,7 @@
   }
 
   .dossier-stamp {
-    @apply absolute top-3 right-3 rotate-6 border border-accent/40 text-accent text-[10px] font-mono tracking-stamp uppercase px-2 py-1 rounded-sm;
+    @apply absolute top-3 right-3 rotate-6 border border-accent/40 text-accent-bright text-[10px] font-mono tracking-stamp uppercase px-2 py-1 rounded-sm;
   }
 
   .redacted-bar {
@@ -188,7 +272,9 @@
     animation: dcph-sweep 0.9s cubic-bezier(0.16, 1, 0.3, 1) both;
   }
 
-  /* Light sweep across a surface on hover — used on primary CTAs. */
+  /* Light sweep across a surface on hover — used on primary CTAs.
+     Toned from 0.38 to 0.14: a bright white wipe reads as a glass smear
+     against near-black. */
   .dcph-sheen {
     position: relative;
     overflow: hidden;
@@ -203,7 +289,7 @@
     background: linear-gradient(
       115deg,
       transparent 32%,
-      rgb(255 255 255 / 0.38) 50%,
+      rgb(255 255 255 / 0.14) 50%,
       transparent 68%
     );
     transform: translateX(-130%);
@@ -221,12 +307,14 @@
     animation: dcph-drift 32s ease-in-out infinite reverse;
   }
 
-  /* Animated gradient text — reserved for single hero-level accents. */
+  /* Animated gradient text — reserved for single hero-level accents.
+     Uses accent-BRIGHT: plain accent (#C8102E) is darker than ink on the
+     dark theme, so the midpoint of the pan visibly dips into mud. */
   .dcph-gradient-text {
     background-image: linear-gradient(
       100deg,
       rgb(var(--ink)) 0%,
-      rgb(var(--accent)) 45%,
+      rgb(var(--accent-bright)) 45%,
       rgb(var(--ink)) 90%
     );
     background-size: 220% 100%;
@@ -334,10 +422,12 @@
 }
 
 /* === Hero: class-based dark-mode banner (html.dark) ===================== *
- * The theme is set on <html> pre-paint by the beforeInteractive script in
- * app/layout.tsx, so the correct banner + scrim paint on the first frame with
- * zero JS and zero hydration mismatch. background-image (not <img>) means the
- * hidden variant is never downloaded.
+ * The theme is set on <html> pre-paint (server-rendered `dark` class plus
+ * the beforeInteractive script in app/layout.tsx), so the correct banner +
+ * scrim paint on the first frame with zero JS and zero hydration mismatch.
+ * background-image (not <img>) means the hidden variant is never downloaded.
+ * Because dark is the DEFAULT, /hero-image-darkM.jpg is the asset nearly
+ * every visitor downloads — keep it optimised accordingly.
  * ----------------------------------------------------------------------- */
 
 .hero-media {
@@ -374,7 +464,8 @@ html.dark .hero-media-dark {
 }
 
 /* Left-to-right scrim so the left-aligned copy stays readable over the photo.
-   Light mode fades from white; dark mode fades from slate-950. */
+   Light fades from white; dark fades from #000 — this MUST match --page on
+   .dark exactly or a seam appears where the scrim ends. */
 .hero-scrim {
   position: absolute;
   inset: 0;
@@ -395,9 +486,9 @@ html.dark .hero-media-dark {
   display: none;
   background-image: linear-gradient(
     to right,
-    rgb(2 6 23 / 0.94) 0%,
-    rgb(2 6 23 / 0.8) 34%,
-    rgb(2 6 23 / 0) 84%
+    rgb(0 0 0 / 0.95) 0%,
+    rgb(0 0 0 / 0.82) 34%,
+    rgb(0 0 0 / 0) 84%
   );
 }
 
@@ -422,9 +513,9 @@ html.dark .hero-scrim-dark {
   .hero-scrim-dark {
     background-image: linear-gradient(
       to right,
-      rgb(2 6 23 / 0.92) 0%,
-      rgb(2 6 23 / 0.55) 40%,
-      rgb(2 6 23 / 0) 80%
+      rgb(0 0 0 / 0.93) 0%,
+      rgb(0 0 0 / 0.58) 40%,
+      rgb(0 0 0 / 0) 80%
     );
   }
 }
@@ -436,5 +527,5 @@ html.dark .hero-scrim-dark {
 }
 
 html.dark .hero-text-shadow {
-  text-shadow: 0 1px 3px rgb(2 6 23 / 0.8);
+  text-shadow: 0 1px 3px rgb(0 0 0 / 0.85);
 }
