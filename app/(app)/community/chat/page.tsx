@@ -25,7 +25,7 @@ export default async function ChatDirectoryPage() {
         </div>
 
         {rooms.length === 0 ? (
-          <div className="rounded-lg border border-ink-dim/20 bg-surface p-12 text-center shadow-card">
+          <div className="rounded-lg border border-line bg-surface p-12 text-center shadow-card">
             <MessagesSquare className="mx-auto h-8 w-8 text-ink-faint" />
             <p className="mt-4 font-display text-sm text-ink-dim">
               No chat rooms available
@@ -40,11 +40,11 @@ export default async function ChatDirectoryPage() {
               <Link
                 key={room.id}
                 href={`/community/chat/${room.slug}`}
-                className="group flex flex-col rounded-lg border border-ink-dim/20 bg-surface p-5 shadow-card transition-colors hover:border-ink-dim/30 hover:bg-surface-muted"
+                className="group flex flex-col rounded-lg border border-line bg-surface p-5 shadow-card transition-colors hover:border-ink-faint/40 hover:bg-surface-muted"
               >
                 <div className="flex items-start justify-between gap-3">
                   <div className="flex items-center gap-2">
-                    <span className="flex h-9 w-9 items-center justify-center rounded-md bg-accent/10 text-accent">
+                    <span className="flex h-9 w-9 items-center justify-center rounded-md bg-accent/10 text-accent-bright">
                       <MessagesSquare className="h-4 w-4" />
                     </span>
                     <h2 className="font-display text-lg tracking-tight text-ink">

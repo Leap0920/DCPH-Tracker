@@ -86,9 +86,9 @@ export default async function RankingsPage() {
             (() => {
               const rankInfo = getDetectiveRank(you.watched_count)
               return (
-                <div className="flex flex-col gap-4 rounded-2xl border border-ink-dim/20 bg-surface p-5 sm:p-6 shadow-card sm:flex-row sm:items-center sm:justify-between">
+                <div className="flex flex-col gap-4 rounded-2xl border border-line bg-surface p-5 sm:p-6 shadow-card sm:flex-row sm:items-center sm:justify-between">
                   <div className="flex items-center gap-4 min-w-0 flex-1">
-                    <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-accent-soft text-accent">
+                    <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-accent-soft text-accent-bright">
                       <Trophy className="h-5 w-5" />
                     </span>
                     <div className="min-w-0 flex-1">
@@ -97,7 +97,7 @@ export default async function RankingsPage() {
                           Your Standing
                         </span>
                         {you.rank > 0 && (
-                          <span className="rounded-md bg-accent-soft px-2 py-0.5 font-mono text-xs font-semibold text-accent">
+                          <span className="rounded-md bg-accent-soft px-2 py-0.5 font-mono text-xs font-semibold text-accent-bright">
                             Rank #{you.rank}
                           </span>
                         )}
@@ -130,7 +130,7 @@ export default async function RankingsPage() {
                   </div>
 
                   <Link href={`/profile/${you.username}`}>
-                    <Button variant="outline" size="sm" className="h-9 rounded-xl border-ink-dim/20 text-xs font-display text-ink-dim hover:text-ink">
+                    <Button variant="outline" size="sm" className="h-9 rounded-xl border-line text-xs font-display text-ink-dim hover:text-ink">
                       View profile
                     </Button>
                   </Link>
@@ -138,7 +138,7 @@ export default async function RankingsPage() {
               )
             })()
           ) : currentUserId ? (
-            <div className="flex flex-wrap items-center gap-4 rounded-lg border border-ink-dim/20 bg-surface p-5 shadow-card">
+            <div className="flex flex-wrap items-center gap-4 rounded-lg border border-line bg-surface p-5 shadow-card">
               <span className="flex h-11 w-11 items-center justify-center rounded-full bg-surface-muted text-ink-faint">
                 <Trophy className="h-5 w-5" />
               </span>
@@ -158,7 +158,7 @@ export default async function RankingsPage() {
               </Link>
             </div>
           ) : (
-            <div className="flex flex-wrap items-center gap-4 rounded-lg border border-ink-dim/20 bg-surface p-5 shadow-card">
+            <div className="flex flex-wrap items-center gap-4 rounded-lg border border-line bg-surface p-5 shadow-card">
               <div className="flex-1">
                 <p className="font-display text-lg tracking-tight text-ink">
                   Sign in to track your rank
