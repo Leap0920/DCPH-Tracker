@@ -302,7 +302,7 @@ export function CommentSection({ contentId }: { contentId: string }) {
       )}
 
       {commentsQuery.isError && (
-        <p className="mt-3 text-xs text-accent">Couldn't load comments. Check your connection and refresh.</p>
+        <p className="mt-3 text-xs text-accent">Couldn&apos;t load comments. Check your connection and refresh.</p>
       )}
 
       {/* Composer */}

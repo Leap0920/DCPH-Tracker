@@ -1,0 +1,59 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+env:
+  NEXT_TELEMETRY_DISABLED: "1"
+  # Build-time placeholders ONLY.
+  #
+  # `next build` imports every route module while collecting page data, which
+  # executes lib/env.ts at module scope. Without these, required() throws and
+  # the build fails even though all pages are dynamic and never prerendered.
+  #
+  # These are not secrets and grant no access. Because NEXT_PUBLIC_* values are
+  # inlined into the client bundle, the .next/ output produced by this workflow
+  # is for verification only and must never be deployed.
+  NEXT_PUBLIC_SUPABASE_URL: "https://placeholder.supabase.co"
+  NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY: "ci-placeholder-publishable-key"
+
+jobs:
+  verify:
+    name: Verify
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Typecheck
+        run: npx tsc --noEmit
+
+      - name: Lint
+        run: npm run lint
+
+      - name: Test
+        run: npm run test
+
+      - name: Build
+        run: npm run build

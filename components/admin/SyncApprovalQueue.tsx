@@ -251,7 +251,7 @@ export function SyncApprovalQueue({ items }: { items: StagedRow[] }) {
               <option value="ova">OVAs</option>
               <option value="magic_kaito">Magic Kaito</option>
               <option value="hanzawa">The Culprit Hanzawa</option>
-              <option value="zero_tea_time">Zero's Tea Time</option>
+              <option value="zero_tea_time">Zero&apos;s Tea Time</option>
               <option value="yaiba">Yaiba</option>
             </select>
             <Filter className="absolute left-2.5 top-2.5 h-3.5 w-3.5 text-ink-faint" />
