@@ -403,13 +403,13 @@ function TrackerPageContent() {
         ) : (
           <div className="space-y-6">
             {error && (
-              <div className="rounded-lg border border-red-500/30 bg-red-500/10 px-4 py-3 text-sm text-red-400">
+              <div className="rounded-lg border border-danger/30 bg-danger/10 px-4 py-3 text-sm text-danger">
                 {error}
               </div>
             )}
             <MotivationStats entries={entries} userStatuses={userStatuses} userName={user} />
             {!user && (
-              <div className="flex flex-wrap items-center gap-4 rounded-lg border border-ink-dim/20 bg-surface p-5">
+              <div className="flex flex-wrap items-center gap-4 rounded-lg border border-line bg-surface p-5">
                 <div className="flex-1">
                   <p className="font-display text-base tracking-tight text-ink">
                     Sign in to track your progress
@@ -423,7 +423,7 @@ function TrackerPageContent() {
                 </Button>
               </div>
             )}
-            <div className="bg-surface border border-ink-dim/20 rounded-lg overflow-hidden shadow-card">
+            <div className="bg-surface border border-line rounded-lg overflow-hidden shadow-card">
               <ContentGrid
                 entries={entries}
                 userStatuses={userStatuses}
@@ -471,7 +471,7 @@ function TrackerPageContent() {
         >
           {/* Backdrop — click to close */}
           <div
-            className="absolute inset-0 bg-black/60 backdrop-blur-sm"
+            className="absolute inset-0 bg-overlay/60 backdrop-blur-sm"
             onClick={() => setSelectedEntry(null)}
             aria-hidden="true"
           />
@@ -480,9 +480,9 @@ function TrackerPageContent() {
             <div
               ref={panelRef}
               tabIndex={-1}
-              className="relative w-full max-h-[90dvh] overflow-y-auto rounded-t-2xl border border-ink-dim/20 bg-surface shadow-card outline-none sm:max-h-[85dvh] sm:max-w-3xl sm:rounded-2xl"
+              className="relative w-full max-h-[90dvh] overflow-y-auto rounded-t-2xl border border-line bg-surface shadow-card outline-none sm:max-h-[85dvh] sm:max-w-3xl sm:rounded-2xl"
             >
-              <div className="sticky top-0 z-10 flex items-center justify-end border-b border-ink-dim/20 bg-surface/95 px-3 py-2.5 backdrop-blur-sm sm:px-4">
+              <div className="sticky top-0 z-10 flex items-center justify-end border-b border-line bg-surface/95 px-3 py-2.5 backdrop-blur-sm sm:px-4">
                 <button
                   type="button"
                   onClick={() => setSelectedEntry(null)}

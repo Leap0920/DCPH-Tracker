@@ -20,6 +20,7 @@ import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { Skeleton } from "@/components/ui/skeleton"
 import { CONTENT_TYPE_LABELS, type ContentType, type WatchStatus } from "@/lib/constants"
+import { typeBadgeVariant } from "@/lib/badges"
 import { cn, formatDate, padNumber } from "@/lib/utils"
 import { createClient } from "@/utils/supabase/client"
 import { openAuthModal } from "@/lib/auth-modal"
@@ -42,13 +43,6 @@ import type { Database } from "@/types/database.types"
 
 type ContentEntry = Database["public"]["Tables"]["content_entries"]["Row"] & {
   arcs: Database["public"]["Tables"]["arcs"]["Row"] | null
-}
-
-const typeBadgeVariant: Record<string, "default" | "secondary" | "outline" | "gold"> = {
-  movie: "gold",
-  special: "default",
-  ova: "secondary",
-  episode: "outline",
 }
 
 /** Read-only half-star row (full / half / empty) for the community average. */
@@ -281,7 +275,7 @@ export function ContentDetail({ entry, inModal }: { entry: ContentEntry; inModal
       )}
 
       {/* Hero block */}
-      <div className="overflow-hidden rounded-xl border border-ink-dim/20 bg-surface shadow-card">
+      <div className="overflow-hidden rounded-xl border border-line bg-surface shadow-card">
         <div className="relative aspect-video bg-surface-muted">
           {entry.image_url ? (
             <img
@@ -340,7 +334,7 @@ export function ContentDetail({ entry, inModal }: { entry: ContentEntry; inModal
           </div>
 
           {/* Action row — signed-in only; guest sees a Sign In CTA */}
-          <div className="mt-6 flex flex-wrap items-center gap-3 border-t border-ink-dim/20 pt-6">
+          <div className="mt-6 flex flex-wrap items-center gap-3 border-t border-line pt-6">
             {userId ? (
               <>
                 <Button
@@ -348,7 +342,7 @@ export function ContentDetail({ entry, inModal }: { entry: ContentEntry; inModal
                   disabled={watchStatusQuery.isLoading || watchMutation.isPending}
                   className={cn(
                     isSeen &&
-                      "border-green-500 bg-green-500/10 text-green-400 hover:border-green-600 hover:bg-green-500/10"
+                      "border-success/50 bg-success/10 text-success hover:border-success hover:bg-success/10"
                   )}
                 >
                   <ToggleIcon className="h-4 w-4" />
@@ -374,7 +368,7 @@ export function ContentDetail({ entry, inModal }: { entry: ContentEntry; inModal
                   aria-pressed={favorite}
                   className={cn(
                     favorite &&
-                      "border-red-500/40 bg-red-500/10 text-red-400 hover:border-red-500 hover:bg-red-500/10"
+                      "border-accent/50 bg-accent-soft text-accent-bright hover:border-accent hover:bg-accent-soft"
                   )}
                 >
                   <Heart className={cn("h-4 w-4", favorite && "fill-current")} />
@@ -425,19 +419,19 @@ export function ContentDetail({ entry, inModal }: { entry: ContentEntry; inModal
           </div>
 
           {mutationError && (
-            <p className="mt-3 text-xs text-accent">{mutationError}</p>
+            <p className="mt-3 text-xs text-danger">{mutationError}</p>
           )}
 
           {/* Synopsis */}
           {entry.synopsis && (
-            <section className="mt-6 border-t border-ink-dim/20 pt-6">
+            <section className="mt-6 border-t border-line pt-6">
               <h2 className="mb-3 font-display text-sm text-ink-dim">Synopsis</h2>
               <p className="font-body leading-relaxed text-ink-dim">{entry.synopsis}</p>
             </section>
           )}
 
           {/* Community rating */}
-          <section className="mt-6 border-t border-ink-dim/20 pt-6">
+          <section className="mt-6 border-t border-line pt-6">
             <h2 className="mb-3 font-display text-sm text-ink-dim">Community Rating</h2>
             {ratingQuery.isLoading ? (
               <div className="flex items-center gap-3">
@@ -466,7 +460,7 @@ export function ContentDetail({ entry, inModal }: { entry: ContentEntry; inModal
 
       {/* Prev / Next navigation */}
       {!inModal && (
-        <div className="mt-8 flex items-center justify-between gap-4 border-t border-ink-dim/20 pt-4">
+        <div className="mt-8 flex items-center justify-between gap-4 border-t border-line pt-4">
           {prev ? (
             <Link
               href={`/tracker/${prev.slug}`}
