@@ -127,17 +127,85 @@ export default function ElegantCarousel({ customSlides }: { customSlides?: Slide
     setIsMuted(!isMuted);
   };
 
+  // Keep the element's muted property in sync without restarting playback.
+  useEffect(() => {
+    const video = videoRef.current;
+    if (video) video.muted = isMuted;
+  }, [isMuted]);
+
+  // Autoplay on mount and on every slide change.
+  useEffect(() => {
+    const video = videoRef.current;
+    if (!video) return;
+
+    let cancelled = false;
+
+    video.muted = isMuted;
+    try {
+      video.currentTime = 0;
+    } catch {
+      /* metadata not ready yet — element is already at 0 */
+    }
+    setProgress(0);
+
+    const tryPlay = () => {
+      if (cancelled) return;
+      const p = video.play();
+      if (p && typeof p.then === "function") {
+        p.then(() => {
+          if (!cancelled) setIsPlaying(true);
+        }).catch(() => {
+          if (cancelled) return;
+          // Autoplay was blocked. Muted playback is always permitted, so
+          // force-mute the element and retry once.
+          video.muted = true;
+          video
+            .play()
+            .then(() => {
+              if (!cancelled) setIsPlaying(true);
+            })
+            .catch(() => {
+              if (!cancelled) setIsPlaying(false);
+            });
+        });
+      }
+    };
+
+    // readyState >= 2 (HAVE_CURRENT_DATA) means we can start immediately;
+    // otherwise wait for the first frames to buffer.
+    if (video.readyState >= 2) {
+      tryPlay();
+    } else {
+      video.addEventListener("loadeddata", tryPlay, { once: true });
+    }
+
+    return () => {
+      cancelled = true;
+      video.removeEventListener("loadeddata", tryPlay);
+    };
+    // isMuted is deliberately excluded — see the mute-sync effect above.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [currentSlide.videoUrl]);
+
   // Play/Pause toggle
   const togglePlay = () => {
-    if (videoRef.current) {
-      if (isPlaying) {
-        videoRef.current.pause();
-        setIsPlaying(false);
-      } else {
-        videoRef.current.play();
-        setIsPlaying(true);
+    const video = videoRef.current;
+    if (!video) return;
+
+    if (video.paused || video.ended) {
+      const p = video.play();
+      if (p && typeof p.then === "function") {
+        p.catch(() => {
+          // Even a gesture-initiated unmuted play can be refused; fall back.
+          video.muted = true;
+          setIsMuted(true);
+          video.play().catch(() => setIsPlaying(false));
+        });
       }
+    } else {
+      video.pause();
     }
+    // No setIsPlaying here — onPlay/onPause own that state now.
   };
 
   // Image slide fallback timer (if no videoUrl present)
@@ -279,8 +347,12 @@ export default function ElegantCarousel({ customSlides }: { customSlides?: Slide
                   ref={videoRef}
                   key={currentSlide.videoUrl}
                   src={currentSlide.videoUrl}
-                  playsInline
+                  autoPlay
                   muted={isMuted}
+                  playsInline
+                  preload="auto"
+                  onPlay={() => setIsPlaying(true)}
+                  onPause={() => setIsPlaying(false)}
                   onTimeUpdate={handleTimeUpdate}
                   onLoadedMetadata={handleTimeUpdate}
                   onEnded={handleVideoEnded}
