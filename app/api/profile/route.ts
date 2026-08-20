@@ -39,7 +39,7 @@ export async function PUT(request: NextRequest) {
     const rl = await rateLimitPersistent(`profile:put:${authRateLimitKey(request)}`, {
       limit: 10,
       windowMs: 60_000,
-      failClosed: false,
+      failClosed: true,
     })
     if (!rl.allowed) return fail(429, "Too many requests. Please slow down.")
     const body = await request.json()
