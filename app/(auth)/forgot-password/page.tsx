@@ -6,7 +6,6 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
-import { createClient } from "@/utils/supabase/client"
 import { openAuthModal } from "@/lib/auth-modal"
 
 export default function ForgotPasswordPage() {
@@ -14,7 +13,6 @@ export default function ForgotPasswordPage() {
   const [success, setSuccess] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [loading, setLoading] = useState(false)
-  const supabase = createClient()
 
   async function handleResetRequest(e: React.FormEvent) {
     e.preventDefault()
@@ -22,21 +20,31 @@ export default function ForgotPasswordPage() {
     setError(null)
     setSuccess(false)
 
-    const origin = typeof window !== "undefined" ? window.location.origin : ""
-    const cleanEmail = email.trim().toLowerCase()
+    try {
+      const res = await fetch("/api/auth/forgot-password", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email: email.trim().toLowerCase() }),
+      })
 
-    const { error: resetError } = await supabase.auth.resetPasswordForEmail(cleanEmail, {
-      redirectTo: `${origin}/callback?next=/reset-password`,
-    })
+      const data = await res.json().catch(() => null)
 
-    if (resetError) {
-      setError(resetError.message)
+      if (!res.ok) {
+        setError(
+          data?.error ??
+            (res.status === 429
+              ? "Too many reset requests. Please try again later."
+              : "Could not send the recovery email. Please try again.")
+        )
+        return
+      }
+
+      setSuccess(true)
+    } catch {
+      setError("Network error. Please check your connection and try again.")
+    } finally {
       setLoading(false)
-      return
     }
-
-    setSuccess(true)
-    setLoading(false)
   }
 
   return (
