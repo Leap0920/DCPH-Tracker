@@ -27,6 +27,17 @@
 
   React renders structure once; the loop renders every frame. Node
   positions live in a mutable ref, so dragging a node costs zero renders.
+
+  Theming
+  -------
+  SVG paint values are JS strings, not CSS custom properties — `fill="rgb(var(--x))"`
+  does not resolve on a presentation attribute. So the palette below mirrors the
+  token hexes from app/globals.css by hand; if a token changes there, change it
+  here too. The DOM chrome (search, dock, badge) uses the real tokens.
+
+  `theme` defaults to "dark" because dark is the app default. It must still match
+  the `dark` class on <html>, since the container uses token classes (bg-page)
+  while the canvas uses this prop — pass the live theme from the parent.
 */
 
 import {
@@ -110,6 +121,48 @@ const PARALLEL_GAP = 22;
 const STRING_WIDTH = 2;
 const DIM_OPACITY = 0.1;
 const PARTICLE_COUNT = 30;
+
+/* ── canvas palette (mirrors the CSS tokens; see header note) ────── */
+const CANVAS = {
+  dark: {
+    bg0: "#0A0A0A",                       // --surface, gradient core
+    bg1: "#000000",                       // --page, gradient falloff
+    dot: "rgba(161,161,161,0.12)",        // --ink-dim at low alpha
+    label: "#EDEDED",                     // --ink
+    labelStrong: "#FFFFFF",
+    labelHalo: "#000000",                 // --page
+    strokeStrong: "#FFFFFF",
+    particle: "#A1A1A1",                  // --ink-dim
+    auraNeutral: "#EDEDED",
+    auraNeutralOpacity: 0.06,
+    auraAccent: "#C8102E",                // --accent
+    auraAccentOpacity: 0.16,
+    dotRadius: 1.1,
+    glowInner: 0.5,
+    glowMid: 0.2,
+    stringActive: 0.75,
+    stringIdle: 0.26,
+  },
+  light: {
+    bg0: "#FFFFFF",
+    bg1: "#E7ECF3",
+    dot: "rgba(100,116,139,0.34)",
+    label: "#171717",
+    labelStrong: "#0A0A0A",
+    labelHalo: "#FFFFFF",
+    strokeStrong: "#171717",
+    particle: "#64748B",
+    auraNeutral: "#94A3B8",
+    auraNeutralOpacity: 0.13,
+    auraAccent: "#B30C25",
+    auraAccentOpacity: 0.1,
+    dotRadius: 1.3,
+    glowInner: 0.34,
+    glowMid: 0.13,
+    stringActive: 0.62,
+    stringIdle: 0.18,
+  },
+} as const;
 
 const nodeVariants: Variants = {
   hidden: { opacity: 0, scale: 0.3 },
@@ -233,7 +286,8 @@ export default function CharactersWeb({
   selectedCharacterId,
   activeFilter,
   topLeftSlot,
-  theme = "light",
+  // Dark is the app default (see app/layout.tsx), so it is the default here too.
+  theme = "dark",
   className = "",
 }: CharactersWebProps) {
   const reduce = useReducedMotion();
@@ -975,12 +1029,7 @@ export default function CharactersWeb({
     };
 
   /* ── theme-derived palette ────────────────────────────────────── */
-  const bg0 = isDark ? "#16203A" : "#FFFFFF";
-  const bg1 = isDark ? "#070A12" : "#E7ECF3";
-  const dotColor = isDark ? "rgba(148,197,255,0.16)" : "rgba(100,116,139,0.34)";
-  const labelFill = isDark ? "#F1F5F9" : "#0F172A";
-  const labelFillStrong = isDark ? "#FFFFFF" : "#08101F";
-  const labelHalo = isDark ? "#070A12" : "#FFFFFF";
+  const pal = isDark ? CANVAS.dark : CANVAS.light;
 
   const dimmed = hoveredId !== null || Boolean(selectedCharacterId);
   const vw = Math.max(1, size.w);
@@ -990,10 +1039,10 @@ export default function CharactersWeb({
     <div
       ref={containerRef}
       className={cn(
-        "relative h-full w-full select-none overflow-hidden transition-colors duration-300",
-        isDark
-          ? "bg-[#070A12] text-white rounded-2xl border border-slate-800/80 shadow-2xl"
-          : "bg-[#F1F5F9] text-ink rounded-2xl border border-slate-200/90 shadow-card",
+        "relative h-full w-full select-none overflow-hidden rounded-2xl border transition-colors duration-300",
+        // One token recipe for both themes — the hairline does the separation
+        // work that the old theme-specific drop shadows did.
+        "border-line bg-page text-ink shadow-card",
         className
       )}
     >
@@ -1013,21 +1062,32 @@ export default function CharactersWeb({
         >
           <defs>
             <radialGradient id="dcph-bg" cx="50%" cy="42%" r="78%">
-              <stop offset="0%" stopColor={bg0} />
-              <stop offset="100%" stopColor={bg1} />
+              <stop offset="0%" stopColor={pal.bg0} />
+              <stop offset="100%" stopColor={pal.bg1} />
             </radialGradient>
 
+            {/* Aura A: a neutral light bloom (was cyan — the only cyan in the
+                app, and it read as a leftover next to the crimson accent). */}
             <radialGradient id="dcph-aura-a" cx="50%" cy="50%" r="50%">
-              <stop offset="0%" stopColor="#22D3EE" stopOpacity={isDark ? 0.22 : 0.13} />
-              <stop offset="100%" stopColor="#22D3EE" stopOpacity="0" />
+              <stop
+                offset="0%"
+                stopColor={pal.auraNeutral}
+                stopOpacity={pal.auraNeutralOpacity}
+              />
+              <stop offset="100%" stopColor={pal.auraNeutral} stopOpacity="0" />
             </radialGradient>
+            {/* Aura B: the single accent bloom. */}
             <radialGradient id="dcph-aura-b" cx="50%" cy="50%" r="50%">
-              <stop offset="0%" stopColor="#F43F5E" stopOpacity={isDark ? 0.2 : 0.11} />
-              <stop offset="100%" stopColor="#F43F5E" stopOpacity="0" />
+              <stop
+                offset="0%"
+                stopColor={pal.auraAccent}
+                stopOpacity={pal.auraAccentOpacity}
+              />
+              <stop offset="100%" stopColor={pal.auraAccent} stopOpacity="0" />
             </radialGradient>
 
             <pattern id="dcph-dots" width="26" height="26" patternUnits="userSpaceOnUse">
-              <circle cx="13" cy="13" r={isDark ? 1.1 : 1.3} fill={dotColor} />
+              <circle cx="13" cy="13" r={pal.dotRadius} fill={pal.dot} />
             </pattern>
 
             {/* One soft-glow gradient per faction — gives every node a real
@@ -1042,8 +1102,8 @@ export default function CharactersWeb({
                   cy="50%"
                   r="50%"
                 >
-                  <stop offset="0%" stopColor={t.primary} stopOpacity={isDark ? 0.5 : 0.34} />
-                  <stop offset="55%" stopColor={t.primary} stopOpacity={isDark ? 0.2 : 0.13} />
+                  <stop offset="0%" stopColor={t.primary} stopOpacity={pal.glowInner} />
+                  <stop offset="55%" stopColor={t.primary} stopOpacity={pal.glowMid} />
                   <stop offset="100%" stopColor={t.primary} stopOpacity="0" />
                 </radialGradient>
               );
@@ -1080,7 +1140,7 @@ export default function CharactersWeb({
                   particleEls.current[i] = el;
                 }}
                 r={p.r}
-                fill={isDark ? "#BAE6FD" : "#64748B"}
+                fill={pal.particle}
                 opacity={0}
               />
             ))}
@@ -1110,8 +1170,8 @@ export default function CharactersWeb({
                     ? 1
                     : DIM_OPACITY
                   : matchesSearch
-                    ? isDark ? 0.72 : 0.62
-                    : isDark ? 0.24 : 0.18;
+                    ? pal.stringActive
+                    : pal.stringIdle;
                 const color = getRelationshipColor(e.rel.type, isDark);
                 return (
                   <path
@@ -1213,7 +1273,7 @@ export default function CharactersWeb({
                           <circle
                             r={n.r + 7}
                             fill="none"
-                            stroke={isSelected ? (isDark ? "#FFFFFF" : "#0F172A") : n.theme.border}
+                            stroke={isSelected ? pal.strokeStrong : n.theme.border}
                             strokeWidth={2}
                             pointerEvents="none"
                           />
@@ -1231,14 +1291,14 @@ export default function CharactersWeb({
                         <circle
                           r={n.r}
                           fill={isSelected ? n.theme.primary : isDark ? n.theme.darkFill : n.theme.lightFill}
-                          stroke={emphasised ? (isDark ? "#FFFFFF" : "#0F172A") : n.theme.border}
+                          stroke={emphasised ? pal.strokeStrong : n.theme.border}
                           strokeWidth={isConan ? 3.5 : isSelected ? 3 : 2}
                           className="transition-[fill,stroke] duration-200"
                         />
 
                         <circle
                           r={isConan ? 6 : n.r > 16 ? 4.5 : 3.5}
-                          fill={emphasised ? (isDark ? "#FFFFFF" : "#0F172A") : n.theme.primary}
+                          fill={emphasised ? pal.strokeStrong : n.theme.primary}
                           pointerEvents="none"
                         />
 
@@ -1261,9 +1321,9 @@ export default function CharactersWeb({
                                   : "text-[12px] font-semibold"
                             )}
                             style={{
-                              fill: emphasised ? labelFillStrong : labelFill,
+                              fill: emphasised ? pal.labelStrong : pal.label,
                               paintOrder: "stroke",
-                              stroke: labelHalo,
+                              stroke: pal.labelHalo,
                               strokeWidth: 3,
                               strokeLinejoin: "round",
                               vectorEffect: "non-scaling-stroke",
@@ -1287,12 +1347,12 @@ export default function CharactersWeb({
       <div className="pointer-events-none absolute left-3 top-4 z-40 flex w-[16rem] flex-col gap-2 sm:left-4 sm:w-[18rem] md:top-5">
         <div
           className={cn(
-            "pointer-events-auto flex items-center gap-2 rounded-full border py-1.5 pl-3 pr-1.5 shadow-xl backdrop-blur-md transition-all duration-300",
-            "border-slate-200/90 bg-white/95 dark:border-slate-800/90 dark:bg-slate-950/90",
-            searchFocused && "ring-2 ring-accent/50 border-accent/70 dark:border-accent/70"
+            "pointer-events-auto flex items-center gap-2 rounded-full border py-1.5 pl-3 pr-1.5 shadow-lift backdrop-blur-md transition-all duration-300",
+            "border-line bg-surface/90 text-ink",
+            searchFocused && "border-accent/70 ring-2 ring-accent/40"
           )}
         >
-          <Search className="h-4 w-4 shrink-0 text-slate-400" />
+          <Search className="h-4 w-4 shrink-0 text-ink-faint" />
           <input
             type="text"
             value={searchQuery}
@@ -1307,14 +1367,14 @@ export default function CharactersWeb({
             }}
             placeholder="Search characters"
             aria-label="Search characters"
-            className="w-full min-w-0 select-text bg-transparent text-sm text-ink outline-none placeholder:text-slate-500 dark:text-white"
+            className="w-full min-w-0 select-text bg-transparent text-sm text-ink outline-none placeholder:text-ink-faint"
           />
           {searchQuery && (
             <button
               type="button"
               onClick={() => setSearchQuery("")}
               aria-label="Clear search"
-              className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full text-ink-dim transition-colors hover:bg-surface-muted hover:text-accent dark:text-slate-400 dark:hover:bg-slate-800 dark:hover:text-white"
+              className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full text-ink-faint transition-colors hover:bg-surface-muted hover:text-ink"
             >
               <X className="h-4 w-4" />
             </button>
@@ -1324,7 +1384,7 @@ export default function CharactersWeb({
         {topLeftSlot && <div className="pointer-events-auto">{topLeftSlot}</div>}
 
         {searchQuery && searchMatches.size > 0 && (
-          <div className="pointer-events-auto max-h-[46vh] overflow-y-auto rounded-xl border border-slate-200 bg-white/98 p-2 text-ink shadow-xl backdrop-blur-md dark:border-slate-800 dark:bg-slate-950/95 dark:text-white">
+          <div className="pointer-events-auto max-h-[46vh] overflow-y-auto rounded-xl border border-line bg-surface/95 p-2 text-ink shadow-lift backdrop-blur-md">
             {Array.from(searchMatches).map((id) => {
               const idx = indexById.get(id);
               if (idx === undefined) return null;
@@ -1337,7 +1397,7 @@ export default function CharactersWeb({
                     handleSelectNode(idx);
                     setSearchQuery("");
                   }}
-                  className="flex w-full items-center gap-2.5 rounded-lg px-2.5 py-1.5 text-left transition-colors hover:bg-surface-muted dark:hover:bg-slate-900"
+                  className="flex w-full items-center gap-2.5 rounded-lg px-2.5 py-1.5 text-left transition-colors hover:bg-surface-muted"
                 >
                   <span
                     className="h-2.5 w-2.5 shrink-0 rounded-full"
@@ -1345,7 +1405,7 @@ export default function CharactersWeb({
                   />
                   <span className="min-w-0 flex-1">
                     <span className="block truncate text-xs font-semibold">{n.c.name}</span>
-                    <span className="block truncate text-[10px] text-ink-dim dark:text-slate-400">
+                    <span className="block truncate text-[10px] text-ink-dim">
                       {n.c.role}
                     </span>
                   </span>
@@ -1359,39 +1419,42 @@ export default function CharactersWeb({
       {/* ── bottom-left dock ─────────────────────────────────────── */}
       <div
         className={cn(
-          "absolute z-30 flex items-center gap-1 rounded-full border p-1.5 shadow-xl backdrop-blur-md transition-all duration-300",
-          "border-slate-200/90 bg-white/95 dark:border-slate-800/80 dark:bg-slate-950/90",
+          "absolute z-30 flex items-center gap-1 rounded-full border p-1.5 shadow-lift backdrop-blur-md transition-all duration-300",
+          "border-line bg-surface/90",
           selectedCharacterId && isMobile
             ? "bottom-[calc(48vh+12px)] left-3"
             : "bottom-6 left-4 sm:left-6"
         )}
       >
+        {/* The one accent-tinted control in the dock: it is the primary action,
+            not a decorative highlight. accent-bright for the label because
+            plain --accent is too dark to read as small text on near-black. */}
         <button
           type="button"
           onClick={centerOnConan}
           aria-label="Center on Conan Edogawa"
           title="Center on Conan Edogawa (C)"
-          className="flex items-center gap-1 rounded-full px-3 py-1.5 font-display text-xs font-medium text-cyan-600 transition-colors hover:bg-cyan-100 dark:text-cyan-400 dark:hover:bg-cyan-500/25 bg-cyan-50 dark:bg-cyan-500/15"
+          className="flex items-center gap-1 rounded-full bg-accent/10 px-3 py-1.5 font-display text-xs font-medium text-accent-bright transition-colors hover:bg-accent/20"
         >
           <Target className="h-3.5 w-3.5" />
           <span className="hidden sm:inline">Center Conan</span>
         </button>
 
-        <div className="my-auto h-4 w-px bg-slate-200 dark:bg-slate-800" />
+        <div className="my-auto h-4 w-px bg-line" />
 
         <button
           type="button"
           onClick={() => zoomBy(ZOOM_STEP)}
           aria-label="Zoom in"
           title="Zoom in (+)"
-          className="flex h-8 w-8 items-center justify-center rounded-full text-ink-dim transition-colors hover:bg-surface-muted hover:text-accent dark:text-slate-300 dark:hover:bg-slate-800 dark:hover:text-white"
+          className="flex h-8 w-8 items-center justify-center rounded-full text-ink-dim transition-colors hover:bg-surface-muted hover:text-ink"
         >
           <ZoomIn className="h-4 w-4" />
         </button>
 
         <span
           ref={zoomLabelRef}
-          className="w-10 text-center font-mono text-[10px] tabular-nums text-ink-faint dark:text-slate-500"
+          className="w-10 text-center font-mono text-[10px] tabular-nums text-ink-faint"
           aria-hidden
         >
           100%
@@ -1402,7 +1465,7 @@ export default function CharactersWeb({
           onClick={() => zoomBy(1 / ZOOM_STEP)}
           aria-label="Zoom out"
           title="Zoom out (-)"
-          className="flex h-8 w-8 items-center justify-center rounded-full text-ink-dim transition-colors hover:bg-surface-muted hover:text-accent dark:text-slate-300 dark:hover:bg-slate-800 dark:hover:text-white"
+          className="flex h-8 w-8 items-center justify-center rounded-full text-ink-dim transition-colors hover:bg-surface-muted hover:text-ink"
         >
           <ZoomOut className="h-4 w-4" />
         </button>
@@ -1411,7 +1474,7 @@ export default function CharactersWeb({
           onClick={() => fitToContent()}
           aria-label="Fit graph to view"
           title="Fit graph to view (0)"
-          className="flex h-8 w-8 items-center justify-center rounded-full text-ink-dim transition-colors hover:bg-surface-muted hover:text-accent dark:text-slate-300 dark:hover:bg-slate-800 dark:hover:text-white"
+          className="flex h-8 w-8 items-center justify-center rounded-full text-ink-dim transition-colors hover:bg-surface-muted hover:text-ink"
         >
           <RotateCcw className="h-4 w-4" />
         </button>
@@ -1420,12 +1483,12 @@ export default function CharactersWeb({
       {/* ── ambient stat badge ───────────────────────────────────── */}
       <div
         className={cn(
-          "pointer-events-none absolute right-4 z-20 hidden items-center gap-1.5 rounded-full border px-3 py-1 font-mono text-[10px] uppercase tracking-wider shadow-sm backdrop-blur-md sm:flex",
-          "border-slate-200/80 bg-white/80 text-ink-faint dark:border-slate-800/80 dark:bg-slate-950/70 dark:text-slate-500",
+          "pointer-events-none absolute right-4 z-20 hidden items-center gap-1.5 rounded-full border px-3 py-1 font-mono text-[10px] uppercase tracking-wider shadow-card backdrop-blur-md sm:flex",
+          "border-line bg-surface/80 text-ink-faint",
           selectedCharacterId && !isMobile ? "bottom-[calc(1.5rem+2px)] right-[26rem]" : "bottom-6"
         )}
       >
-        <Sparkles className="h-3 w-3 text-accent" />
+        <Sparkles className="h-3 w-3 text-accent-bright" />
         {nodes.length} characters · {edges.length} threads
       </div>
     </div>
