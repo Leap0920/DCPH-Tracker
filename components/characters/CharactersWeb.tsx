@@ -62,6 +62,8 @@ import {
 import {
   FACTION_KEYS,
   FACTION_THEMES,
+  LOCKED_EDGE_COLOR,
+  LOCKED_THEME,
   clamp,
   factionSlug,
   getNodeRadius,
@@ -76,7 +78,11 @@ import { cn } from "@/lib/utils";
 
 export { FACTION_THEMES, getFactionTheme } from "@/components/characters/graph-theme";
 
-const useIsoLayoutEffect = typeof window !== "undefined" ? useLayoutEffect : useEffect;
+// Use useEffect on both server and client to avoid hydration mismatch
+// (previous typeof window ? useLayoutEffect : useEffect caused different
+// hook types on server vs client). ResizeObserver setup does not need
+// layout-phase timing.
+const useIsoLayoutEffect = useEffect;
 
 /** Hydration-safe matchMedia hook. */
 export function useMediaQuery(query: string): boolean {
@@ -103,7 +109,7 @@ const CAM_TAU = 85;
 /** Inertia applied to the pan target on release (ms of projected travel). */
 const PAN_INERTIA_MS = 140;
 
-const DRIFT_AMP = 5.5;
+const DRIFT_AMP = 3.5;
 /* ── anti-collision ───────────────────────────────────────────────
  * Circles push each other apart when their radii overlap. The push is
  * stored as a persistent per-node offset that decays back toward the
@@ -111,10 +117,10 @@ const DRIFT_AMP = 5.5;
  * rather than a snap. Offsets never touch `base` — drag / fit /
  * zoomToConan keep reading the untouched seeded layout.
  * ---------------------------------------------------------------- */
-const COLLIDE_PAD = 6;          // world px of breathing room beyond r_i + r_j
+const COLLIDE_PAD = 2;          // world px of breathing room beyond r_i + r_j — tight packing per user request
 const COLLIDE_ITERS = 4;        // Gauss-Seidel relaxation passes per frame
-const COLLIDE_STIFF = 0.6;      // fraction of each overlap resolved per pass
-const COLLIDE_MAX_OFFSET = 28;  // hard cap on displacement from home (world px)
+const COLLIDE_STIFF = 0.8;      // fraction of each overlap resolved per pass — snappier settle
+const COLLIDE_MAX_OFFSET = 16;  // hard cap on displacement from home (world px) — keep close to authored layout
 const COLLIDE_RELAX_TAU = 260;  // ms; how fast a pushed circle drifts back home
 const BASE_BOW = 6;
 const PARALLEL_GAP = 22;
@@ -271,6 +277,7 @@ function pairKey(r: Relationship): string {
 
 export interface CharactersWebProps {
   characters?: Character[];
+  relationships?: Relationship[];
   onSelectCharacter: (character: Character | null) => void;
   selectedCharacterId?: string | null;
   activeFilter?: RelationshipType | null;
@@ -282,6 +289,7 @@ export interface CharactersWebProps {
 
 export default function CharactersWeb({
   characters = CHARACTERS,
+  relationships = RELATIONSHIPS,
   onSelectCharacter,
   selectedCharacterId,
   activeFilter,
@@ -335,7 +343,7 @@ export default function CharactersWeb({
     characters.forEach((c, i) => indexById.set(c.id, i));
 
     const degree = new Map<string, number>();
-    for (const r of RELATIONSHIPS) {
+    for (const r of relationships) {
       degree.set(r.source, (degree.get(r.source) ?? 0) + 1);
       degree.set(r.target, (degree.get(r.target) ?? 0) + 1);
     }
@@ -371,13 +379,13 @@ export default function CharactersWeb({
     });
 
     const counts = new Map<string, number>();
-    for (const r of RELATIONSHIPS) {
+    for (const r of relationships) {
       const key = pairKey(r);
       counts.set(key, (counts.get(key) ?? 0) + 1);
     }
     const used = new Map<string, number>();
     const edges: EdgeSpec[] = [];
-    for (const r of RELATIONSHIPS) {
+    for (const r of relationships) {
       const s = indexById.get(r.source);
       const t = indexById.get(r.target);
       if (s === undefined || t === undefined) continue;
@@ -389,15 +397,15 @@ export default function CharactersWeb({
     }
 
     return { nodes, edges, indexById };
-  }, [characters]);
+  }, [characters, relationships]);
 
   /** Base (authored, drag-mutated) positions + per-frame drifted positions. */
   const geom = useMemo(() => {
     const n = nodes.length;
     const base = new Float64Array(n * 2);
     nodes.forEach((node, i) => {
-      base[i * 2] = node.c.x;
-      base[i * 2 + 1] = node.c.y;
+      base[i * 2] = node.c.x ?? 0;
+      base[i * 2 + 1] = node.c.y ?? 0;
     });
     return { base, curX: new Float64Array(n), curY: new Float64Array(n) };
   }, [nodes]);
@@ -410,10 +418,12 @@ export default function CharactersWeb({
     let maxY = -Infinity;
     for (const n of nodes) {
       const halfLabel = Math.max(n.r + 8, 48);
-      minX = Math.min(minX, n.c.x - halfLabel);
-      maxX = Math.max(maxX, n.c.x + halfLabel);
-      minY = Math.min(minY, n.c.y - n.r - 12);
-      maxY = Math.max(maxY, n.c.y + n.r + 30);
+      const cx = n.c.x ?? 0;
+      const cy = n.c.y ?? 0;
+      minX = Math.min(minX, cx - halfLabel);
+      maxX = Math.max(maxX, cx + halfLabel);
+      minY = Math.min(minY, cy - n.r - 12);
+      maxY = Math.max(maxY, cy + n.r + 30);
     }
     const m = DRIFT_AMP + 6;
     return {
@@ -1108,6 +1118,11 @@ export default function CharactersWeb({
                 </radialGradient>
               );
             })}
+            <radialGradient id="dcph-glow-locked" cx="50%" cy="50%" r="50%">
+              <stop offset="0%" stopColor={LOCKED_THEME.glow} stopOpacity={pal.glowInner} />
+              <stop offset="55%" stopColor={LOCKED_THEME.glow} stopOpacity={pal.glowMid} />
+              <stop offset="100%" stopColor={LOCKED_THEME.glow} stopOpacity="0" />
+            </radialGradient>
           </defs>
 
           {/* Background stack: vignette → drifting auras → dot matrix → motes */}
@@ -1172,7 +1187,12 @@ export default function CharactersWeb({
                   : matchesSearch
                     ? pal.stringActive
                     : pal.stringIdle;
-                const color = getRelationshipColor(e.rel.type, isDark);
+                const isLockedEdge = Boolean(
+                  (e.rel as unknown as { locked?: boolean }).locked,
+                );
+                const color = isLockedEdge
+                  ? LOCKED_EDGE_COLOR
+                  : getRelationshipColor(e.rel.type, isDark);
                 return (
                   <path
                     key={e.rel.id}
@@ -1183,13 +1203,15 @@ export default function CharactersWeb({
                     stroke={color}
                     strokeWidth={isTarget ? STRING_WIDTH + 1.8 : STRING_WIDTH}
                     strokeLinecap="round"
-                    opacity={opacity}
+                    strokeDasharray={isLockedEdge ? LOCKED_THEME.dash : undefined}
+                    opacity={isLockedEdge ? 0.22 : opacity}
                     style={{
                       display: hidden ? "none" : undefined,
                       transition: "opacity 220ms ease, stroke-width 220ms ease",
-                      filter: isTarget
-                        ? `drop-shadow(0 0 6px ${color})`
-                        : undefined,
+                      filter:
+                        isTarget && !isLockedEdge
+                          ? `drop-shadow(0 0 6px ${color})`
+                          : undefined,
                     }}
                   />
                 );
@@ -1201,7 +1223,10 @@ export default function CharactersWeb({
                 const isHovered = hoveredId === n.c.id;
                 const isSearchMatch = searchMatches.has(n.c.id);
                 const isConan = n.c.id === "conan-edogawa";
-                const glowUrl = `url(#dcph-glow-${factionSlug(n.factionKey)})`;
+                const isLocked = Boolean((n.c as unknown as { locked?: boolean }).locked);
+                const glowUrl = isLocked
+                  ? `url(#dcph-glow-locked)`
+                  : `url(#dcph-glow-${factionSlug(n.factionKey)})`;
                 const emphasised = isSelected || isHovered;
 
                 return (
@@ -1258,8 +1283,9 @@ export default function CharactersWeb({
                           className="dcph-breathe"
                           r={n.r + 3}
                           fill="none"
-                          stroke={n.theme.border}
+                          stroke={isLocked ? LOCKED_THEME.stroke : n.theme.border}
                           strokeWidth={1}
+                          opacity={isLocked ? 0.35 : 1}
                           pointerEvents="none"
                           style={
                             {
@@ -1273,7 +1299,13 @@ export default function CharactersWeb({
                           <circle
                             r={n.r + 7}
                             fill="none"
-                            stroke={isSelected ? pal.strokeStrong : n.theme.border}
+                            stroke={
+                              isLocked
+                                ? LOCKED_THEME.stroke
+                                : isSelected
+                                  ? pal.strokeStrong
+                                  : n.theme.border
+                            }
                             strokeWidth={2}
                             pointerEvents="none"
                           />
@@ -1282,7 +1314,7 @@ export default function CharactersWeb({
                         <circle
                           r={n.r + 5}
                           fill="none"
-                          stroke={n.theme.border}
+                          stroke={isLocked ? LOCKED_THEME.stroke : n.theme.border}
                           strokeWidth={1.5}
                           className="opacity-0 transition-opacity duration-200 group-hover:opacity-100"
                           pointerEvents="none"
@@ -1290,15 +1322,39 @@ export default function CharactersWeb({
 
                         <circle
                           r={n.r}
-                          fill={isSelected ? n.theme.primary : isDark ? n.theme.darkFill : n.theme.lightFill}
-                          stroke={emphasised ? pal.strokeStrong : n.theme.border}
+                          fill={
+                            isLocked
+                              ? isDark
+                                ? LOCKED_THEME.fill
+                                : LOCKED_THEME.fillLight
+                              : isSelected
+                                ? n.theme.primary
+                                : isDark
+                                  ? n.theme.darkFill
+                                  : n.theme.lightFill
+                          }
+                          stroke={
+                            isLocked
+                              ? LOCKED_THEME.stroke
+                              : emphasised
+                                ? pal.strokeStrong
+                                : n.theme.border
+                          }
                           strokeWidth={isConan ? 3.5 : isSelected ? 3 : 2}
+                          strokeDasharray={isLocked ? LOCKED_THEME.dash : undefined}
+                          opacity={isLocked ? 0.9 : 1}
                           className="transition-[fill,stroke] duration-200"
                         />
 
                         <circle
                           r={isConan ? 6 : n.r > 16 ? 4.5 : 3.5}
-                          fill={emphasised ? pal.strokeStrong : n.theme.primary}
+                          fill={
+                            isLocked
+                              ? LOCKED_THEME.stroke
+                              : emphasised
+                                ? pal.strokeStrong
+                                : n.theme.primary
+                          }
                           pointerEvents="none"
                         />
 
@@ -1321,7 +1377,11 @@ export default function CharactersWeb({
                                   : "text-[12px] font-semibold"
                             )}
                             style={{
-                              fill: emphasised ? pal.labelStrong : pal.label,
+                              fill: isLocked
+                                ? LOCKED_THEME.label
+                                : emphasised
+                                  ? pal.labelStrong
+                                  : pal.label,
                               paintOrder: "stroke",
                               stroke: pal.labelHalo,
                               strokeWidth: 3,
@@ -1329,7 +1389,7 @@ export default function CharactersWeb({
                               vectorEffect: "non-scaling-stroke",
                             }}
                           >
-                            {n.c.name.split("/")[0].trim()}
+                            {isLocked ? "???" : n.c.name.split("/")[0].trim()}
                           </text>
                         </g>
                       </g>

@@ -30,8 +30,8 @@ export interface Character {
   affiliation: string
   bio: string
   /** Fixed canvas position for the SVG graph */
-  x: number
-  y: number
+  x?: number
+  y?: number
 }
 
 export interface Relationship {
@@ -681,6 +681,245 @@ export const CHARACTERS: Character[] = [
     bio: "Shiho's older sister, an Organization operative who tried to leave and paid with her life. Akemi's death drives both Shiho's defection and Akai's deep, unreconciled grief.",
     x: 1050,
     y: 500,
+  },
+
+  // ─── Kaito Kuroba's Parents (previously missing) ───────────────────────
+  {
+    id: "toichi-kuroba",
+    name: "Toichi Kuroba",
+    role: "The original Kaitou Kid, presumed dead",
+    affiliation: "Kaito Kid Legacy",
+    bio: "Kaito's father and the original Kaitou Kid, presumed dead in a magic-show accident. A close friend of Yusaku Kudo and mentor to Kaito's art of misdirection.",
+    x: 920,
+    y: 40,
+  },
+  {
+    id: "chikage-kuroba",
+    name: "Chikage Kuroba",
+    role: "Phantom Lady, Kaito's mother",
+    affiliation: "Kaito Kid Legacy",
+    bio: "Kaito's mother, once the phantom thief Phantom Lady in her youth. She knows both Toichi's and Kaito's double lives and watches over her son from afar.",
+    x: 980,
+    y: 110,
+  },
+
+  // ─── Miyano Family (previously missing) ─────────────────────────────────
+  {
+    id: "atsushi-miyano",
+    name: "Atsushi Miyano",
+    role: "Deceased Black Org scientist, APTX co-developer",
+    affiliation: "Miyano Family",
+    bio: "Ai's father, a deceased scientist affiliated with the Black Organization who co-developed APTX 4869 alongside his wife Elena.",
+    x: 1240,
+    y: 180,
+  },
+  {
+    id: "elena-miyano",
+    name: "Elena Miyano",
+    role: "Deceased Black Org scientist, APTX co-developer",
+    affiliation: "Miyano Family",
+    bio: "Ai's mother, a deceased scientist affiliated with the Black Organization who co-developed APTX 4869. Her quiet legacy haunts Ai's defection.",
+    x: 1280,
+    y: 220,
+  },
+
+  // ─── Akai / Sera Family Extension ───────────────────────────────────────
+  {
+    id: "tsutomu-akai",
+    name: "Tsutomu Akai",
+    role: "MI6 agent, father of Shuichi & Masumi, missing 17 years",
+    affiliation: "Akai Family / MI6",
+    bio: "Father of Shuichi and Masumi, an MI6 agent who vanished investigating a Rum-linked case 17 years ago. His disappearance drives the Akai family mystery.",
+    x: 700,
+    y: 580,
+  },
+  {
+    id: "kohji-haneda",
+    name: "Kohji Haneda",
+    role: "Deceased shogi champion, Rum clue",
+    affiliation: "Haneda Family",
+    bio: "A deceased shogi champion whose dying message first hinted at Rum's existence. His case ties Shukichi, Amanda, and Asaka together.",
+    x: 2000,
+    y: 220,
+  },
+  {
+    id: "amanda-hughes",
+    name: "Amanda Hughes",
+    role: "Wealthy American investor, victim in Kohji case",
+    affiliation: "Civilian",
+    bio: "A wealthy American investor found dead alongside Kohji Haneda. Her bodyguard Asaka vanished after her death, deepening the Rum mystery.",
+    x: 2100,
+    y: 300,
+  },
+  {
+    id: "asaka",
+    name: "Asaka",
+    role: "Amanda Hughes's missing bodyguard",
+    affiliation: "Civilian",
+    bio: "Amanda Hughes's bodyguard who vanished after her death. Rum is suspected to be Asaka, tying the 17-year-old case to the present.",
+    x: 2050,
+    y: 340,
+  },
+
+  // ─── FBI Additions ──────────────────────────────────────────────────────
+  {
+    id: "andre-camel",
+    name: "Andre Camel",
+    role: "FBI agent who exposed Akai as Rye",
+    affiliation: "FBI",
+    bio: "An FBI agent who once accidentally exposed Shuichi Akai as the mole Rye inside the Black Organization. Loyal and earnest, he now works to redeem that mistake.",
+    x: 580,
+    y: 500,
+  },
+
+  // ─── Black Organization Additions ───────────────────────────────────────
+  {
+    id: "kanenori-wakita",
+    name: "Kanenori Wakita",
+    role: "Sushi chef, Rum suspect",
+    affiliation: "Black Organization",
+    bio: "A sushi chef and one of the three narrowed Rum suspects alongside Kuroda and Wakasa. His jovial mask may hide the Organization's second-in-command.",
+    x: 1350,
+    y: 360,
+  },
+  {
+    id: "irish",
+    name: "Irish",
+    role: "Black Organization operative (film)",
+    affiliation: "Black Organization",
+    bio: "A film-only Black Organization operative with a personal vendetta against Gin. His infiltration of the police tests the Organization's reach.",
+    x: 1180,
+    y: 400,
+  },
+  {
+    id: "pinga",
+    name: "Pinga",
+    role: "Lower operative, Black Iron Submarine",
+    affiliation: "Black Organization",
+    bio: "A lower-tier operative introduced in the Black Iron Submarine film continuity. Their presence hints at the Organization's wider network.",
+    x: 1220,
+    y: 420,
+  },
+
+  // ─── Regional Police Additions ──────────────────────────────────────────
+  {
+    id: "misae-yamamura",
+    name: "Misae Yamamura",
+    role: "Misao's grandmother, sharp witness",
+    affiliation: "Civilian",
+    bio: "Misao Yamamura's spirited grandmother who occasionally aids his cases with sharp testimony and old-fashioned wisdom.",
+    x: 20,
+    y: 720,
+  },
+  {
+    id: "otaki",
+    name: "Otaki",
+    role: "Osaka detective, Yamamura's friend",
+    affiliation: "Osaka Police",
+    bio: "A recurring Osaka detective and friend to Misao Yamamura, often bridging Osaka and Tokyo cases.",
+    x: 180,
+    y: 520,
+  },
+  {
+    id: "kiyonaga-matsumoto",
+    name: "Kiyonaga Matsumoto",
+    role: "MPD Superintendent",
+    affiliation: "Tokyo Metropolitan Police",
+    bio: "Superintendent of the Tokyo MPD, a stern but fair leader who oversees Megure's homicide division.",
+    x: 420,
+    y: 540,
+  },
+  {
+    id: "shizuka-hattori",
+    name: "Shizuka Hattori",
+    role: "Heiji's mother, kendo master",
+    affiliation: "Hattori Family",
+    bio: "Heiji's mother, a graceful kendo master who quietly watches over her headstrong son and his Osaka cases.",
+    x: 60,
+    y: 350,
+  },
+  {
+    id: "tomoaki-araide",
+    name: "Tomoaki Araide",
+    role: "Physician, Vermouth's disguise persona",
+    affiliation: "Civilian",
+    bio: "A kind physician whose identity Vermouth stole as a disguise. His return exposes the depth of her impersonation.",
+    x: 1150,
+    y: 200,
+  },
+  {
+    id: "yoko-okino",
+    name: "Yoko Okino",
+    role: "Pop idol, Kogoro's crush",
+    affiliation: "Media / Celebrity",
+    bio: "A beloved pop idol and recurring character whose cases often pull in Conan, Ran, and Sonoko. Kogoro's not-so-secret celebrity crush.",
+    x: 2400,
+    y: 1100,
+  },
+
+  // ─── Minor Regional Detectives (previously missing) ─────────────────────
+  {
+    id: "fumimaro-ayanokoji",
+    name: "Fumimaro Ayanokoji",
+    role: "Kyoto inspector, Karasuma connection",
+    affiliation: "Kyoto Police",
+    bio: "A refined Kyoto inspector with a chipmunk companion, tied to the Karasuma estate and the Rum investigation.",
+    x: 480,
+    y: 1600,
+  },
+  {
+    id: "tamekichi-matsushiro",
+    name: "Tamekichi Matsushiro",
+    role: "Nagano detective",
+    affiliation: "Nagano Police",
+    bio: "A named-but-minor Nagano detective, part of the extended regional police network.",
+    x: 100,
+    y: 640,
+  },
+  {
+    id: "kyohei-nishimura",
+    name: "Kyohei Nishimura",
+    role: "Hokkaido / Shizuoka detective",
+    affiliation: "Shizuoka Police",
+    bio: "A regional detective from the extended prefectural network, occasionally assisting Tokyo cases.",
+    x: 220,
+    y: 620,
+  },
+  {
+    id: "detective-tamura",
+    name: "Detective Tamura",
+    role: "Regional detective",
+    affiliation: "Regional Police",
+    bio: "A named regional detective from the wider prefectural network.",
+    x: 160,
+    y: 700,
+  },
+  {
+    id: "detective-kurumazaki",
+    name: "Detective Kurumazaki",
+    role: "Kyoto police, Ayanokoji's aide",
+    affiliation: "Kyoto Police",
+    bio: "A Kyoto police aide to Inspector Ayanokoji, diligent and soft-spoken.",
+    x: 540,
+    y: 1650,
+  },
+  {
+    id: "tsuyoshi-shikatsuno",
+    name: "Tsuyoshi Shikatsuno",
+    role: "Regional detective",
+    affiliation: "Regional Police",
+    bio: "A named regional detective in the extended network.",
+    x: 180,
+    y: 740,
+  },
+  {
+    id: "shoji-terabayashi",
+    name: "Shoji Terabayashi",
+    role: "Regional detective",
+    affiliation: "Regional Police",
+    bio: "A named regional detective in the extended network.",
+    x: 200,
+    y: 780,
   },
 ]
 
@@ -1518,6 +1757,200 @@ export const RELATIONSHIPS: Relationship[] = [
     detail:
       "Matsuda was Furuya's mentor; Morofushi knew him through PSB.",
   },
+
+  // — Kaito Kuroba parents
+  {
+    id: "toichi-kaito-family",
+    source: "toichi-kuroba",
+    target: "kaitou-kid",
+    type: "family",
+    detail: "Father and son; Toichi was the original Kaitou Kid before Kaito inherited the mantle.",
+  },
+  {
+    id: "toichi-yusaku-friendship",
+    source: "toichi-kuroba",
+    target: "yusaku-kudo",
+    type: "friendship",
+    detail: "Old friends; Yusaku knew Toichi's secret and once outwitted his heist.",
+  },
+  {
+    id: "chikage-kaito-family",
+    source: "chikage-kuroba",
+    target: "kaitou-kid",
+    type: "family",
+    detail: "Mother and son; Chikage knows Kaito is Kid and once held the title Phantom Lady herself.",
+  },
+  {
+    id: "toichi-chikage-family",
+    source: "toichi-kuroba",
+    target: "chikage-kuroba",
+    type: "family",
+    detail: "Husband and wife; the two phantom thieves of a previous generation.",
+  },
+
+  // — Miyano family
+  {
+    id: "atsushi-elena-family",
+    source: "atsushi-miyano",
+    target: "elena-miyano",
+    type: "family",
+    detail: "Husband and wife, co-developers of APTX 4869 for the Organization.",
+  },
+  {
+    id: "atsushi-haibara-family",
+    source: "atsushi-miyano",
+    target: "ai-haibara",
+    type: "family",
+    detail: "Father and daughter; Atsushi's research doomed Ai to the Organization.",
+  },
+  {
+    id: "elena-haibara-family",
+    source: "elena-miyano",
+    target: "ai-haibara",
+    type: "family",
+    detail: "Mother and daughter; Elena's quiet legacy haunts Ai's defection.",
+  },
+  {
+    id: "atsushi-akemi-family",
+    source: "atsushi-miyano",
+    target: "akemi-miyano",
+    type: "family",
+    detail: "Father and daughter; Atsushi never lived to see Akemi's fate.",
+  },
+
+  // — Akai / Haneda extension
+  {
+    id: "tsutomu-shuichi-family",
+    source: "tsutomu-akai",
+    target: "shuichi-akai",
+    type: "family",
+    detail: "Father and son; Tsutomu's disappearance 17 years ago drives Shuichi's hunt for Rum.",
+  },
+  {
+    id: "tsutomu-masumi-family",
+    source: "tsutomu-akai",
+    target: "masumi-sera",
+    type: "family",
+    detail: "Father and daughter; Masumi never knew her father's fate.",
+  },
+  {
+    id: "tsutomu-mary-family",
+    source: "tsutomu-akai",
+    target: "mary-sera",
+    type: "family",
+    detail: "Husband and wife; Mary and Tsutomu's shared MI6 past ties to the Haneda case.",
+  },
+  {
+    id: "kohji-shukichi-family",
+    source: "kohji-haneda",
+    target: "shukichi-haneda",
+    type: "family",
+    detail: "Brothers? No — Kohji's death and Shukichi's shogi title are linked by the dying message that first named Rum.",
+  },
+  {
+    id: "amanda-asaka-colleague",
+    source: "amanda-hughes",
+    target: "asaka",
+    type: "colleague",
+    detail: "Investor and bodyguard; Asaka vanished the night Amanda was murdered alongside Kohji.",
+  },
+  {
+    id: "amanda-kohji-colleague",
+    source: "amanda-hughes",
+    target: "kohji-haneda",
+    type: "colleague",
+    detail: "Both victims of the same 17-year-old double murder that first exposed Rum.",
+  },
+
+  // — FBI addition
+  {
+    id: "camel-akai-colleague",
+    source: "andre-camel",
+    target: "shuichi-akai",
+    type: "colleague",
+    detail: "FBI partners; Camel once blew Akai's cover as Rye, a mistake he works to redeem.",
+  },
+  {
+    id: "camel-jodie-colleague",
+    source: "andre-camel",
+    target: "jodie-starling",
+    type: "colleague",
+    detail: "Fellow FBI agents under James Black, coordinating the Japan operation.",
+  },
+
+  // — Black Org additions
+  {
+    id: "wakita-gin-colleague",
+    source: "kanenori-wakita",
+    target: "gin",
+    type: "colleague",
+    detail: "Rum suspect and elite operative; Wakita's jovial sushi-chef cover hides his rank.",
+  },
+  {
+    id: "irish-gin-colleague",
+    source: "irish",
+    target: "gin",
+    type: "colleague",
+    detail: "Film-only operative who infiltrated the police, driven by a personal vendetta against Gin.",
+  },
+  {
+    id: "pinga-gin-colleague",
+    source: "pinga",
+    target: "gin",
+    type: "colleague",
+    detail: "Lower operative in the Black Iron Submarine continuity, part of the Organization's wider network.",
+  },
+
+  // — Regional additions
+  {
+    id: "misae-misao-family",
+    source: "misae-yamamura",
+    target: "misao-yamamura",
+    type: "family",
+    detail: "Grandmother and grandson; Misae's sharp testimony often saves Misao's cases.",
+  },
+  {
+    id: "otaki-heiji-colleague",
+    source: "otaki",
+    target: "heiji-hattori",
+    type: "colleague",
+    detail: "Osaka detective who relies on Heiji's deductions across prefectural cases.",
+  },
+  {
+    id: "matsumoto-megure-colleague",
+    source: "kiyonaga-matsumoto",
+    target: "inspector-megure",
+    type: "colleague",
+    detail: "Superintendent and inspector; Matsumoto oversees Megure's homicide division.",
+  },
+  {
+    id: "shizuka-heiji-family",
+    source: "shizuka-hattori",
+    target: "heiji-hattori",
+    type: "family",
+    detail: "Mother and son; Shizuka's kendo grace steadies Heiji's brash detective life.",
+  },
+  {
+    id: "araide-vermouth-secret-identity",
+    source: "tomoaki-araide",
+    target: "vermouth",
+    type: "secret_identity",
+    detail: "Vermouth stole Araide's identity as a disguise; his return exposes her craft.",
+  },
+  {
+    id: "yoko-kogoro-friendship",
+    source: "yoko-okino",
+    target: "kogoro-mouri",
+    type: "friendship",
+    detail: "Pop idol and her self-proclaimed number-one fan; Yoko's cases often pull Kogoro into the spotlight.",
+  },
+  {
+    id: "ayanokoji-megure-colleague",
+    source: "fumimaro-ayanokoji",
+    target: "inspector-megure",
+    type: "colleague",
+    detail: "Kyoto and Tokyo inspectors who collaborate across prefectures, linked by the Karasuma estate case.",
+  },
 ]
 
 export function getCharacterById(id: string): Character | undefined {
@@ -1542,4 +1975,15 @@ export function getRelationshipMeta(
   type: RelationshipType
 ): { label: string; color: string; description: string } {
   return RELATIONSHIP_META[type]
+}
+
+// ——— Spoiler gating (data lives in lib/characters-debut.ts) ———————————
+
+export type { Debut, SpoilerLevel, SpoilerMeta, Visibility, WatchProgress } from "@/lib/characters-spoiler"
+
+export { getSpoilerMeta } from "@/lib/characters-debut"
+
+/** Every gateable id in the graph — used by the dev-only orphan check. */
+export function getAllGateableIds(): string[] {
+  return [...CHARACTERS.map((c) => c.id), ...RELATIONSHIPS.map((r) => r.id)]
 }

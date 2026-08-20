@@ -136,6 +136,20 @@ export const FACTION_THEMES: Record<string, FactionTheme> = {
   },
 }
 
+/** Locked/silhouette palette. Deliberately outside FACTION_THEMES so a locked
+ *  node can never be tinted by the faction it belongs to. */
+export const LOCKED_THEME = {
+  fill: "#1E293B",
+  fillLight: "#E2E8F0",
+  stroke: "#64748B",
+  glow: "rgba(100, 116, 139, 0.25)",
+  label: "#94A3B8",
+  dash: "6 5",
+} as const
+
+/** Neutral colour for a silhouetted red string. */
+export const LOCKED_EDGE_COLOR = "#475569"
+
 export const FACTION_KEYS = Object.keys(FACTION_THEMES)
 
 /** Stable DOM-safe id fragment for a faction key (used for <radialGradient id>). */
