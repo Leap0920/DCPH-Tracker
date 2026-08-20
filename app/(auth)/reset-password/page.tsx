@@ -3,7 +3,7 @@
 import { useState, useEffect } from "react"
 import Link from "next/link"
 import { useRouter } from "next/navigation"
-import { Eye, EyeOff, Lock, ShieldAlert, KeyRound, CheckCircle2 } from "lucide-react"
+import { Eye, EyeOff, Lock, ShieldAlert, CheckCircle2 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
@@ -77,7 +77,7 @@ export default function ResetPasswordPage() {
 
   if (isSessionValid === false) {
     return (
-      <Card className="w-full max-w-md bg-surface border border-ink-dim/20 shadow-card rounded-2xl relative overflow-hidden">
+      <Card className="w-full max-w-md bg-surface border border-line shadow-card rounded-2xl relative overflow-hidden">
         <CardHeader className="text-center pb-4 pt-6">
           <div className="flex justify-center mb-4">
             <img
@@ -108,7 +108,7 @@ export default function ResetPasswordPage() {
   }
 
   return (
-    <Card className="w-full max-w-md bg-surface border border-ink-dim/20 shadow-card rounded-2xl relative overflow-hidden">
+    <Card className="w-full max-w-md bg-surface border border-line shadow-card rounded-2xl relative overflow-hidden">
       
       <CardHeader className="text-center pb-4 pt-6">
         <div className="flex justify-center mb-4">
@@ -129,8 +129,8 @@ export default function ResetPasswordPage() {
       <CardContent className="px-6 pb-8">
         {success ? (
           <div className="space-y-4 text-center">
-              <div className="bg-green-500/10 border border-green-500/30 rounded-lg p-4 text-sm text-green-400 flex flex-col items-center gap-2">
-              <CheckCircle2 className="h-8 w-8 text-green-400 shrink-0" />
+              <div className="bg-success/10 border border-success/30 rounded-lg p-4 text-sm text-success flex flex-col items-center gap-2">
+              <CheckCircle2 className="h-8 w-8 text-success shrink-0" />
               <div>
                 <p className="font-semibold mb-1">Password Reset Complete</p>
                 <p>Your password has been successfully updated. Redirecting to sign in...</p>
@@ -140,8 +140,8 @@ export default function ResetPasswordPage() {
         ) : (
           <form onSubmit={handleReset} className="space-y-4">
             {error && (
-              <div className="bg-red-500/10 border border-red-500/30 rounded-lg p-3.5 flex gap-2 items-start text-xs text-red-400">
-                <ShieldAlert className="h-4 w-4 shrink-0 mt-0.5 text-red-400" />
+              <div className="bg-danger/10 border border-danger/30 rounded-lg p-3.5 flex gap-2 items-start text-xs text-danger">
+                <ShieldAlert className="h-4 w-4 shrink-0 mt-0.5 text-danger" />
                 <span>{error}</span>
               </div>
             )}
@@ -168,7 +168,7 @@ export default function ResetPasswordPage() {
                       onChange={(e) => setPassword(e.target.value)}
                       required
                       minLength={6}
-                      className="pl-10 pr-10 bg-surface border border-ink-dim/20 focus:border-accent focus:ring-1 focus:ring-accent rounded-lg text-ink placeholder:text-ink-faint text-sm h-11 transition-colors"
+                      className="pl-10 pr-10 bg-surface border border-line focus:border-accent focus:ring-1 focus:ring-accent rounded-lg text-ink placeholder:text-ink-faint text-sm h-11 transition-colors"
                     />
                     <button
                       type="button"
@@ -194,7 +194,7 @@ export default function ResetPasswordPage() {
                       value={confirmPassword}
                       onChange={(e) => setConfirmPassword(e.target.value)}
                       required
-                      className="pl-10 pr-10 bg-surface border border-ink-dim/20 focus:border-accent focus:ring-1 focus:ring-accent rounded-lg text-ink placeholder:text-ink-faint text-sm h-11 transition-colors"
+                      className="pl-10 pr-10 bg-surface border border-line focus:border-accent focus:ring-1 focus:ring-accent rounded-lg text-ink placeholder:text-ink-faint text-sm h-11 transition-colors"
                     />
                     <button
                       type="button"

@@ -2,6 +2,7 @@
 
 import Link from "next/link"
 import { Button } from "@/components/ui/button"
+import "./globals.css"
 
 export default function GlobalError({
   error,
@@ -11,8 +12,8 @@ export default function GlobalError({
   reset: () => void
 }) {
   return (
-    <html lang="en">
-      <body className="flex min-h-screen flex-col items-center justify-center bg-surface px-6 text-center font-sans antialiased">
+    <html lang="en" className="dark">
+      <body className="flex min-h-screen flex-col items-center justify-center bg-surface px-6 text-center font-sans text-ink antialiased">
         <span className="case-number">FILE NO. 500 · CRITICAL SYSTEM ERROR</span>
         <h1 className="mt-4 font-display text-4xl tracking-tight text-ink">
           An unexpected error occurred
@@ -24,7 +25,7 @@ export default function GlobalError({
           <Button onClick={reset} className="rounded-lg">
             Try again
           </Button>
-          <Button asChild variant="outline" className="rounded-lg border-ink-dim/20">
+          <Button asChild variant="outline" className="rounded-lg border-line">
             <Link href="/">Return Home</Link>
           </Button>
         </div>
