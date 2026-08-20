@@ -6,6 +6,7 @@ import { EyeOff, Check, RefreshCw, Heart, Star } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { padNumber } from "@/lib/utils"
 import { CONTENT_TYPE_LABELS, type ContentType, type WatchStatus } from "@/lib/constants"
+import { typeBadgeClass } from "@/lib/badges"
 import type { Database } from "@/types/database.types"
 
 type ContentEntry = Database["public"]["Tables"]["content_entries"]["Row"]
@@ -32,17 +33,6 @@ interface ContentCardProps {
   flash?: boolean
   /** Optional: intercept title clicks (e.g. open a detail modal instead of navigating). */
   onSelect?: (entry: ContentEntry) => void
-}
-
-const typeBadgeClass: Record<string, string> = {
-  movie: "bg-amber-500/10 text-amber-400 border-amber-500/30",
-  special: "bg-rose-100 text-rose-700 border-rose-300",
-  ova: "bg-violet-100 text-violet-700 border-violet-300",
-  live_action: "bg-sky-100 text-sky-700 border-sky-300",
-  magic_kaito: "bg-fuchsia-100 text-fuchsia-700 border-fuchsia-300",
-  hanzawa: "bg-zinc-200 text-zinc-700 border-zinc-300",
-  zero_tea_time: "bg-teal-100 text-teal-700 border-teal-300",
-  episode: "bg-surface-muted text-ink-dim border-ink-dim/30",
 }
 
 export function ContentCard({
@@ -77,8 +67,8 @@ export function ContentCard({
       className={cn(
         "relative bg-surface border rounded-lg overflow-hidden group transition-all",
         flash
-          ? "border-ink ring-2 ring-ink/60 shadow-md"
-          : "border-ink-dim/20 hover:border-ink-dim/30 hover:shadow-md"
+          ? "border-ink ring-2 ring-ink/60 shadow-card"
+          : "border-line hover:border-ink-faint/40 hover:shadow-card"
       )}
     >
       {entry.type !== "movie" && (
@@ -122,8 +112,8 @@ export function ContentCard({
             className={cn(
               "absolute bottom-2 left-2 h-8 w-8 rounded-full bg-surface border flex items-center justify-center transition-colors shadow-card",
               favorite
-                ? "border-red-500/40 text-red-400 bg-red-500/10 hover:border-red-500"
-                : "border-ink-dim/30 text-ink-faint hover:border-red-400 hover:text-red-400"
+                ? "border-accent/50 bg-accent-soft text-accent-bright hover:border-accent"
+                : "border-line text-ink-faint hover:border-accent hover:text-accent-bright"
             )}
             title={favorite ? "Remove from favorites" : "Add to favorites"}
             aria-label={favorite ? "Remove from favorites" : "Add to favorites"}
@@ -160,8 +150,8 @@ export function ContentCard({
               className={cn(
                 "h-8 w-8 rounded-full bg-surface border flex items-center justify-center transition-colors shadow-card",
                 isSeen
-                  ? "border-green-500 text-green-400 bg-green-500/10 hover:border-green-600"
-                  : "border-ink-dim/30 text-ink-faint hover:border-ink hover:text-ink"
+                  ? "border-success/50 bg-success/10 text-success hover:border-success"
+                  : "border-line text-ink-faint hover:border-ink hover:text-ink"
               )}
               title={isSeen ? "Mark as unwatched" : "Mark as watched"}
               aria-label={isSeen ? "Mark as unwatched" : "Mark as watched"}
@@ -203,7 +193,7 @@ export function ContentCard({
           <Link
             href={`/arcs/${arc.slug}`}
             onClick={(e) => e.stopPropagation()}
-            className="mt-2 inline-flex items-center gap-1 rounded-md border border-ink-dim/20 bg-surface-muted px-1.5 py-0.5 text-[9px] font-mono text-ink-faint hover:border-ink hover:text-ink transition-colors"
+            className="mt-2 inline-flex items-center gap-1 rounded-md border border-line bg-surface-muted px-1.5 py-0.5 text-[9px] font-mono text-ink-faint hover:border-ink hover:text-ink transition-colors"
             title={`View the ${arc.title} story arc`}
           >
             <span className="h-1 w-1 rounded-full bg-accent" />
