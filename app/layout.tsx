@@ -33,7 +33,8 @@ export const viewport: Viewport = {
   width: "device-width",
   initialScale: 1,
   interactiveWidget: "resizes-content",
-  themeColor: "#E11D48",
+  // Matches --page on .dark so mobile browser chrome blends into the app.
+  themeColor: "#000000",
 };
 
 export const metadata: Metadata = {
@@ -52,7 +53,8 @@ export const metadata: Metadata = {
     locale: "en_PH",
     images: [
       {
-        url: new URL("/hero-image.jpg", siteUrl),
+        // Dark banner: the share card should look like the product does.
+        url: new URL("/hero-image-darkM.jpg", siteUrl),
         width: 1200,
         height: 630,
         alt: "Detective Conan PH",
@@ -68,7 +70,7 @@ export const metadata: Metadata = {
     title: "Detective Conan PH",
     description:
       "The Filipino Detective Conan community tracker and hub.",
-    images: [new URL("/hero-image.jpg", siteUrl)],
+    images: [new URL("/hero-image-darkM.jpg", siteUrl)],
   },
 };
 
@@ -78,25 +80,33 @@ export default async function RootLayout({
   children: React.ReactNode;
 }) {
   // Middleware forwards the per-request CSP nonce on the request headers.
-  // Passing it to <html> keeps the server render and the client DOM in sync,
-  // which prevents React 19's nonce-mode hydration mismatch.
+  // It belongs ONLY on the elements CSP actually checks (<script>/<style>) —
+  // never on <html>. Browsers implement "nonce hiding": after parsing, the
+  // nonce value is moved to the element's .nonce property and the content
+  // attribute is blanked, so a nonce on <html> serializes as nonce="<value>"
+  // on the server but reads back as nonce="" in the client DOM, which is
+  // precisely the React 19 hydration mismatch we are avoiding here.
   const nonce = (await headers()).get("x-nonce") ?? undefined;
 
   return (
     <html
       lang="en"
-      className={`${plusJakartaSans.variable} ${inter.variable} ${jetbrainsMono.variable} scroll-smooth`}
-      nonce={nonce}
+      // `dark` ships from the server: dark is the default, so the very
+      // first painted frame is black with zero JS. The inline script below
+      // only REMOVES it for the legacy light opt-in.
+      className={`dark ${plusJakartaSans.variable} ${inter.variable} ${jetbrainsMono.variable} scroll-smooth`}
       suppressHydrationWarning
     >
       <body className="min-h-screen bg-page text-ink font-body antialiased overflow-x-hidden w-full max-w-full">
-        {/* FOUC guard: apply the persisted theme to <html> BEFORE first
-            paint. App Router has no manual <head>, so this
-            beforeInteractive script is injected into the initial HTML and
-            runs before hydration. Must stay in sync with the ThemeProvider
-            initializer (same localStorage key, default light). */}
-        <Script id="dcph-theme-init" strategy="beforeInteractive">
-          {`(function(){try{var s=localStorage.getItem("dcph-theme");document.documentElement.classList.toggle("dark",s==="dark");}catch(e){}})();`}
+        {/* FOUC guard, inverted for a dark-default app: <html> already has
+            `dark`, so this only strips it when the visitor explicitly chose
+            light. Net effect — dark users never flash, light users flip
+            before first paint. Must stay in sync with
+            components/theme-provider.tsx (same key "dcph-theme-v2", same
+            default dark). Carries the CSP nonce because it is inline and a
+            nonce-based policy would otherwise block it. */}
+        <Script id="dcph-theme-init" strategy="beforeInteractive" nonce={nonce}>
+          {`(function(){try{if(localStorage.getItem("dcph-theme-v2")==="light"){document.documentElement.classList.remove("dark");}}catch(e){}})();`}
         </Script>
         <ThemeProvider>
           <Providers>
