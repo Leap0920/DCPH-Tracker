@@ -3,23 +3,36 @@ import { Slot } from "@radix-ui/react-slot"
 import { cva, type VariantProps } from "class-variance-authority"
 import { cn } from "@/lib/utils"
 
+/**
+ * Notes on the two colour decisions here:
+ * - `default` fills with --accent (#C8102E); white on it is 6:1, so it is
+ *   the only accent surface safe for small label text.
+ * - `link` uses --accent-bright, because plain --accent is 3.3:1 against
+ *   the near-black page and fails as text.
+ * - `destructive` uses --danger, deliberately NOT the brand crimson, so a
+ *   destructive action stays visually distinct from a primary one.
+ *
+ * Focus ring offsets against `page` rather than `surface`: most buttons sit
+ * on the page background, and an offset ring matching the wrong colour
+ * punches a visible notch in the halo.
+ */
 const buttonVariants = cva(
-  "inline-flex items-center justify-center gap-2 whitespace-nowrap font-display text-sm transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2 focus-visible:ring-offset-surface disabled:pointer-events-none disabled:opacity-50",
+  "inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-md font-display text-sm transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-bright focus-visible:ring-offset-2 focus-visible:ring-offset-page disabled:pointer-events-none disabled:opacity-50",
   {
     variants: {
       variant: {
         default:
           "bg-accent text-white hover:bg-accent-bright",
         destructive:
-          "bg-accent text-white hover:bg-accent-bright",
+          "bg-danger text-white hover:bg-danger/85",
         outline:
-          "border border-ink-dim/20 bg-transparent text-ink hover:bg-surface-muted",
+          "border border-line bg-transparent text-ink hover:bg-surface-muted",
         secondary:
-          "bg-surface-muted text-ink hover:bg-surface-muted",
+          "bg-surface-muted text-ink hover:bg-line",
         ghost:
-          "text-ink-faint hover:bg-surface-muted hover:text-ink",
+          "text-ink-dim hover:bg-surface-muted hover:text-ink",
         link:
-          "text-accent underline-offset-4 hover:underline",
+          "text-accent-bright underline-offset-4 hover:underline",
       },
       size: {
         default: "h-10 px-4 py-2",
