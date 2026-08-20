@@ -44,13 +44,14 @@ function readStoredTheme(): Theme | null {
 }
 
 export function ThemeProvider({ children }: { children: React.ReactNode }) {
-  // Initialise from the exact same source the beforeInteractive FOUC guard
-  // in app/layout.tsx used, so provider state and the <html> class can
-  // never disagree after hydration. Defaults to DARK.
-  const [theme, setThemeState] = useState<Theme>(() => {
-    if (typeof window === "undefined") return DEFAULT_THEME
-    return readStoredTheme() ?? DEFAULT_THEME
-  })
+  // Hydration-safe: always start dark on both server and client initial render,
+  // then reconcile with stored preference after hydration. Reading localStorage
+  // during the initial render would give server=dark vs client=light when the
+  // user previously chose light, causing a hydration mismatch (server light
+  // palette vs client dark palette in the graph). The inline script in
+  // app/layout.tsx already removed the `dark` class pre-paint for light users,
+  // so the visual flash is avoided; React state syncs in an effect.
+  const [theme, setThemeState] = useState<Theme>(DEFAULT_THEME)
 
   const applyTheme = useCallback((next: Theme) => {
     document.documentElement.classList.toggle("dark", next === "dark")
@@ -74,6 +75,16 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
       document.documentElement.classList.contains("dark") ? "light" : "dark"
     setTheme(next)
   }, [setTheme])
+
+  // After hydration, reconcile with the persisted preference. This is the
+  // only place we read localStorage — never during render — so server and
+  // client initial HTML are identical (both dark).
+  useEffect(() => {
+    const stored = readStoredTheme()
+    if (stored && stored !== DEFAULT_THEME) {
+      setThemeState(stored)
+    }
+  }, [])
 
   // Reconcile the <html> class with provider state once mounted. Normally
   // the server-rendered `dark` class + inline script already did this
