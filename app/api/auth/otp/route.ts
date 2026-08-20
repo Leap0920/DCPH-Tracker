@@ -21,11 +21,15 @@ export async function POST(request: NextRequest) {
       return fail(403, "Forbidden")
     }
 
-    // 5 OTP requests / hour / IP.
+    const isDev = process.env.NODE_ENV === "development"
+    const ipLimit = isDev ? 50 : 10
+    const emailLimit = isDev ? 30 : 10
+
+    // OTP requests per hour per IP
     const ipRl = await rateLimitPersistent(`otp:${authRateLimitKey(request)}`, {
-      limit: 5,
+      limit: ipLimit,
       windowMs: 60 * 60 * 1000,
-      failClosed: true,
+      failClosed: !isDev,
     })
     if (!ipRl.allowed) {
       return tooManyRequests(ipRl.retryAfterSeconds)
@@ -42,10 +46,10 @@ export async function POST(request: NextRequest) {
       return fail(400, emailError)
     }
 
-    // 3 OTP requests / hour / address
+    // OTP requests per hour per address
     const emailRl = await rateLimitPersistent(
       `otp:${identifierRateLimitKey(request, email)}`,
-      { limit: 3, windowMs: 60 * 60 * 1000, failClosed: true }
+      { limit: emailLimit, windowMs: 60 * 60 * 1000, failClosed: !isDev }
     )
     if (!emailRl.allowed) {
       return tooManyRequests(emailRl.retryAfterSeconds)
@@ -86,6 +90,28 @@ export async function POST(request: NextRequest) {
 
       if (error) {
         console.error("[otp] signInWithOtp signup failed", error.message)
+        // If account already exists, treat as sign-in instead of hard error — user likely
+        // clicked Sign Up with an existing email. Send a sign-in code instead.
+        if (
+          error.message.toLowerCase().includes("already") ||
+          error.message.toLowerCase().includes("registered") ||
+          error.message.toLowerCase().includes("exists") ||
+          error.message.toLowerCase().includes("already registered") ||
+          error.message.toLowerCase().includes("already exists")
+        ) {
+          const { error: retryError } = await supabase.auth.signInWithOtp({
+            email,
+            options: {
+              shouldCreateUser: false,
+              emailRedirectTo: `${SITE_URL}/callback?next=/tracker`,
+            },
+          })
+          if (retryError) {
+            console.error("[otp] retry signIn failed", retryError.message)
+            return fail(400, retryError.message)
+          }
+          return NextResponse.json(GENERIC_OK)
+        }
         return fail(400, error.message)
       }
     } else {
