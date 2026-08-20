@@ -1,9 +1,8 @@
 ﻿import { requireAdmin } from "@/lib/auth/admin"
 import { AdminNav } from "@/components/admin/AdminNav"
-import { ShieldCheck } from "lucide-react"
 
 export const metadata = {
-  title: "Admin â€” Detective Conan PH",
+  title: "Admin — Detective Conan PH",
   robots: { index: false, follow: false },
 }
 
@@ -16,26 +15,39 @@ export default async function AdminLayout({
   const profile = await requireAdmin()
 
   return (
-    <div className="mx-auto max-w-7xl px-4 sm:px-6 py-6">
-      <div className="mb-6 flex items-center gap-2">
-        <span className="flex h-8 w-8 items-center justify-center rounded-md bg-ink text-page">
-          <ShieldCheck className="h-4 w-4" />
-        </span>
-        <div>
-          <h1 className="font-display text-xl tracking-tight text-ink">
-            Admin Console
-          </h1>
-          <p className="text-xs text-ink-dim">
-            Signed in as {profile.display_name}
-          </p>
+    <div className="min-h-screen bg-page">
+      <header className="sticky top-0 z-30 border-b border-line bg-page/80 backdrop-blur supports-[backdrop-filter]:bg-page/60">
+        <div className="mx-auto flex h-14 max-w-7xl items-center gap-3 px-4 sm:px-6">
+          <span className="font-display text-[13px] tracking-tight text-ink">
+            Admin
+          </span>
+          <span aria-hidden className="text-ink-faint">
+            /
+          </span>
+          <span className="truncate font-mono text-[11px] text-ink-dim">
+            {profile.display_name}
+          </span>
+          <span className="ml-auto hidden items-center gap-1.5 rounded-md border border-line px-2 py-1 font-mono text-[10px] uppercase tracking-[0.12em] text-ink-faint sm:inline-flex">
+            <span
+              aria-hidden
+              className="h-1.5 w-1.5 rounded-full bg-emerald-500/80"
+            />
+            Live
+          </span>
         </div>
-      </div>
+      </header>
 
-      <div className="grid gap-6 md:grid-cols-[200px_1fr]">
-        <aside className="md:sticky md:top-20 md:self-start">
-          <AdminNav />
-        </aside>
-        <div className="min-w-0">{children}</div>
+      <div className="mx-auto max-w-7xl px-4 sm:px-6">
+        <div className="md:hidden">
+          <AdminNav variant="bar" />
+        </div>
+
+        <div className="grid gap-8 py-6 md:grid-cols-[196px_1fr] md:gap-10 md:py-8">
+          <aside className="hidden md:sticky md:top-20 md:block md:self-start">
+            <AdminNav />
+          </aside>
+          <main className="min-w-0">{children}</main>
+        </div>
       </div>
     </div>
   )
