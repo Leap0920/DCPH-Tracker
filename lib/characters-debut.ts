@@ -19,6 +19,12 @@
  *     data must never erase the cast.
  *   - An entry with spoiler: "major" and no reachable gate stays HIDDEN. For
  *     major reveals, uncertainty resolves toward hiding.
+ *
+ * NOTE ON THE SIGNED-OUT BRANCH: a signed-out viewer is gated by `spoiler`
+ * only — `debut` is not consulted. An entry with a `debut` but no `spoiler`
+ * is therefore fully visible to signed-out visitors. Any character that must
+ * be gated for a brand-new/signed-out viewer needs BOTH a `debut.episode`
+ * (> 1) and a `spoiler` level of at least "reveal".
  */
 
 import type { SpoilerMeta } from "@/lib/characters-spoiler"
@@ -66,6 +72,13 @@ export const SPOILER_DATA: Record<string, SpoilerMeta> = {
   "ginzo-nakamori": { debut: { episode: 76, volume: 16 } },
   "saguru-hakuba": { debut: { episode: 219, volume: 30 } },
 
+  // TODO(verify): Kid's butler. Episode number is canon-approximate.
+  "jii-konosuke": {
+    debut: { episode: 76, volume: 16 },
+    spoiler: "reveal",
+    lockedHint: "The thief in white does not work entirely alone.",
+  },
+
   "toichi-kuroba": {
     debut: { episode: 76, volume: 16 },
     reveal: { episode: 219 },
@@ -78,6 +91,13 @@ export const SPOILER_DATA: Record<string, SpoilerMeta> = {
   },
 
   "misao-yamamura": { debut: { episode: 96, volume: 14 } },
+  // TODO(verify): confirm this is a distinct character and not a misspelling
+  // of "misao-yamamura" above. If it is a duplicate, remove the id from
+  // characters-guide.ts instead of gating it here.
+  "misae-yamamura": {
+    debut: { episode: 96 },
+    spoiler: "reveal",
+  },
 
   // ——— Osaka ——————————————————————————————————————————————————————————
   "kazuha-toyama": { debut: { episode: 118, volume: 19 } },
@@ -109,6 +129,34 @@ export const SPOILER_DATA: Record<string, SpoilerMeta> = {
 
   "makoto-kyogoku": { debut: { episode: 153, volume: 22 } },
   "yoko-okino": { debut: { episode: 6 } },
+
+  // ——— Minor police / recurring investigators —————————————————————————
+  // TODO(verify): all episode numbers below are canon-approximate. They exist
+  // to keep these ids gated; correct them against Section 22 before release.
+  "shintaro-chaki": {
+    debut: { episode: 134 },
+    spoiler: "reveal",
+  },
+  "detective-tamura": {
+    debut: { episode: 358 },
+    spoiler: "reveal",
+  },
+  "detective-kurumazaki": {
+    debut: { episode: 694 },
+    spoiler: "reveal",
+  },
+  "tsuyoshi-shikatsuno": {
+    debut: { episode: 467 },
+    spoiler: "reveal",
+  },
+  "shoji-terabayashi": {
+    debut: { episode: 468 },
+    spoiler: "reveal",
+  },
+  "yuzo-tomizawa": {
+    debut: { episode: 18 },
+    spoiler: "reveal",
+  },
 
   // ——— Vermouth ————————————————————————————————————————————————————————
   "tomoaki-araide": { debut: { episode: 170, volume: 24 } },
@@ -155,6 +203,22 @@ export const SPOILER_DATA: Record<string, SpoilerMeta> = {
   korn: { debut: { episode: 425, volume: 48 }, spoiler: "reveal" },
   irish: { debut: { movie: 13 }, spoiler: "reveal" },
   "kanenori-wakita": { debut: { episode: 894, volume: 92 }, spoiler: "reveal" },
+
+  // TODO(verify): episode numbers canon-approximate.
+  tequila: {
+    debut: { episode: 54 },
+    spoiler: "reveal",
+    lockedHint: "Another codename surfaces early, and does not last long.",
+  },
+  calvados: {
+    debut: { episode: 345 },
+    spoiler: "reveal",
+  },
+  rum: {
+    debut: { episode: 814 },
+    spoiler: "major",
+    lockedHint: "The boss is said to have a second-in-command.",
+  },
 
   "renya-karasuma": {
     debut: { episode: 219, volume: 30 },
@@ -214,6 +278,19 @@ export const SPOILER_DATA: Record<string, SpoilerMeta> = {
 
   // ——— Suzuki family ————————————————————————————————————————————————
   "jirokichi-suzuki": { debut: { episode: 356, volume: 44 } },
+  // TODO(verify): episode numbers canon-approximate.
+  "shiro-suzuki": {
+    debut: { episode: 39 },
+    spoiler: "reveal",
+  },
+  "tomoko-suzuki": {
+    debut: { episode: 68 },
+    spoiler: "reveal",
+  },
+  "ayako-suzuki": {
+    debut: { episode: 18 },
+    spoiler: "reveal",
+  },
 
   // ——— Sera / Akai / Haneda extension ————————————————————————————————
   "masumi-sera": { debut: { episode: 646, volume: 73 } },
