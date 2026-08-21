@@ -39,6 +39,7 @@ import {
   fetchContentRating,
 } from "@/lib/queries/client/episode"
 import { CommentSection } from "@/components/tracker/CommentSection"
+import { EpisodeWikiDetails } from "@/components/tracker/EpisodeWikiDetails"
 import type { Database } from "@/types/database.types"
 
 type ContentEntry = Database["public"]["Tables"]["content_entries"]["Row"] & {
@@ -429,6 +430,14 @@ export function ContentDetail({ entry, inModal }: { entry: ContentEntry; inModal
               <p className="font-body leading-relaxed text-ink-dim">{entry.synopsis}</p>
             </section>
           )}
+
+          <EpisodeWikiDetails
+            dcwTitle={(entry as { dcw_title?: string | null }).dcw_title ?? null}
+            title={entry.title}
+            episodeNumber={entry.episode_number ?? null}
+            contentType={entry.type ?? null}
+            className="mt-6"
+          />
 
           {/* Community rating */}
           <section className="mt-6 border-t border-line pt-6">
