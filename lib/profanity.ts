@@ -36,8 +36,21 @@
  * particles ("po ta", "ga go") and it false-positives constantly.
  */
 
-/** What every match is replaced with. Fixed width: does not leak word length. */
+/**
+ * What every match is replaced with. Fixed width so the output does not leak the
+ * length of the word it hid — with one exception, see maskFor: a match SHORTER
+ * than the mask gets a proportionally shorter mask. Some CJK terms are one or
+ * two characters ("좆", "시발"), and emitting three asterisks for those would let
+ * redaction *lengthen* a message. That matters: the API route length-checks
+ * before it redacts, so a lengthening redactor would let a 2000-character
+ * message expand past MAX_MESSAGE_LENGTH on its way into the database.
+ */
 export const MASK = "***"
+
+/** Mask for a match of `length` chars — never longer than what it replaces. */
+function maskFor(length: number): string {
+  return length >= MASK.length ? MASK : MASK.slice(0, Math.max(1, length))
+}
 
 type ForbiddenRule = {
   /** Lowercase term. A space means "phrase": flexible gap between words. */
@@ -246,13 +259,17 @@ export const FORBIDDEN_TERMS: readonly ForbiddenRule[] = [
 ]
 
 /**
- * 1:1 character fold table. Every key and value is exactly one UTF-16 unit, so
- * folding cannot shift indices. `*` and `#` are absent on purpose: they act as
- * vowel wildcards in the patterns.
+ * 1:1 fold table for characters that fold UNCONDITIONALLY, wherever they
+ * appear. Every key and value is exactly one UTF-16 unit, so folding cannot
+ * shift indices. `*` and `#` are absent on purpose: they act as vowel wildcards
+ * in the patterns.
+ *
+ * Digits fold unconditionally because word-final leet is common and deliberate
+ * ("put4", "b0b0"). Symbols do not — see CONDITIONAL_FOLD.
  */
 const CHAR_FOLD = new Map<string, string>(
   Object.entries({
-    // leetspeak
+    // leetspeak digits
     "0": "o",
     "1": "i",
     "3": "e",
@@ -261,9 +278,6 @@ const CHAR_FOLD = new Map<string, string>(
     "7": "t",
     "8": "b",
     "9": "g",
-    "@": "a",
-    $: "s",
-    "!": "i",
     // Latin accents
     á: "a", à: "a", â: "a", ä: "a", ã: "a", å: "a", ā: "a",
     é: "e", è: "e", ê: "e", ë: "e", ē: "e",
@@ -280,6 +294,31 @@ const CHAR_FOLD = new Map<string, string>(
 )
 
 /**
+ * Symbols that fold to a letter ONLY when they sit between two letters/digits.
+ *
+ * This is load-bearing, not fussiness. "!" is both leet-for-i and ordinary
+ * sentence punctuation: folding it unconditionally turns "gago!" into "gagoi",
+ * and that trailing "i" defeats the right-hand letter boundary, letting the word
+ * through unmasked. Interior-only folding keeps "sh!t" and "b!tch" caught while
+ * leaving "gago!", "gago!!" and "tanga!?" as the punctuation they are.
+ */
+const CONDITIONAL_FOLD = new Map<string, string>([
+  ["@", "a"],
+  ["$", "s"],
+  ["!", "i"],
+])
+
+/** Would this character read as part of a word once folded? */
+function isLetterish(char: string | undefined): boolean {
+  if (!char) return false
+  const lowered = char.toLowerCase()
+  if (/^[0-9a-z]$/.test(lowered)) return true
+  // Conditional symbols are deliberately NOT in CHAR_FOLD, so "gago!!" does not
+  // treat its first "!" as interior.
+  return CHAR_FOLD.get(lowered) !== undefined
+}
+
+/**
  * Normalise for detection only. Guaranteed: output.length === input.length,
  * which is what lets us map a match back onto the original text.
  */
@@ -291,6 +330,15 @@ export function foldForMatching(input: string): string {
     // Some code units lowercase to more than one unit (e.g. "İ"); take the first
     // so the 1:1 index mapping holds.
     const key = lowered.length === 1 ? lowered : lowered.charAt(0) || char
+
+    const conditional = CONDITIONAL_FOLD.get(key)
+    if (conditional !== undefined) {
+      out += isLetterish(input[i - 1]) && isLetterish(input[i + 1])
+        ? conditional
+        : key
+      continue
+    }
+
     out += CHAR_FOLD.get(key) ?? key
   }
   return out
@@ -353,8 +401,9 @@ const DETECT_RE = new RegExp(PATTERN_SOURCE, "u")
 
 /**
  * Replace every forbidden term with MASK, preserving all surrounding text
- * exactly. Idempotent, and never lengthens the input (the shortest term is
- * three characters, so a match is always at least MASK.length).
+ * exactly. Idempotent, and never lengthens the input: the mask is clamped to the
+ * width of the match it replaces, so even one-character CJK terms stay within
+ * their own footprint.
  */
 export function redactForbiddenWords(input: string): string {
   if (!input) return input
@@ -367,7 +416,7 @@ export function redactForbiddenWords(input: string): string {
   for (const match of folded.matchAll(REDACT_RE)) {
     const start = match.index ?? 0
     if (start < cursor) continue
-    result += input.slice(cursor, start) + MASK
+    result += input.slice(cursor, start) + maskFor(match[0].length)
     cursor = start + match[0].length
     dirty = true
   }
