@@ -53,6 +53,13 @@ const BURST = { limit: 30, windowMs: 60_000 } as const
  */
 const PER_USER = { limit: 20, windowMs: 60_000, failClosed: false } as const
 
+/**
+ * Per-user unsend quota. Deleting is a cheap write, but the endpoint should not
+ * double as a mass-purge tool if an account is compromised. Same failClosed
+ * reasoning as PER_USER.
+ */
+const PER_USER_DELETE = { limit: 30, windowMs: 60_000, failClosed: false } as const
+
 /** Lenient UUID shape check — rejects junk without assuming a version nibble. */
 const UUID_RE =
   /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
@@ -162,6 +169,81 @@ export async function POST(request: NextRequest) {
       : null
 
     return ok({ message: { ...inserted, profiles } })
+  } catch (error) {
+    return handleApiError(error, "chat")
+  }
+}
+
+/**
+ * Unsend: hard-delete one of your own messages, for everyone.
+ *
+ * Same defence ordering as POST, minus the body parse (the id travels as a query
+ * param: DELETE bodies are dropped by some intermediaries, and a message id is
+ * not a secret) and minus the room is_active check — being able to retract your
+ * own words should not depend on the room still being open.
+ *
+ * RLS-scoped client again, for the same reason as the insert: "Users can delete
+ * own messages" enforces auth.uid() = user_id and the restrictive "Inactive
+ * users cannot delete chat messages" policy blocks banned accounts. The
+ * .eq("user_id", …) below is deliberate belt-and-braces on top of that, and it
+ * is why moderators cannot use this endpoint even though RLS would let them:
+ * moderator deletion belongs in its own audited route, not in the unsend button.
+ *
+ * Every failure returns the same 404. Distinguishing "not yours" from "already
+ * gone" from "you are banned" would turn this into a policy-probing oracle.
+ *
+ * Other clients learn about the removal from the realtime DELETE event; that
+ * requires no DDL, but see supabase/migration-chat-unsend-realtime.sql for the
+ * publication check and the optional REPLICA IDENTITY FULL note.
+ */
+export async function DELETE(request: NextRequest) {
+  try {
+    if (!isSameOrigin(request)) {
+      return fail(403, "Forbidden")
+    }
+
+    const burst = rateLimit(`chat:del:burst:${authRateLimitKey(request)}`, BURST)
+    if (!burst.allowed) {
+      return tooManyRequests(burst.retryAfterSeconds)
+    }
+
+    const supabase = await createClient()
+    const {
+      data: { user },
+    } = await supabase.auth.getUser()
+
+    if (!user) {
+      return fail(401, "Unauthorized")
+    }
+
+    const messageId = request.nextUrl.searchParams.get("messageId") ?? ""
+    if (!UUID_RE.test(messageId)) {
+      return fail(400, "Invalid message")
+    }
+
+    const rl = await rateLimitPersistent(
+      `chat:delete:user:${user.id}`,
+      PER_USER_DELETE
+    )
+    if (!rl.allowed) {
+      return tooManyRequests(rl.retryAfterSeconds)
+    }
+
+    // .select() so we can tell a real deletion from an RLS-silenced zero-row
+    // delete: PostgREST reports no error when a policy filters the row out.
+    const { data: deleted, error: deleteError } = await supabase
+      .from("chat_messages")
+      .delete()
+      .eq("id", messageId)
+      .eq("user_id", user.id)
+      .select("id")
+      .maybeSingle()
+
+    if (deleteError || !deleted) {
+      return fail(404, "Message could not be unsent")
+    }
+
+    return ok({ id: deleted.id })
   } catch (error) {
     return handleApiError(error, "chat")
   }
