@@ -3,7 +3,7 @@
 import { useState, useEffect, useRef, useCallback, useMemo } from "react"
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query"
 import Link from "next/link"
-import { Send, Menu, ArrowDown, LogIn, UserPlus, MessagesSquare } from "lucide-react"
+import { Send, Menu, ArrowDown, LogIn, UserPlus, MessagesSquare, Trash2 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { createClient } from "@/utils/supabase/client"
@@ -18,14 +18,38 @@ import {
   CHAT_PAGE_SIZE,
   type ChatMessage,
 } from "@/lib/queries/client/chat"
-import { MAX_MESSAGE_LENGTH } from "@/lib/chat-constants"
+import { MAX_MESSAGE_LENGTH, CHAT_RETENTION_HOURS } from "@/lib/chat-constants"
 import { redactForbiddenWords } from "@/lib/profanity"
+import { mergeChatMessages } from "@/lib/chat-merge"
 import type { Database } from "@/types/database.types"
 
 type ChatRoom = Database["public"]["Tables"]["chat_rooms"]["Row"]
 type Profile = { username: string; display_name: string; avatar_url: string | null }
 
 const GROUP_GAP_MS = 5 * 60 * 1000
+
+/**
+ * Poll cadence for the messages query.
+ *
+ * Realtime is the primary transport; polling is the safety net for when it is
+ * not working at all — table missing from the `supabase_realtime` publication,
+ * websocket blocked by a school/office network, or a socket still authenticated
+ * as `anon` so RLS filters every event away. Two rates:
+ *
+ *   LIVE     — realtime reported SUBSCRIBED. A slow poll only backfills events
+ *              that realtime dropped (it has a per-second cap and no redelivery).
+ *   FALLBACK — realtime is down. Fast enough that chat still feels live.
+ *
+ * react-query pauses interval refetches while the tab is unfocused
+ * (refetchIntervalInBackground defaults to false), so a backgrounded tab costs
+ * nothing and there is no thundering refetch on return.
+ */
+const POLL_LIVE_MS = 30_000
+const POLL_FALLBACK_MS = 6_000
+
+/** Channel resubscribe backoff: 1s, 2s, 4s … capped at 30s. */
+const RESUBSCRIBE_BASE_MS = 1_000
+const RESUBSCRIBE_MAX_MS = 30_000
 
 function formatTime(iso: string) {
   return new Date(iso).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })
@@ -70,7 +94,11 @@ export function ChatWindow({
   const [userId, setUserId] = useState<string | null>(null)
   const [me, setMe] = useState<Profile | null>(null)
   const [connected, setConnected] = useState(false)
+  // Bumped to force a fresh realtime channel after a CHANNEL_ERROR/TIMED_OUT.
+  const [realtimeEpoch, setRealtimeEpoch] = useState(0)
   const [unread, setUnread] = useState(0)
+  // Two-tap confirm for unsend: which message is currently armed.
+  const [confirmUnsendId, setConfirmUnsendId] = useState<string | null>(null)
 
   const scrollRef = useRef<HTMLDivElement>(null)
   const endRef = useRef<HTMLDivElement>(null)
@@ -78,11 +106,35 @@ export function ChatWindow({
   const atBottomRef = useRef(true)
   const initialLoadRef = useRef(true)
   const initialSyncRef = useRef(false)
-  const supabase = createClient()
+  // Arrival detection for the scroll/unread effect. `messages` also changes on
+  // unsend and on "load earlier", and neither is an arrival.
+  const prevCountRef = useRef(0)
+  const prevTopIdRef = useRef<string | null>(null)
+  const confirmTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const resubscribeTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const resubscribeAttemptsRef = useRef(0)
+  /**
+   * Ids this client has deleted, or seen deleted over realtime. Tombstones, so
+   * a poll that races the DELETE request cannot resurrect the bubble.
+   */
+  const removedIdsRef = useRef<Set<string>>(new Set())
+  /** `me` mirrored into a ref — see the sync effect below. */
+  const meRef = useRef<Profile | null>(null)
+
+  /**
+   * BOTH of these must be referentially stable: they are dependencies of the
+   * realtime effect, and `createClient()` / `queryKeys.chat.messages()` each
+   * hand back a FRESH object on every call. Without the memos, that effect tore
+   * the channel down and resubscribed on every render — every keystroke in the
+   * composer included — and a channel removed ~100ms after .subscribe() never
+   * reaches SUBSCRIBED. That is why other people's messages only showed up
+   * after a reload.
+   */
+  const supabase = useMemo(() => createClient(), [])
   const queryClient = useQueryClient()
 
   // Cache is newest-first (matches the fetch); rendering reverses to chronological.
-  const messagesKey = queryKeys.chat.messages(room.id)
+  const messagesKey = useMemo(() => queryKeys.chat.messages(room.id), [room.id])
 
   // ── Auth + own profile (one-time, not cacheable data) ──
   useEffect(() => {
@@ -106,11 +158,29 @@ export function ChatWindow({
     }
   }, [supabase])
 
-  // ── Messages query (initial page, newest first) ──
+  // Mirror `me` into a ref so the realtime effect can read the current profile
+  // without listing it as a dependency — a dep would tear the channel down the
+  // moment the profile finishes loading.
+  useEffect(() => {
+    meRef.current = me
+  }, [me])
+
+  // ── Messages query (latest page, newest first; merged, never clobbering) ──
+  const loadLatest = useCallback(async (): Promise<ChatMessage[]> => {
+    const latest = await fetchChatMessages(room.id)
+    const previous = queryClient.getQueryData<ChatMessage[]>(messagesKey) ?? []
+    // Merge rather than replace: keeps in-flight optimistic sends and
+    // "Load earlier" pages, and honours unsend tombstones. See lib/chat-merge.
+    return mergeChatMessages(previous, latest, removedIdsRef.current)
+  }, [room.id, queryClient, messagesKey])
+
   const messagesQuery = useQuery({
     queryKey: messagesKey,
-    queryFn: () => fetchChatMessages(room.id),
+    queryFn: loadLatest,
     enabled: !!userId,
+    // Fallback transport when realtime is down, safety net when it is up.
+    refetchInterval: connected ? POLL_LIVE_MS : POLL_FALLBACK_MS,
+    refetchIntervalInBackground: false,
   })
   const messages = messagesQuery.data ?? []
   const loading = !!userId && messagesQuery.isLoading
@@ -135,47 +205,147 @@ export function ChatWindow({
     }
   }, [messagesQuery.data])
 
+  // Only surface a load error when there is nothing on screen. Once messages
+  // are rendered, a failed poll is transient — the next tick retries — and a
+  // sticky "refresh" banner would be pure noise.
   useEffect(() => {
-    if (messagesQuery.isError) {
+    if (messagesQuery.isError && messages.length === 0) {
       setError("Couldn't load messages. Check your connection and refresh.")
     }
-  }, [messagesQuery.isError])
+  }, [messagesQuery.isError, messages.length])
 
-  // ── Realtime (stays; appends into the react-query cache, deduped) ──
+  // ── Realtime (primary transport; the poll above is the fallback) ──
   useEffect(() => {
     if (!userId) return
 
-    const channel = supabase
-      .channel(`chat:${room.id}`)
-      .on(
-        "postgres_changes",
-        {
-          event: "INSERT",
-          schema: "public",
-          table: "chat_messages",
-          filter: `room_id=eq.${room.id}`,
-        },
-        async (payload) => {
-          const incoming = await fetchChatMessageById(
-            (payload.new as { id: string }).id
-          )
-          if (!incoming) return
-          queryClient.setQueryData<ChatMessage[]>(messagesKey, (old) => {
-            if (!old) return [incoming]
-            return old.some((m) => m.id === incoming.id) ? old : [incoming, ...old]
-          })
-        }
+    let disposed = false
+    let channel: ReturnType<typeof supabase.channel> | null = null
+
+    const scheduleResubscribe = () => {
+      if (disposed || resubscribeTimerRef.current) return
+      const attempt = resubscribeAttemptsRef.current
+      resubscribeAttemptsRef.current = attempt + 1
+      const delay = Math.min(
+        RESUBSCRIBE_BASE_MS * 2 ** attempt,
+        RESUBSCRIBE_MAX_MS
       )
-      .subscribe((status) => {
-        if (status === "SUBSCRIBED") setConnected(true)
-        else if (status === "CHANNEL_ERROR" || status === "TIMED_OUT")
-          setConnected(false)
-      })
+      // supabase-js reconnects the SOCKET on its own, but a channel rejected at
+      // the postgres_changes/RLS level stays dead forever. Rebuild it.
+      resubscribeTimerRef.current = setTimeout(() => {
+        resubscribeTimerRef.current = null
+        setRealtimeEpoch((e) => e + 1)
+      }, delay)
+    }
+
+    const applyIncoming = (incoming: ChatMessage) => {
+      if (removedIdsRef.current.has(incoming.id)) return
+      queryClient.setQueryData<ChatMessage[]>(messagesKey, (old) =>
+        old
+          ? mergeChatMessages(old, [incoming], removedIdsRef.current)
+          : [incoming]
+      )
+    }
+
+    void (async () => {
+      // Point the socket at the CURRENT access token before subscribing.
+      // postgres_changes are filtered by RLS using the socket's JWT: a socket
+      // still holding the anon key evaluates as `auth.role() = 'anon'`, fails
+      // the "Authenticated users can read chat messages" policy, and receives
+      // nothing whatsoever — indistinguishable from a broken subscription.
+      try {
+        const { data } = await supabase.auth.getSession()
+        const token = data.session?.access_token
+        if (token) {
+          // setAuth returns void in older supabase-js, a Promise in newer.
+          const result: unknown = supabase.realtime.setAuth(token)
+          if (result instanceof Promise) await result
+        }
+      } catch {
+        // Non-fatal: let the subscribe attempt report the real problem.
+      }
+      if (disposed) return
+
+      channel = supabase
+        .channel(`chat:${room.id}`)
+        .on(
+          "postgres_changes",
+          {
+            event: "INSERT",
+            schema: "public",
+            table: "chat_messages",
+            filter: `room_id=eq.${room.id}`,
+          },
+          async (payload) => {
+            const row = payload.new as Partial<ChatMessage> | null
+            if (!row?.id) return
+            // Refetch to pick up the author profile the payload cannot carry.
+            const hydrated = await fetchChatMessageById(row.id)
+            if (disposed) return
+            if (hydrated) {
+              applyIncoming(hydrated)
+              return
+            }
+            // Hydration can legitimately return null: replica lag, a transient
+            // network blip, or RLS. Render the payload row itself rather than
+            // dropping the message on the floor; the next poll fills in the
+            // profile, and mergeChatMessages replaces this row when it does.
+            if (!row.room_id || !row.user_id || !row.created_at) return
+            applyIncoming({
+              id: row.id,
+              room_id: row.room_id,
+              user_id: row.user_id,
+              content: row.content ?? "",
+              created_at: row.created_at,
+              profiles: row.user_id === userId ? meRef.current : null,
+            })
+          }
+        )
+        .on(
+          "postgres_changes",
+          { event: "DELETE", schema: "public", table: "chat_messages" },
+          (payload) => {
+            // No `filter` here, deliberately: under the default REPLICA IDENTITY
+            // a DELETE payload's `old` record carries ONLY the primary key, so a
+            // room_id filter can never match and the event would be dropped. We
+            // match ids against our own cache instead. This also absorbs the
+            // scheduled 12-hour purge, which deletes rows in batches.
+            const deletedId = (payload.old as { id?: string } | null)?.id
+            if (!deletedId) return
+            removedIdsRef.current.add(deletedId)
+            queryClient.setQueryData<ChatMessage[]>(messagesKey, (old) =>
+              old ? old.filter((m) => m.id !== deletedId) : old
+            )
+          }
+        )
+        .subscribe((status) => {
+          if (disposed) return
+          if (status === "SUBSCRIBED") {
+            resubscribeAttemptsRef.current = 0
+            setConnected(true)
+            // Close the gap between the last poll and the socket coming up.
+            void queryClient.invalidateQueries({ queryKey: messagesKey })
+            return
+          }
+          if (
+            status === "CHANNEL_ERROR" ||
+            status === "TIMED_OUT" ||
+            status === "CLOSED"
+          ) {
+            setConnected(false)
+            scheduleResubscribe()
+          }
+        })
+    })()
 
     return () => {
-      supabase.removeChannel(channel)
+      disposed = true
+      if (resubscribeTimerRef.current) {
+        clearTimeout(resubscribeTimerRef.current)
+        resubscribeTimerRef.current = null
+      }
+      if (channel) supabase.removeChannel(channel)
     }
-  }, [room.id, userId, supabase, queryClient, messagesKey])
+  }, [room.id, userId, supabase, queryClient, messagesKey, realtimeEpoch])
 
   // ── Send mutation (optimistic temp message, deduped against realtime echo) ──
   const sendMutation = useMutation({
@@ -238,6 +408,93 @@ export function ChatWindow({
     },
   })
 
+  // ── Unsend mutation (delete for everyone; optimistic removal) ──
+  const unsendMutation = useMutation({
+    mutationFn: async ({ messageId }: { messageId: string }) => {
+      const res = await fetch(
+        `/api/chat?messageId=${encodeURIComponent(messageId)}`,
+        { method: "DELETE" }
+      )
+      const json = (await res.json().catch(() => null)) as
+        | { success: true; data: { id: string } }
+        | { error?: string }
+        | null
+      if (!res.ok || !json || !("success" in json)) {
+        const detail =
+          json && "error" in json && typeof json.error === "string"
+            ? json.error
+            : "Failed to unsend message"
+        throw new Error(detail)
+      }
+      return json.data
+    },
+    onMutate: async ({ messageId }) => {
+      await queryClient.cancelQueries({ queryKey: messagesKey })
+      const current = queryClient.getQueryData<ChatMessage[]>(messagesKey) ?? []
+      const removed = current.find((m) => m.id === messageId) ?? null
+      // Tombstone FIRST: a poll or refetch that lands before the DELETE
+      // completes would otherwise merge the row straight back in.
+      removedIdsRef.current.add(messageId)
+      queryClient.setQueryData<ChatMessage[]>(messagesKey, (old) =>
+        old ? old.filter((m) => m.id !== messageId) : old
+      )
+      return { removed }
+    },
+    onError: (_err, { messageId }, ctx) => {
+      // Lift the tombstone before restoring, or the merge would drop it again.
+      removedIdsRef.current.delete(messageId)
+      const removed = ctx?.removed
+      if (removed) {
+        // Re-insert by timestamp rather than restoring a whole snapshot: other
+        // messages may have arrived over realtime while the request was in
+        // flight, and a snapshot restore would wipe them. Cache is newest-first.
+        queryClient.setQueryData<ChatMessage[]>(messagesKey, (old) => {
+          if (!old) return [removed]
+          if (old.some((m) => m.id === removed.id)) return old
+          const next = [...old]
+          const at = next.findIndex((m) => m.created_at <= removed.created_at)
+          if (at === -1) next.push(removed)
+          else next.splice(at, 0, removed)
+          return next
+        })
+      }
+      setError("Couldn't unsend that message. Try again.")
+    },
+    onSuccess: () => {
+      // The realtime DELETE echo is a no-op: the row is already gone from cache.
+      setError(null)
+    },
+  })
+
+  const unsendingId = unsendMutation.isPending
+    ? unsendMutation.variables?.messageId ?? null
+    : null
+
+  const armUnsend = useCallback((messageId: string) => {
+    setConfirmUnsendId(messageId)
+    if (confirmTimerRef.current) clearTimeout(confirmTimerRef.current)
+    // Auto-disarm: an armed destructive control should not linger.
+    confirmTimerRef.current = setTimeout(() => setConfirmUnsendId(null), 4000)
+  }, [])
+
+  const handleUnsend = useCallback(
+    (messageId: string) => {
+      // Optimistic messages have no row to delete and no real id yet.
+      if (messageId.startsWith("temp-") || unsendMutation.isPending) return
+      if (confirmTimerRef.current) clearTimeout(confirmTimerRef.current)
+      setConfirmUnsendId(null)
+      unsendMutation.mutate({ messageId })
+    },
+    [unsendMutation]
+  )
+
+  useEffect(
+    () => () => {
+      if (confirmTimerRef.current) clearTimeout(confirmTimerRef.current)
+    },
+    []
+  )
+
   const scrollToBottom = useCallback((smooth = true) => {
     const el = scrollRef.current
     if (!el) return
@@ -273,11 +530,24 @@ export function ChatWindow({
 
   // New-message scroll handling: snap to bottom if user is at bottom,
   // otherwise surface a "new messages" pill with an unread count.
+  //
+  // Only ARRIVALS count. `messages` also changes when a message is unsent
+  // (count drops) and when older pages are prepended to the tail (newest id
+  // unchanged); treating either as an arrival would falsely bump the pill.
   useEffect(() => {
+    const count = messages.length
+    const topId = messages[0]?.id ?? null
+    const prevCount = prevCountRef.current
+    const prevTopId = prevTopIdRef.current
+    prevCountRef.current = count
+    prevTopIdRef.current = topId
+
     if (initialLoadRef.current) {
       initialLoadRef.current = false
       return
     }
+    if (count <= prevCount || topId === prevTopId) return
+
     if (atBottomRef.current) {
       scrollToBottom(true)
     } else {
@@ -353,7 +623,9 @@ export function ChatWindow({
                   connected ? "bg-green-500" : "bg-ink-faint"
                 )}
               />
-              {connected ? "Live" : "…"}
+              {/* "Sync" is honest: when the socket is down, the poll fallback
+                  is still delivering messages, just a few seconds slower. */}
+              {connected ? "Live" : "Sync"}
             </span>
           </div>
           {room.description && (
@@ -490,13 +762,49 @@ export function ChatWindow({
                       )}
 
                       <div className="relative flex items-end gap-2">
+                        {isOwn && !pending && (
+                          <button
+                            type="button"
+                            onClick={() =>
+                              confirmUnsendId === msg.id
+                                ? handleUnsend(msg.id)
+                                : armUnsend(msg.id)
+                            }
+                            disabled={unsendingId === msg.id}
+                            aria-label={
+                              confirmUnsendId === msg.id
+                                ? "Confirm unsend for everyone"
+                                : "Unsend message"
+                            }
+                            title="Unsend for everyone"
+                            className={cn(
+                              "order-first mb-0.5 shrink-0 rounded-md transition-opacity focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-accent disabled:cursor-not-allowed disabled:opacity-60",
+                              confirmUnsendId === msg.id
+                                ? // Armed: stays visible, no hover games.
+                                  "px-1.5 py-0.5 font-mono text-[10px] text-accent hover:text-accent-bright"
+                                : // Idle: hover affordance on pointer devices,
+                                  // always visible below md where there is no hover.
+                                  "p-1 text-ink-faint opacity-100 hover:text-accent focus-visible:opacity-100 md:opacity-0 md:group-hover:opacity-100 md:focus-visible:opacity-100"
+                            )}
+                          >
+                            {confirmUnsendId === msg.id ? (
+                              unsendingId === msg.id ? (
+                                "…"
+                              ) : (
+                                "Unsend?"
+                              )
+                            ) : (
+                              <Trash2 className="h-3.5 w-3.5" />
+                            )}
+                          </button>
+                        )}
                         <div
                           className={cn(
                             "whitespace-pre-wrap break-words rounded-lg px-3 py-2 text-sm",
                             isOwn
                               ? "bg-accent text-white"
                               : "bg-surface-muted text-ink",
-                            pending && "opacity-60"
+                            (pending || unsendingId === msg.id) && "opacity-60"
                           )}
                         >
                           {msg.content}
@@ -591,7 +899,8 @@ export function ChatWindow({
         {userId && (
           <p className="mt-1.5 px-1 text-[11px] text-ink-faint">
             <kbd className="font-mono">Enter</kbd> to send ·{" "}
-            <kbd className="font-mono">Shift + Enter</kbd> for a new line
+            <kbd className="font-mono">Shift + Enter</kbd> for a new line ·
+            messages clear after {CHAT_RETENTION_HOURS}h
           </p>
         )}
       </div>
