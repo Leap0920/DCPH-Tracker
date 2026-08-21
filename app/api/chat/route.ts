@@ -5,6 +5,7 @@ import { isSameOrigin } from "@/lib/origin-check"
 import { rateLimit, authRateLimitKey } from "@/lib/rate-limit"
 import { rateLimitPersistent } from "@/lib/rate-limit-db"
 import { MAX_MESSAGE_LENGTH } from "@/lib/chat-constants"
+import { redactForbiddenWords } from "@/lib/profanity"
 
 /**
  * Chat message send API.
@@ -101,13 +102,19 @@ export async function POST(request: NextRequest) {
       return fail(400, "Invalid message")
     }
 
-    const content = rawContent.trim()
-    if (content.length === 0) {
+    const trimmed = rawContent.trim()
+    if (trimmed.length === 0) {
       return fail(400, "Invalid message")
     }
-    if (content.length > MAX_MESSAGE_LENGTH) {
+    if (trimmed.length > MAX_MESSAGE_LENGTH) {
       return fail(400, "Message too long")
     }
+
+    // Redact AFTER the length checks (so the cap applies to what the user
+    // actually typed) and BEFORE the insert: the stored row must be clean,
+    // because realtime hands stored rows straight to every other client.
+    // Redaction never lengthens the string, so the cap still holds.
+    const content = redactForbiddenWords(trimmed)
 
     const rl = await rateLimitPersistent(`chat:post:user:${user.id}`, PER_USER)
     if (!rl.allowed) {
