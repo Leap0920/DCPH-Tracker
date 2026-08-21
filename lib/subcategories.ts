@@ -26,21 +26,20 @@ export const SUBCATEGORY_CONFIGS: Partial<Record<ContentType, SubcategoryConfig>
     defaultKey: "official",
     groups: [
       {
-        key: "all",
-        label: "All Movies",
-        match: () => true,
-      },
-      {
         key: "official",
         label: "Official Movies",
-        match: (e) => typeof e.movie_number === "number" && e.movie_number >= 1 && e.movie_number <= 29,
+        match: (e) => e.movie_number != null,
       },
-      { key: "lupin", label: "Lupin III vs Conan", match: (e) => e.slug === "mov-37" },
-      { key: "kid", label: "Conan vs Kid", match: (e) => e.slug === "mov-19" || e.slug === "mov-22" },
+      {
+        key: "lupin",
+        label: "Lupin III vs. Detective Conan",
+        match: (e) => e.slug === "mov-37",
+      },
       {
         key: "other",
-        label: "Other Movies & Specials",
-        match: (e) => isOtherMovie(e.slug) || !e.movie_number,
+        label: "Other Movies",
+        match: (e) =>
+          e.slug !== "mov-37" && (isOtherMovie(e.slug) || e.movie_number == null),
       },
     ],
   },
@@ -50,14 +49,17 @@ export const SUBCATEGORY_CONFIGS: Partial<Record<ContentType, SubcategoryConfig>
     groups: [
       {
         key: "ova",
-        label: "OVA",
-        match: (e) => e.slug === "ova-01" || e.slug === "ova-detective-conan-vs-wooo-01-02",
+        label: "OVAs",
+        match: (e) =>
+          /\bOVA\s*\d+/i.test(e.title ?? "") ||
+          e.slug === "ova-detective-conan-vs-wooo-01-02",
       },
-      { key: "aoyama", label: "Aoyama Short Stories", match: (e) => e.slug.includes("aoyama-short-stories") },
+      { key: "aoyama", label: "Gosho Aoyama's Short Stories", match: (e) => e.slug.includes("aoyama-short-stories") },
       { key: "secret", label: "Secret Files", match: (e) => e.slug.includes("secret-file") },
-      { key: "magic", label: "Magic File", match: (e) => e.slug.includes("magic-file") },
-      { key: "bonus", label: "Bonus File", match: (e) => e.slug.includes("bonus-file") },
-      { key: "shogakukan", label: "Shogakukan", match: (e) => e.slug.includes("shogakukan") },
+      { key: "magic", label: "Magic Files", match: (e) => e.slug.includes("magic-file") || /magic\s*file/i.test(e.title ?? "") },
+      { key: "bonus", label: "Bonus Files", match: (e) => e.slug.includes("bonus-file") || /bonus file/i.test(e.title ?? "") },
+      { key: "shogakukan", label: "Shogakukan Specials", match: (e) => e.slug.includes("shogakukan") },
+      { key: "other", label: "Other OVAs", match: () => true },
     ],
   },
   special: {
@@ -67,18 +69,16 @@ export const SUBCATEGORY_CONFIGS: Partial<Record<ContentType, SubcategoryConfig>
       {
         key: "tv",
         label: "TV Specials",
-        match: (e) => e.slug.startsWith("sp-") || e.slug === "special-lupin-vs-conan-2009",
+        match: () => true, // after curation, every `special` row IS a TV special
       },
-      { key: "crossover", label: "Cross-over Movies", match: (e) => e.slug.includes("cross-over-movie") },
-      { key: "compilation", label: "Compilation Movies", match: (e) => e.slug.includes("compilation-movie") },
     ],
   },
   magic_kaito: {
     label: "Magic Kaito",
     defaultKey: "special",
     groups: [
-      { key: "special", label: "Magic Kaito Specials", match: (e) => e.slug.includes("mk-magic-kaito-special") },
-      { key: "1412", label: "Magic Kaito 1412", match: (e) => e.slug.includes("mk-magic-kaito-1412") },
+      { key: "special", label: "Magic Kaito (2010)", match: (e) => e.slug.includes("mk-magic-kaito-special") },
+      { key: "1412", label: "Magic Kaito 1412 (2014)", match: (e) => e.slug.includes("mk-magic-kaito-1412") },
     ],
   },
 }

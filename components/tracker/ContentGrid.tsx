@@ -98,7 +98,7 @@ const SECTION_ORDER: {
 ]
 
 function getNumber(entry: ContentEntry): number {
-  if (entry.type === "movie") return entry.movie_number ?? 0
+  if (entry.type === "movie") return entry.movie_number ?? entry.release_order ?? 0
   if (entry.type === "episode") return entry.episode_number ?? 0
   return entry.release_order ?? 0
 }
@@ -273,11 +273,13 @@ export function ContentGrid({
         let subcats: { key: string; label: string; count: number }[] | undefined
         if (config) {
           activeSubcat = subcat[s.type] ?? config.defaultKey
-          subcats = config.groups.map((g) => ({
-            key: g.key,
-            label: g.label,
-            count: base.filter((e) => g.match(e)).length,
-          }))
+          subcats = config.groups
+            .map((g) => ({
+              key: g.key,
+              label: g.label,
+              count: base.filter((e) => g.match(e)).length,
+            }))
+            .filter((g) => g.count > 0)
           const activeGroup = config.groups.find((g) => g.key === activeSubcat)
           if (activeGroup) list = base.filter((e) => activeGroup.match(e))
         }
