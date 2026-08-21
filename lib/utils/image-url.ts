@@ -1,20 +1,36 @@
 /**
- * Cleans and normalizes copy-pasted image link addresses (e.g. from Detective Conan Fandom Wiki,
- * MyAnimeList, Kitsu, Imgur, or direct web links) so they load cleanly as full-res cover posters.
+ * Cleans and normalizes copy-pasted image link addresses from any website
+ * (Detective Conan World, Fandom, MyAnimeList, Kitsu, AniList, TMDB, Imgur,
+ * or any direct image link) so they load cleanly as full-res cover posters.
  */
 export function cleanImageUrl(url: string | null | undefined): string | null {
   if (!url) return null
   let cleaned = url.trim()
   if (!cleaned) return null
 
-  // Fandom / Wikia CDN Links (e.g. static.wikia.nocookie.net/detectiveconan/images/...)
+  // Fandom / Wikia CDN (e.g. static.wikia.nocookie.net/.../scale-to-width-down/300)
   if (cleaned.includes("wikia.nocookie.net") || cleaned.includes("fandom.com")) {
     cleaned = cleaned.replace(/\/scale-to-width-down\/\d+/g, "")
     cleaned = cleaned.replace(/\/smart\/width\/\d+\/height\/\d+/g, "")
     cleaned = cleaned.replace(/\/thumbnail-down\/\d+/g, "")
     cleaned = cleaned.split("?")[0]
+  }
+  // TMDB poster URLs (…/w185/…, …/w500/… → use original or w780)
+  else if (cleaned.includes("image.tmdb.org")) {
+    cleaned = cleaned.replace(/\/w\d+\//, "/original/")
+    cleaned = cleaned.split("?")[0]
+  }
+  // Kitsu / MAL / AniList CDN (keep as-is, just strip tracking params)
+  else if (
+    cleaned.includes("media.kitsu.app") ||
+    cleaned.includes("cdn.myanimelist.net") ||
+    cleaned.includes("s4.anilist.co")
+  ) {
+    // Strip only tracking query params, preserve the image path
+    const qIdx = cleaned.indexOf("?")
+    if (qIdx !== -1) cleaned = cleaned.slice(0, qIdx)
   } else {
-    // Clean trailing query strings from standard image file extensions if present
+    // Generic: clean trailing query strings from standard image extensions
     cleaned = cleaned.replace(/(\.(?:jpg|jpeg|png|webp|gif|svg))\?.*$/i, "$1")
   }
 
@@ -22,16 +38,23 @@ export function cleanImageUrl(url: string | null | undefined): string | null {
 }
 
 /**
- * Resolves Wiki File page URLs (e.g. https://www.detectiveconanworld.com/wiki/File:Movie_1.jpg)
- * into their underlying direct raw image file URL.
+ * Resolves image page URLs into their direct image file URL.
+ * Supports: Detective Conan World File pages, Wikipedia/Wikimedia File pages,
+ * Fandom File pages. Direct image links from any other site are cleaned and
+ * returned as-is (TMDB, Kitsu, AniList, MAL, Imgur, etc.).
  */
 export async function resolveAndCleanImageUrl(url: string | null | undefined): Promise<string | null> {
   if (!url) return null
   let cleaned = url.trim()
   if (!cleaned) return null
 
-  // If the user pasted a Wiki File page URL (e.g. detectiveconanworld.com/wiki/File:Movie_1.jpg)
-  if (cleaned.includes("/wiki/File:")) {
+  // Detect File page URLs from any wiki (DCW, Wikipedia, Fandom, etc.)
+  const isFilePage =
+    cleaned.includes("/wiki/File:") ||
+    cleaned.includes("/wiki/Special:FilePath/") ||
+    /fandom\.com\/wiki\/File:/i.test(cleaned)
+
+  if (isFilePage) {
     try {
       const parsedUrl = new URL(cleaned)
       const res = await fetch(cleaned, {

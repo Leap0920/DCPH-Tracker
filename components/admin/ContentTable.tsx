@@ -1,6 +1,7 @@
 "use client"
 
 import Link from "next/link"
+import { useSearchParams } from "next/navigation"
 import { Pencil } from "lucide-react"
 import { CONTENT_TYPE_LABELS, type ContentType } from "@/lib/constants"
 import { DeleteContentButton } from "@/components/admin/DeleteContentButton"
@@ -22,6 +23,10 @@ function numberFor(e: ContentEntry) {
 }
 
 export function ContentTable({ entries }: { entries: ContentEntry[] }) {
+  const searchParams = useSearchParams()
+  const preservedQuery = searchParams.toString()
+  const editHrefSuffix = preservedQuery ? `?${preservedQuery}` : ""
+
   if (entries.length === 0) {
     return (
       <div className="rounded-md border border-line bg-surface px-6 py-16 text-center">
@@ -97,7 +102,7 @@ export function ContentTable({ entries }: { entries: ContentEntry[] }) {
               <td className="px-3 py-2">
                 <div className="flex items-center justify-end gap-1">
                   <Link
-                    href={`/admin/content/${e.id}`}
+                    href={`/admin/content/${e.id}${editHrefSuffix}`}
                     aria-label={`Edit ${e.title}`}
                     className="inline-flex h-8 w-8 items-center justify-center rounded-md text-ink-faint transition-colors hover:bg-white/[0.06] hover:text-ink focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-accent/40"
                   >
