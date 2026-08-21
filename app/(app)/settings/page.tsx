@@ -16,6 +16,7 @@ import {
   updateProfile,
 } from "@/lib/queries/client/profile"
 import { Camera, Trash2, Check, Loader2, LogOut, Lock, Eye, EyeOff, Mail, Smartphone } from "lucide-react"
+import { ResetTrackerCard } from "@/components/settings/ResetTrackerCard"
 import type { Database } from "@/types/database.types"
 
 type Profile = Database["public"]["Tables"]["profiles"]["Row"]
@@ -675,6 +676,9 @@ export default function SettingsPage() {
             </div>
           </form>
         </div>
+
+        {/* Danger zone — must stay last, below everything constructive. */}
+        {userId && <ResetTrackerCard userId={userId} />}
       </div>
     </div>
   )
