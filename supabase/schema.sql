@@ -84,6 +84,8 @@ create table if not exists content_entries (
   image_url        text,
   runtime_minutes  integer,
   crime_types      text[] not null default '{}'::text[],
+  dcw_title        text,
+  image_source     text,
   created_at       timestamptz not null default now()
 );
 
@@ -129,6 +131,11 @@ alter table content_entries add constraint content_entries_crime_types_valid
     ]::text[]
   );
 create index if not exists content_entries_crime_types_idx on content_entries using gin (crime_types);
+
+-- DCW image tracking
+alter table public.content_entries add column if not exists dcw_title text;
+alter table public.content_entries add column if not exists image_source text;
+create index if not exists content_entries_image_source_idx on public.content_entries (image_source);
 
 -- ─────────────────────────────────────────────────────────────
 -- WATCH STATUS

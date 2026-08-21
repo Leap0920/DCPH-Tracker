@@ -117,6 +117,8 @@ export interface Database {
           image_url: string | null;
           runtime_minutes: number | null;
           crime_types: string[];
+          dcw_title: string | null;
+          image_source: string | null;
           created_at: string;
         };
         Insert: {
@@ -134,6 +136,8 @@ export interface Database {
           image_url?: string | null;
           runtime_minutes?: number | null;
           crime_types?: string[] | null;
+          dcw_title?: string | null;
+          image_source?: string | null;
           created_at?: string;
         };
         Update: {
@@ -151,6 +155,8 @@ export interface Database {
           image_url?: string | null;
           runtime_minutes?: number | null;
           crime_types?: string[] | null;
+          dcw_title?: string | null;
+          image_source?: string | null;
           created_at?: string;
         };
         Relationships: [

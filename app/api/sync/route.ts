@@ -13,6 +13,7 @@ import {
   DETECTIVE_CONAN_KITSU_ID,
 } from "@/lib/kitsu"
 import { getNextAiringEpisode } from "@/lib/anilist"
+import { pickImageUrl, resolveDcwImagesBatch } from "@/lib/dcw-images"
 import type { Database } from "@/types/database.types"
 import { rateLimit, authRateLimitKey } from "@/lib/rate-limit"
 import { rateLimitPersistent } from "@/lib/rate-limit-db"
@@ -253,6 +254,36 @@ async function stageBatch(
   return { totalFetched: rows.length, inserted: staged, skipped, errors }
 }
 
+type SyncRow = ContentInsert & { dcw_title?: string | null; image_source?: string | null };
+
+async function enrichRowsWithDcwImages<T extends SyncRow>(rows: T[]): Promise<T[]> {
+  if (!rows.length) return rows;
+  try {
+    const resolutions = await resolveDcwImagesBatch(
+      rows.map((row, index) => ({
+        id: String(index),
+        title: row.title,
+        aliases: [],
+        contentType: row.type,
+      })),
+    );
+    const byIndex = new Map(resolutions.map((r) => [r.id, r]));
+    return rows.map((row, index) => {
+      const resolution = byIndex.get(String(index));
+      const picked = pickImageUrl(resolution?.image?.url ?? null, row.image_url);
+      return {
+        ...row,
+        image_url: picked.url,
+        image_source: picked.source,
+        dcw_title: resolution?.dcwTitle ?? null,
+      };
+    });
+  } catch (error) {
+    console.error("[sync] DCW image enrichment failed, keeping upstream images", error);
+    return rows;
+  }
+}
+
 // ─── Seed: episodes from Jikan (complete for DC) ────────────────
 
 async function syncSeedEpisodes(
@@ -298,7 +329,8 @@ async function syncSeedEpisodes(
     }
   }
 
-  const { inserted, skipped, errors } = await stageBatch(supabase, rows, "jikan")
+  const enriched = await enrichRowsWithDcwImages(rows as SyncRow[]);
+  const { inserted, skipped, errors } = await stageBatch(supabase, enriched as ContentInsert[], "jikan")
   return {
     type: "episodes",
     totalFetched: rows.length,
@@ -453,7 +485,8 @@ async function syncSeedFranchise(
     }
   }
 
-  const { inserted, skipped, errors } = await stageBatch(supabase, rows, "kitsu")
+  const enrichedFranchise = await enrichRowsWithDcwImages(rows as SyncRow[]);
+  const { inserted, skipped, errors } = await stageBatch(supabase, enrichedFranchise as ContentInsert[], "kitsu")
   return {
     type: "franchise",
     totalFetched: rows.length,
@@ -556,7 +589,8 @@ async function syncAiring(
     }
   }
 
-  const { inserted, skipped, errors } = await stageBatch(supabase, rows, "anilist")
+  const enrichedAiring = await enrichRowsWithDcwImages(rows as SyncRow[]);
+  const { inserted, skipped, errors } = await stageBatch(supabase, enrichedAiring as ContentInsert[], "anilist")
   return {
     type: "airing",
     totalFetched: rows.length,
