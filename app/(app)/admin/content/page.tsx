@@ -62,7 +62,7 @@ export default async function AdminContentPage({
         </div>
 
         <Link
-          href="/admin/content/new"
+          href={`/admin/content/new${(() => { const sp = new URLSearchParams(); if (q) sp.set("q", q); if (type) sp.set("type", type); const qs = sp.toString(); return qs ? `?${qs}` : ""; })()}`}
           className="inline-flex h-9 shrink-0 items-center gap-1.5 rounded-md bg-accent px-3 text-[13px] font-display tracking-tight text-white transition-colors hover:bg-accent-bright focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ink/40 focus-visible:ring-offset-2 focus-visible:ring-offset-page"
         >
           <Plus className="h-3.5 w-3.5" />

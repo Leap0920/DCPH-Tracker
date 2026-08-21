@@ -1,7 +1,7 @@
 "use client"
 
-import { useEffect, useRef, useState, useTransition } from "react"
-import { useRouter } from "next/navigation"
+import { useEffect, useMemo, useRef, useState, useTransition } from "react"
+import { useRouter, useSearchParams } from "next/navigation"
 import Link from "next/link"
 import {
   AlertTriangle,
@@ -33,7 +33,11 @@ const ghostBtnCls =
   "inline-flex items-center gap-1.5 h-8 px-2.5 rounded-md border border-ink-dim/20 bg-surface text-[11px] font-medium text-ink-dim transition-colors hover:text-ink hover:border-ink-dim/40 disabled:opacity-40 disabled:pointer-events-none"
 
 function isWikiFilePage(url: string): boolean {
-  return /\/wiki\/File:/i.test(url)
+  return (
+    /\/wiki\/File:/i.test(url) ||
+    /\/wiki\/Special:FilePath\//i.test(url) ||
+    /fandom\.com\/wiki\/File:/i.test(url)
+  )
 }
 
 /** Clipboard write with a fallback for non-secure contexts / older browsers. */
@@ -154,7 +158,20 @@ export function ContentForm({
   action: (formData: FormData) => Promise<ActionResult>
 }) {
   const router = useRouter()
+  const searchParams = useSearchParams()
   const [pending, startTransition] = useTransition()
+
+  // Preserve the list-page filters (q, type, page) that were forwarded in the URL.
+  const returnHref = useMemo(() => {
+    const allowed = ["q", "type", "page"] as const
+    const sp = new URLSearchParams()
+    for (const key of allowed) {
+      const v = searchParams.get(key)
+      if (v) sp.set(key, v)
+    }
+    const qs = sp.toString()
+    return qs ? `/admin/content?${qs}` : "/admin/content"
+  }, [searchParams])
   const [error, setError] = useState<string | null>(null)
   const [type, setType] = useState<ContentType>((entry?.type as ContentType) ?? "episode")
 
@@ -232,12 +249,12 @@ export function ContentForm({
       } else {
         setCleanUrl(cleanImageUrl(target) ?? target)
         setResolveNote(
-          "Could not extract a direct image from that Wiki page. Try right-click → Copy image address on the full-size image."
+          "Could not extract a direct image from that page. Try right-click → Copy image address on the full-size image."
         )
       }
     } catch {
       if (seq !== resolveSeq.current) return
-      setResolveNote("Resolving failed. The link will still be cleaned on save.")
+      setResolveNote("Resolving failed — the link will still be cleaned and saved as-is.")
     } finally {
       if (seq === resolveSeq.current) setIsResolving(false)
     }
@@ -311,7 +328,7 @@ export function ContentForm({
     startTransition(async () => {
       const result = await action(formData)
       if (result.ok) {
-        router.push("/admin/content")
+        router.push(returnHref)
         router.refresh()
       } else {
         setError(result.error)
@@ -322,7 +339,7 @@ export function ContentForm({
   return (
     <div className="max-w-2xl">
       <Link
-        href="/admin/content"
+        href={returnHref}
         className="inline-flex items-center gap-2 text-sm text-ink-dim hover:text-ink mb-4 font-display"
       >
         <ArrowLeft className="h-4 w-4" />
@@ -528,14 +545,13 @@ export function ContentForm({
                   onPaste={onUrlPaste}
                   onBlur={(e) => void resolveNow(e.target.value)}
                   className={inputCls}
-                  placeholder="Paste image link address or Wiki File page link…"
+                  placeholder="Paste any image link — DC Wiki, TMDB, AniList, MAL, Kitsu, Imgur, etc."
                   spellCheck={false}
                   autoComplete="off"
                 />
                 <p className="mt-1 text-[10px] text-ink-faint">
-                  Right-click the poster on the Wiki → Copy image address, or paste the{" "}
-                  <span className="font-mono">/wiki/File:…</span> page link and it will be resolved
-                  for you.
+                  Paste any direct image link (right-click → Copy image address) from any site.
+                  Wiki <span className="font-mono">/File:…</span> page links will be auto-resolved.
                 </p>
               </div>
 
@@ -576,7 +592,7 @@ export function ContentForm({
                         ) : (
                           <Sparkles className="h-3 w-3" />
                         )}
-                        Resolve Wiki page
+                        Resolve image page
                       </button>
                     )}
 
@@ -677,7 +693,7 @@ export function ContentForm({
             {entry ? "Save changes" : "Create entry"}
           </button>
           <Link
-            href="/admin/content"
+            href={returnHref}
             className="h-10 inline-flex items-center px-5 rounded-md border border-ink-dim/20 text-sm font-display text-ink-dim hover:text-ink"
           >
             Cancel

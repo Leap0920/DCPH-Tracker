@@ -56,8 +56,15 @@ export const SUBCATEGORY_CONFIGS: Partial<Record<ContentType, SubcategoryConfig>
       },
       { key: "aoyama", label: "Gosho Aoyama's Short Stories", match: (e) => e.slug.includes("aoyama-short-stories") },
       { key: "secret", label: "Secret Files", match: (e) => e.slug.includes("secret-file") },
-      { key: "magic", label: "Magic Files", match: (e) => e.slug.includes("magic-file") || /magic\s*file/i.test(e.title ?? "") },
-      { key: "bonus", label: "Bonus Files", match: (e) => e.slug.includes("bonus-file") || /bonus file/i.test(e.title ?? "") },
+      {
+        key: "magic_bonus",
+        label: "Magic and Bonus Files",
+        match: (e) =>
+          e.slug.includes("magic-file") ||
+          /magic\s*file/i.test(e.title ?? "") ||
+          e.slug.includes("bonus-file") ||
+          /bonus file/i.test(e.title ?? ""),
+      },
       { key: "shogakukan", label: "Shogakukan Specials", match: (e) => e.slug.includes("shogakukan") },
       { key: "other", label: "Other OVAs", match: () => true },
     ],
