@@ -18,6 +18,7 @@ import type { Database } from "@/types/database.types"
 import { rateLimit, authRateLimitKey } from "@/lib/rate-limit"
 import { rateLimitPersistent } from "@/lib/rate-limit-db"
 import { isSameOrigin } from "@/lib/origin-check"
+import { defaultRuntimeMinutes, isPlausibleRuntime } from "@/lib/runtime-defaults"
 
 export const maxDuration = 60
 
@@ -315,7 +316,9 @@ async function syncSeedEpisodes(
       arc_id: null,
       synopsis: null,
       image_url: seriesImageUrl,
-      runtime_minutes: null,
+      // Not NULL: the admin reviewing this staged row should see the runtime it
+      // will publish with, and analytics SUMs the column downstream.
+      runtime_minutes: defaultRuntimeMinutes("episode"),
     }
   })
 
@@ -469,7 +472,9 @@ async function syncSeedFranchise(
         arc_id: null,
         synopsis: a.attributes.synopsis ?? null,
         image_url: a.attributes.posterImage?.original ?? "",
-        runtime_minutes: a.attributes.episodeLength ?? null,
+        runtime_minutes: isPlausibleRuntime(a.attributes.episodeLength)
+          ? a.attributes.episodeLength
+          : defaultRuntimeMinutes(g.ctype),
       })
     })
   }
@@ -574,7 +579,8 @@ async function syncAiring(
       arc_id: null,
       synopsis: null,
       image_url: seriesImageUrl,
-      runtime_minutes: null,
+      // Not NULL: analytics SUMs runtime downstream; see lib/runtime-defaults.
+      runtime_minutes: defaultRuntimeMinutes("episode"),
     }
   })
 
