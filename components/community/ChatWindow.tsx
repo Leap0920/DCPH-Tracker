@@ -19,6 +19,7 @@ import {
   type ChatMessage,
 } from "@/lib/queries/client/chat"
 import { MAX_MESSAGE_LENGTH } from "@/lib/chat-constants"
+import { redactForbiddenWords } from "@/lib/profanity"
 import type { Database } from "@/types/database.types"
 
 type ChatRoom = Database["public"]["Tables"]["chat_rooms"]["Row"]
@@ -113,8 +114,18 @@ export function ChatWindow({
   })
   const messages = messagesQuery.data ?? []
   const loading = !!userId && messagesQuery.isLoading
-  // Chronological order for rendering (cache is newest-first).
-  const ordered = useMemo(() => [...messages].reverse(), [messages])
+  // Chronological order for rendering (cache is newest-first), with forbidden
+  // words masked. The server already redacts on insert, so this is for rows
+  // written before the filter existed — and it is idempotent, so re-masking an
+  // already-clean row is a no-op. Unchanged rows keep their object identity.
+  const ordered = useMemo(
+    () =>
+      [...messages].reverse().map((m) => {
+        const clean = redactForbiddenWords(m.content)
+        return clean === m.content ? m : { ...m, content: clean }
+      }),
+    [messages]
+  )
 
   // Sync `hasMore` from the initial page size exactly once.
   useEffect(() => {
@@ -291,7 +302,10 @@ export function ChatWindow({
   }
 
   function handleSend() {
-    const content = newMessage.trim()
+    // Redact client-side too: the optimistic message must match the row the
+    // server will store, otherwise the sender sees their own uncensored text
+    // for one round-trip. The server pass remains authoritative.
+    const content = redactForbiddenWords(newMessage.trim())
     if (!content || !userId || sendMutation.isPending) return
 
     setNewMessage("")
