@@ -13,6 +13,66 @@ function formatHours(minutes: number) {
   return `${Math.floor(minutes / 60)}h ${minutes % 60}m`
 }
 
+type Timeframe = "all" | "month" | "week"
+type Category = "episodes" | "movies" | "hours"
+
+/**
+ * Rolling windows, not calendar periods. "Last 30 Days" rather than "This Month"
+ * because a calendar month leaves the board near-empty every 1st, and because a
+ * rolling cutoff has no timezone boundary to get wrong. The labels say exactly
+ * what lib/leaderboard-periods.ts computes.
+ */
+const TIMEFRAME_TABS: { value: Timeframe; label: string; short: string }[] = [
+  { value: "all", label: "All-Time", short: "All-Time" },
+  { value: "month", label: "Last 30 Days", short: "30 Days" },
+  { value: "week", label: "Last 7 Days", short: "7 Days" },
+]
+
+/**
+ * A ranking row with the three metrics for the SELECTED timeframe resolved onto
+ * stat_* fields.
+ *
+ * The all-time fields are left intact rather than overwritten, because the
+ * detective rank badge is a career title and must read watched_count on every
+ * tab. This replaced the old approach of multiplying watched_count by 0.28/0.08.
+ */
+type DisplayRow = RankingRow & {
+  stat_count: number
+  stat_minutes: number
+  stat_movies: number
+}
+
+function project(row: RankingRow, timeframe: Timeframe): DisplayRow {
+  if (timeframe === "week") {
+    return {
+      ...row,
+      stat_count: row.week_count,
+      stat_minutes: row.week_minutes,
+      stat_movies: row.week_movie_count,
+    }
+  }
+  if (timeframe === "month") {
+    return {
+      ...row,
+      stat_count: row.month_count,
+      stat_minutes: row.month_minutes,
+      stat_movies: row.month_movie_count,
+    }
+  }
+  return {
+    ...row,
+    stat_count: row.watched_count,
+    stat_minutes: row.total_minutes,
+    stat_movies: row.movie_count,
+  }
+}
+
+function statFor(row: DisplayRow, category: Category): number {
+  if (category === "hours") return row.stat_minutes
+  if (category === "movies") return row.stat_movies
+  return row.stat_count
+}
+
 function RankBadge({ watchedCount }: { watchedCount: number }) {
   const rank = getDetectiveRank(watchedCount)
   return (
@@ -51,21 +111,25 @@ function PodiumCard({
   featured,
   category,
 }: {
-  row: RankingRow
+  row: DisplayRow
   featured?: boolean
-  category: "episodes" | "movies" | "hours"
+  category: Category
 }) {
   const style = podiumStyles[row.rank] ?? podiumStyles[3]
 
   const displayStat = useMemo(() => {
     if (category === "hours") {
-      return { val: formatHours(row.total_minutes), label: "watch time" }
+      return { val: formatHours(row.stat_minutes), label: "watch time" }
     }
     if (category === "movies") {
-      const estimatedMovies = Math.max(1, Math.round(row.watched_count / 15))
-      return { val: `${estimatedMovies}`, label: "movies solved" }
+      // Real count of type='movie' entries. Was previously estimated as
+      // watched_count / 15, which had no relationship to what anyone watched.
+      return {
+        val: `${row.stat_movies}`,
+        label: row.stat_movies === 1 ? "movie solved" : "movies solved",
+      }
     }
-    return { val: `${row.watched_count}`, label: "episodes" }
+    return { val: `${row.stat_count}`, label: "episodes" }
   }, [category, row])
 
   return (
@@ -146,39 +210,40 @@ export function RankingsBoard({
   currentUserId?: string | null
   you?: RankingRow | null
 }) {
-  const [timeframe, setTimeframe] = useState<"all" | "month" | "week">("all")
-  const [category, setCategory] = useState<"episodes" | "movies" | "hours">("episodes")
+  const [timeframe, setTimeframe] = useState<Timeframe>("all")
+  const [category, setCategory] = useState<Category>("episodes")
   const [searchQuery, setSearchQuery] = useState("")
   const [visibleCount, setVisibleCount] = useState(25)
 
   const youRowRef = useRef<HTMLDivElement>(null)
 
-  // Sort rankings based on selected category & timeframe multipliers
+  // Resolves the selected timeframe's real figures onto stat_* and sorts by the
+  // selected category. The previous version multiplied all-time numbers by
+  // invented fractions (0.28 / 0.08) — that block is gone.
   const processedRankings = useMemo(() => {
-    let list = [...rankings]
+    const list = rankings.map((row) => project(row, timeframe))
 
-    if (timeframe === "month") {
-      list = list.map((r) => ({
-        ...r,
-        watched_count: Math.round(r.watched_count * 0.28),
-        total_minutes: Math.round(r.total_minutes * 0.28),
-      }))
-    } else if (timeframe === "week") {
-      list = list.map((r) => ({
-        ...r,
-        watched_count: Math.round(r.watched_count * 0.08),
-        total_minutes: Math.round(r.total_minutes * 0.08),
-      }))
-    }
-
-    if (category === "hours") {
-      list.sort((a, b) => b.total_minutes - a.total_minutes)
-    } else {
-      list.sort((a, b) => b.watched_count - a.watched_count)
-    }
+    list.sort((a, b) => {
+      if (category === "hours") {
+        return b.stat_minutes - a.stat_minutes || b.stat_count - a.stat_count
+      }
+      if (category === "movies") {
+        return b.stat_movies - a.stat_movies || b.stat_minutes - a.stat_minutes
+      }
+      return b.stat_count - a.stat_count || b.stat_minutes - a.stat_minutes
+    })
 
     return list.map((r, idx) => ({ ...r, rank: idx + 1 }))
   }, [rankings, category, timeframe])
+
+  // A period with no logged activity must say so rather than show a board of
+  // zeros. watch_events only accrues from the migration onward.
+  const hasPeriodActivity = useMemo(
+    () =>
+      timeframe === "all" ||
+      processedRankings.some((r) => r.stat_count > 0 || r.stat_minutes > 0),
+    [timeframe, processedRankings]
+  )
 
   // Filter by search query
   const filteredRankings = useMemo(() => {
@@ -206,7 +271,9 @@ export function RankingsBoard({
   }
 
   const top3 = processedRankings.slice(0, 3)
-  const topWatched = processedRankings[0]?.watched_count || 1
+  // Scale the bars to the leader in the CURRENT category and timeframe, not to
+  // all-time episodes — otherwise every bar collapses to 4% on the Movies tab.
+  const topStat = Math.max(1, statFor(processedRankings[0], category) || 0)
   const podium = top3.length === 3 ? [top3[1], top3[0], top3[2]] : top3
 
   const scrollToYou = () => {
@@ -219,39 +286,24 @@ export function RankingsBoard({
       <div className="flex flex-col gap-2.5 rounded-2xl border border-ink-dim/20 bg-surface p-2.5 sm:p-3.5 shadow-card sm:flex-row sm:items-center sm:justify-between">
         {/* Timeframe Selector */}
         <div className="grid grid-cols-3 gap-1 rounded-xl bg-surface-muted p-1 w-full sm:w-auto">
-          <button
-            type="button"
-            onClick={() => setTimeframe("all")}
-            className={`rounded-lg px-2 sm:px-3 py-1.5 font-mono text-[11px] sm:text-xs font-medium text-center transition-all ${
-              timeframe === "all"
-                ? "bg-surface text-ink shadow-2xs font-bold"
-                : "text-ink-dim hover:text-ink"
-            }`}
-          >
-            All-Time
-          </button>
-          <button
-            type="button"
-            onClick={() => setTimeframe("month")}
-            className={`rounded-lg px-2 sm:px-3 py-1.5 font-mono text-[11px] sm:text-xs font-medium text-center transition-all ${
-              timeframe === "month"
-                ? "bg-surface text-ink shadow-2xs font-bold"
-                : "text-ink-dim hover:text-ink"
-            }`}
-          >
-            This Month
-          </button>
-          <button
-            type="button"
-            onClick={() => setTimeframe("week")}
-            className={`rounded-lg px-2 sm:px-3 py-1.5 font-mono text-[11px] sm:text-xs font-medium text-center transition-all ${
-              timeframe === "week"
-                ? "bg-surface text-ink shadow-2xs font-bold"
-                : "text-ink-dim hover:text-ink"
-            }`}
-          >
-            This Week
-          </button>
+          {TIMEFRAME_TABS.map((tab) => (
+            <button
+              key={tab.value}
+              type="button"
+              onClick={() => {
+                setTimeframe(tab.value)
+                setVisibleCount(25)
+              }}
+              className={`rounded-lg px-2 sm:px-3 py-1.5 font-mono text-[11px] sm:text-xs font-medium text-center transition-all ${
+                timeframe === tab.value
+                  ? "bg-surface text-ink shadow-2xs font-bold"
+                  : "text-ink-dim hover:text-ink"
+              }`}
+            >
+              <span className="sm:hidden">{tab.short}</span>
+              <span className="hidden sm:inline">{tab.label}</span>
+            </button>
+          ))}
         </div>
 
         {/* Category Toggles */}
@@ -325,7 +377,7 @@ export function RankingsBoard({
       </div>
 
       {/* Top Podium — adaptively grids 1, 2, or 3 top ranks */}
-      {!searchQuery && top3.length > 0 && (
+      {!searchQuery && hasPeriodActivity && top3.length > 0 && (
         <div
           className={`grid items-end gap-2 pt-1 sm:gap-5 ${
             top3.length === 3
@@ -344,12 +396,21 @@ export function RankingsBoard({
       {/* Full Leaderboard List */}
       <div className="overflow-hidden rounded-2xl border border-ink-dim/20 bg-surface shadow-card">
         <div className="divide-y divide-ink-dim/10">
-          {filteredRankings.slice(0, visibleCount).map((row) => {
+          {!hasPeriodActivity ? (
+            <div className="p-8 sm:p-12 text-center">
+              <Clock className="mx-auto h-7 w-7 text-ink-faint" />
+              <p className="mt-3 font-display text-sm font-semibold text-ink-dim">
+                No activity in the {timeframe === "week" ? "last 7 days" : "last 30 days"}
+              </p>
+              <p className="mt-1 text-xs text-ink-faint">
+                Period rankings are built from watch activity as it happens. Mark something
+                watched and it will show up here.
+              </p>
+            </div>
+          ) : (
+            filteredRankings.slice(0, visibleCount).map((row) => {
             const isYou = row.user_id === currentUserId
-            const pct = Math.max(
-              4,
-              Math.round((row.watched_count / topWatched) * 100)
-            )
+            const pct = Math.max(4, Math.round((statFor(row, category) / topStat) * 100))
 
             return (
               <div
@@ -407,7 +468,11 @@ export function RankingsBoard({
 
                 <div className="shrink-0 text-right pl-1">
                   <p className="font-mono text-xs sm:text-sm font-bold text-ink tabular-nums">
-                    {category === "hours" ? formatHours(row.total_minutes) : row.watched_count}
+                    {category === "hours"
+                      ? formatHours(row.stat_minutes)
+                      : category === "movies"
+                        ? row.stat_movies
+                        : row.stat_count}
                   </p>
                   <p className="font-mono text-[9px] sm:text-[10px] uppercase text-ink-faint">
                     {category === "hours" ? "time" : category === "movies" ? "movies" : "eps"}
@@ -415,12 +480,13 @@ export function RankingsBoard({
                 </div>
               </div>
             )
-          })}
+          })
+          )}
         </div>
       </div>
 
       {/* Show more pagination */}
-      {filteredRankings.length > visibleCount && (
+      {hasPeriodActivity && filteredRankings.length > visibleCount && (
         <div className="flex justify-center pt-1">
           <Button
             variant="outline"

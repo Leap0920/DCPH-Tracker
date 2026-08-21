@@ -1,4 +1,5 @@
 import { createClient } from "@/utils/supabase/client"
+import { recordWatchEvents } from "@/lib/queries/client/watch-events"
 import type { Database } from "@/types/database.types"
 
 type WatchStatusRow = Database["public"]["Tables"]["watch_status"]["Row"]
@@ -119,6 +120,21 @@ export async function toggleWatchStatus(
     )
 
   if (error) throw error
+
+  // Append to the immutable watch log that powers the rolling 7/30-day boards.
+  // Only a transition INTO watched/rewatched is a view; cycling back to
+  // unwatched is not, and the past event is never retracted — the watch happened.
+  // recordWatchEvents never throws: watch_status is the source of truth, and a
+  // logging failure must not make a successful toggle look broken.
+  if (nextStatus !== "unwatched") {
+    await recordWatchEvents(
+      supabase,
+      userId,
+      [{ content_id: contentId, event_type: nextStatus }],
+      "single"
+    )
+  }
+
   return { nextStatus, nextCount }
 }
 
@@ -157,6 +173,16 @@ export async function setWatchStatus(
     )
 
   if (error) throw error
+
+  if (nextStatus !== "unwatched") {
+    await recordWatchEvents(
+      supabase,
+      userId,
+      [{ content_id: contentId, event_type: nextStatus }],
+      "single"
+    )
+  }
+
   return { nextStatus, nextCount }
 }
 
@@ -183,10 +209,20 @@ export async function incrementRewatch(userId: string, contentId: string, existi
     )
 
   if (error) throw error
+
+  await recordWatchEvents(
+    supabase,
+    userId,
+    [{ content_id: contentId, event_type: "rewatched" }],
+    "single"
+  )
+
   return { nextCount }
 }
 
 export async function toggleFavorite(userId: string, contentId: string, current: boolean) {
+  // No watch event: favoriting/rating is not a view. Conflating the two is exactly
+  // what made an updated_at-based "recently active" ranking unusable.
   const supabase = createClient()
   const nextFavorite = !current
 
@@ -211,6 +247,8 @@ export async function toggleFavorite(userId: string, contentId: string, current:
  * starValue === 0 clears the rating (null).
  */
 export async function setRating(userId: string, contentId: string, starValue: number) {
+  // No watch event: favoriting/rating is not a view. Conflating the two is exactly
+  // what made an updated_at-based "recently active" ranking unusable.
   const supabase = createClient()
   const dbRating = starValue === 0 ? null : starValue * 2
 
@@ -251,5 +289,21 @@ export async function markAll(
   })
 
   if (error) throw error
+
+  // One event per entry, tagged 'bulk'. recordWatchEvents chunks the insert, so a
+  // mark-all across the whole library stays within payload limits.
+  //
+  // Bulk marking is why the period aggregation counts DISTINCT content per
+  // window: events are append-only, so mark-all -> unwatch -> mark-all again
+  // would otherwise farm the leaderboard.
+  if (status !== "unwatched") {
+    await recordWatchEvents(
+      supabase,
+      userId,
+      ids.map((id) => ({ content_id: id, event_type: status })),
+      "bulk"
+    )
+  }
+
   return { ids, status }
 }

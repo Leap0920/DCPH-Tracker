@@ -29,7 +29,7 @@ export default async function RankingsPage() {
   if (currentUserId && !you) {
     const { data: watched } = await supabase
       .from("watch_status")
-      .select("user_id, status, watch_count, content_entries(runtime_minutes)")
+      .select("user_id, status, watch_count, content_entries(runtime_minutes, type)")
       .in("status", ["watched", "rewatched"])
       .eq("user_id", currentUserId)
     if (watched && watched.length > 0) {
@@ -40,6 +40,10 @@ export default async function RankingsPage() {
         (acc, w) => acc + ((w.content_entries as { runtime_minutes: number | null } | null)?.runtime_minutes ?? 0),
         0
       )
+      // Real movie count from content type — mirrors getRankings' aggregation.
+      const movieCount = watched.filter(
+        (w) => (w.content_entries as { type: string | null } | null)?.type === "movie"
+      ).length
       const { data: profile } = await supabase
         .from("profiles")
         .select("username, display_name, avatar_url")
@@ -57,6 +61,15 @@ export default async function RankingsPage() {
           total_minutes: minutes,
           rewatched_count: rewatched,
           total_views: views,
+          movie_count: movieCount,
+          // The standing card is all-time only; period figures come from the
+          // watch_events log and are not fetched on this fallback path.
+          month_count: 0,
+          month_minutes: 0,
+          month_movie_count: 0,
+          week_count: 0,
+          week_minutes: 0,
+          week_movie_count: 0,
           detectiveRank: { title: detectiveRank.title, level: detectiveRank.level },
           rank: globalRank ?? 0,
         }
@@ -94,7 +107,7 @@ export default async function RankingsPage() {
                     <div className="min-w-0 flex-1">
                       <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
                         <span className="font-mono text-xs text-ink-dim">
-                          Your Standing
+                          Your Standing · All-Time
                         </span>
                         {you.rank > 0 && (
                           <span className="rounded-md bg-accent-soft px-2 py-0.5 font-mono text-xs font-semibold tabular-nums text-accent-bright">
