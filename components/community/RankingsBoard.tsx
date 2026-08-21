@@ -22,10 +22,28 @@ function RankBadge({ watchedCount }: { watchedCount: number }) {
   )
 }
 
-const podiumStyles: Record<number, { border: string; medal: string; label: string }> = {
-  1: { border: "border-gold-seal/40 bg-gold-seal/10", medal: "text-gold-seal", label: "1st Place" },
-  2: { border: "border-ink-dim/20 bg-surface", medal: "text-ink-faint", label: "2nd Place" },
-  3: { border: "border-gold-seal/20 bg-gold-seal/5", medal: "text-gold-seal", label: "3rd Place" },
+const podiumStyles: Record<
+  number,
+  { border: string; medal: string; label: string; short: string }
+> = {
+  1: {
+    border: "border-gold-seal/50 bg-gradient-to-b from-gold-seal/15 via-gold-seal/5 to-surface shadow-md",
+    medal: "text-gold-seal",
+    label: "1st Place",
+    short: "1st",
+  },
+  2: {
+    border: "border-ink-dim/25 bg-surface shadow-card",
+    medal: "text-ink-dim",
+    label: "2nd Place",
+    short: "2nd",
+  },
+  3: {
+    border: "border-amber-700/30 bg-surface shadow-card",
+    medal: "text-amber-600",
+    label: "3rd Place",
+    short: "3rd",
+  },
 }
 
 function PodiumCard({
@@ -52,45 +70,69 @@ function PodiumCard({
 
   return (
     <div
-      className={`flex flex-col items-center rounded-2xl border p-4 sm:p-5 text-center shadow-card transition-all hover:shadow-md ${style.border}`}
+      className={`flex h-full flex-col items-center rounded-2xl border text-center transition-all hover:shadow-lg ${
+        featured ? "p-2.5 sm:p-5 -mt-1 sm:-mt-2" : "p-2 sm:p-4"
+      } ${style.border}`}
     >
-      <div className="mb-2 flex items-center gap-1.5">
+      <div className="mb-1.5 flex max-w-full items-center gap-1 sm:gap-1.5">
         {row.rank === 1 ? (
-          <Crown className={`h-4 w-4 ${style.medal}`} />
+          <Crown className={`h-3.5 w-3.5 shrink-0 sm:h-4 sm:w-4 ${style.medal}`} />
         ) : (
-          <Medal className={`h-4 w-4 ${style.medal}`} />
+          <Medal className={`h-3.5 w-3.5 shrink-0 sm:h-4 sm:w-4 ${style.medal}`} />
         )}
-        <span className="font-mono text-xs font-medium text-ink-dim">
-          {style.label}
+        <span className="font-mono text-[10px] font-bold text-ink-dim sm:text-xs">
+          <span className="sm:hidden">{style.short}</span>
+          <span className="hidden sm:inline">{style.label}</span>
         </span>
       </div>
 
-      <Avatar className={`${featured ? "h-16 w-16 sm:h-18 sm:w-18" : "h-12 w-12 sm:h-14 sm:w-14"} ring-2 ring-ink-dim/20 shadow-sm`}>
+      <Avatar
+        className={`${
+          featured
+            ? "h-12 w-12 sm:h-16 sm:w-16 ring-2 ring-gold-seal/60 shadow-md"
+            : "h-10 w-10 sm:h-14 sm:w-14 ring-1 ring-ink-dim/30 shadow-xs"
+        } shrink-0`}
+      >
         <AvatarImage src={row.avatar_url ?? avatarUrl(row.display_name)} />
-        <AvatarFallback className="bg-accent font-display text-white text-xs">
+        <AvatarFallback className="bg-accent font-display text-xs text-white font-bold">
           {row.display_name.slice(0, 2).toUpperCase()}
         </AvatarFallback>
       </Avatar>
 
       <Link
         href={`/profile/${row.username}`}
-        className="mt-3 font-display text-sm sm:text-base font-semibold tracking-tight text-ink hover:text-accent break-words"
+        title={row.display_name}
+        className="mt-1.5 block w-full truncate font-display text-[11px] sm:text-base font-bold tracking-tight text-ink hover:text-accent"
       >
         {row.display_name}
       </Link>
-      <p className="font-mono text-xs text-ink-faint">@{row.username}</p>
+      <p className="hidden w-full truncate font-mono text-xs text-ink-faint sm:block">
+        @{row.username}
+      </p>
 
-      <div className="mt-2">
+      <div className="mt-1.5 hidden sm:block">
         <RankBadge watchedCount={row.watched_count} />
       </div>
 
-      <p className="mt-3 font-display text-xl sm:text-2xl font-semibold text-ink">
-        {displayStat.val}
-      </p>
-      <p className="font-mono text-[11px] uppercase tracking-wider text-ink-dim">{displayStat.label}</p>
-      <p className="mt-2 font-mono text-[10px] text-ink-faint">
-        {row.rewatched_count} rewatched · {row.total_views} views
-      </p>
+      <div className="mt-auto w-full pt-1.5 sm:pt-3">
+        <p
+          className={`w-full truncate font-display font-bold tabular-nums text-ink ${
+            category === "hours"
+              ? "text-xs sm:text-xl"
+              : featured
+              ? "text-base sm:text-2xl text-accent-bright"
+              : "text-sm sm:text-xl"
+          }`}
+        >
+          {displayStat.val}
+        </p>
+        <p className="w-full truncate font-mono text-[8px] sm:text-[11px] uppercase tracking-wide text-ink-dim">
+          {displayStat.label}
+        </p>
+        <p className="mt-1.5 hidden font-mono text-[10px] text-ink-faint sm:block">
+          {row.rewatched_count} rewatched · {row.total_views} views
+        </p>
+      </div>
     </div>
   )
 }
@@ -151,7 +193,7 @@ export function RankingsBoard({
 
   if (rankings.length === 0) {
     return (
-      <div className="rounded-2xl border border-ink-dim/20 bg-surface p-12 text-center shadow-card">
+      <div className="rounded-2xl border border-ink-dim/20 bg-surface p-8 sm:p-12 text-center shadow-card">
         <Trophy className="mx-auto h-7 w-7 text-ink-faint" />
         <p className="mt-3 font-display text-sm font-semibold text-ink-dim">
           No rankings yet
@@ -172,17 +214,17 @@ export function RankingsBoard({
   }
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-4 sm:space-y-6">
       {/* Clean Control & Filter Bar */}
-      <div className="flex flex-col gap-3 rounded-2xl border border-ink-dim/20 bg-surface p-3.5 shadow-card sm:flex-row sm:items-center sm:justify-between">
+      <div className="flex flex-col gap-2.5 rounded-2xl border border-ink-dim/20 bg-surface p-2.5 sm:p-3.5 shadow-card sm:flex-row sm:items-center sm:justify-between">
         {/* Timeframe Selector */}
-        <div className="flex items-center gap-1 rounded-xl bg-surface-muted p-1">
+        <div className="grid grid-cols-3 gap-1 rounded-xl bg-surface-muted p-1 w-full sm:w-auto">
           <button
             type="button"
             onClick={() => setTimeframe("all")}
-            className={`rounded-lg px-3 py-1.5 font-mono text-xs font-medium transition-all ${
+            className={`rounded-lg px-2 sm:px-3 py-1.5 font-mono text-[11px] sm:text-xs font-medium text-center transition-all ${
               timeframe === "all"
-                ? "bg-surface text-ink shadow-2xs font-semibold"
+                ? "bg-surface text-ink shadow-2xs font-bold"
                 : "text-ink-dim hover:text-ink"
             }`}
           >
@@ -191,9 +233,9 @@ export function RankingsBoard({
           <button
             type="button"
             onClick={() => setTimeframe("month")}
-            className={`rounded-lg px-3 py-1.5 font-mono text-xs font-medium transition-all ${
+            className={`rounded-lg px-2 sm:px-3 py-1.5 font-mono text-[11px] sm:text-xs font-medium text-center transition-all ${
               timeframe === "month"
-                ? "bg-surface text-ink shadow-2xs font-semibold"
+                ? "bg-surface text-ink shadow-2xs font-bold"
                 : "text-ink-dim hover:text-ink"
             }`}
           >
@@ -202,9 +244,9 @@ export function RankingsBoard({
           <button
             type="button"
             onClick={() => setTimeframe("week")}
-            className={`rounded-lg px-3 py-1.5 font-mono text-xs font-medium transition-all ${
+            className={`rounded-lg px-2 sm:px-3 py-1.5 font-mono text-[11px] sm:text-xs font-medium text-center transition-all ${
               timeframe === "week"
-                ? "bg-surface text-ink shadow-2xs font-semibold"
+                ? "bg-surface text-ink shadow-2xs font-bold"
                 : "text-ink-dim hover:text-ink"
             }`}
           >
@@ -213,50 +255,50 @@ export function RankingsBoard({
         </div>
 
         {/* Category Toggles */}
-        <div className="flex items-center gap-1 rounded-xl bg-surface-muted p-1">
+        <div className="grid grid-cols-3 gap-1 rounded-xl bg-surface-muted p-1 w-full sm:w-auto">
           <button
             type="button"
             onClick={() => setCategory("episodes")}
-            className={`flex items-center gap-1.5 rounded-lg px-3 py-1.5 font-mono text-xs font-medium transition-all ${
+            className={`flex items-center justify-center gap-1 sm:gap-1.5 rounded-lg px-2 sm:px-3 py-1.5 font-mono text-[11px] sm:text-xs font-medium transition-all ${
               category === "episodes"
-                ? "bg-surface text-accent shadow-2xs font-semibold"
+                ? "bg-surface text-accent shadow-2xs font-bold"
                 : "text-ink-dim hover:text-ink"
             }`}
           >
-            <Tv className="h-3.5 w-3.5" />
-            Episodes
+            <Tv className="h-3 w-3 sm:h-3.5 sm:w-3.5 shrink-0" />
+            <span className="truncate">Episodes</span>
           </button>
           <button
             type="button"
             onClick={() => setCategory("movies")}
-            className={`flex items-center gap-1.5 rounded-lg px-3 py-1.5 font-mono text-xs font-medium transition-all ${
+            className={`flex items-center justify-center gap-1 sm:gap-1.5 rounded-lg px-2 sm:px-3 py-1.5 font-mono text-[11px] sm:text-xs font-medium transition-all ${
               category === "movies"
-                ? "bg-surface text-accent shadow-2xs font-semibold"
+                ? "bg-surface text-accent shadow-2xs font-bold"
                 : "text-ink-dim hover:text-ink"
             }`}
           >
-            <Film className="h-3.5 w-3.5" />
-            Movies
+            <Film className="h-3 w-3 sm:h-3.5 sm:w-3.5 shrink-0" />
+            <span className="truncate">Movies</span>
           </button>
           <button
             type="button"
             onClick={() => setCategory("hours")}
-            className={`flex items-center gap-1.5 rounded-lg px-3 py-1.5 font-mono text-xs font-medium transition-all ${
+            className={`flex items-center justify-center gap-1 sm:gap-1.5 rounded-lg px-2 sm:px-3 py-1.5 font-mono text-[11px] sm:text-xs font-medium transition-all ${
               category === "hours"
-                ? "bg-surface text-accent shadow-2xs font-semibold"
+                ? "bg-surface text-accent shadow-2xs font-bold"
                 : "text-ink-dim hover:text-ink"
             }`}
           >
-            <Clock className="h-3.5 w-3.5" />
-            Watch Time
+            <Clock className="h-3 w-3 sm:h-3.5 sm:w-3.5 shrink-0" />
+            <span className="truncate">Watch Time</span>
           </button>
         </div>
       </div>
 
       {/* Search Input & Jump to My Rank */}
-      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-        <div className="relative flex-1 max-w-sm">
-          <Search className="absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-ink-faint" />
+      <div className="flex flex-col gap-2.5 sm:flex-row sm:items-center sm:justify-between">
+        <div className="relative flex-1 w-full sm:max-w-sm">
+          <Search className="absolute left-3.5 top-1/2 h-3.5 w-3.5 sm:h-4 sm:w-4 -translate-y-1/2 text-ink-faint" />
           <input
             type="text"
             value={searchQuery}
@@ -265,7 +307,7 @@ export function RankingsBoard({
               setVisibleCount(25)
             }}
             placeholder="Search detective username..."
-            className="w-full rounded-xl border border-ink-dim/20 bg-surface pl-9 pr-4 py-2 text-xs text-ink outline-none transition-all placeholder:text-ink-faint focus:border-ink-dim/40"
+            className="w-full rounded-xl border border-ink-dim/20 bg-surface pl-9 pr-4 py-2 text-xs text-ink outline-none transition-all placeholder:text-ink-faint focus:border-ink-dim/40 h-9"
           />
         </div>
 
@@ -274,7 +316,7 @@ export function RankingsBoard({
             variant="outline"
             size="sm"
             onClick={scrollToYou}
-            className="gap-2 rounded-xl border-ink-dim/20 text-xs font-display text-ink-dim hover:text-ink"
+            className="w-full sm:w-auto justify-center gap-2 rounded-xl border-ink-dim/20 text-xs font-display text-ink-dim hover:text-ink h-9"
           >
             <UserCheck className="h-3.5 w-3.5 text-accent" />
             Jump to My Rank (#{you.rank > 0 ? you.rank : "N/A"})
@@ -282,9 +324,17 @@ export function RankingsBoard({
         )}
       </div>
 
-      {/* Top 3 Podium */}
+      {/* Top Podium — adaptively grids 1, 2, or 3 top ranks */}
       {!searchQuery && top3.length > 0 && (
-        <div className="grid grid-cols-3 gap-3 sm:gap-5 pt-1">
+        <div
+          className={`grid items-end gap-2 pt-1 sm:gap-5 ${
+            top3.length === 3
+              ? "grid-cols-3"
+              : top3.length === 2
+              ? "grid-cols-2 max-w-sm mx-auto"
+              : "grid-cols-1 max-w-xs mx-auto"
+          }`}
+        >
           {podium.map((row) => (
             <PodiumCard key={row.user_id} row={row} featured={row.rank === 1} category={category} />
           ))}
@@ -305,31 +355,41 @@ export function RankingsBoard({
               <div
                 key={row.user_id}
                 ref={isYou ? youRowRef : undefined}
-                className={`flex items-center gap-3 px-4 py-3 transition-colors ${
+                className={`flex items-center gap-2.5 sm:gap-3 px-3 sm:px-4 py-2.5 sm:py-3 transition-colors ${
                   isYou ? "bg-accent/5 ring-1 ring-inset ring-accent/20" : "hover:bg-surface-muted/40"
                 }`}
               >
-                <span className="w-7 shrink-0 text-center font-mono text-xs font-medium text-ink-dim">
+                <span
+                  className={`w-6 sm:w-7 shrink-0 text-center font-mono text-xs font-bold ${
+                    row.rank === 1
+                      ? "text-gold-seal"
+                      : row.rank === 2
+                      ? "text-ink-dim"
+                      : row.rank === 3
+                      ? "text-amber-600"
+                      : "text-ink-faint font-medium"
+                  }`}
+                >
                   #{row.rank}
                 </span>
 
-                <Avatar className="h-9 w-9 shrink-0 border border-ink-dim/20">
+                <Avatar className="h-8 w-8 sm:h-9 sm:w-9 shrink-0 border border-ink-dim/20">
                   <AvatarImage src={row.avatar_url ?? avatarUrl(row.display_name)} />
-                  <AvatarFallback className="bg-accent text-xs font-display text-white">
+                  <AvatarFallback className="bg-accent text-xs font-display text-white font-bold">
                     {row.display_name.slice(0, 2).toUpperCase()}
                   </AvatarFallback>
                 </Avatar>
 
                 <div className="min-w-0 flex-1">
-                  <div className="flex flex-wrap items-center gap-2">
+                  <div className="flex flex-wrap items-center gap-1.5">
                     <Link
                       href={`/profile/${row.username}`}
-                      className="truncate font-display text-sm font-semibold tracking-tight text-ink hover:text-accent"
+                      className="truncate font-display text-xs sm:text-sm font-semibold tracking-tight text-ink hover:text-accent"
                     >
                       {row.display_name}
                     </Link>
                     {isYou && (
-                      <span className="rounded-md bg-accent-soft px-1.5 py-0.5 font-mono text-[10px] font-semibold text-accent">
+                      <span className="rounded-md bg-accent-soft px-1.5 py-0.5 font-mono text-[9px] font-semibold text-accent">
                         You
                       </span>
                     )}
@@ -337,7 +397,7 @@ export function RankingsBoard({
                       <RankBadge watchedCount={row.watched_count} />
                     </span>
                   </div>
-                  <div className="mt-1.5 h-1.5 w-full overflow-hidden rounded-full bg-surface-muted">
+                  <div className="mt-1 h-1.5 w-full overflow-hidden rounded-full bg-surface-muted">
                     <div
                       className="h-full rounded-full bg-accent transition-all duration-300"
                       style={{ width: `${pct}%` }}
@@ -345,11 +405,11 @@ export function RankingsBoard({
                   </div>
                 </div>
 
-                <div className="shrink-0 text-right">
-                  <p className="font-mono text-xs font-semibold text-ink">
+                <div className="shrink-0 text-right pl-1">
+                  <p className="font-mono text-xs sm:text-sm font-bold text-ink tabular-nums">
                     {category === "hours" ? formatHours(row.total_minutes) : row.watched_count}
                   </p>
-                  <p className="font-mono text-[10px] uppercase text-ink-faint">
+                  <p className="font-mono text-[9px] sm:text-[10px] uppercase text-ink-faint">
                     {category === "hours" ? "time" : category === "movies" ? "movies" : "eps"}
                   </p>
                 </div>
@@ -361,14 +421,14 @@ export function RankingsBoard({
 
       {/* Show more pagination */}
       {filteredRankings.length > visibleCount && (
-        <div className="flex justify-center">
+        <div className="flex justify-center pt-1">
           <Button
             variant="outline"
             size="sm"
             onClick={() =>
               setVisibleCount((c) => Math.min(c + 25, filteredRankings.length))
             }
-            className="gap-2 rounded-xl border-ink-dim/20 text-xs font-display text-ink-dim hover:text-ink"
+            className="w-full sm:w-auto justify-center gap-2 rounded-xl border-ink-dim/20 text-xs font-display text-ink-dim hover:text-ink h-9"
           >
             <ChevronDown className="h-3.5 w-3.5" />
             Show more
