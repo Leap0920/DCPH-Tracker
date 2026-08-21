@@ -63,3 +63,7 @@ logs/
 .agent/
 .agents
 .agents/
+
+# curation backups
+/scripts/out/
+
