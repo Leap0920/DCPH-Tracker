@@ -51,8 +51,6 @@ export const MAINLINE_MOVIES: MainlineMovie[] = [
 
 /** Slugs of content_entries rows that belong in the "Other movies" box. */
 export const OTHER_MOVIE_SLUGS = [
-  "mov-19", // Detective Conan: Conan vs. Kid - Shark & Jewel (2005 TV special)
-  "mov-22", // Detective Conan: Conan vs. Kid - Jet Black Sniper (2006 TV special)
   "mov-33", // Detective Conan: The Magician of Starlight (2012 TV special)
   "mov-37", // Lupin III vs. Detective Conan: The Movie (2013 crossover)
   "mov-41", // Detective Conan Manner Movie (2015 theater etiquette short)
