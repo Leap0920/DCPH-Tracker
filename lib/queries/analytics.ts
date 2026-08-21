@@ -108,34 +108,91 @@ export interface SelfAnalytics {
   perArc: ArcCompletionEntry[]
 }
 
+/** PostgREST caps a single request at 1,000 rows — every bulk read here pages. */
+const PAGE_SIZE = 1000
+
+interface WatchStatusRow {
+  status: "watched" | "rewatched" | null
+  watch_count: number | null
+  favorite: boolean | null
+  rating: number | null
+  updated_at: string | null
+  content_entries:
+    | {
+        id: string
+        title: string
+        type: string
+        episode_number: number | null
+        movie_number: number | null
+        release_order: number | null
+        runtime_minutes: number | null
+        air_date: string | null
+        image_url: string | null
+      }
+    | {
+        id: string
+        title: string
+        type: string
+        episode_number: number | null
+        movie_number: number | null
+        release_order: number | null
+        runtime_minutes: number | null
+        air_date: string | null
+        image_url: string | null
+      }[]
+    | null
+}
+
+interface CatalogRow {
+  id: string
+  type: string
+  slug: string | null
+  episode_number: number | null
+}
+
+interface ArcRow {
+  id: string
+  slug: string
+  title: string
+  description: string | null
+  start_episode: number
+  end_episode: number | null
+}
+
 /**
  * All self-analytics for a user, computed from their watch_status rows.
  */
 export async function getSelfAnalytics(userId: string): Promise<SelfAnalytics> {
   const supabase = await createClient()
 
-  // 1. User's watch status rows
-  const { data: rows, error } = await supabase
-    .from("watch_status")
-    .select(
-      "status, watch_count, favorite, rating, updated_at, content_entries(id, title, type, episode_number, movie_number, release_order, runtime_minutes, air_date, arc_id, image_url)"
-    )
-    .eq("user_id", userId)
-
-  if (error) throw error
+  // 1. User's watch status rows.
+  // A completionist has >1,000 rows, so this must page the same way the
+  // leaderboard does — an unpaginated read silently truncated the stats.
+  const rows: WatchStatusRow[] = []
+  for (let from = 0; ; from += PAGE_SIZE) {
+    const { data: chunk, error } = await supabase
+      .from("watch_status")
+      .select(
+        "status, watch_count, favorite, rating, updated_at, content_entries(id, title, type, episode_number, movie_number, release_order, runtime_minutes, air_date, image_url)"
+      )
+      .eq("user_id", userId)
+      .range(from, from + PAGE_SIZE - 1)
+    if (error) throw error
+    if (!chunk || chunk.length === 0) break
+    rows.push(...(chunk as WatchStatusRow[]))
+    if (chunk.length < PAGE_SIZE) break
+  }
 
   // 2. Total catalog count & content type breakdown in DB
-  // PostgREST caps a single request at 1000 rows �?" paginate to count the full catalog.
-  const catalogEntries: { id: string; type: string; slug: string | null; arc_id: string | null }[] = []
-  const PAGE_SIZE = 1000
+  const catalogEntries: CatalogRow[] = []
   for (let offset = 0; ; offset += PAGE_SIZE) {
     const { data: page, error: pageError } = await supabase
       .from("content_entries")
-      .select("id, type, slug, arc_id")
+      .select("id, type, slug, episode_number")
       .range(offset, offset + PAGE_SIZE - 1)
     if (pageError) throw pageError
     if (!page || page.length === 0) break
-    catalogEntries.push(...page)
+    catalogEntries.push(...(page as CatalogRow[]))
     if (page.length < PAGE_SIZE) break
   }
 
@@ -154,22 +211,51 @@ export async function getSelfAnalytics(userId: string): Promise<SelfAnalytics> {
     catalogEntriesExcludingOtherMovies.length - mainlineMovieCount + MAINLINE_MOVIES.length
 
   const catalogTypeCounts = new Map<ContentType, number>()
-  const catalogArcCounts = new Map<string, number>()
+  // Episode numbers that actually exist in the catalog, used for arc totals.
+  const catalogEpisodeNumbers = new Set<number>()
 
-  for (const entry of catalogEntriesExcludingOtherMovies ?? []) {
+  for (const entry of catalogEntriesExcludingOtherMovies) {
     const t = entry.type as ContentType
-    const add = t === "movie" ? MAINLINE_MOVIES.length : 1
-    catalogTypeCounts.set(t, (catalogTypeCounts.get(t) ?? 0) + add)
-    if (entry.arc_id) {
-      catalogArcCounts.set(entry.arc_id, (catalogArcCounts.get(entry.arc_id) ?? 0) + 1)
+    catalogTypeCounts.set(t, (catalogTypeCounts.get(t) ?? 0) + 1)
+    if (t === "episode" && entry.episode_number != null) {
+      catalogEpisodeNumbers.add(entry.episode_number)
     }
   }
 
+  // Movies are counted once against the canonical mainline list, not per row —
+  // the 27 DB rows stand in for 29 films (2 are unreleased).
+  if (catalogTypeCounts.has("movie")) {
+    catalogTypeCounts.set("movie", MAINLINE_MOVIES.length)
+  }
+
   // 3. Story Arcs list
-  const { data: arcsList } = await supabase
+  const { data: arcsList, error: arcsError } = await supabase
     .from("arcs")
     .select("id, slug, title, description, start_episode, end_episode")
     .order("start_episode", { ascending: true })
+
+  if (arcsError) throw arcsError
+
+  const arcs = (arcsList ?? []) as ArcRow[]
+
+  // content_entries.arc_id is populated on only a handful of rows, so arc
+  // membership is resolved by episode-number range — same rule as /arcs.
+  const maxCatalogEpisode = catalogEpisodeNumbers.size > 0
+    ? Math.max(...catalogEpisodeNumbers)
+    : 0
+  const arcRanges = arcs.map((arc) => ({
+    id: arc.id,
+    start: arc.start_episode,
+    // An open-ended arc runs to the newest episode in the catalog.
+    end: arc.end_episode ?? Math.max(maxCatalogEpisode, arc.start_episode),
+  }))
+
+  const arcIdForEpisode = (episodeNumber: number): string | null => {
+    for (const range of arcRanges) {
+      if (episodeNumber >= range.start && episodeNumber <= range.end) return range.id
+    }
+    return null
+  }
 
   let watchedCount = 0
   let rewatchedCount = 0
@@ -177,18 +263,32 @@ export async function getSelfAnalytics(userId: string): Promise<SelfAnalytics> {
   let minutesWatched = 0
 
   const favorites: FavoriteEntry[] = []
-  const perTypeMap = new Map<ContentType, PerTypeAnalytics>()
   const topRated: TopRatedEntry[] = []
   const mostRewatched: MostRewatchedEntry[] = []
   const recentlyWatched: RecentlyWatchedEntry[] = []
   const perYearMap = new Map<string, PerYearEntry>()
-  const watchedArcCounts = new Map<string, number>()
+  // Distinct episode numbers the user has seen, for range-based arc progress.
+  const watchedEpisodeNumbers = new Set<number>()
+
+  // Seed every catalog type so a type with zero watches still renders a card.
+  const perTypeMap = new Map<ContentType, PerTypeAnalytics>()
+  for (const [type, totalInCatalog] of catalogTypeCounts) {
+    perTypeMap.set(type, {
+      type,
+      label: CONTENT_TYPE_LABELS[type] ?? type,
+      watched: 0,
+      rewatched: 0,
+      totalViews: 0,
+      totalInCatalog,
+      completionProgress: 0,
+    })
+  }
 
   let ratingSum = 0
   let ratedCount = 0
   const ratingStarCounts: Record<number, number> = { 1: 0, 2: 0, 3: 0, 4: 0, 5: 0 }
 
-  for (const row of rows ?? []) {
+  for (const row of rows) {
     const entry = Array.isArray(row.content_entries)
       ? row.content_entries[0]
       : row.content_entries
@@ -208,14 +308,13 @@ export async function getSelfAnalytics(userId: string): Promise<SelfAnalytics> {
     }
 
     const type = entry.type as ContentType
-    const totalInCat = catalogTypeCounts.get(type) ?? 0
     const cur = perTypeMap.get(type) ?? {
       type,
       label: CONTENT_TYPE_LABELS[type] ?? type,
       watched: 0,
       rewatched: 0,
       totalViews: 0,
-      totalInCatalog: totalInCat,
+      totalInCatalog: catalogTypeCounts.get(type) ?? 0,
       completionProgress: 0,
     }
     if (status === "watched") cur.watched++
@@ -293,13 +392,19 @@ export async function getSelfAnalytics(userId: string): Promise<SelfAnalytics> {
       perYearMap.set(year, py)
     }
 
-    // Per arc
-    if (entry.arc_id && isSeen) {
-      watchedArcCounts.set(entry.arc_id, (watchedArcCounts.get(entry.arc_id) ?? 0) + 1)
+    // Per arc — tracked by episode number, resolved to an arc range below.
+    if (isSeen && type === "episode" && entry.episode_number != null) {
+      watchedEpisodeNumbers.add(entry.episode_number)
     }
   }
 
-  const perType = [...perTypeMap.values()].sort((a, b) => b.totalViews - a.totalViews)
+  const perType = [...perTypeMap.values()].sort(
+    (a, b) =>
+      b.totalViews - a.totalViews ||
+      b.watched + b.rewatched - (a.watched + a.rewatched) ||
+      b.totalInCatalog - a.totalInCatalog ||
+      a.label.localeCompare(b.label)
+  )
   const avgRating = ratedCount > 0 ? Math.round((ratingSum / ratedCount) * 10) / 10 : 0
 
   const ratingDistribution: RatingDistribution[] = [5, 4, 3, 2, 1].map((stars) => {
@@ -322,10 +427,30 @@ export async function getSelfAnalytics(userId: string): Promise<SelfAnalytics> {
 
   const perYear = [...perYearMap.values()].sort((a, b) => a.year.localeCompare(b.year))
 
+  // Bucket catalog + watched episode numbers into their arcs by range.
+  const catalogArcCounts = new Map<string, number>()
+  for (const episodeNumber of catalogEpisodeNumbers) {
+    const arcId = arcIdForEpisode(episodeNumber)
+    if (arcId) catalogArcCounts.set(arcId, (catalogArcCounts.get(arcId) ?? 0) + 1)
+  }
+
+  const watchedArcCounts = new Map<string, number>()
+  for (const episodeNumber of watchedEpisodeNumbers) {
+    const arcId = arcIdForEpisode(episodeNumber)
+    if (arcId) watchedArcCounts.set(arcId, (watchedArcCounts.get(arcId) ?? 0) + 1)
+  }
+
   // Build complete arc progress for ALL database arcs
-  const perArc: ArcCompletionEntry[] = (arcsList ?? []).map((arc) => {
-    const total = catalogArcCounts.get(arc.id) ?? 0
-    const watched = watchedArcCounts.get(arc.id) ?? 0
+  const perArc: ArcCompletionEntry[] = arcs.map((arc) => {
+    const range = arcRanges.find((r) => r.id === arc.id)
+    const endEpisode = range?.end ?? arc.start_episode
+    // Prefer real catalog rows; fall back to the declared range span when the
+    // catalog has no episodes in it yet.
+    const rangeSpan = Math.max(0, endEpisode - arc.start_episode + 1)
+    const catalogArcTotal = catalogArcCounts.get(arc.id) ?? 0
+    // Fall back to the declared range span when no catalog rows land in it.
+    const total = catalogArcTotal > 0 ? catalogArcTotal : rangeSpan
+    const watched = Math.min(total, watchedArcCounts.get(arc.id) ?? 0)
     const progress = total > 0 ? Math.min(100, Math.round((watched / total) * 100)) : 0
     return {
       id: arc.id,
@@ -333,7 +458,7 @@ export async function getSelfAnalytics(userId: string): Promise<SelfAnalytics> {
       title: arc.title,
       description: arc.description,
       start_episode: arc.start_episode,
-      end_episode: arc.end_episode,
+      end_episode: endEpisode,
       total,
       watched,
       progress,
@@ -383,4 +508,3 @@ export async function getSelfAnalytics(userId: string): Promise<SelfAnalytics> {
     perArc,
   }
 }
-

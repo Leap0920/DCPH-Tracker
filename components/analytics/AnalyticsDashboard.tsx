@@ -18,14 +18,27 @@ import {
   Calendar,
   Layers,
   TrendingUp,
+  Video,
+  Clapperboard,
+  Sparkles,
+  CircleDot,
+  Coffee,
+  Swords,
 } from "lucide-react"
 import type { SelfAnalytics } from "@/lib/queries/analytics"
 import { cn, timeAgo } from "@/lib/utils"
 
+// Mirrors components/tracker/MotivationStats.tsx so both surfaces agree.
 const TYPE_ICONS: Record<string, React.ComponentType<{ className?: string }>> = {
   episode: BookOpen,
   movie: Film,
   special: Play,
+  ova: Video,
+  live_action: Clapperboard,
+  magic_kaito: Sparkles,
+  hanzawa: CircleDot,
+  zero_tea_time: Coffee,
+  yaiba: Swords,
 }
 
 interface AnalyticsDashboardProps {
@@ -38,11 +51,16 @@ export function AnalyticsDashboard({ analytics }: AnalyticsDashboardProps) {
 
   const { detectiveRank } = analytics
 
+  // "Cases Solved" = unique cases seen at least once. Must include rewatched
+  // rows, otherwise pressing Rewatch moves a case between buckets and the
+  // headline number drops when the user has actually watched more.
+  const casesSolved = analytics.watchedCount + analytics.rewatchedCount
+
   const statsList = [
     {
       key: "watched",
       label: "Cases Solved",
-      value: analytics.watchedCount.toLocaleString(),
+      value: casesSolved.toLocaleString(),
       sub: `${analytics.totalCatalogCount} total in catalog`,
       icon: Eye,
     },
@@ -50,7 +68,7 @@ export function AnalyticsDashboard({ analytics }: AnalyticsDashboardProps) {
       key: "rewatched",
       label: "Rewatched Cases",
       value: analytics.rewatchedCount.toLocaleString(),
-      sub: "Repeated viewings",
+      sub: "Of those, seen more than once",
       icon: RefreshCw,
     },
     {
@@ -145,7 +163,7 @@ export function AnalyticsDashboard({ analytics }: AnalyticsDashboardProps) {
               Franchise Solved
             </div>
             <div className="mt-1 text-xs text-white/50">
-              {analytics.watchedCount + analytics.rewatchedCount} of {analytics.totalCatalogCount} cases
+              {casesSolved} of {analytics.totalCatalogCount} cases
             </div>
           </div>
         </div>
