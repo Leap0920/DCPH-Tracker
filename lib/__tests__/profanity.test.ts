@@ -33,6 +33,15 @@ describe("foldForMatching", () => {
     expect(foldForMatching("p0t4")).toBe("pota")
     expect(foldForMatching("f*ck")).toBe("f*ck")
   })
+
+  it("folds symbols to letters only between letters", () => {
+    // Interior: leetspeak. Trailing: sentence punctuation.
+    expect(foldForMatching("sh!t")).toBe("shit")
+    expect(foldForMatching("g@g0")).toBe("gago")
+    expect(foldForMatching("gago!")).toBe("gago!")
+    expect(foldForMatching("gago!!")).toBe("gago!!")
+    expect(foldForMatching("tanga!?")).toBe("tanga!?")
+  })
 })
 
 describe("redactForbiddenWords — seed list", () => {
@@ -76,9 +85,18 @@ describe("redactForbiddenWords — seed list", () => {
     expect(redactForbiddenWords("p0t4")).toBe(MASK)
     expect(redactForbiddenWords("g@g0")).toBe(MASK)
     expect(redactForbiddenWords("sh1t")).toBe(MASK)
+    expect(redactForbiddenWords("sh!t")).toBe(MASK)
+    expect(redactForbiddenWords("b!tch")).toBe(MASK)
     expect(redactForbiddenWords("f*ck")).toBe(MASK)
     expect(redactForbiddenWords("t*ngina")).toBe(MASK)
     expect(redactForbiddenWords("b0b0")).toBe(MASK)
+  })
+
+  it("treats trailing punctuation as punctuation, not leetspeak", () => {
+    expect(redactForbiddenWords("gago!")).toBe(`${MASK}!`)
+    expect(redactForbiddenWords("gago!!")).toBe(`${MASK}!!`)
+    expect(redactForbiddenWords("tanga!?")).toBe(`${MASK}!?`)
+    expect(redactForbiddenWords("Hello! gago")).toBe(`Hello! ${MASK}`)
   })
 
   it("masks stretched letters and single-filler obfuscation", () => {
@@ -107,7 +125,7 @@ describe("redactForbiddenWords — seed list", () => {
 })
 
 describe("redactForbiddenWords — other languages", () => {
-  it("masks English, Spanish, Korean and Japanese terms", () => {
+  it("masks English and Spanish terms", () => {
     expect(redactForbiddenWords("fucking hell")).toBe(`${MASK} hell`)
     expect(redactForbiddenWords("bullshit")).toBe(MASK)
     expect(redactForbiddenWords("bitches")).toBe(MASK)
@@ -115,12 +133,18 @@ describe("redactForbiddenWords — other languages", () => {
     expect(redactForbiddenWords("pendejo")).toBe(MASK)
     expect(redactForbiddenWords("cabrón")).toBe(MASK)
     expect(redactForbiddenWords("chinga tu madre")).toBe(MASK)
-    expect(redactForbiddenWords("시발 진짜")).toBe(`${MASK} 진짜`)
-    expect(redactForbiddenWords("개새끼")).toBe(MASK)
     expect(redactForbiddenWords("shibal")).toBe(MASK)
-    expect(redactForbiddenWords("くそ")).toBe(MASK)
-    expect(redactForbiddenWords("死ね")).toBe(MASK)
     expect(redactForbiddenWords("kuso")).toBe(MASK)
+  })
+
+  it("masks CJK terms with a mask clamped to the match width", () => {
+    // One- and two-character terms must not grow into three asterisks.
+    expect(redactForbiddenWords("좆")).toBe("*")
+    expect(redactForbiddenWords("시발 진짜")).toBe("** 진짜")
+    expect(redactForbiddenWords("개새끼")).toBe(MASK)
+    expect(redactForbiddenWords("くそ")).toBe("**")
+    expect(redactForbiddenWords("死ね")).toBe("**")
+    expect(redactForbiddenWords("くそったれ")).toBe(MASK)
   })
 })
 
@@ -222,6 +246,8 @@ describe("redactForbiddenWords — mechanics", () => {
       "f*ck this sh1t",
       MASK,
       `${MASK} ${MASK}`,
+      "**",
+      "*",
       "clean message",
     ]
     for (const input of inputs) {
@@ -277,15 +303,25 @@ describe("FORBIDDEN_TERMS hygiene", () => {
     expect(new Set(terms).size).toBe(terms.length)
   })
 
-  it("keeps every term lowercase and at least three characters of signal", () => {
+  it("keeps every term lowercase and trimmed", () => {
     for (const rule of FORBIDDEN_TERMS) {
       expect(rule.term).toBe(rule.term.toLowerCase())
       expect(rule.term.trim()).toBe(rule.term)
-      expect(rule.term.length).toBeGreaterThanOrEqual(2)
+      expect(rule.term.length).toBeGreaterThan(0)
     }
   })
 
-  it("does not contain terms that are ordinary Filipino nouns we agreed to skip", () => {
+  it("only allows terms shorter than the mask in raw CJK scripts", () => {
+    // Latin terms are all >= MASK.length, which is why they always get a
+    // full-width mask; only Hangul/kana/kanji terms may be 1-2 characters.
+    for (const rule of FORBIDDEN_TERMS) {
+      if (rule.term.length < MASK.length) {
+        expect(rule.raw).toBe(true)
+      }
+    }
+  })
+
+  it("does not contain terms that are ordinary words we agreed to skip", () => {
     const terms = FORBIDDEN_TERMS.map((r) => r.term)
     expect(terms).not.toContain("puto") // rice cake
     expect(terms).not.toContain("baka") // mild, ubiquitous in anime fandom
