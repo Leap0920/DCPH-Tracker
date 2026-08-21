@@ -1,3 +1,5 @@
+import { fetchDcwLeadExtract } from "@/lib/dcw-episode";
+
 /**
  * Free, key-less description enrichment for the crime taxonomy.
  *
@@ -61,51 +63,24 @@ function tidy(raw: string | undefined | null): string | null {
   return text.length >= MIN_EXTRACT_LENGTH ? text : null;
 }
 
-type DcwResponse = {
-  query?: {
-    pages?: {
-      title?: string;
-      missing?: boolean;
-      extract?: string;
-      fullurl?: string;
-    }[];
-  };
-};
-
+// DCW has no TextExtracts extension: `prop=extracts` is rejected outright
+// ("Unrecognized value for parameter prop: extracts"). Lead paragraphs come
+// from parsed wikitext instead — see lib/dcw-episode.ts.
 async function fetchDcwExtract(
   title: string,
-  options: FetchOptions,
+  _options: FetchOptions,
 ): Promise<WikiExtract | null> {
-  const params = new URLSearchParams({
-    action: "query",
-    format: "json",
-    formatversion: "2",
-    prop: "extracts|info",
-    inprop: "url",
-    explaintext: "1",
-    exintro: "1",
-    exsectionformat: "plain",
-    redirects: "1",
-    titles: title,
-    origin: "*",
-  });
+  const lead = await fetchDcwLeadExtract(title);
+  if (!lead) return null;
 
-  const data = await getJson<DcwResponse>(`${DCW_API}?${params}`, options);
-  const page = data?.query?.pages?.[0];
-  if (!page || page.missing) return null;
-
-  const extract = tidy(page.extract);
+  const extract = tidy(lead.extract);
   if (!extract) return null;
 
   return {
     source: "detectiveconanworld",
-    title: page.title ?? title,
+    title: lead.title,
     extract,
-    url:
-      page.fullurl ??
-      `https://www.detectiveconanworld.com/wiki/${encodeURIComponent(
-        (page.title ?? title).replace(/ /g, "_"),
-      )}`,
+    url: lead.url,
   };
 }
 
@@ -164,3 +139,16 @@ export async function fetchCrimeWikiExtract(
 
   return null;
 }
+
+// Image helpers live in lib/dcw-images.ts; re-exported here so existing
+// imports from "@/lib/wiki" keep working.
+export {
+  resolveDcwImagesBatch,
+  fetchPageImages,
+  fetchFileFallback,
+  searchDcwTitle,
+  pickImageUrl,
+  DCW_CATEGORY_BY_TYPE,
+  type DcwImage,
+  type DcwResolution,
+} from "./dcw-images";
