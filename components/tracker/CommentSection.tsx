@@ -12,6 +12,8 @@ import { openAuthModal } from "@/lib/auth-modal"
 import { avatarUrl } from "@/lib/constants"
 import { cn } from "@/lib/utils"
 import { queryKeys } from "@/lib/queries/keys"
+import { MAX_COMMENT_LENGTH } from "@/lib/comment-constants"
+import { redactForbiddenWords } from "@/lib/profanity"
 import {
   addEpisodeComment,
   deleteEpisodeComment,
@@ -20,8 +22,6 @@ import {
   type EpisodeCommentRow,
   type EpisodeCommentsResult,
 } from "@/lib/queries/client/episode"
-
-const COMMENT_LIMIT = 2000
 
 type SelfProfile = {
   username: string
@@ -114,7 +114,8 @@ export function CommentSection({ contentId }: { contentId: string }) {
   // ── Optimistic post: temp id `temp-${uuid}`, replaced by the server row on
   //    success, rolled back on error (ChatWindow.tsx:169-210 pattern). ──
   const addMutation = useMutation({
-    mutationFn: (body: string) => addEpisodeComment(contentId, body, userId as string),
+    // The server takes the author from the session — no userId is sent.
+    mutationFn: (body: string) => addEpisodeComment(contentId, body),
     onMutate: async (body) => {
       await queryClient.cancelQueries({ queryKey: commentsKey })
       const prev = queryClient.getQueryData<EpisodeCommentsResult>(commentsKey)
@@ -134,9 +135,16 @@ export function CommentSection({ contentId }: { contentId: string }) {
       }))
       return { tempId, prev }
     },
-    onError: (_err, _vars, ctx) => {
+    onError: (err, _vars, ctx) => {
       if (ctx?.prev) queryClient.setQueryData(commentsKey, ctx.prev)
-      setError("Couldn't post your comment. The comments feature isn't available yet. Try again later.")
+      // /api/comments returns user-safe strings ("Comment too long", "Comments
+      // aren't available yet…", "Too many requests"), so showing the server's
+      // own message beats a single catch-all sentence.
+      setError(
+        err instanceof Error && err.message
+          ? err.message
+          : "Couldn't post your comment. Try again."
+      )
     },
     onSuccess: (data, _vars, ctx) => {
       if (!ctx) return
@@ -185,7 +193,10 @@ export function CommentSection({ contentId }: { contentId: string }) {
   }
 
   function handleSend() {
-    const body = newComment.trim()
+    // Redact client-side too: the optimistic comment must match the row the
+    // server will store, otherwise the author sees their own uncensored text
+    // for one round-trip. The server pass remains authoritative.
+    const body = redactForbiddenWords(newComment.trim())
     if (!body || !userId || addMutation.isPending) return
 
     setNewComment("")
@@ -315,7 +326,7 @@ export function CommentSection({ contentId }: { contentId: string }) {
               <textarea
                 ref={textareaRef}
                 rows={1}
-                maxLength={COMMENT_LIMIT}
+                maxLength={MAX_COMMENT_LENGTH}
                 value={newComment}
                 onChange={(e) => {
                   setNewComment(e.target.value)

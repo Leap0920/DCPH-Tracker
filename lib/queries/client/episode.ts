@@ -1,6 +1,7 @@
 import { createClient } from "@/utils/supabase/client"
 import type { SupabaseClient } from "@supabase/supabase-js"
 import type { Database } from "@/types/database.types"
+import { redactForbiddenWords } from "@/lib/profanity"
 
 // episode_comments.user_id references auth.users(id) — there is NO foreign key
 // to profiles, so PostgREST cannot embed authors here. We fetch author
@@ -92,28 +93,57 @@ export async function fetchEpisodeComments(contentId: string): Promise<EpisodeCo
   }
 
   const withAuthors = await attachProfiles(comments, supabase)
-  return { comments: withAuthors, hasMore }
+
+  // Mask forbidden words on the way out. /api/comments already redacts before
+  // insert, so this covers two things it cannot: rows written before the filter
+  // existed, and rows written by bypassing the route (that route runs as role
+  // `authenticated`, exactly like a browser REST call, so it cannot be made the
+  // exclusive writer without a service-role key). Redaction is idempotent, so
+  // re-masking an already-clean row is a no-op, and unchanged rows keep their
+  // object identity. Done here rather than in the component so every consumer of
+  // this query is covered by construction.
+  const redacted = withAuthors.map((c) => {
+    const clean = redactForbiddenWords(c.body)
+    return clean === c.body ? c : { ...c, body: clean }
+  })
+
+  return { comments: redacted, hasMore }
 }
 
 /**
- * Inserts a new comment and returns the inserted row (without author — the
- * caller attaches the author from the current user's profile).
+ * Posts a new comment through /api/comments and returns the inserted row
+ * (without author — the caller attaches the author from the current user's
+ * profile).
+ *
+ * No longer a direct Supabase insert, and no longer takes a userId: the server
+ * reads the author from the session, so a caller cannot post as someone else.
+ * The route also applies profanity redaction and rate limiting, neither of which
+ * a browser insert could enforce.
  */
 export async function addEpisodeComment(
   contentId: string,
-  body: string,
-  userId: string
+  body: string
 ): Promise<EpisodeCommentBase> {
-  const supabase = createClient()
+  const res = await fetch("/api/comments", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ contentId, body: body.trim() }),
+  })
 
-  const { data, error } = await supabase
-    .from("episode_comments")
-    .insert({ content_id: contentId, user_id: userId, body: body.trim() })
-    .select()
-    .single()
+  const json = (await res.json().catch(() => null)) as
+    | { success: true; data: { comment: EpisodeCommentBase } }
+    | { error?: string }
+    | null
 
-  if (error) throw error
-  return data
+  if (!res.ok || !json || !("success" in json)) {
+    const detail =
+      json && "error" in json && typeof json.error === "string"
+        ? json.error
+        : "Couldn't post your comment. Try again."
+    throw new Error(detail)
+  }
+
+  return json.data.comment
 }
 
 /**
