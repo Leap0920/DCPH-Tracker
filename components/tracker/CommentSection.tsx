@@ -7,6 +7,14 @@ import { MessageSquare, Send, Trash2 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { Skeleton } from "@/components/ui/skeleton"
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog"
 import { createClient } from "@/utils/supabase/client"
 import { openAuthModal } from "@/lib/auth-modal"
 import { avatarUrl } from "@/lib/constants"
@@ -29,6 +37,25 @@ type SelfProfile = {
   avatar_url: string | null
   role: "member" | "moderator" | "admin"
 }
+
+/**
+ * What the delete dialog needs, captured when the trash button is clicked.
+ *
+ * A SNAPSHOT rather than an id lookup, deliberately: the delete is optimistic
+ * and `onSettled` refetches, so the row can leave the list while the dialog is
+ * still animating. Holding a copy means the copy on screen never blanks out
+ * mid-sentence, and the dialog can name the author and quote the text — the best
+ * defence against confirming the wrong row after the list has shifted.
+ */
+type DeleteTarget = {
+  id: string
+  isOwn: boolean
+  authorLabel: string
+  preview: string
+}
+
+/** Enough of the comment to recognise it, without an essay in the dialog. */
+const PREVIEW_LENGTH = 160
 
 function formatTime(iso: string) {
   return new Date(iso).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })
@@ -75,6 +102,8 @@ export function CommentSection({ contentId }: { contentId: string }) {
   const [me, setMe] = useState<SelfProfile | null>(null)
   const [newComment, setNewComment] = useState("")
   const [error, setError] = useState<string | null>(null)
+  // Non-null while the delete confirmation dialog is open; null closes it.
+  const [deleteTarget, setDeleteTarget] = useState<DeleteTarget | null>(null)
   const textareaRef = useRef<HTMLTextAreaElement>(null)
 
   const commentsKey = queryKeys.content.comments(contentId)
@@ -211,8 +240,28 @@ export function CommentSection({ contentId }: { contentId: string }) {
     }
   }
 
-  function handleDelete(id: string) {
-    if (!window.confirm("Delete this comment?")) return
+  function requestDelete(comment: EpisodeCommentRow, isOwn: boolean) {
+    const author = comment.author
+    setError(null)
+    setDeleteTarget({
+      id: comment.id,
+      isOwn,
+      authorLabel: author?.display_name || author?.username || "this user",
+      preview:
+        comment.body.length > PREVIEW_LENGTH
+          ? `${comment.body.slice(0, PREVIEW_LENGTH).trimEnd()}…`
+          : comment.body,
+    })
+  }
+
+  function confirmDelete() {
+    if (!deleteTarget || deleteMutation.isPending) return
+    const { id } = deleteTarget
+    // Close first: the removal is optimistic, so the row is already gone by the
+    // next frame and holding the dialog open would be waiting for nothing. On
+    // failure the mutation rolls the row back and surfaces the inline error;
+    // the dialog does NOT reopen.
+    setDeleteTarget(null)
     deleteMutation.mutate(id)
   }
 
@@ -295,10 +344,13 @@ export function CommentSection({ contentId }: { contentId: string }) {
                   </p>
                 </div>
 
-                {canDelete && (
+                {/* `!pending` matters: a temp- id is client-side only, so
+                    deleting an unconfirmed comment always failed against the
+                    server. Mirrors ChatWindow's unsend guard. */}
+                {canDelete && !pending && (
                   <button
                     type="button"
-                    onClick={() => handleDelete(comment.id)}
+                    onClick={() => requestDelete(comment, isOwn)}
                     disabled={deleteMutation.isPending}
                     aria-label="Delete comment"
                     className="self-start rounded-md p-2 text-ink-faint transition-colors hover:bg-surface-muted hover:text-accent disabled:opacity-50"
@@ -371,6 +423,72 @@ export function CommentSection({ contentId }: { contentId: string }) {
           </div>
         )}
       </div>
+
+      {/* Delete confirmation — replaces window.confirm(). One dialog for the
+          whole list, driven by `deleteTarget`; a per-row DialogTrigger would
+          mount N dialogs and lose its target on every refetch. */}
+      <Dialog
+        open={deleteTarget !== null}
+        onOpenChange={(open) => {
+          // Covers Cancel, the built-in X, Esc and an overlay click.
+          if (!open) setDeleteTarget(null)
+        }}
+      >
+        <DialogContent
+          className="max-w-md"
+          onOpenAutoFocus={(e) => {
+            // Land focus on Cancel, not on the destructive action. Radix focuses
+            // the first tabbable node (the X, one Tab from Delete) and a stray
+            // Enter should never delete a comment. Queried by data attribute so
+            // this does not depend on Button forwarding a ref.
+            const cancel = (e.currentTarget as HTMLElement | null)?.querySelector<HTMLElement>(
+              "[data-cancel-delete]"
+            )
+            if (cancel) {
+              e.preventDefault()
+              cancel.focus()
+            }
+          }}
+        >
+          <DialogHeader>
+            <DialogTitle>Delete comment?</DialogTitle>
+            <DialogDescription>
+              {deleteTarget?.isOwn
+                ? "This permanently removes your comment for everyone. This can't be undone."
+                : `This permanently removes ${deleteTarget?.authorLabel ?? "this user"}'s comment as a moderator. This can't be undone.`}
+            </DialogDescription>
+          </DialogHeader>
+
+          {/* Quote the target so the wrong row cannot be confirmed by accident.
+              A sibling of DialogDescription, not a child: DialogDescription
+              renders a <p>, and nesting block content inside it is invalid. */}
+          {deleteTarget?.preview && (
+            <p className="max-h-28 overflow-hidden whitespace-pre-wrap break-words rounded-lg border border-ink-dim/20 bg-surface-muted px-3 py-2 text-sm text-ink-dim">
+              {deleteTarget.preview}
+            </p>
+          )}
+
+          <DialogFooter className="gap-2">
+            <Button
+              type="button"
+              variant="outline"
+              data-cancel-delete
+              className="rounded-lg border-ink-dim/20"
+              onClick={() => setDeleteTarget(null)}
+            >
+              Cancel
+            </Button>
+            <Button
+              type="button"
+              onClick={confirmDelete}
+              disabled={deleteMutation.isPending}
+              className="rounded-lg bg-accent text-white hover:bg-accent-bright"
+            >
+              Delete
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </section>
   )
 }
