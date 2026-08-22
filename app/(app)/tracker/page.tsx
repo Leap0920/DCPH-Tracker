@@ -33,6 +33,7 @@ import {
 
 const VALID_TYPES = new Set<string>([CONTENT_TYPES.EPISODE, CONTENT_TYPES.MOVIE, CONTENT_TYPES.SPECIAL, CONTENT_TYPES.OVA, CONTENT_TYPES.LIVE_ACTION, CONTENT_TYPES.MAGIC_KAITO, CONTENT_TYPES.HANZAWA, CONTENT_TYPES.ZERO_TEA_TIME, CONTENT_TYPES.YAIBA])
 const VALID_STATUS = new Set<string>([WATCH_STATUSES.UNWATCHED, WATCH_STATUSES.WATCHED, WATCH_STATUSES.REWATCHED])
+const VALID_MODES = new Set<string>([VIEW_MODES.YEAR, VIEW_MODES.CHRONOLOGICAL, VIEW_MODES.CANON, VIEW_MODES.ORDER])
 
 type ContentRow = Database["public"]["Tables"]["content_entries"]["Row"]
 type ContentEntry = ContentRow & {
@@ -64,7 +65,7 @@ function TrackerPageContent() {
   const statusParam = searchParams.get("status") ?? "all"
   const pageParam = clampInt(searchParams.get("page"), 1, 1000)
 
-  const initialMode: ViewMode = modeParam === VIEW_MODES.CHRONOLOGICAL ? VIEW_MODES.CHRONOLOGICAL : VIEW_MODES.YEAR
+  const initialMode: ViewMode = VALID_MODES.has(modeParam) ? (modeParam as ViewMode) : VIEW_MODES.YEAR
   const initialStatus: StatusFilter = VALID_STATUS.has(statusParam) ? (statusParam as WatchStatus) : "all"
   const initialType: ContentType | "all" = VALID_TYPES.has(typeParam) ? (typeParam as ContentType) : "all"
   const initialPage = pageParam ? pageParam - 1 : undefined

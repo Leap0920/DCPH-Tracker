@@ -42,13 +42,17 @@ export const CONTENT_TYPE_ICONS: Record<ContentType, string> = {
 export const VIEW_MODES = {
   YEAR: "year",
   CHRONOLOGICAL: "chronological",
+  CANON: "canon",
+  ORDER: "order",
 } as const;
 
 export type ViewMode = (typeof VIEW_MODES)[keyof typeof VIEW_MODES];
 
 export const VIEW_MODE_OPTIONS = [
   { value: VIEW_MODES.YEAR, label: "By Year" },
-  { value: VIEW_MODES.CHRONOLOGICAL, label: "Watch Order" },
+  { value: VIEW_MODES.CHRONOLOGICAL, label: "Story Order" },
+  { value: VIEW_MODES.CANON, label: "Canon Guide" },
+  { value: VIEW_MODES.ORDER, label: "Full Watch Order" },
 ] as const;
 
 /** Watch status values */

@@ -41,6 +41,12 @@ import {
   SelectValue,
 } from "@/components/ui/select"
 import { SUBCATEGORY_CONFIGS } from "@/lib/subcategories"
+import {
+  CANON_GUIDE_SOURCE,
+  canonTypeForEpisode,
+  type CanonType,
+} from "@/lib/canon-guide"
+import { resolveWatchOrder } from "@/lib/watch-order"
 
 type ContentEntry = Database["public"]["Tables"]["content_entries"]["Row"]
 
@@ -96,6 +102,59 @@ const SECTION_ORDER: {
   { type: "zero_tea_time", icon: Coffee },
   { type: "yaiba", icon: Swords },
 ]
+
+/**
+ * Canon Guide grouping. Manga Canon and Anime Canon sit adjacent because both
+ * are "don't skip"; Filler follows. Unclassified only ever renders if the
+ * tracker contains an episode the source guide doesn't cover yet.
+ */
+type CanonBucket = CanonType | "unclassified"
+
+/**
+ * Rendered buckets. "anime_canon" is deliberately absent: episode 1187 is the
+ * lone anime-canon entry and reads as an orphan section, so canonSectionBucket()
+ * folds it into the canon group. Re-add it here to split it back out.
+ */
+const CANON_SECTION_ORDER: readonly CanonBucket[] = ["manga_canon", "filler", "unclassified"]
+
+/** Presentation labels — the data-layer names live in lib/canon-guide.ts. */
+const CANON_SECTION_LABELS: Record<CanonBucket, string> = {
+  manga_canon: "Canon Episodes",
+  anime_canon: "Anime Canon",
+  filler: "Filler Episodes",
+  unclassified: "Unclassified",
+}
+
+const CANON_SECTION_ICONS: Record<
+  CanonBucket,
+  React.ComponentType<{ className?: string }>
+> = {
+  manga_canon: BookOpen,
+  anime_canon: Bookmark,
+  filler: Sparkles,
+  unclassified: CircleDot,
+}
+
+const CANON_SECTION_SWATCHES: Record<CanonBucket, string> = {
+  manga_canon: "bg-accent-soft border-accent/40",
+  anime_canon: "bg-surface border-accent ring-1 ring-accent",
+  filler: "bg-surface-muted border-line",
+  unclassified: "bg-transparent border-line border-dashed",
+}
+
+/**
+ * Which rendered section an episode belongs to. Anime canon is story-relevant,
+ * so it groups with manga canon rather than standing alone.
+ */
+function canonSectionBucket(episodeNumber: number | null | undefined): CanonBucket {
+  const type = canonTypeForEpisode(episodeNumber)
+  if (type === "manga_canon" || type === "anime_canon") return "manga_canon"
+  if (type === "filler") return "filler"
+  return "unclassified"
+}
+
+/** Section key for the single Full Watch Order section. */
+const WATCH_ORDER_KEY = "watch-order"
 
 function getNumber(entry: ContentEntry): number {
   if (entry.type === "movie") return entry.movie_number ?? entry.release_order ?? 0
@@ -176,6 +235,31 @@ export function ContentGrid({
     return max
   }, [entries])
 
+  // Full franchise watch order, resolved once per content load. Positions come
+  // from the UNFILTERED list so ordinals never shift when filters change.
+  const watchOrder = useMemo(() => {
+    const items = resolveWatchOrder(entries)
+    const indexById = new Map<string, number>()
+    for (const item of items) indexById.set(item.entry.id, item.position)
+    return { items, indexById }
+  }, [entries])
+
+  // Canon tallies over every episode row, independent of the status filter, so
+  // the summary line reads as a fact about the series rather than the view.
+  const canonCounts = useMemo(() => {
+    const counts: Record<CanonBucket, number> = {
+      manga_canon: 0,
+      anime_canon: 0,
+      filler: 0,
+      unclassified: 0,
+    }
+    for (const e of entries) {
+      if (e.type !== "episode" || typeof e.episode_number !== "number") continue
+      counts[canonSectionBucket(e.episode_number)] += 1
+    }
+    return counts
+  }, [entries])
+
   function setPage(key: string, page: number) {
     setPages((prev) => ({ ...prev, [key]: page }))
     onPageChange?.(key, page)
@@ -226,6 +310,26 @@ export function ContentGrid({
   // Sections grouped by content type. Episodes are grouped by air-date year in
   // "year" mode, or sorted by canon_order in "chronological" mode.
   const sections = useMemo(() => {
+    // Full Watch Order: one section holding the whole franchise in viewing
+    // order. Reuses the accordion, image cards, pagination and progress bar
+    // unchanged — only the ordering and the ordinal chips are new.
+    if (mode === "order") {
+      const list = watchOrder.items.map((item) => item.entry).filter(matchesStatus)
+      if (list.length === 0) return []
+      const orderSections: SectionData[] = [
+        {
+          key: WATCH_ORDER_KEY,
+          type: "episode",
+          title: "Full Watch Order",
+          icon: Play,
+          entries: list,
+          watched: list.filter(isWatched).length,
+          total: list.length,
+        },
+      ]
+      return orderSections
+    }
+
     const episodeFiltered = entries.filter((e) => e.type === "episode" && matchesStatus(e))
     const episodeSections: SectionData[] = []
 
@@ -240,6 +344,32 @@ export function ContentGrid({
         watched: list.filter(isWatched).length,
         total: list.length,
       })
+    } else if (mode === "canon") {
+      // Same accordion + image cards as By Year — grouped by canon type
+      // instead of air-date year.
+      const sorted = [...episodeFiltered].sort(
+        (a, b) => (a.episode_number ?? 0) - (b.episode_number ?? 0)
+      )
+      const buckets = new Map<CanonBucket, ContentEntry[]>()
+      for (const e of sorted) {
+        const bucket = canonSectionBucket(e.episode_number)
+        const list = buckets.get(bucket)
+        if (list) list.push(e)
+        else buckets.set(bucket, [e])
+      }
+      for (const bucket of CANON_SECTION_ORDER) {
+        const list = buckets.get(bucket)
+        if (!list || list.length === 0) continue
+        episodeSections.push({
+          key: `canon-${bucket}`,
+          type: "episode",
+          title: CANON_SECTION_LABELS[bucket],
+          icon: CANON_SECTION_ICONS[bucket],
+          entries: list,
+          watched: list.filter(isWatched).length,
+          total: list.length,
+        })
+      }
     } else {
       const byYear = new Map<string, ContentEntry[]>()
       for (const e of episodeFiltered) {
@@ -300,8 +430,12 @@ export function ContentGrid({
     return [...episodeSections, ...otherSections].filter((s) => s.total > 0)
   }, [entries, userStatuses, mode, statusFilter, subcat])
 
+  // Full Watch Order is a single section whose SectionData.type is always
+  // "episode"; section-level type filtering would hide it outright.
   const visibleSections =
-    typeFilter === "all" ? sections : sections.filter((s) => s.type === typeFilter)
+    typeFilter === "all" || mode === "order"
+      ? sections
+      : sections.filter((s) => s.type === typeFilter)
 
   // Open the first section by default, only once on initial load
   useEffect(() => {
@@ -311,13 +445,23 @@ export function ContentGrid({
     }
   }, [sections])
 
+  // Guide modes rebuild the section keys from scratch, so the previously open
+  // key no longer exists — open the first section instead of showing a fully
+  // collapsed accordion. Keyed on `mode` only: re-running on every `sections`
+  // change would re-open a section the user just collapsed.
+  useEffect(() => {
+    if (mode === "canon" || mode === "order") setExpandedType(sections[0]?.key ?? null)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [mode])
+
   // Selecting a single type filter opens that section
   useEffect(() => {
+    if (mode === "order") return
     if (typeFilter !== "all") {
       const first = sections.find((s) => s.type === typeFilter)
       setExpandedType(first?.key ?? typeFilter)
     }
-  }, [typeFilter, sections])
+  }, [typeFilter, sections, mode])
 
   // Continue tracking: first few unwatched episodes in order
   const continueTracking = useMemo(() => {
@@ -376,7 +520,18 @@ export function ContentGrid({
 
     let targetKey: string
     let pageIdx = 0
-    if (mode === "year") {
+    if (mode === "order") {
+      targetKey = WATCH_ORDER_KEY
+      const orderList = sections.find((s) => s.key === targetKey)?.entries ?? []
+      pageIdx = Math.floor(Math.max(0, orderList.findIndex((e) => e.id === ep.id)) / PAGE_SIZE)
+    } else if (mode === "canon") {
+      // The target section is whichever canon bucket this episode belongs to.
+      targetKey = `canon-${canonSectionBucket(n)}`
+      const canonList = sections.find((s) => s.key === targetKey)?.entries ?? []
+      pageIdx = Math.floor(
+        Math.max(0, canonList.findIndex((e) => e.id === ep.id)) / PAGE_SIZE
+      )
+    } else if (mode === "year") {
       const year = ep.air_date?.slice(0, 4) ?? "Unknown"
       targetKey = `year-${year}`
       const yearList = sections.find((s) => s.key === targetKey)?.entries ?? []
@@ -699,8 +854,49 @@ export function ContentGrid({
       {/* ── Sectioned Browse (accordion) ── */}
       {!searchResults && (
         <div>
+          {/* Canon Guide legend — explains the grouping, not a separate layout */}
+          {mode === "canon" && (
+            <div className="flex flex-wrap items-center gap-x-3 gap-y-1.5 border-b border-ink-dim/10 px-4 sm:px-6 pt-5 pb-4">
+              {CANON_SECTION_ORDER.map((bucket) =>
+                canonCounts[bucket] > 0 ? (
+                  <span key={bucket} className="inline-flex items-center gap-1.5">
+                    <span
+                      className={cn(
+                        "h-2.5 w-2.5 shrink-0 rounded-sm border",
+                        CANON_SECTION_SWATCHES[bucket]
+                      )}
+                    />
+                    <span className="text-xs text-ink-dim">
+                      {CANON_SECTION_LABELS[bucket]}{" "}
+                      <span className="font-mono text-[11px] tabular-nums text-ink">
+                        {canonCounts[bucket]}
+                      </span>
+                    </span>
+                  </span>
+                ) : null
+              )}
+              <a
+                href={CANON_GUIDE_SOURCE}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="font-mono text-[10px] text-ink-faint underline decoration-dotted hover:text-ink-dim"
+              >
+                source
+              </a>
+            </div>
+          )}
+          {/* Full Watch Order intro */}
+          {mode === "order" && (
+            <div className="border-b border-ink-dim/10 px-4 sm:px-6 pt-5 pb-4">
+              <p className="text-xs text-ink-dim">
+                Every episode, movie, OVA, TV special, live-action drama and spin-off in one
+                continuous run. The number on each card is its position in the order.
+              </p>
+            </div>
+          )}
+
           {/* Continue Tracking — always-visible quick strip */}
-          {continueTracking.length > 0 && typeFilter === "all" && (
+          {continueTracking.length > 0 && typeFilter === "all" && mode !== "order" && (
             <div className="px-4 sm:px-6 py-5 border-b border-ink-dim/10">
               <div className="flex items-center gap-2.5 mb-3">
                 <span className="flex h-8 w-8 items-center justify-center rounded-md bg-ink text-page shrink-0">
@@ -802,23 +998,46 @@ export function ContentGrid({
               >
                 <>
                   <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4 pt-1">
-                    {pageItems.map((entry) => (
-                      <ContentCard
-                        key={entry.id}
-                        entry={entry}
-                        watchStatus={getStatusForEntry(entry.id)}
-                        onSetStatus={onSetStatus}
-                        onIncrementRewatch={onIncrementRewatch}
-                        watchCount={watchCounts?.get(entry.id) ?? 0}
-                        favorite={favorites?.get(entry.id) ?? false}
-                        onToggleFavorite={onToggleFavorite}
-                        rating={ratings?.get(entry.id) ?? 0}
-                        onSetRating={onSetRating}
-                        flash={flashId === entry.id}
-                        arc={getArcForEntry(entry)}
-                        onSelect={onSelect}
-                      />
-                    ))}
+                    {pageItems.map((entry) => {
+                      const card = (
+                        <ContentCard
+                          key={entry.id}
+                          entry={entry}
+                          watchStatus={getStatusForEntry(entry.id)}
+                          onSetStatus={onSetStatus}
+                          onIncrementRewatch={onIncrementRewatch}
+                          watchCount={watchCounts?.get(entry.id) ?? 0}
+                          favorite={favorites?.get(entry.id) ?? false}
+                          onToggleFavorite={onToggleFavorite}
+                          rating={ratings?.get(entry.id) ?? 0}
+                          onSetRating={onSetRating}
+                          flash={flashId === entry.id}
+                          arc={getArcForEntry(entry)}
+                          onSelect={onSelect}
+                        />
+                      )
+                      if (mode !== "order") return card
+                      const ordinal = watchOrder.indexById.get(entry.id)
+                      return (
+                        <div key={entry.id} className="relative">
+                          {ordinal !== undefined && (
+                            <span
+                              className={cn(
+                                "pointer-events-none absolute left-1.5 top-1.5 z-10 rounded px-1.5 py-0.5 font-mono text-[10px] tabular-nums shadow-sm",
+                                // Non-episodes get the accent so movies, OVAs and
+                                // specials stand out from the run of episodes.
+                                entry.type === "episode"
+                                  ? "bg-ink/90 text-page"
+                                  : "bg-accent text-page"
+                              )}
+                            >
+                              {ordinal}
+                            </span>
+                          )}
+                          {card}
+                        </div>
+                      )
+                    })}
                   </div>
 
                   {totalPages > 1 && (
