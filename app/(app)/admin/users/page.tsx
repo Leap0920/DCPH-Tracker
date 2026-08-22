@@ -1,6 +1,7 @@
 import Link from "next/link"
 import { Search } from "lucide-react"
 import { createClient } from "@/utils/supabase/server"
+import { createAdminClient } from "@/utils/supabase/admin"
 import { requireAdmin } from "@/lib/auth/admin"
 import { RoleSelect } from "@/components/admin/RoleSelect"
 import { UserActions } from "@/components/admin/UserActions"
@@ -13,6 +14,48 @@ const STATUS_LABELS: Record<string, { label: string; className: string }> = {
   active: { label: "Active", className: "border-success/25 bg-success/10 text-success" },
   suspended: { label: "Suspended", className: "border-warning/25 bg-warning/10 text-warning" },
   banned: { label: "Banned", className: "border-danger/25 bg-danger/10 text-danger" },
+}
+
+const EMAIL_PAGE_SIZE = 200
+/** Runaway guard: 25 × 200 = 5,000 auth users scanned at most. */
+const EMAIL_MAX_PAGES = 25
+
+/**
+ * user_id -> email, read from auth.users with the service-role client.
+ * Emails aren't in `profiles`, so this is the only source.
+ *
+ * Never throws: with no service-role key, or if the admin API errors, the
+ * column degrades to "—" rather than taking down the whole admin page.
+ * Stops early once every id on the current page has been resolved.
+ */
+async function fetchEmailMap(userIds: string[]): Promise<Map<string, string>> {
+  const emails = new Map<string, string>()
+  if (userIds.length === 0) return emails
+
+  const admin = createAdminClient()
+  if (!admin) return emails
+
+  const wanted = new Set(userIds)
+
+  try {
+    for (let page = 1; page <= EMAIL_MAX_PAGES; page++) {
+      const { data, error } = await admin.auth.admin.listUsers({
+        page,
+        perPage: EMAIL_PAGE_SIZE,
+      })
+      if (error) break
+      const batch = data?.users ?? []
+      for (const user of batch) {
+        if (user.email && wanted.has(user.id)) emails.set(user.id, user.email)
+      }
+      if (emails.size === wanted.size) break
+      if (batch.length < EMAIL_PAGE_SIZE) break
+    }
+  } catch {
+    // Keep whatever resolved; the column falls back to "—".
+  }
+
+  return emails
 }
 
 export default async function AdminUsersPage({
@@ -54,6 +97,8 @@ export default async function AdminUsersPage({
     count = result.count
   }
 
+  const emailById = await fetchEmailMap((users ?? []).map((u) => u.user_id))
+
   const total = count ?? 0
   const totalPages = Math.max(1, Math.ceil(total / PAGE_SIZE))
 
@@ -86,6 +131,9 @@ export default async function AdminUsersPage({
                 User
               </th>
               <th className="px-3 py-2 font-mono text-[10px] font-normal uppercase tracking-wider text-ink-faint">
+                Email
+              </th>
+              <th className="px-3 py-2 font-mono text-[10px] font-normal uppercase tracking-wider text-ink-faint">
                 Joined
               </th>
               <th className="px-3 py-2 font-mono text-[10px] font-normal uppercase tracking-wider text-ink-faint">
@@ -102,6 +150,7 @@ export default async function AdminUsersPage({
           <tbody>
             {(users ?? []).map((u) => {
               const statusMeta = STATUS_LABELS[u.status] ?? STATUS_LABELS.active
+              const email = emailById.get(u.user_id)
               return (
                 <tr
                   key={u.user_id}
@@ -115,6 +164,18 @@ export default async function AdminUsersPage({
                       {u.display_name}
                     </Link>
                     <span className="block font-mono text-[10px] text-ink-faint">@{u.username}</span>
+                  </td>
+                  <td className="px-3 py-2.5">
+                    {email ? (
+                      <span
+                        title={email}
+                        className="block max-w-[220px] truncate font-mono text-[11px] text-ink-dim"
+                      >
+                        {email}
+                      </span>
+                    ) : (
+                      <span className="font-mono text-[11px] text-ink-faint">—</span>
+                    )}
                   </td>
                   <td className="px-3 py-2.5 font-mono text-[11px] tabular-nums text-ink-dim">
                     {new Date(u.created_at).toLocaleDateString()}
@@ -145,7 +206,7 @@ export default async function AdminUsersPage({
             })}
             {(users ?? []).length === 0 && (
               <tr>
-                <td colSpan={5} className="px-3 py-12 text-center text-xs text-ink-dim">
+                <td colSpan={6} className="px-3 py-12 text-center text-xs text-ink-dim">
                   No users found.
                 </td>
               </tr>
