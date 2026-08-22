@@ -17,6 +17,7 @@ import {
   BarChart3,
   Trophy,
   MessageSquare,
+  FileText,
   LogOut,
 } from "lucide-react"
 import { Button } from "@/components/ui/button"
@@ -49,6 +50,7 @@ const iconMap: Record<string, React.ElementType> = {
   BarChart3,
   Trophy,
   MessageSquare,
+  FileText,
 }
 
 /** Shared sliding indicator under the active desktop nav item. */
