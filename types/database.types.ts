@@ -17,6 +17,89 @@ type GenericRelationship = {
 export interface Database {
   public: {
     Tables: {
+      dcw_cases: {
+        Row: {
+          id: string
+          page_title: string
+          case_index: number
+          crime_type: string
+          crime_slug: string
+          cause_death: string | null
+          cause_slug: string | null
+          victim: string | null
+          suspects: string | null
+          people: string | null
+          location: string | null
+          description: string | null
+          date_text: string | null
+          time_text: string | null
+          age_text: string | null
+          victim_label: string | null
+          cause_death_label: string | null
+          suspects_label: string | null
+          image_name: string | null
+          entry_id: string | null
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          id?: string
+          page_title: string
+          case_index?: number
+          crime_type?: string
+          crime_slug?: string
+          cause_death?: string | null
+          cause_slug?: string | null
+          victim?: string | null
+          suspects?: string | null
+          people?: string | null
+          location?: string | null
+          description?: string | null
+          date_text?: string | null
+          time_text?: string | null
+          age_text?: string | null
+          victim_label?: string | null
+          cause_death_label?: string | null
+          suspects_label?: string | null
+          image_name?: string | null
+          entry_id?: string | null
+          created_at?: string
+          updated_at?: string
+        }
+        Update: {
+          id?: string
+          page_title?: string
+          case_index?: number
+          crime_type?: string
+          crime_slug?: string
+          cause_death?: string | null
+          cause_slug?: string | null
+          victim?: string | null
+          suspects?: string | null
+          people?: string | null
+          location?: string | null
+          description?: string | null
+          date_text?: string | null
+          time_text?: string | null
+          age_text?: string | null
+          victim_label?: string | null
+          cause_death_label?: string | null
+          suspects_label?: string | null
+          image_name?: string | null
+          entry_id?: string | null
+          created_at?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "dcw_cases_entry_id_fkey"
+            columns: ["entry_id"]
+            isOneToOne: false
+            referencedRelation: "content_entries"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       profiles: {
         Row: {
           id: string;
@@ -572,6 +655,35 @@ export interface Database {
       };
     };
     Views: {
+      dcw_cases_view: {
+        Row: {
+          id: string
+          page_title: string
+          case_index: number
+          crime_type: string
+          crime_slug: string
+          cause_death: string | null
+          cause_slug: string | null
+          victim: string | null
+          victim_label: string | null
+          cause_death_label: string | null
+          suspects: string | null
+          suspects_label: string | null
+          location: string | null
+          description: string | null
+          date_text: string | null
+          image_name: string | null
+          entry_id: string | null
+          created_at: string
+          updated_at: string
+          entry_slug: string | null
+          entry_title: string | null
+          entry_type: string | null
+          entry_episode_number: number | null
+          entry_release_order: number | null
+        }
+        Relationships: []
+      }
       leaderboard: {
         Row: {
           user_id: string;

@@ -34,6 +34,8 @@ import {
 const VALID_TYPES = new Set<string>([CONTENT_TYPES.EPISODE, CONTENT_TYPES.MOVIE, CONTENT_TYPES.SPECIAL, CONTENT_TYPES.OVA, CONTENT_TYPES.LIVE_ACTION, CONTENT_TYPES.MAGIC_KAITO, CONTENT_TYPES.HANZAWA, CONTENT_TYPES.ZERO_TEA_TIME, CONTENT_TYPES.YAIBA])
 const VALID_STATUS = new Set<string>([WATCH_STATUSES.UNWATCHED, WATCH_STATUSES.WATCHED, WATCH_STATUSES.REWATCHED])
 const VALID_MODES = new Set<string>([VIEW_MODES.YEAR, VIEW_MODES.CHRONOLOGICAL, VIEW_MODES.CANON, VIEW_MODES.ORDER])
+/** localStorage key for the last view mode the user picked on /tracker. */
+const VIEW_MODE_STORAGE_KEY = "dcph.tracker.viewMode"
 
 type ContentRow = Database["public"]["Tables"]["content_entries"]["Row"]
 type ContentEntry = ContentRow & {
@@ -61,14 +63,40 @@ function TrackerPageContent() {
   // ── URL param parsing (invalid values fall back to defaults) ──
   const qParam = searchParams.get("q")?.slice(0, 100) ?? ""
   const typeParam = searchParams.get("type") ?? "all"
-  const modeParam = searchParams.get("mode") ?? VIEW_MODES.YEAR
+  const modeParam = searchParams.get("mode")
   const statusParam = searchParams.get("status") ?? "all"
   const pageParam = clampInt(searchParams.get("page"), 1, 1000)
 
-  const initialMode: ViewMode = VALID_MODES.has(modeParam) ? (modeParam as ViewMode) : VIEW_MODES.YEAR
   const initialStatus: StatusFilter = VALID_STATUS.has(statusParam) ? (statusParam as WatchStatus) : "all"
   const initialType: ContentType | "all" = VALID_TYPES.has(typeParam) ? (typeParam as ContentType) : "all"
   const initialPage = pageParam ? pageParam - 1 : undefined
+
+  // ── View-mode memory ──
+  // The URL param stays authoritative when present (?mode=… deep links must
+  // keep working). When it is absent — e.g. the user picked Canon Guide,
+  // visited Analytics from the navbar, then hit Tracker again — we restore
+  // whatever they last chose instead of snapping back to By Year.
+  const [storedMode, setStoredMode] = useState<ViewMode | null>(null)
+  useEffect(() => {
+    try {
+      const raw = window.localStorage.getItem(VIEW_MODE_STORAGE_KEY) ?? ""
+      if (VALID_MODES.has(raw)) {
+        setStoredMode(raw as ViewMode)
+      } else if (raw) {
+        // Unknown value (renamed mode, manual edit): drop it so it can't win.
+        window.localStorage.removeItem(VIEW_MODE_STORAGE_KEY)
+      }
+    } catch {
+      // Private mode / disabled storage — default view is fine.
+    }
+    // One-time read; later changes flow through onModeChange.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
+  const initialMode: ViewMode = modeParam
+    ? VALID_MODES.has(modeParam)
+      ? (modeParam as ViewMode)
+      : VIEW_MODES.YEAR
+    : storedMode ?? VIEW_MODES.YEAR
 
   const updateUrl = useCallback(
     (patch: Record<string, string | null>, debounceSearch = false) => {
@@ -442,7 +470,14 @@ function TrackerPageContent() {
                 initialSearch={qParam}
                 initialType={initialType}
                 initialPage={initialPage}
-                onModeChange={(m) => updateUrl({ mode: m, page: null })}
+                onModeChange={(m) => {
+                  updateUrl({ mode: m, page: null })
+                  try {
+                    window.localStorage.setItem(VIEW_MODE_STORAGE_KEY, m)
+                  } catch {
+                    // Private mode / disabled storage — URL param still set.
+                  }
+                }}
                 onStatusFilterChange={(s) => updateUrl({ status: s, page: null })}
                 onSearchChange={(q) => updateUrl({ q: q.trim() || null }, true)}
                 onTypeChange={(t) => updateUrl({ type: t === "all" ? null : t, page: null })}

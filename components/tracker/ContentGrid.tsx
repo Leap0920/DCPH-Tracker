@@ -66,7 +66,12 @@ interface ContentGridProps {
   ratings?: Map<string, number>
   onSetRating?: (contentId: string, rating: number) => void
   onMarkAll?: (ids: string[], status: WatchStatus) => void
-  /** Initial values for the view mode / filters. Used for URL persistence. */
+  /**
+   * Initial values for the view mode / filters. The tracker page resolves these
+   * from the URL params first (?mode=… deep links), then falls back to the
+   * last view mode the user picked (localStorage), so leaving /tracker and
+   * coming back no longer snaps the dropdown back to By Year.
+   */
   initialMode?: ViewMode
   initialStatusFilter?: StatusFilter
   initialSearch?: string

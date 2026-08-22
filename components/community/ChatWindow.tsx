@@ -669,6 +669,12 @@ export function ChatWindow({
           </div>
         ) : (
           <div className="space-y-1">
+            {/* Retention notice — pinned to the top of the history so it is
+                seen before any message, unlike the composer footnote. */}
+            <p className="pb-2 pt-1 text-center font-mono text-[11px] text-ink-faint">
+              Messages automatically disappear after{" "}
+              {CHAT_RETENTION_HOURS} hours
+            </p>
             {hasMore && (
               <div className="flex justify-center py-2">
                 <button

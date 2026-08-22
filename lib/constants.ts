@@ -121,6 +121,7 @@ export const NAV_MAIN = [
 
 export const NAV_EXPLORE: NavSubItem[] = [
   { href: "/arcs", label: "Story Arcs", description: "Watch guide & arc breakdown", icon: "BookOpen" },
+  { href: "/cases", label: "Case Files", description: "Every crime catalogued — types, victims & methods", icon: "FileText" },
   { href: "/characters", label: "Characters", description: "Character profiles & relationships", icon: "Users" },
   { href: "/analytics", label: "Self Analytics", description: "Personal stats & viewing insights", icon: "BarChart3" },
 ];
