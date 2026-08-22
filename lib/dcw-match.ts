@@ -145,6 +145,39 @@ export async function fetchDcwCategoryIndex(
   return value;
 }
 
+/**
+ * Merge several category indexes into one. Each category keeps its own cache
+ * entry, so a single empty/failed category cannot poison the others (the
+ * magic_kaito case: two categories, either one may be renamed or emptied).
+ * Exact-map precedence follows the given category order (first wins).
+ */
+export async function fetchDcwCategoryIndexes(
+  get: DcwGetter,
+  categories: string[],
+): Promise<DcwCategoryIndex> {
+  const list = (categories ?? []).filter(
+    (category) => typeof category === "string" && category.trim().length > 0,
+  );
+  if (list.length === 0) return EMPTY_INDEX;
+  if (list.length === 1) return fetchDcwCategoryIndex(get, list[0] as string);
+
+  let indexes: DcwCategoryIndex[] = [];
+  try {
+    indexes = await Promise.all(list.map((category) => fetchDcwCategoryIndex(get, category)));
+  } catch {
+    return EMPTY_INDEX;
+  }
+
+  const exact = new Map<string, string>();
+  const entries: { title: string; tokens: Set<string> }[] = [];
+  for (const index of indexes) {
+    for (const [key, title] of index.exact) if (!exact.has(key)) exact.set(key, title);
+    for (const entry of index.entries) entries.push(entry);
+  }
+
+  return entries.length > 0 ? { exact, entries } : EMPTY_INDEX;
+}
+
 /** Exact normalized hit, else the best Jaccard match at or above threshold. */
 export function matchInIndex(
   index: DcwCategoryIndex,
@@ -179,11 +212,16 @@ type SearchResponseShape = {
 /**
  * Search DCW and pick the best of the top 5 by Jaccard instead of blindly
  * taking hit[0]. Junk pages (galleries, subpages, lists) are discarded first.
+ *
+ * `allowFirstHitFallback` defaults to true, so existing callers keep their
+ * exact previous behavior. Callers resolving numbered spin-off content pass
+ * false: for those rows hit[0] is reliably the wrong page (overview/index
+ * pages, or a neighbouring entry) and a wrong page is worse than no page.
  */
 export async function searchDcwBestTitle(
   get: DcwGetter,
   query: string,
-  options: { limit?: number; threshold?: number } = {},
+  options: { limit?: number; threshold?: number; allowFirstHitFallback?: boolean } = {},
 ): Promise<string | null> {
   const trimmed = query.trim();
   if (!trimmed) return null;
@@ -222,24 +260,274 @@ export async function searchDcwBestTitle(
   }
 
   if (best && bestScore >= threshold) return best;
-  return hits[0];
+  return options.allowFirstHitFallback === false ? null : (hits[0] ?? null);
 }
 
-/** content_entries.type -> DCW category holding that content's pages. */
-export function dcwCategoryForType(type?: string | null): string {
-  switch ((type ?? "").toLowerCase().trim()) {
+/** Canonical internal content-type key, tolerant of the DB's spelling variants. */
+export function normalizeContentType(type?: string | null): string {
+  const value = (type ?? "").toLowerCase().trim().replace(/[\s-]+/g, "_");
+  switch (value) {
+    case "episode":
+    case "episodes":
+    case "tv":
+    case "tv_episode":
+    case "tv_episodes":
+      return "episode";
     case "movie":
     case "movies":
-      return "Movies";
+      return "movie";
     case "ova":
     case "ovas":
-      return "OVAs";
+      return "ova";
     case "special":
     case "specials":
-    case "tv special":
     case "tv_special":
-      return "TV Specials";
+    case "tv_specials":
+      return "special";
+    case "live_action":
+    case "liveaction":
+    case "drama":
+      return "live_action";
+    case "magic_kaito":
+    case "magickaito":
+    case "magic_kaito_1412":
+      return "magic_kaito";
+    case "hanzawa":
+    case "culprit_hanzawa":
+    case "the_culprit_hanzawa":
+      return "hanzawa";
+    case "zero_tea_time":
+    case "zeros_tea_time":
+    case "zero's_tea_time":
+    case "zero_no_tiitaimu":
+      return "zero_tea_time";
     default:
-      return "Episodes";
+      return value;
   }
+}
+
+/**
+ * content_entries.type -> ordered DCW categories holding that content's pages.
+ *
+ * Verified against the live wiki: Category:TV_Specials, Category:Hanzawa and
+ * Category:Live_Action do not exist; the real homes are Specials,
+ * "The Culprit Hanzawa Episodes" and "Drama Episodes". Magic Kaito content is
+ * split across the 1412 series and the older TV specials.
+ */
+export function dcwCategoriesForType(type?: string | null): string[] {
+  switch (normalizeContentType(type)) {
+    case "movie":
+      return ["Movies"];
+    case "ova":
+      return ["OVAs"];
+    case "special":
+      return ["Specials"];
+    case "live_action":
+      return ["Drama Episodes"];
+    case "magic_kaito":
+      return ["Magic Kaito 1412 Episodes", "Magic Kaito TV Specials"];
+    case "hanzawa":
+      return ["The Culprit Hanzawa Episodes"];
+    case "zero_tea_time":
+      return ["Zero's Tea Time Episodes"];
+    default:
+      return ["Episodes"];
+  }
+}
+
+/**
+ * @deprecated Prefer dcwCategoriesForType. Kept so existing callers keep
+ * compiling and behaving; returns the primary category only.
+ */
+export function dcwCategoryForType(type?: string | null): string {
+  return dcwCategoriesForType(type)[0] as string;
+}
+
+/* ------------------------------------------------------------------ *
+ * Numbered overview tables: deterministic number -> canonical page.
+ *
+ * DCW names spin-off content pages by their real title ("The Time-Bombed
+ * Skyscraper"), never by number, and CirrusSearch returns zero hits for
+ * "Detective Conan Movie 01: ..." style queries. The only reliable number ->
+ * page mapping lives in the numbered overview tables, so we parse them.
+ * ------------------------------------------------------------------ */
+
+type OverviewSource = { page: string; template: string };
+
+const OVERVIEW_BY_TYPE: Record<string, OverviewSource> = {
+  movie: { page: "Regular movies", template: "MovieItem" },
+  special: { page: "TV Special", template: "SpecialItem" },
+  ova: { page: "OVAs", template: "OVAItem" },
+  hanzawa: { page: "The Culprit Hanzawa Season 1", template: "HanzawaSeasonItem" },
+  zero_tea_time: { page: "Zero's Tea Time Season 1", template: "ZTTSeasonItem" },
+};
+
+/**
+ * Overview / franchise index pages. These are never the specific content page
+ * for a numbered entry, and search likes to return them as hit[0]. Kept out of
+ * isJunkDcwTitle on purpose: other callers (images, franchise lookups) may
+ * legitimately want them.
+ */
+const OVERVIEW_DENY = new Set(
+  [
+    "Regular movies",
+    "Movies",
+    "TV Special",
+    "TV Specials",
+    "Specials",
+    "OVAs",
+    "OVA",
+    "Magic File",
+    "Secret File",
+    "Magic Kaito",
+    "Magic Kaito 1412",
+    "The Culprit Hanzawa",
+    "The Culprit Hanzawa Season 1",
+    "Zero's Tea Time",
+    "Zero\u2019s Tea Time",
+    "Zero's Tea Time Season 1",
+    "Zero\u2019s Tea Time Season 1",
+    "Drama",
+    "Live action",
+  ].map((title) => title.toLowerCase()),
+);
+
+export function isDcwOverviewTitle(title: string): boolean {
+  if (!title) return false;
+  return OVERVIEW_DENY.has(title.replace(/_/g, " ").trim().toLowerCase());
+}
+
+/** Chars scanned per row when the next row start is far away (long summaries). */
+const OVERVIEW_ROW_WINDOW = 4000;
+
+function overviewFieldNumber(field: string): number | null {
+  const cleaned = field.replace(/'+/g, "").replace(/\[\[|\]\]/g, "").trim();
+  const match = /^(?:[A-Za-z _-]{0,14}=\s*)?0*(\d{1,4})$/.exec(cleaned);
+  if (!match) return null;
+  const parsed = Number.parseInt(match[1] as string, 10);
+  return Number.isFinite(parsed) && parsed > 0 ? parsed : null;
+}
+
+/**
+ * Extract `N -> [[link]]` pairs from a numbered overview template.
+ *
+ * Rows look like `{{MovieItem|1|''[[The Time-Bombed Skyscraper]]''|date...}}`
+ * or `{{HanzawaSeasonItem|5|5|[[Along Came A Culprit]]|...|summary=...}}`.
+ * Nested templates and links inside `summary=` are tolerated by scanning a
+ * bounded window from each row start instead of balancing braces, and only the
+ * numeric fields ahead of the first wiki link are considered.
+ */
+export function parseNumberedOverview(
+  wikitext: string,
+  template: string,
+): Map<number, string> {
+  const out = new Map<number, string>();
+  if (!wikitext || !template) return out;
+
+  try {
+    const escaped = template.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+    const rowStart = new RegExp(`\\{\\{\\s*${escaped}\\s*\\|`, "gi");
+
+    const starts: number[] = [];
+    let match: RegExpExecArray | null = rowStart.exec(wikitext);
+    while (match !== null) {
+      starts.push(match.index + match[0].length);
+      match = rowStart.exec(wikitext);
+    }
+
+    for (let i = 0; i < starts.length; i += 1) {
+      const from = starts[i] as number;
+      const nextStart = i + 1 < starts.length ? (starts[i + 1] as number) : wikitext.length;
+      const hardEnd = Math.min(wikitext.length, nextStart, from + OVERVIEW_ROW_WINDOW);
+      const row = wikitext.slice(from, hardEnd);
+
+      const linkMatch = /\[\[([^\]|]+)(?:\|[^\]]*)?\]\]/.exec(row);
+      if (!linkMatch) continue;
+
+      // Only ''italic''/'''bold''' padding around the link target is stripped
+      // (runs of 2+ apostrophes at the edges). Single apostrophes and double
+      // quotes are real title characters: "The Part-Time Workers' Requiem",
+      // 'Next Conan's Hint "Hairball"'.
+      const title = (linkMatch[1] ?? "")
+        .replace(/\s+/g, " ")
+        .trim()
+        .replace(/^'{2,5}/, "")
+        .replace(/'{2,5}$/, "")
+        .trim();
+      if (!title || isJunkDcwTitle(title)) continue;
+
+      const head = row.slice(0, linkMatch.index);
+      const numbers: number[] = [];
+      for (const field of head.split("|").slice(0, 4)) {
+        const value = overviewFieldNumber(field);
+        if (value !== null) numbers.push(value);
+        if (numbers.length >= 2) break;
+      }
+
+      for (const n of numbers) {
+        if (!out.has(n)) out.set(n, title);
+      }
+    }
+  } catch {
+    // never throw
+  }
+
+  return out;
+}
+
+type ParseWikitextShape = {
+  parse?: { wikitext?: string | { "*"?: string } };
+};
+
+const overviewCache = new Map<string, { at: number; value: Map<number, string> }>();
+const overviewFailedAt = new Map<string, number>();
+const OVERVIEW_TTL_MS = 12 * 60 * 60 * 1000; // overview tables are near-static
+
+/**
+ * Resolve the canonical DCW page for item `n` of a numbered content type.
+ * Returns null for unmapped types, out-of-range numbers, and every failure.
+ */
+export async function resolveNumberedOverviewTitle(
+  get: DcwGetter,
+  type: string | null | undefined,
+  n: number,
+): Promise<string | null> {
+  if (!Number.isFinite(n) || n <= 0) return null;
+
+  const source = OVERVIEW_BY_TYPE[normalizeContentType(type)];
+  if (!source) return null;
+
+  const key = source.page.toLowerCase();
+  const now = Date.now();
+
+  const cached = overviewCache.get(key);
+  if (cached && now - cached.at < OVERVIEW_TTL_MS) return cached.value.get(n) ?? null;
+
+  const failedAt = overviewFailedAt.get(key);
+  if (failedAt && now - failedAt < INDEX_FAILURE_COOLDOWN_MS) return null;
+
+  let map = new Map<number, string>();
+  try {
+    const data = (await get({
+      action: "parse",
+      page: source.page,
+      prop: "wikitext",
+      redirects: "1",
+    })) as ParseWikitextShape | null | undefined;
+
+    const raw = data?.parse?.wikitext;
+    const wikitext = typeof raw === "string" ? raw : (raw?.["*"] ?? "");
+    map = parseNumberedOverview(wikitext, source.template);
+  } catch {
+    // never throw
+  }
+
+  if (map.size === 0) {
+    overviewFailedAt.set(key, now);
+    return null;
+  }
+
+  overviewCache.set(key, { at: now, value: map });
+  overviewFailedAt.delete(key);
+  return map.get(n) ?? null;
 }

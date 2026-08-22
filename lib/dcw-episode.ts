@@ -11,10 +11,14 @@
 
 import { DCW_API, DCW_USER_AGENT } from "@/lib/dcw";
 import {
-  dcwCategoryForType,
-  fetchDcwCategoryIndex,
+  dcwCategoriesForType,
+  fetchDcwCategoryIndexes,
+  isDcwOverviewTitle,
   isJunkDcwTitle,
   matchInIndex,
+  normalizeContentType,
+  normalizeMatchTitle,
+  resolveNumberedOverviewTitle,
   searchDcwBestTitle,
   type DcwGetter,
 } from "@/lib/dcw-match";
@@ -257,8 +261,37 @@ async function fetchWikitext(
 const dcwGetter: DcwGetter = (params) => dcwGet(params as never);
 
 /** Hard ceiling on network attempts per resolution, to bound latency. */
-const MAX_CANDIDATE_ATTEMPTS = 10;
+const MAX_CANDIDATE_ATTEMPTS = 14;
 const MAX_VARIANT_ATTEMPTS = 4;
+/** Strip variants get their own budget: they are the high-value guesses. */
+const MAX_STRIP_ATTEMPTS = 5;
+/** Search is the only unbounded-cost tier; keep the seed count small. */
+const MAX_SEARCH_SEEDS = 4;
+/** Bound on derived candidates so a pathological title cannot fan out. */
+const MAX_STRIP_CANDIDATES = 12;
+
+/**
+ * Titles stored in content_entries that no amount of normalisation reaches,
+ * mapped to their verified canonical DCW page. Keep this tiny and exact.
+ */
+const DCW_TITLE_ALIASES = new Map<string, string>([
+  [
+    "compilation movie (the story of haibara)",
+    "The Story of Ai Haibara ~Black Iron Mystery Train~",
+  ],
+  [
+    "compilation movie: the story of haibara",
+    "The Story of Ai Haibara ~Black Iron Mystery Train~",
+  ],
+  ["the story of haibara", "The Story of Ai Haibara ~Black Iron Mystery Train~"],
+  ["detective conan magic file: 01", "Magic File 1"],
+  ["detective conan magic file: 1", "Magic File 1"],
+]);
+
+function aliasFor(raw: string): string | null {
+  const key = normalizeDcwTitle(raw).toLowerCase();
+  return DCW_TITLE_ALIASES.get(key) ?? null;
+}
 
 /**
  * Negative results live in their own short-TTL map. Misses are usually
@@ -290,6 +323,77 @@ function normalizeEpisodeNumber(value?: number | string | null): number | null {
   return Math.trunc(parsed);
 }
 
+/* ------------------------------------------------- derived numeric hints */
+
+/**
+ * Structured number patterns per content type. Only these feed the numbered
+ * overview tables: a bare trailing number is far too loose (e.g. "Aoyama Short
+ * Stories Part 1" must never be read as "OVA 1").
+ */
+const OVERVIEW_NUMBER_PATTERNS: Record<string, RegExp[]> = {
+  movie: [/\bmovie\s*(?:no\.?\s*)?0*(\d{1,2})\b/i],
+  special: [/\b(?:tv\s*)?special\s*(?:no\.?\s*)?0*(\d{1,2})\b/i],
+  ova: [/\bova\s*(?:no\.?\s*)?0*(\d{1,2})\b/i],
+  hanzawa: [/\bhanzawa\s*(?:episode\s*)?0*(\d{1,2})\b/i],
+  zero_tea_time: [
+    /\btime\.\s*0*(\d{1,2})\b/i,
+    /\btea\s*time\s*(?:episode\s*)?0*(\d{1,2})\b/i,
+  ],
+};
+
+function firstPatternNumber(values: string[], patterns: RegExp[]): number | null {
+  for (const value of values) {
+    if (!value) continue;
+    for (const pattern of patterns) {
+      const match = pattern.exec(value);
+      if (!match) continue;
+      const parsed = normalizeEpisodeNumber(match[1]);
+      if (parsed !== null && parsed <= 999) return parsed;
+    }
+  }
+  return null;
+}
+
+/** Number usable against a numbered overview table, or null. */
+function deriveOverviewNumber(normalizedType: string, values: string[]): number | null {
+  const patterns = OVERVIEW_NUMBER_PATTERNS[normalizedType];
+  if (!patterns) return null;
+  return firstPatternNumber(values, patterns);
+}
+
+/**
+ * Loose trailing number ("A Witch Sheds No Tears 04"). Used only to decide that
+ * a numeric hint exists — never to index into an overview table.
+ */
+function deriveLooseNumber(values: string[]): number | null {
+  return firstPatternNumber(values, [
+    /(?:^|\s)0*(\d{1,2})(?:\s*[-\u2013\u2014]\s*0*\d{1,3})?\s*$/,
+  ]);
+}
+
+function numbersIn(value: string): Set<number> {
+  const out = new Set<number>();
+  const matches = value.match(/\d{1,3}/g) ?? [];
+  for (const raw of matches) {
+    const parsed = Number.parseInt(raw, 10);
+    if (Number.isFinite(parsed) && parsed > 0) out.add(parsed);
+  }
+  return out;
+}
+
+/**
+ * True when both titles carry numbers and share none. Kills search hits that
+ * land on a neighbouring numbered entry (e.g. "... 10" -> "... 11" page).
+ */
+function numbersConflict(seed: string, candidate: string): boolean {
+  const seedNumbers = numbersIn(seed);
+  if (seedNumbers.size === 0) return false;
+  const candidateNumbers = numbersIn(candidate);
+  if (candidateNumbers.size === 0) return false;
+  for (const n of seedNumbers) if (candidateNumbers.has(n)) return false;
+  return true;
+}
+
 /**
  * Cheap orthographic variants of a DB title. Guesses only — tried after the
  * category index, and capped by MAX_VARIANT_ATTEMPTS.
@@ -316,6 +420,121 @@ function titleVariants(raw: string): string[] {
   push(base.replace(/^The\s+/i, ""));
   push(`The ${base}`);
 
+  return out;
+}
+
+/**
+ * Structural strip variants of a DB title. Unlike titleVariants (spelling
+ * guesses) these peel off the packaging the tracker DB adds around canonical
+ * DCW names:
+ *
+ *   "[OVA] Shogakukan Illustrated Encyclopedia #01 - Crime Prevention Guide"
+ *   "Detective Conan Magic File 2: Shinichi Kudo..."   -> "Magic File 2: ..."
+ *   "Detective Conan Movie 01: The Timed Skyscraper"   -> "The Timed Skyscraper"
+ *   "A Witch Sheds No Tears 04"                        -> "A Witch Sheds No Tears"
+ *   "Detective Conan vs Wooo 01-02"                    -> "Detective Conan vs. Wooo"
+ */
+/**
+ * DB titles that drop the apostrophe from a contraction ("Lets Try a Curious
+ * Experiment!" vs the canonical "Let's Try a Curious Experiment!").
+ * normalizeMatchTitle splits "let's" into "let s", which drags Jaccard to 0.5
+ * and misses the 0.6 index threshold. Additive candidates only, whitelisted so
+ * real plurals are never touched.
+ */
+const CONTRACTION_FIXES: ReadonlyArray<readonly [RegExp, string]> = [
+  [/\bLets\b/g, "Let's"],
+  [/\bDont\b/g, "Don't"],
+  [/\bDidnt\b/g, "Didn't"],
+  [/\bDoesnt\b/g, "Doesn't"],
+  [/\bCant\b/g, "Can't"],
+  [/\bWont\b/g, "Won't"],
+  [/\bIsnt\b/g, "Isn't"],
+  [/\bWasnt\b/g, "Wasn't"],
+  [/\bThats\b/g, "That's"],
+  [/\bWhats\b/g, "What's"],
+];
+
+function stripVariants(raw: string): string[] {
+  const base = normalizeDcwTitle(raw);
+  if (!base) return [];
+
+  const cores: string[] = [];
+  const addCore = (value: string | null | undefined) => {
+    if (!value) return;
+    const cleaned = normalizeDcwTitle(value);
+    if (cleaned.length < 3) return;
+    if (cores.length >= MAX_STRIP_CANDIDATES) return;
+    if (cores.some((core) => core.toLowerCase() === cleaned.toLowerCase())) return;
+    cores.push(cleaned);
+  };
+
+  addCore(base);
+
+  // 1. Leading bracket tag: "[OVA] Foo" -> "Foo".
+  const bracketless = base.replace(/^\s*\[[^\]]*\]\s*/, "");
+  if (bracketless !== base) addCore(bracketless);
+
+  // 2. Bare franchise prefix. Deliberately does NOT swallow a following
+  //    "Magic File 2:" / "Secret File 3:" segment, because those ARE the
+  //    canonical page names. Guarded so "Detective Conan vs Wooo" survives.
+  const franchise = /^(?:detective conan|case closed|meitantei conan)\s+(.+)$/i.exec(
+    bracketless,
+  );
+  const franchiseRest = franchise?.[1]?.trim() ?? null;
+  if (franchiseRest && !/^vs\b|^vs\./i.test(franchiseRest)) addCore(franchiseRest);
+
+  // 3. "#03 - Title" and generic " - Title" tails.
+  for (const core of [...cores]) {
+    const hash = /#\s*\d{1,3}\s*[-\u2013\u2014]\s*(.+)$/.exec(core);
+    if (hash?.[1]) addCore(hash[1]);
+    const dashParts = core.split(/\s[-\u2013\u2014]\s/);
+    if (dashParts.length > 1) addCore(dashParts[dashParts.length - 1]);
+  }
+
+  // 4. Colon split, after then before.
+  for (const core of [...cores]) {
+    const colon = core.search(/[:\uff1a]/);
+    if (colon <= 0) continue;
+    const tail = core.slice(colon + 1).trim();
+    if (tail.length >= 3) addCore(tail);
+    const head = core.slice(0, colon).trim();
+    if (head.length >= 4) addCore(head);
+  }
+
+  // 5. "vs" / "vs." punctuation swap.
+  for (const core of [...cores]) {
+    if (/\bvs\.\s/i.test(core)) addCore(core.replace(/\bvs\.\s/gi, "vs "));
+    else if (/\bvs\s/i.test(core)) addCore(core.replace(/\bvs\s/gi, "vs. "));
+  }
+
+  // 5b. Missing apostrophe in a contraction: "Lets Try ..." -> "Let's Try ...".
+  for (const core of [...cores]) {
+    let fixed = core;
+    for (const [pattern, replacement] of CONTRACTION_FIXES) {
+      fixed = fixed.replace(pattern, replacement);
+    }
+    if (fixed !== core) addCore(fixed);
+  }
+
+  // 6. Trailing episode number or range, applied to everything above.
+  for (const core of [...cores]) {
+    const trimmed = core
+      .replace(/\s+0*\d{1,2}(?:\s*[-\u2013\u2014]\s*0*\d{1,3})?\s*$/, "")
+      .trim();
+    if (trimmed !== core) addCore(trimmed);
+  }
+
+  const out: string[] = [];
+  for (const core of cores) {
+    const cleaned = normalizeDcwTitle(
+      core.replace(/^[\s\-\u2013\u2014:\uff1a|,]+/, "").replace(/[\s\-\u2013\u2014:\uff1a|,]+$/, ""),
+    );
+    if (!cleaned || cleaned.length < 3) continue;
+    if (!/[A-Za-z]/.test(cleaned)) continue;
+    if (cleaned.toLowerCase() === base.toLowerCase()) continue;
+    if (out.some((value) => value.toLowerCase() === cleaned.toLowerCase())) continue;
+    out.push(cleaned);
+  }
   return out;
 }
 
@@ -911,13 +1130,31 @@ export type GetDcwEpisodeArgs = {
   fallbackTitle?: string | null;
   /** Optional hint. Absent -> behavior identical to before. */
   episodeNumber?: number | string | null;
-  /** Optional hint: content_entries.type ("episode" | "movie" | "ova" | "special"). */
+  /**
+   * Optional hint: content_entries.type ("episode" | "movie" | "ova" |
+   * "special" | "live_action" | "magic_kaito" | "hanzawa" | "zero_tea_time").
+   */
   contentType?: string | null;
 };
 
 /**
- * Resolve and parse a DCW page. Tries dcw_title, then the entry title, then a
- * wiki search on the entry title. Returns null when nothing usable is found.
+ * Resolve and parse a DCW page.
+ *
+ * Tier 0   dcw_title, then the entry title, verbatim.
+ * Tier 0b  explicit alias map.
+ * Tier 1   numbered overview table (Movie N / TV Special N / OVA N /
+ *          Hanzawa N / TIME.N) -> canonical page. The only reliable path for
+ *          numbered spin-off content, whose DCW pages are named by title only.
+ * Tier 1b  "Episode N" stub, TV episodes only (never for spin-offs, whose
+ *          numbers collide with the TV episode numbering).
+ * Tier 2   canonical category index, fed the raw + structurally stripped
+ *          candidates; exact hits first, then Jaccard.
+ * Tier 3   stripped candidates fetched directly.
+ * Tier 4   cheap orthographic variants.
+ * Tier 5   search, with hit[0] guessing disabled for spin-offs.
+ * Tier 6   a trusted page that parsed thin.
+ *
+ * Returns null when nothing usable is found.
  */
 export async function getDcwEpisodeDetails(
   args: GetDcwEpisodeArgs,
@@ -948,6 +1185,21 @@ export async function getDcwEpisodeDetails(
   if (cached) return cached.value;
   if (isNegativeCached(cacheKey)) return null;
 
+  const normalizedType = normalizeContentType(contentType);
+  /** No type at all keeps the old TV-episode behavior (backfill scripts). */
+  const isTvEpisodeType = normalizedType === "" || normalizedType === "episode";
+  /**
+   * Spin-off rows must never resolve to a franchise/overview index page: that
+   * is the current wrong-page bug (Magic File entries, Hanzawa row 1).
+   */
+  const denyOverviewPages = !isTvEpisodeType;
+
+  // content_entries.episode_number is null for every non-magic_kaito spin-off
+  // row, so the number has to be derived from the stored titles.
+  const overviewNumber =
+    deriveOverviewNumber(normalizedType, primary) ??
+    (isTvEpisodeType ? null : episodeNumber);
+
   const tried = new Set<string>();
   let attempts = 0;
   /** Page exists but parsed empty, from a trusted candidate only. */
@@ -961,30 +1213,52 @@ export async function getDcwEpisodeDetails(
 
   /**
    * Fetch + parse one candidate.
-   * trusted=true means the candidate is deterministic (given title, Episode N,
-   * category-index match), so an empty parse may be kept as a weak fallback.
-   * Fuzzy search hits are never trusted.
+   * trusted=true means the candidate is deterministic (given title, alias,
+   * overview row, Episode N, category-index match), so an empty parse may be
+   * kept as a weak fallback. Fuzzy search hits are never trusted.
    */
   const attempt = async (
     candidate: string,
     trusted: boolean,
+    /** Alias tier only: the target is hand-verified, so the overview-page
+     *  guard is bypassed. Needed for "Magic File 1", which DCW redirects to
+     *  the "Magic File" page that doubles as its content page. */
+    allowOverviewPage = false,
   ): Promise<DcwEpisodeDetails | null> => {
     const normalized = normalizeDcwTitle(candidate);
     if (!normalized) return null;
 
     const key = normalized.toLowerCase();
     if (tried.has(key)) return null;
-    tried.add(key);
 
     if (isJunkDcwTitle(normalized)) return null;
+    if (denyOverviewPages && !allowOverviewPage && isDcwOverviewTitle(normalized)) return null;
+
+    // Budget is checked BEFORE marking the candidate as tried, so a candidate
+    // skipped for cost is not permanently burned for later tiers.
     if (attempts >= MAX_CANDIDATE_ATTEMPTS) return null;
+
+    tried.add(key);
     attempts += 1;
 
-    const page = await fetchWikitext(normalized);
+    let page: { title: string; pageId: number | null; wikitext: string } | null = null;
+    try {
+      page = await fetchWikitext(normalized);
+    } catch {
+      return null;
+    }
     if (!page) return null;
 
-    const details = parseDcwEpisodeWikitext(page.wikitext, page.title, page.pageId);
-    if (hasContent(details)) return details;
+    // Redirects can land on an overview page even from a specific candidate.
+    if (denyOverviewPages && !allowOverviewPage && isDcwOverviewTitle(page.title)) return null;
+
+    let details: DcwEpisodeDetails | null = null;
+    try {
+      details = parseDcwEpisodeWikitext(page.wikitext, page.title, page.pageId);
+    } catch {
+      return null;
+    }
+    if (details && hasContent(details)) return details;
 
     if (trusted && !weak && details) weak = details;
     return null;
@@ -996,24 +1270,91 @@ export async function getDcwEpisodeDetails(
     if (details) return succeed(details);
   }
 
-  // --- Tier 1: "Episode N" stub/redirect (hint-gated, one call).
-  if (episodeNumber !== null) {
-    const details = await attempt(`Episode ${episodeNumber}`, true);
+  // --- Tier 0b: explicit alias map for titles no rule can reach.
+  for (const candidate of primary) {
+    const alias = aliasFor(candidate);
+    if (!alias) continue;
+    const details = await attempt(alias, true, true);
     if (details) return succeed(details);
   }
 
-  // --- Tier 2: canonical category index + Jaccard (cached per process).
-  const index = await fetchDcwCategoryIndex(dcwGetter, dcwCategoryForType(contentType));
-  if (index.entries.length > 0) {
-    for (const candidate of primary) {
-      const matched = matchInIndex(index, candidate, 0.6);
-      if (!matched) continue;
-      const details = await attempt(matched, true);
+  // --- Tier 1: numbered overview tables (deterministic number -> page).
+  if (overviewNumber !== null) {
+    let mapped: string | null = null;
+    try {
+      mapped = await resolveNumberedOverviewTitle(dcwGetter, normalizedType, overviewNumber);
+    } catch {
+      mapped = null;
+    }
+    if (mapped) {
+      const details = await attempt(mapped, true);
+      if (details) return succeed(details);
+    }
+    if (normalizedType === "zero_tea_time") {
+      const details = await attempt(`TIME.${overviewNumber}`, true);
       if (details) return succeed(details);
     }
   }
 
-  // --- Tier 3: cheap orthographic variants (capped).
+  // --- Tier 1b: "Episode N" stub/redirect. TV episodes only: for spin-offs
+  // this page exists but belongs to the wrong universe of content.
+  if (episodeNumber !== null && isTvEpisodeType) {
+    const details = await attempt(`Episode ${episodeNumber}`, true);
+    if (details) return succeed(details);
+  }
+
+  // --- Structural strip candidates, shared by tiers 2, 3 and 5.
+  const stripped: string[] = [];
+  for (const candidate of primary) {
+    for (const variant of stripVariants(candidate)) {
+      const key = variant.toLowerCase();
+      if (primary.some((value) => value.toLowerCase() === key)) continue;
+      if (stripped.some((value) => value.toLowerCase() === key)) continue;
+      stripped.push(variant);
+    }
+  }
+
+  // --- Tier 2: canonical category index + Jaccard (cached per process),
+  // fed every candidate. Exact normalized hits win over any fuzzy score.
+  try {
+    const index = await fetchDcwCategoryIndexes(
+      dcwGetter,
+      dcwCategoriesForType(normalizedType),
+    );
+    if (index.entries.length > 0) {
+      const candidates = [...primary, ...stripped];
+
+      for (const candidate of candidates) {
+        const normalized = normalizeMatchTitle(candidate);
+        if (!normalized) continue;
+        const hit = index.exact.get(normalized);
+        if (!hit) continue;
+        const details = await attempt(hit, true);
+        if (details) return succeed(details);
+      }
+
+      for (const candidate of candidates) {
+        const matched = matchInIndex(index, candidate, 0.6);
+        if (!matched) continue;
+        const details = await attempt(matched, true);
+        if (details) return succeed(details);
+      }
+    }
+  } catch {
+    // never throw: fall through to the remaining tiers
+  }
+
+  // --- Tier 3: stripped candidates fetched directly (own budget).
+  let stripAttempts = 0;
+  for (const variant of stripped) {
+    if (stripAttempts >= MAX_STRIP_ATTEMPTS) break;
+    if (tried.has(variant.toLowerCase())) continue;
+    stripAttempts += 1;
+    const details = await attempt(variant, true);
+    if (details) return succeed(details);
+  }
+
+  // --- Tier 4: cheap orthographic variants (capped).
   let variantAttempts = 0;
   for (const candidate of primary) {
     for (const variant of titleVariants(candidate)) {
@@ -1026,19 +1367,33 @@ export async function getDcwEpisodeDetails(
     if (variantAttempts >= MAX_VARIANT_ATTEMPTS) break;
   }
 
-  // --- Tier 4: smarter search (top 5, junk-filtered, best Jaccard).
+  // --- Tier 5: smarter search (top 5, junk-filtered, best Jaccard).
+  // Spin-off rows do not get the hit[0] guess: DCW search returns zero useful
+  // hits for their stored titles, so hit[0] is reliably the wrong page.
   const searchSeeds: string[] = [];
-  for (const seed of [primary[primary.length - 1], primary[0]]) {
-    if (seed && !searchSeeds.includes(seed)) searchSeeds.push(seed);
+  for (const seed of [primary[primary.length - 1], primary[0], ...stripped]) {
+    if (!seed) continue;
+    if (searchSeeds.includes(seed)) continue;
+    searchSeeds.push(seed);
+    if (searchSeeds.length >= MAX_SEARCH_SEEDS) break;
   }
+
+  const allowFirstHitFallback = isTvEpisodeType;
   for (const seed of searchSeeds) {
-    const found = await searchDcwBestTitle(dcwGetter, seed);
+    let found: string | null = null;
+    try {
+      found = await searchDcwBestTitle(dcwGetter, seed, { allowFirstHitFallback });
+    } catch {
+      found = null;
+    }
     if (!found) continue;
+    if (denyOverviewPages && isDcwOverviewTitle(found)) continue;
+    if (numbersConflict(seed, found)) continue;
     const details = await attempt(found, false);
     if (details) return succeed(details);
   }
 
-  // --- Tier 5: a real page was found but parsed thin. Better than nothing,
+  // --- Tier 6: a real page was found but parsed thin. Better than nothing,
   // and only ever from a trusted candidate.
   if (weak) return succeed(weak);
 
