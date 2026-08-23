@@ -482,7 +482,7 @@ export default async function CasesPage({
             stay sealed until you open them — they name the culprit.
           </p>
 
-          <dl className="mt-6 flex flex-wrap gap-x-10 gap-y-3 border-y border-line py-4">
+          <dl className="mt-6 grid grid-cols-2 gap-4 border-y border-line py-4 sm:flex sm:flex-wrap sm:gap-x-10 sm:gap-y-3">
             <Stat label="Crimes" value={archiveTotal} />
             <Stat label="Files" value={caseFiles.length > 0 ? Math.ceil(total / PAGE_SIZE) : 0} />
             <Stat label="Categories" value={crimeFacets.length} />
@@ -491,31 +491,29 @@ export default async function CasesPage({
         </header>
 
         {/* ── Filter console ── */}
-        <div className="-mx-4 sm:-mx-6">
-          <CaseFilterBar
-            q={q}
-            contentType={contentType}
-            typeSlug={typeSlug}
-            causeSlug={causeSlug}
-            sort={sort}
-            link={linkFilter}
-            contentTypeOptions={contentTypeOptions}
-            crimeOptions={crimeFacets.map((f) => ({
-              value: f.slug,
-              label: f.label,
-              count: f.count,
-            }))}
-            methodOptions={methodFacets.map((f) => ({
-              value: f.slug,
-              label: f.label,
-              count: f.count,
-            }))}
-            sortOptions={SORT_OPTIONS}
-            linkOptions={LINK_OPTIONS}
-            defaultSort={DEFAULT_SORT}
-            resultSummary={resultSummary}
-          />
-        </div>
+        <CaseFilterBar
+          q={q}
+          contentType={contentType}
+          typeSlug={typeSlug}
+          causeSlug={causeSlug}
+          sort={sort}
+          link={linkFilter}
+          contentTypeOptions={contentTypeOptions}
+          crimeOptions={crimeFacets.map((f) => ({
+            value: f.slug,
+            label: f.label,
+            count: f.count,
+          }))}
+          methodOptions={methodFacets.map((f) => ({
+            value: f.slug,
+            label: f.label,
+            count: f.count,
+          }))}
+          sortOptions={SORT_OPTIONS}
+          linkOptions={LINK_OPTIONS}
+          defaultSort={DEFAULT_SORT}
+          resultSummary={resultSummary}
+        />
 
         {/* ── Ledger ── */}
         {caseFiles.length === 0 ? (
@@ -547,15 +545,17 @@ export default async function CasesPage({
                   />
 
                   <div className="border-b border-line px-4 py-4 pl-5 transition-colors hover:bg-surface-muted/40 sm:pl-7">
-                    <div className="flex flex-wrap items-baseline gap-x-3 gap-y-1">
-                      <span className="font-mono text-[10px] uppercase tracking-[0.12em] text-ink-faint">
-                        File no. {fileNo}
-                      </span>
-                      {file.dateText && (
-                        <span className="font-mono text-[10px] text-ink-faint">{file.dateText}</span>
-                      )}
+                    <div className="flex flex-wrap items-baseline justify-between gap-x-3 gap-y-1.5">
+                      <div className="flex flex-wrap items-baseline gap-x-2.5">
+                        <span className="font-mono text-[10px] uppercase tracking-[0.12em] text-ink-faint">
+                          File no. {fileNo}
+                        </span>
+                        {file.dateText && (
+                          <span className="font-mono text-[10px] text-ink-faint">{file.dateText}</span>
+                        )}
+                      </div>
 
-                      <span className="ml-auto flex flex-wrap items-center justify-end gap-1">
+                      <span className="flex flex-wrap items-center gap-1">
                         {file.crimeBadges.map((badge) => (
                           <span
                             key={badge.slug || badge.type}
@@ -586,7 +586,7 @@ export default async function CasesPage({
                     {isMulti ? (
                       <>
                         {/* Roll-up so the collapsed card still says who and where. */}
-                        <dl className="mt-2.5 grid gap-x-8 gap-y-1.5 sm:grid-cols-2 lg:grid-cols-3">
+                        <dl className="mt-2.5 grid grid-cols-1 gap-x-8 gap-y-1.5 sm:grid-cols-2 lg:grid-cols-3">
                           {file.victims.length > 0 && (
                             <Field
                               label={file.victims.length > 1 ? "Victims" : primary.victimLabel ?? "Victim"}
@@ -770,7 +770,7 @@ function Field({
   icon?: React.ReactNode
 }) {
   return (
-    <div className="min-w-0">
+    <div className="min-w-0 break-words">
       <dt className="flex items-center gap-1 font-mono text-[10px] uppercase tracking-wide text-ink-faint">
         {icon}
         {label}
@@ -782,7 +782,7 @@ function Field({
 
 function CrimeFieldGrid({ crime }: { crime: CaseCrime }) {
   return (
-    <dl className="mt-2.5 grid gap-x-8 gap-y-1.5 sm:grid-cols-2 lg:grid-cols-3">
+    <dl className="mt-2.5 grid grid-cols-1 gap-x-8 gap-y-1.5 sm:grid-cols-2 lg:grid-cols-3">
       {crime.victim && <Field label={crime.victimLabel ?? "Victim"} value={crime.victim} />}
       {crime.causeDeath && (
         <Field label={crime.causeDeathLabel ?? "Cause of death"} value={crime.causeDeath} />

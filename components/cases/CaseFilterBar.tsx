@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useRef, useState } from "react"
 import { useRouter, useSearchParams } from "next/navigation"
 import { Search, SlidersHorizontal, X } from "lucide-react"
+import { cn } from "@/lib/utils"
 import {
   Select,
   SelectContent,
@@ -62,6 +63,7 @@ export function CaseFilterBar({
   const router = useRouter()
   const searchParams = useSearchParams()
   const [search, setSearch] = useState(q)
+  const [isMobileFiltersOpen, setIsMobileFiltersOpen] = useState(false)
   const debounce = useRef<ReturnType<typeof setTimeout> | null>(null)
 
   // Keep the input in step with back/forward navigation and pill dismissal.
@@ -134,55 +136,88 @@ export function CaseFilterBar({
     })
   }
 
+  const selectFiltersCount = [
+    contentType && contentType !== ANY,
+    Boolean(typeSlug),
+    Boolean(causeSlug),
+    link && link !== ANY,
+    sort && sort !== defaultSort,
+  ].filter(Boolean).length
+
   return (
     <div className="sticky top-16 z-20 -mx-4 border-y border-line bg-surface/95 px-4 py-3 backdrop-blur sm:-mx-6 sm:px-6">
-      <div className="flex items-center gap-2 pb-2.5">
-        <SlidersHorizontal className="h-3.5 w-3.5 text-ink-faint" />
-        <span className="font-mono text-[10px] uppercase tracking-[0.12em] text-ink-faint">
-          Filter the archive
-        </span>
-        <span className="ml-auto font-mono text-[10px] tabular-nums text-ink-dim">
+      <div className="flex items-center justify-between gap-2 pb-2.5">
+        <div className="flex shrink-0 items-center gap-1.5">
+          <SlidersHorizontal className="h-3.5 w-3.5 text-ink-faint" />
+          <span className="font-mono text-[10px] uppercase tracking-[0.12em] text-ink-faint">
+            Filter the archive
+          </span>
+        </div>
+        <span className="min-w-0 flex-1 truncate text-right font-mono text-[10px] tabular-nums text-ink-dim">
           {resultSummary}
         </span>
       </div>
 
-      {/* Search — form so Enter works, debounced so typing works. */}
-      <form
-        action="/cases"
-        onSubmit={(event) => {
-          event.preventDefault()
-          pushPatch({ q: search.trim() || null })
-        }}
-        className="relative"
-      >
-        <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-ink-faint" />
-        <input
-          name="q"
-          value={search}
-          onChange={(event) => {
-            setSearch(event.target.value)
-            pushPatch({ q: event.target.value.trim() || null }, 350)
+      {/* Search and Mobile Filters Toggle */}
+      <div className="flex items-center gap-2">
+        <form
+          action="/cases"
+          onSubmit={(event) => {
+            event.preventDefault()
+            pushPatch({ q: search.trim() || null })
           }}
-          placeholder="Search victim, case or location…"
-          className="h-9 w-full rounded-lg border border-line bg-surface-muted pl-9 pr-9 text-sm text-ink placeholder:text-ink-faint focus:border-accent focus:outline-none focus-visible:ring-1 focus-visible:ring-accent/30"
-        />
-        {search && (
-          <button
-            type="button"
-            onClick={() => {
-              setSearch("")
-              pushPatch({ q: null })
+          className="relative min-w-0 flex-1"
+        >
+          <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-ink-faint" />
+          <input
+            name="q"
+            value={search}
+            onChange={(event) => {
+              setSearch(event.target.value)
+              pushPatch({ q: event.target.value.trim() || null }, 350)
             }}
-            aria-label="Clear search"
-            className="absolute right-2 top-1/2 -translate-y-1/2 rounded p-1 text-ink-faint transition-colors hover:text-ink focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-accent/40"
-          >
-            <X className="h-3.5 w-3.5" />
-          </button>
-        )}
-      </form>
+            placeholder="Search victim, case or location…"
+            className="h-9 w-full rounded-lg border border-line bg-surface-muted pl-9 pr-9 text-sm text-ink placeholder:text-ink-faint focus:border-accent focus:outline-none focus-visible:ring-1 focus-visible:ring-accent/30"
+          />
+          {search && (
+            <button
+              type="button"
+              onClick={() => {
+                setSearch("")
+                pushPatch({ q: null })
+              }}
+              aria-label="Clear search"
+              className="absolute right-2 top-1/2 -translate-y-1/2 rounded p-1 text-ink-faint transition-colors hover:text-ink focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-accent/40"
+            >
+              <X className="h-3.5 w-3.5" />
+            </button>
+          )}
+        </form>
 
-      {/* Five dropdowns — the primary controls. Content type leads. */}
-      <div className="mt-2 grid grid-cols-1 gap-2 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5">
+        <button
+          type="button"
+          onClick={() => setIsMobileFiltersOpen((prev) => !prev)}
+          className="inline-flex h-9 shrink-0 items-center gap-1.5 rounded-lg border border-line bg-surface-muted px-3 font-mono text-xs text-ink-dim transition-colors hover:border-ink hover:text-ink focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-accent/40 sm:hidden"
+          aria-expanded={isMobileFiltersOpen}
+          aria-label="Toggle filter options"
+        >
+          <SlidersHorizontal className="h-3.5 w-3.5" />
+          <span>Filters</span>
+          {selectFiltersCount > 0 && (
+            <span className="inline-flex h-4 min-w-4 items-center justify-center rounded-full bg-accent/20 px-1 font-mono text-[10px] font-medium text-accent-bright">
+              {selectFiltersCount}
+            </span>
+          )}
+        </button>
+      </div>
+
+      {/* Five dropdowns — 2 columns on mobile, 5 columns on desktop */}
+      <div
+        className={cn(
+          "mt-2.5 gap-2 sm:grid sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5",
+          isMobileFiltersOpen ? "grid grid-cols-2" : "hidden"
+        )}
+      >
         <FilterSelect
           label="Content type"
           value={contentType || ANY}
@@ -191,7 +226,6 @@ export function CaseFilterBar({
           onChange={(value) =>
             pushPatch({
               format: value,
-              // Clearing an impossible combination beats rendering zero rows.
               link: value !== ANY && link === "wiki" ? null : undefined,
             })
           }
@@ -216,15 +250,17 @@ export function CaseFilterBar({
           options={visibleLinkOptions}
           onChange={(value) => pushPatch({ link: value })}
         />
-        <FilterSelect
-          label="Sort"
-          value={sort}
-          options={sortOptions}
-          onChange={(value) => pushPatch({ sort: value === defaultSort ? null : value })}
-        />
+        <div className="col-span-2 sm:col-span-1">
+          <FilterSelect
+            label="Sort"
+            value={sort}
+            options={sortOptions}
+            onChange={(value) => pushPatch({ sort: value === defaultSort ? null : value })}
+          />
+        </div>
       </div>
 
-      {/* Active filters — the only place the current subset is legible at a glance. */}
+      {/* Active filters — visible at a glance. */}
       {activeFilters.length > 0 && (
         <div className="mt-2.5 flex flex-wrap items-center gap-1.5">
           <span className="font-mono text-[10px] uppercase tracking-wide text-ink-faint">
@@ -290,3 +326,4 @@ function FilterSelect({
     </label>
   )
 }
+
