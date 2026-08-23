@@ -515,3 +515,116 @@ function buildCase(body: string, caseIndex: number): ParsedCrimeCase {
     imageName: nullIfBlank((params.get("image") ?? "").replace(/\[\[|\]\]/g, ""), 300),
   }
 }
+
+/* ────────────────── People section → culprit extraction ────────────────── */
+
+export interface ParsedPerson {
+  name: string
+  roles: string[]
+  isCulprit: boolean
+}
+
+const CULPRIT_ROLE =
+  /^(?:the\s+)?(?:culprits?|murderers?|killers?|perpetrators?|bombers?|kidnappers?|poisoners?|accomplices?|mastermind)\b/i
+
+const NON_CULPRIT_ROLE =
+  /^(?:victims?|suspects?|witness(?:es)?|deceased|detectives?|police|officers?|clients?|bystanders?)\b/i
+
+function extractWikiSection(wikitext: string, heading: RegExp): string | null {
+  const match = heading.exec(wikitext)
+  if (!match) return null
+  const rest = wikitext.slice(match.index + match[0].length)
+  const next = /^==[^=]/m.exec(rest)
+  return next ? rest.slice(0, next.index) : rest
+}
+
+function findWikiTemplates(source: string, templateName: string): string[] {
+  const bodies: string[] = []
+  const opener = new RegExp(`\\{\\{\\s*${templateName}\\s*\\|`, "gi")
+  let match: RegExpExecArray | null
+
+  while ((match = opener.exec(source)) !== null) {
+    let depth = 1
+    let i = match.index + 2
+    while (i < source.length && depth > 0) {
+      if (source.startsWith("{{", i)) { depth++; i += 2; continue }
+      if (source.startsWith("}}", i)) { depth--; i += 2; continue }
+      i++
+    }
+    bodies.push(source.slice(match.index + 2, i - 2))
+    opener.lastIndex = i
+  }
+  return bodies
+}
+
+function splitTemplateParamsFlat(body: string): string[] {
+  const parts: string[] = []
+  let depth = 0
+  let link = 0
+  let buf = ""
+
+  for (let i = 0; i < body.length; i++) {
+    if (body.startsWith("{{", i)) { depth++; buf += "{{"; i++; continue }
+    if (body.startsWith("}}", i)) { depth--; buf += "}}"; i++; continue }
+    if (body.startsWith("[[", i)) { link++; buf += "[["; i++; continue }
+    if (body.startsWith("]]", i)) { link--; buf += "]]"; i++; continue }
+    const ch = body[i]
+    if (ch === "|" && depth === 0 && link === 0) { parts.push(buf); buf = ""; continue }
+    buf += ch
+  }
+  parts.push(buf)
+  return parts
+}
+
+function cleanPersonText(value: string): string {
+  return value
+    .replace(/<!--[\s\S]*?-->/g, "")
+    .replace(/<ref[^>]*\/>/gi, "")
+    .replace(/<ref[^>]*>[\s\S]*?<\/ref>/gi, "")
+    .replace(/\[\[[^\]|]*\|([^\]]*)\]\]/g, "$1")
+    .replace(/\[\[([^\]]*)\]\]/g, "$1")
+    .replace(/'''?/g, "")
+    .replace(/<[^>]+>/g, " ")
+    .replace(/\s+/g, " ")
+    .trim()
+}
+
+export function parsePeopleSection(wikitext: string): ParsedPerson[] {
+  const section = extractWikiSection(wikitext, /^==+[ \t]*People[ \t]*==+[ \t]*$/im)
+  if (!section) return []
+
+  const people: ParsedPerson[] = []
+  const seen = new Set<string>()
+
+  for (const body of findWikiTemplates(section, "People")) {
+    const params = splitTemplateParamsFlat(body)
+    const name = cleanPersonText(params[0] ?? "")
+    if (!name || name.length > 80) continue
+
+    const roles: string[] = []
+    for (const raw of params.slice(1)) {
+      for (const line of raw.split(/\r?\n/)) {
+        const trimmed = line.trim()
+        if (!trimmed.startsWith("*")) continue
+        const role = cleanPersonText(trimmed.replace(/^\*+\s*/, ""))
+        if (role) roles.push(role)
+      }
+    }
+
+    const key = name.toLowerCase()
+    if (seen.has(key)) continue
+    seen.add(key)
+
+    people.push({
+      name,
+      roles,
+      isCulprit: roles.some((r) => CULPRIT_ROLE.test(r) && !NON_CULPRIT_ROLE.test(r)),
+    })
+  }
+
+  return people
+}
+
+export function culpritNames(people: ParsedPerson[]): string[] {
+  return people.filter((p) => p.isCulprit).map((p) => p.name)
+}

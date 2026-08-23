@@ -253,6 +253,21 @@ export function ContentDetail({ entry, inModal }: { entry: ContentEntry; inModal
   const prev = adjacentQuery.data?.prev ?? null
   const next = adjacentQuery.data?.next ?? null
 
+  // ── Case suspects & culprits (from DCW InfoBox Crime) ──
+  const caseQuery = useQuery({
+    queryKey: ["dcw-case", entry.id],
+    queryFn: async () => {
+      const { data } = await supabase
+        .from("dcw_cases")
+        .select("suspects, culprits, culprit_count")
+        .eq("entry_id", entry.id)
+        .limit(1)
+        .maybeSingle()
+      return (data as { suspects: string | null; culprits: string[] | null; culprit_count: number | null } | null) ?? null
+    },
+    staleTime: 1000 * 60 * 30,
+  })
+
   function handleWatchToggle() {
     if (!userId || watchStatusQuery.isLoading) return
     watchMutation.mutate({ nextStatus: toggle.nextStatus, nextCount: toggle.nextCount })
@@ -436,6 +451,8 @@ export function ContentDetail({ entry, inModal }: { entry: ContentEntry; inModal
             title={entry.title}
             episodeNumber={entry.episode_number ?? null}
             contentType={entry.type ?? null}
+            suspects={caseQuery.data?.suspects ?? null}
+            culprits={caseQuery.data?.culprits ?? null}
             className="mt-6"
           />
 

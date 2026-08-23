@@ -39,6 +39,8 @@ export interface Database {
           suspects_label: string | null
           image_name: string | null
           entry_id: string | null
+          culprits: string[] | null
+          culprit_count: number | null
           created_at: string
           updated_at: string
         }
@@ -63,6 +65,8 @@ export interface Database {
           suspects_label?: string | null
           image_name?: string | null
           entry_id?: string | null
+          culprits?: string[] | null
+          culprit_count?: number | null
           created_at?: string
           updated_at?: string
         }
@@ -87,6 +91,8 @@ export interface Database {
           suspects_label?: string | null
           image_name?: string | null
           entry_id?: string | null
+          culprits?: string[] | null
+          culprit_count?: number | null
           created_at?: string
           updated_at?: string
         }
