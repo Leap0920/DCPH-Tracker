@@ -1,74 +1,125 @@
-/* Detective Conan PH — conservative static-cache-only service worker.
+/* Detective Conan PH — service worker.
  *
- * Scope: ONLY immutable static assets.
- *  - Pre-caches /icon.svg + /hero-image.jpg on install.
- *  - Cache-first for /_next/static/* build assets (content-hashed → immutable)
- *    and the same icon/font assets at runtime.
- *  - NEVER caches or intercepts: /api/* routes, Supabase REST URLs, or HTML
- *    navigations — those stay network-only so DB-backed pages are always fresh.
- * No push, no offline-first, no runtime caching of page HTML.
+ * Deliberately conservative:
+ *   - Immutable build assets: cache-first (safe, content-hashed URLs).
+ *   - Same-origin static files in PRECACHE: stale-while-revalidate.
+ *   - Everything else (HTML, /api/*, Supabase, auth): network-only, untouched.
+ *
+ * Bump CACHE_VERSION on any change to this file or PRECACHE_ASSETS.
  */
 
-const STATIC_CACHE = "dcph-static-v1";
+const CACHE_VERSION = "dcph-v2";
+const STATIC_CACHE = `${CACHE_VERSION}-static`;
+const IMMUTABLE_CACHE = `${CACHE_VERSION}-immutable`;
 
-const PRECACHE_ASSETS = ["/icon.svg", "/hero-image.jpg"];
+const PRECACHE_ASSETS = [
+  "/tab-icon.png",
+  "/hero-image.jpg",
+  "/hero-image-darkM.jpg",
+];
 
-function isSameOrigin(url) {
-  return url.origin === self.location.origin;
-}
-
-// Only immutable, same-origin static requests are handled by this worker:
-// content-hashed /_next/* build assets plus our own icon assets. Everything
-// else (HTML navigations, /api/*, Supabase REST) falls through untouched.
-function isCacheableStatic(url) {
-  if (!isSameOrigin(url)) return false;
-  const { pathname } = url;
-  return (
-    pathname.startsWith("/_next/static/") ||
-    pathname === "/icon.svg" ||
-    pathname === "/hero-image.jpg"
-  );
-}
+/* Never intercept these, regardless of origin. */
+const BYPASS_PATH_PREFIXES = ["/api/", "/auth/", "/callback"];
 
 self.addEventListener("install", (event) => {
   event.waitUntil(
-    caches
-      .open(STATIC_CACHE)
-      .then((cache) => cache.addAll(PRECACHE_ASSETS))
-      .then(() => self.skipWaiting())
+    (async () => {
+      const cache = await caches.open(STATIC_CACHE);
+      // addAll() rejects wholesale if any single asset 404s — add individually.
+      await Promise.all(
+        PRECACHE_ASSETS.map((asset) =>
+          cache.add(new Request(asset, { cache: "reload" })).catch(() => {})
+        )
+      );
+      await self.skipWaiting();
+    })()
   );
 });
 
 self.addEventListener("activate", (event) => {
   event.waitUntil(
-    caches
-      .keys()
-      .then((keys) =>
-        Promise.all(
-          keys.filter((key) => key !== STATIC_CACHE).map((key) => caches.delete(key))
-        )
-      )
-      .then(() => self.clients.claim())
+    (async () => {
+      const keys = await caches.keys();
+      await Promise.all(
+        keys
+          .filter((key) => !key.startsWith(CACHE_VERSION))
+          .map((key) => caches.delete(key))
+      );
+      await self.clients.claim();
+    })()
   );
 });
 
+self.addEventListener("message", (event) => {
+  if (event.data === "SKIP_WAITING") self.skipWaiting();
+});
+
+function isImmutableAsset(url) {
+  return (
+    url.pathname.startsWith("/_next/static/") ||
+    url.pathname.startsWith("/_next/image")
+  );
+}
+
+function isPrecachedAsset(url) {
+  return PRECACHE_ASSETS.includes(url.pathname);
+}
+
+async function cacheFirst(request, cacheName) {
+  const cache = await caches.open(cacheName);
+  const cached = await cache.match(request);
+  if (cached) return cached;
+
+  const response = await fetch(request);
+  if (response && response.ok && response.type === "basic") {
+    cache.put(request, response.clone()).catch(() => {});
+  }
+  return response;
+}
+
+async function staleWhileRevalidate(request, cacheName) {
+  const cache = await caches.open(cacheName);
+  const cached = await cache.match(request);
+
+  const network = fetch(request)
+    .then((response) => {
+      if (response && response.ok && response.type === "basic") {
+        cache.put(request, response.clone()).catch(() => {});
+      }
+      return response;
+    })
+    .catch(() => undefined);
+
+  if (cached) return cached;
+
+  const fresh = await network;
+  if (fresh) return fresh;
+  return new Response("", { status: 504, statusText: "Offline" });
+}
+
 self.addEventListener("fetch", (event) => {
-  const request = event.request;
+  const { request } = event;
+
   if (request.method !== "GET") return;
 
-  const url = new URL(request.url);
-  if (!isCacheableStatic(url)) return; // network-only for everything else
+  let url;
+  try {
+    url = new URL(request.url);
+  } catch {
+    return;
+  }
 
-  event.respondWith(
-    caches.match(request).then((cached) => {
-      if (cached) return cached;
-      return fetch(request).then((response) => {
-        if (response.ok) {
-          const copy = response.clone();
-          caches.open(STATIC_CACHE).then((cache) => cache.put(request, copy));
-        }
-        return response;
-      });
-    })
-  );
+  if (url.origin !== self.location.origin) return;
+  if (BYPASS_PATH_PREFIXES.some((p) => url.pathname.startsWith(p))) return;
+  if (request.headers.get("accept")?.includes("text/html")) return;
+  if (request.headers.has("range")) return;
+
+  if (isImmutableAsset(url)) {
+    event.respondWith(cacheFirst(request, IMMUTABLE_CACHE));
+    return;
+  }
+
+  if (isPrecachedAsset(url)) {
+    event.respondWith(staleWhileRevalidate(request, STATIC_CACHE));
+  }
 });

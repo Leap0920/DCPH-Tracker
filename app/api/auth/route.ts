@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server"
 import { createClient } from "@/utils/supabase/server"
 import { fail, handleApiError } from "@/lib/api-utils"
 import { rateLimit, authRateLimitKey } from "@/lib/rate-limit"
+import { isSameOriginRequest } from "@/lib/csrf"
 import {
   validateEmail,
   validatePassword,
@@ -11,6 +12,9 @@ import {
 
 export async function POST(request: NextRequest) {
   try {
+    // CSRF guard: reject cross-origin POSTs before consuming a rate-limit slot.
+    if (!isSameOriginRequest(request)) return fail(403, "Forbidden")
+
     // Brute-force / credential-stuffing guard: 10 attempts / 5 min per IP.
     const rl = rateLimit(authRateLimitKey(request))
     if (!rl.allowed) {

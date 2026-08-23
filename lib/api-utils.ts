@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server"
+import { logger } from "@/lib/logger"
 
 /**
  * Shared API response helpers.
@@ -39,7 +40,12 @@ export function tooManyRequests(retryAfterSeconds: number): Response {
  * Never echoes error.message (may contain Supabase/Postgres internals or PII).
  */
 export function handleApiError(err: unknown, context: string): Response {
-  console.error(`[api][${context}]`, err)
+  logger.error("api_error", {
+    route: context,
+    error: err instanceof Error ? err.message : String(err),
+    name: err instanceof Error ? err.name : undefined,
+    stack: err instanceof Error ? err.stack : undefined,
+  })
   return fail(500, "Internal server error")
 }
 

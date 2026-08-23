@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server"
 import { createClient } from "@/utils/supabase/server"
 import { fail, handleApiError } from "@/lib/api-utils"
 import { rateLimit, authRateLimitKey } from "@/lib/rate-limit"
+import { isSameOriginRequest } from "@/lib/csrf"
 import type { EmailOtpType } from "@supabase/supabase-js"
 
 const OTP_TYPES: readonly EmailOtpType[] = [
@@ -44,6 +45,9 @@ function safeNextPath(value: string | null): string {
 
 export async function POST(request: NextRequest) {
   try {
+    // CSRF guard: reject cross-origin POSTs before consuming a rate-limit slot.
+    if (!isSameOriginRequest(request)) return fail(403, "Forbidden")
+
     const rl = rateLimit(authRateLimitKey(request))
     if (!rl.allowed) {
       return fail(429, "Too many attempts. Please try again later.")

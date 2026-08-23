@@ -4,6 +4,7 @@ import { Inter, JetBrains_Mono, Plus_Jakarta_Sans } from "next/font/google";
 import { Providers } from "@/components/providers";
 import { ThemeProvider } from "@/components/theme-provider";
 import { AuthModal } from "@/components/auth/AuthModal";
+import { ServiceWorkerRegister } from "@/components/service-worker-register";
 import "./globals.css";
 
 const plusJakartaSans = Plus_Jakarta_Sans({
@@ -32,8 +33,12 @@ export const viewport: Viewport = {
   width: "device-width",
   initialScale: 1,
   interactiveWidget: "resizes-content",
-  // Matches --page on .dark so mobile browser chrome blends into the app.
-  themeColor: "#000000",
+  viewportFit: "cover",
+  themeColor: [
+    { media: "(prefers-color-scheme: dark)", color: "#000000" },
+    { media: "(prefers-color-scheme: light)", color: "#000000" },
+  ],
+  colorScheme: "dark",
 };
 
 export const metadata: Metadata = {
@@ -60,9 +65,18 @@ export const metadata: Metadata = {
       },
     ],
   },
+  applicationName: "Detective Conan PH",
+  appleWebApp: {
+    capable: true,
+    title: "DCPH",
+    statusBarStyle: "black-translucent",
+  },
+  formatDetection: {
+    telephone: false,
+  },
   icons: {
-    icon: "/icon.svg",
-    apple: "/icon.svg",
+    icon: "/tab-icon.png",
+    apple: "/tab-icon.png",
   },
   twitter: {
     card: "summary_large_image",
@@ -118,6 +132,7 @@ export default async function RootLayout({
           <Providers>
             {children}
             <AuthModal />
+            <ServiceWorkerRegister />
           </Providers>
         </ThemeProvider>
       </body>
