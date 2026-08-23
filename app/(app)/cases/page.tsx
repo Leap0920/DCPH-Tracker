@@ -20,7 +20,7 @@ const PAGE_SIZE = 50
 const FACET_PAGE_SIZE = 1000
 const FACET_LIMIT = 6000
 
-const CASES_VIEW = "dcw_cases_view"
+const CASES_VIEW = "all_episodes_with_crimes"
 const DEFAULT_SORT = "release"
 const SORT_VALUES = new Set([DEFAULT_SORT, "az", "za", "type"])
 const LINK_VALUES = new Set(["all", "tracker", "wiki"])
@@ -46,9 +46,9 @@ const CONTENT_TYPE_ORDER: readonly ContentType[] = [
 const CONTENT_TYPE_VALUES = new Set<string>(CONTENT_TYPE_ORDER)
 
 const LINK_OPTIONS: FilterOption[] = [
-  { value: "all", label: "All sources" },
-  { value: "tracker", label: "In the tracker" },
-  { value: "wiki", label: "Wiki only" },
+  { value: "all", label: "All episodes" },
+  { value: "tracker", label: "With crime data" },
+  { value: "wiki", label: "No crime data" },
 ]
 
 /**
@@ -80,6 +80,126 @@ function contentTypeLabel(type: string): string {
   return CONTENT_TYPE_LABELS[type as ContentType] ?? type
 }
 
+/** Higher = more severe. Drives spine colour + badge order for multi-crime files. */
+const CRIME_SEVERITY: Record<string, number> = {
+  "mass-murder": 110,
+  "serial-murder": 105,
+  murder: 100,
+  "attempted-murder": 90,
+  manslaughter: 85,
+  bombing: 82,
+  arson: 78,
+  kidnapping: 75,
+  "attempted-kidnapping": 70,
+  assault: 60,
+  poisoning: 58,
+  robbery: 50,
+  burglary: 46,
+  theft: 44,
+  blackmail: 40,
+  extortion: 38,
+  fraud: 34,
+  forgery: 30,
+  vandalism: 20,
+  other: 10,
+}
+
+function crimeSeverity(slug: string | null | undefined): number {
+  if (!slug) return 0
+  return CRIME_SEVERITY[slug] ?? 15
+}
+
+function uniqueStrings(values: (string | null | undefined)[]): string[] {
+  const seen = new Set<string>()
+  const out: string[] = []
+  for (const value of values) {
+    const trimmed = value?.trim()
+    if (!trimmed || seen.has(trimmed)) continue
+    seen.add(trimmed)
+    out.push(trimmed)
+  }
+  return out
+}
+
+/**
+ * Collapses rows sharing a `page_title` into one CaseFile.
+ * Entries without crime data (page_title NULL) are shown as individual cards.
+ * Order of first appearance is preserved.
+ */
+function mergeCases(rows: CaseRow[]): CaseFile[] {
+  const byTitle = new Map<string, CaseFile>()
+
+  rows.forEach((row, index) => {
+    const crime: CaseCrime = {
+      id: row.id,
+      caseIndex: row.case_index,
+      crimeType: row.crime_type,
+      crimeSlug: row.crime_slug,
+      victim: row.victim,
+      victimLabel: row.victim_label,
+      causeDeath: row.cause_death,
+      causeDeathLabel: row.cause_death_label,
+      suspects: row.suspects,
+      suspectsLabel: row.suspects_label,
+      location: row.location,
+      description: row.description,
+    }
+
+    // Use page_title if available, otherwise use entry_id as unique key
+    const key = row.page_title || `entry-${row.entry_id}`
+
+    const existing = byTitle.get(key)
+    if (existing) {
+      // Only add crime if this row has crime data
+      if (row.page_title) existing.crimes.push(crime)
+      existing.dateText ??= row.date_text
+      existing.entryId ??= row.entry_id
+      existing.entrySlug ??= row.entry_slug
+      existing.entryType ??= row.entry_type
+      existing.entryEpisodeNumber ??= row.entry_episode_number
+      existing.entryReleaseOrder ??= row.entry_release_order
+      return
+    }
+
+    byTitle.set(key, {
+      pageTitle: row.page_title || row.entry_title || "Unknown",
+      startIndex: index,
+      dateText: row.date_text,
+      entryId: row.entry_id,
+      entrySlug: row.entry_slug,
+      entryType: row.entry_type,
+      entryEpisodeNumber: row.entry_episode_number,
+      entryReleaseOrder: row.entry_release_order,
+      crimes: row.page_title ? [crime] : [],
+      crimeBadges: [],
+      primarySlug: row.crime_slug,
+      victims: [],
+      locations: [],
+    })
+  })
+
+  return Array.from(byTitle.values()).map((file) => {
+    file.crimes.sort((a, b) => a.caseIndex - b.caseIndex)
+
+    const badges = new Map<string, { type: string; slug: string; count: number }>()
+    for (const crime of file.crimes) {
+      const key = crime.crimeSlug || crime.crimeType
+      const hit = badges.get(key)
+      if (hit) hit.count += 1
+      else badges.set(key, { type: crime.crimeType, slug: crime.crimeSlug, count: 1 })
+    }
+
+    file.crimeBadges = Array.from(badges.values()).sort(
+      (a, b) => crimeSeverity(b.slug) - crimeSeverity(a.slug)
+    )
+    file.primarySlug = file.crimeBadges[0]?.slug ?? file.crimes[0]?.crimeSlug ?? "other"
+    file.victims = uniqueStrings(file.crimes.map((c) => c.victim))
+    file.locations = uniqueStrings(file.crimes.map((c) => c.location))
+
+    return file
+  })
+}
+
 type CaseRow = {
   id: string
   page_title: string
@@ -100,10 +220,42 @@ type CaseRow = {
   entry_type: string | null
   entry_episode_number: number | null
   entry_release_order: number | null
+  entry_title: string | null
+}
+
+type CaseCrime = {
+  id: string
+  caseIndex: number
+  crimeType: string
+  crimeSlug: string
+  victim: string | null
+  victimLabel: string | null
+  causeDeath: string | null
+  causeDeathLabel: string | null
+  suspects: string | null
+  suspectsLabel: string | null
+  location: string | null
+  description: string | null
+}
+
+type CaseFile = {
+  pageTitle: string
+  startIndex: number
+  dateText: string | null
+  entryId: string | null
+  entrySlug: string | null
+  entryType: string | null
+  entryEpisodeNumber: number | null
+  entryReleaseOrder: number | null
+  crimes: CaseCrime[]
+  crimeBadges: { type: string; slug: string; count: number }[]
+  primarySlug: string
+  victims: string[]
+  locations: string[]
 }
 
 const CASE_COLUMNS =
-  "id, page_title, case_index, crime_type, crime_slug, cause_death, victim, victim_label, cause_death_label, suspects, suspects_label, location, description, date_text, entry_id, entry_slug, entry_type, entry_episode_number, entry_release_order"
+  "id, page_title, case_index, crime_type, crime_slug, cause_death, victim, victim_label, cause_death_label, suspects, suspects_label, location, description, date_text, entry_id, entry_slug, entry_type, entry_episode_number, entry_release_order, entry_title"
 
 type FacetRow = { crime_slug: string; cause_slug: string | null; entry_type: string | null }
 type Facet = { slug: string; label: string; count: number }
@@ -272,16 +424,21 @@ export default async function CasesPage({
   if (contentType) query = query.eq("entry_type", contentType)
   if (typeSlug) query = query.eq("crime_slug", typeSlug)
   if (causeSlug) query = query.eq("cause_slug", causeSlug)
-  if (linkFilter === "tracker") query = query.not("entry_id", "is", null)
-  if (linkFilter === "wiki") query = query.is("entry_id", null)
-  if (q) query = query.or(`victim.ilike.%${q}%,page_title.ilike.%${q}%,location.ilike.%${q}%`)
+  // linkFilter: "tracker" = has crime data, "wiki" = no crime data (wiki-only)
+  // With the new view, entry_id is always set, so filter by crime_slug presence
+  if (linkFilter === "tracker") query = query.not("crime_slug", "is", null)
+  if (linkFilter === "wiki") query = query.is("crime_slug", null)
+  if (q) query = query.or(`victim.ilike.%${q}%,page_title.ilike.%${q}%,location.ilike.%${q}%,entry_title.ilike.%${q}%`)
 
   // entry_release_order is a real view column precisely so this is a plain
   // top-level order — ordering by an embedded column is a silent no-op.
   // NULLs (cases with no local entry) trail on ASC.
   if (sort === "type") query = query.order("crime_slug", { ascending: true })
   if (sort === "release" || sort === "type") {
-    query = query.order("entry_release_order", { ascending: true, nullsFirst: false })
+    // Sort by episode number first (episodes), then release order (movies/specials)
+    query = query
+      .order("entry_episode_number", { ascending: true, nullsFirst: false })
+      .order("entry_release_order", { ascending: true, nullsFirst: false })
   }
   query = query
     .order("page_title", { ascending: sort !== "za" })
@@ -292,13 +449,14 @@ export default async function CasesPage({
   const cases = (caseData ?? []) as CaseRow[]
   const total = count ?? 0
   const totalPages = Math.max(1, Math.ceil(total / PAGE_SIZE))
+  const caseFiles = mergeCases(cases)
 
   const firstShown = total === 0 ? 0 : from + 1
   const lastShown = Math.min(from + cases.length, total)
   const resultSummary =
     total === 0
       ? "No files"
-      : `${firstShown.toLocaleString()}–${lastShown.toLocaleString()} of ${total.toLocaleString()} files`
+      : `${firstShown.toLocaleString()}–${lastShown.toLocaleString()} of ${total.toLocaleString()} crimes archived`
 
   return (
     <div className="px-4 py-8 sm:px-6 sm:py-12">
@@ -325,7 +483,8 @@ export default async function CasesPage({
           </p>
 
           <dl className="mt-6 flex flex-wrap gap-x-10 gap-y-3 border-y border-line py-4">
-            <Stat label="Files" value={archiveTotal} />
+            <Stat label="Crimes" value={archiveTotal} />
+            <Stat label="Files" value={caseFiles.length > 0 ? Math.ceil(total / PAGE_SIZE) : 0} />
             <Stat label="Categories" value={crimeFacets.length} />
             <Stat label="Methods" value={methodFacets.length} />
           </dl>
@@ -359,27 +518,29 @@ export default async function CasesPage({
         </div>
 
         {/* ── Ledger ── */}
-        {cases.length === 0 ? (
+        {caseFiles.length === 0 ? (
           <p className="mt-8 rounded-lg border border-dashed border-line px-4 py-16 text-center text-sm text-ink-dim">
             No files match these filters.
           </p>
         ) : (
           <ol className="mt-6">
-            {cases.map((item, index) => {
-              const style = crimeStyle(item.crime_slug)
-              const fileNo = String(from + index + 1).padStart(4, "0")
-              const isEpisode = item.entry_type === CONTENT_TYPES.EPISODE
-              const episodeNumber = isEpisode ? item.entry_episode_number : null
+            {caseFiles.map((file) => {
+              const style = crimeStyle(file.primarySlug)
+              const fileNo = String(from + file.startIndex + 1).padStart(4, "0")
+              const isEpisode = file.entryType === CONTENT_TYPES.EPISODE
+              const episodeNumber = isEpisode ? file.entryEpisodeNumber : null
               const trackerHref =
                 episodeNumber !== null && episodeNumber !== undefined
                   ? `/tracker?ep=${episodeNumber}`
-                  : item.entry_slug
-                    ? `/tracker/${item.entry_slug}`
+                  : file.entrySlug
+                    ? `/tracker/${file.entrySlug}`
                     : null
+              const isMulti = file.crimes.length > 1
+              const primary = file.crimes[0] ?? null
 
               return (
-                <li key={item.id} className="relative">
-                  {/* Left spine — carries the crime-group colour. */}
+                <li key={file.pageTitle} className="relative">
+                  {/* Left spine — carries the colour of the most severe crime in the file. */}
                   <span
                     aria-hidden="true"
                     className={cn("absolute bottom-0 left-0 top-0 w-[3px]", style.bar)}
@@ -390,63 +551,106 @@ export default async function CasesPage({
                       <span className="font-mono text-[10px] uppercase tracking-[0.12em] text-ink-faint">
                         File no. {fileNo}
                       </span>
-                      {item.date_text && (
-                        <span className="font-mono text-[10px] text-ink-faint">{item.date_text}</span>
+                      {file.dateText && (
+                        <span className="font-mono text-[10px] text-ink-faint">{file.dateText}</span>
                       )}
-                      <span
-                        className={cn(
-                          "ml-auto shrink-0 rounded border px-1.5 py-0.5 font-mono text-[10px] uppercase tracking-wide",
-                          style.card
-                        )}
-                        title={`Filed under ${crimeGroupLabel(item.crime_slug)}`}
-                      >
-                        {item.crime_type}
+
+                      <span className="ml-auto flex flex-wrap items-center justify-end gap-1">
+                        {file.crimeBadges.map((badge) => (
+                          <span
+                            key={badge.slug || badge.type}
+                            className={cn(
+                              "shrink-0 rounded border px-1.5 py-0.5 font-mono text-[10px] uppercase tracking-wide",
+                              crimeStyle(badge.slug).card
+                            )}
+                            title={`Filed under ${crimeGroupLabel(badge.slug)}`}
+                          >
+                            {badge.type}
+                            {badge.count > 1 && (
+                              <span className="ml-1 opacity-70">&times;{badge.count}</span>
+                            )}
+                          </span>
+                        ))}
                       </span>
                     </div>
 
                     <h2 className="mt-1 font-display text-base tracking-tight text-ink sm:text-lg">
-                      {item.page_title}
-                      {item.case_index > 1 && (
-                        <span className="ml-1.5 font-mono text-[10px] text-ink-faint">
-                          case {item.case_index}
+                      {file.pageTitle}
+                      {isMulti && (
+                        <span className="ml-1.5 font-mono text-[10px] text-danger">
+                          {file.crimes.length} crimes
                         </span>
                       )}
                     </h2>
 
-                    <dl className="mt-2.5 grid gap-x-8 gap-y-1.5 sm:grid-cols-2 lg:grid-cols-3">
-                      {item.victim && (
-                        <Field label={item.victim_label ?? "Victim"} value={item.victim} />
-                      )}
-                      {item.cause_death && (
-                        <Field
-                          label={item.cause_death_label ?? "Cause of death"}
-                          value={item.cause_death}
-                        />
-                      )}
-                      {item.location && (
-                        <Field
-                          label="Location"
-                          value={item.location}
-                          icon={<MapPin className="h-3 w-3" />}
-                        />
-                      )}
-                      {item.suspects && (
-                        <Field label={item.suspects_label ?? "Suspects"} value={item.suspects} />
-                      )}
-                    </dl>
+                    {isMulti ? (
+                      <>
+                        {/* Roll-up so the collapsed card still says who and where. */}
+                        <dl className="mt-2.5 grid gap-x-8 gap-y-1.5 sm:grid-cols-2 lg:grid-cols-3">
+                          {file.victims.length > 0 && (
+                            <Field
+                              label={file.victims.length > 1 ? "Victims" : primary.victimLabel ?? "Victim"}
+                              value={file.victims.join(", ")}
+                            />
+                          )}
+                          {file.locations.length > 0 && (
+                            <Field
+                              label={file.locations.length > 1 ? "Locations" : "Location"}
+                              value={file.locations.join(", ")}
+                              icon={<MapPin className="h-3 w-3" />}
+                            />
+                          )}
+                        </dl>
 
-                    {item.description && (
-                      <details className="group/spoiler mt-3">
-                        <summary className="inline-flex cursor-pointer list-none items-center gap-1.5 rounded-md border border-line bg-surface-muted px-2 py-1 font-mono text-[10px] text-ink-dim transition-colors hover:text-ink focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-accent/40 [&::-webkit-details-marker]:hidden">
-                          <span className="group-open/spoiler:hidden">
-                            Unseal case summary (spoilers)
-                          </span>
-                          <span className="hidden group-open/spoiler:inline">Reseal summary</span>
-                        </summary>
-                        <p className="mt-2 select-none text-sm leading-relaxed text-ink-dim blur-sm transition-[filter] duration-200 group-open/spoiler:select-text group-open/spoiler:blur-none">
-                          {item.description}
-                        </p>
-                      </details>
+                        <details className="group/crimes mt-3">
+                          <summary className="inline-flex cursor-pointer list-none items-center gap-1.5 rounded-md border border-line bg-surface-muted px-2 py-1 font-mono text-[10px] text-ink-dim transition-colors hover:text-ink focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-accent/40 [&::-webkit-details-marker]:hidden">
+                            <span className="group-open/crimes:hidden">
+                              Open all {file.crimes.length} crime blocks
+                            </span>
+                            <span className="hidden group-open/crimes:inline">Collapse crime blocks</span>
+                            <span className="text-[9px] transition-transform group-open/crimes:rotate-180">
+                              &#9660;
+                            </span>
+                          </summary>
+
+                          <ol className="mt-3 space-y-3 border-l border-line/60 pl-3">
+                            {file.crimes.map((crime) => (
+                              <li key={crime.id}>
+                                <div className="flex flex-wrap items-baseline gap-x-2 gap-y-1">
+                                  <span className="font-mono text-[10px] uppercase tracking-[0.12em] text-ink-faint">
+                                    Case {crime.caseIndex}
+                                  </span>
+                                  <span
+                                    className={cn(
+                                      "shrink-0 rounded border px-1.5 py-0.5 font-mono text-[10px] uppercase tracking-wide",
+                                      crimeStyle(crime.crimeSlug).card
+                                    )}
+                                    title={`Filed under ${crimeGroupLabel(crime.crimeSlug)}`}
+                                  >
+                                    {crime.crimeType}
+                                  </span>
+                                </div>
+
+                                <CrimeFieldGrid crime={crime} />
+                                {crime.description && (
+                                  <CaseSummarySpoiler description={crime.description} />
+                                )}
+                              </li>
+                            ))}
+                          </ol>
+                        </details>
+                      </>
+                    ) : file.crimes.length === 1 ? (
+                      <>
+                        <CrimeFieldGrid crime={primary} />
+                        {primary.description && (
+                          <CaseSummarySpoiler description={primary.description} />
+                        )}
+                      </>
+                    ) : (
+                      <p className="mt-2 text-xs text-ink-faint italic">
+                        No crime data available for this entry.
+                      </p>
                     )}
 
                     <div className="mt-3 flex flex-wrap items-center gap-4">
@@ -460,15 +664,17 @@ export default async function CasesPage({
                             : "open in tracker →"}
                         </Link>
                       )}
-                      <a
-                        href={dcwPageUrl(item.page_title)}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="inline-flex items-center gap-1 font-mono text-[10px] text-ink-faint underline decoration-dotted transition-colors hover:text-ink-dim"
-                      >
-                        read on DCW
-                        <ExternalLink className="h-3 w-3" />
-                      </a>
+                      {file.pageTitle && file.pageTitle !== "Unknown" && (
+                        <a
+                          href={dcwPageUrl(file.pageTitle)}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="inline-flex items-center gap-1 font-mono text-[10px] text-ink-faint underline decoration-dotted transition-colors hover:text-ink-dim"
+                        >
+                          read on DCW
+                          <ExternalLink className="h-3 w-3" />
+                        </a>
+                      )}
                     </div>
                   </div>
                 </li>
@@ -483,6 +689,7 @@ export default async function CasesPage({
             {page > 1 ? (
               <Link
                 href={buildHref({
+                  format: contentType || null,
                   type: typeSlug,
                   cause: causeSlug,
                   q,
@@ -505,6 +712,7 @@ export default async function CasesPage({
             {page < totalPages ? (
               <Link
                 href={buildHref({
+                  format: contentType || null,
                   type: typeSlug,
                   cause: causeSlug,
                   q,
@@ -569,5 +777,36 @@ function Field({
       </dt>
       <dd className="mt-0.5 text-[13px] text-ink">{value}</dd>
     </div>
+  )
+}
+
+function CrimeFieldGrid({ crime }: { crime: CaseCrime }) {
+  return (
+    <dl className="mt-2.5 grid gap-x-8 gap-y-1.5 sm:grid-cols-2 lg:grid-cols-3">
+      {crime.victim && <Field label={crime.victimLabel ?? "Victim"} value={crime.victim} />}
+      {crime.causeDeath && (
+        <Field label={crime.causeDeathLabel ?? "Cause of death"} value={crime.causeDeath} />
+      )}
+      {crime.location && (
+        <Field label="Location" value={crime.location} icon={<MapPin className="h-3 w-3" />} />
+      )}
+      {crime.suspects && (
+        <Field label={crime.suspectsLabel ?? "Suspects"} value={crime.suspects} />
+      )}
+    </dl>
+  )
+}
+
+function CaseSummarySpoiler({ description }: { description: string }) {
+  return (
+    <details className="group/spoiler mt-3">
+      <summary className="inline-flex cursor-pointer list-none items-center gap-1.5 rounded-md border border-line bg-surface-muted px-2 py-1 font-mono text-[10px] text-ink-dim transition-colors hover:text-ink focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-accent/40 [&::-webkit-details-marker]:hidden">
+        <span className="group-open/spoiler:hidden">Unseal case summary (spoilers)</span>
+        <span className="hidden group-open/spoiler:inline">Reseal summary</span>
+      </summary>
+      <p className="mt-2 select-none text-sm leading-relaxed text-ink-dim blur-sm transition-[filter] duration-200 group-open/spoiler:select-text group-open/spoiler:blur-none">
+        {description}
+      </p>
+    </details>
   )
 }

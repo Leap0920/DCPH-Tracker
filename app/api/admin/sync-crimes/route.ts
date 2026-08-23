@@ -25,6 +25,34 @@ export const dynamic = "force-dynamic";
 const DEFAULT_BUDGET_MS = 240_000;
 const UPSERT_CHUNK = 500;
 
+/** Normalized title matching: lowercase, strip curly quotes, strip punctuation. */
+function dcwNorm(s: string | null | undefined): string {
+  return (s ?? "")
+    .normalize("NFKD")
+    .toLowerCase()
+    .replace(/[\u2018\u2019]/g, "'")
+    .replace(/[\u201C\u201D]/g, '"')
+    .replace(/[^a-z0-9]+/g, "");
+}
+
+/**
+ * Strip common tracker prefixes to reveal the core episode title.
+ * "Detective Conan Episode 123: The Recipe" -> "therecipe"
+ * "Case Closed Movie 05: Countdown to Heaven" -> "countdowntoheaven"
+ */
+function stripTrackerPrefix(title: string): string {
+  let t = title;
+  // Strip "Detective Conan" / "Case Closed" / "Meitantei Conan" franchise prefix
+  t = t.replace(/^(?:detective conan|case closed|meitantei conan)\s*/i, "");
+  // Strip "Episode NNN:" or "Episode NNN -"
+  t = t.replace(/^episode\s*\d+\s*[:\-–—]\s*/i, "");
+  // Strip "Movie NN:" or "Movie NN -"
+  t = t.replace(/^movie\s*\d+\s*[:\-–—]\s*/i, "");
+  // Strip leading brackets "[OVA]" etc.
+  t = t.replace(/^\[[^\]]*\]\s*/, "");
+  return dcwNorm(t);
+}
+
 type CaseRow = {
   page_title: string;
   case_index: number;
@@ -113,6 +141,37 @@ export async function POST(request: Request) {
   let lastTitle = cursor;
   let budgetExhausted = false;
 
+  // ── Build entry lookup maps ONCE upfront (not per-batch) ──────────────────
+  // Per-batch queries break on titles with apostrophes/special chars in .or().in().
+  const entryIdByNormTitle = new Map<string, string>();
+  const entryIdByStrippedTitle = new Map<string, string>();
+  {
+    const PAGE_SIZE = 1000;
+    for (let from = 0; ; from += PAGE_SIZE) {
+      const { data: chunk } = await supabase
+        .from("content_entries")
+        .select("id, title, dcw_title")
+        .range(from, from + PAGE_SIZE - 1);
+      if (!chunk || chunk.length === 0) break;
+      for (const row of chunk as { id: string; title: string; dcw_title: string | null }[]) {
+        if (row.dcw_title) {
+          entryIdByNormTitle.set(dcwNorm(row.dcw_title), row.id);
+        }
+        if (row.title) {
+          const normTitle = dcwNorm(row.title);
+          if (!entryIdByNormTitle.has(normTitle)) {
+            entryIdByNormTitle.set(normTitle, row.id);
+          }
+          const stripped = stripTrackerPrefix(row.title);
+          if (stripped && !entryIdByStrippedTitle.has(stripped)) {
+            entryIdByStrippedTitle.set(stripped, row.id);
+          }
+        }
+      }
+      if (chunk.length < PAGE_SIZE) break;
+    }
+  }
+
   for (const batch of batches) {
     if (Date.now() - startedAt > budgetMs) {
       budgetExhausted = true;
@@ -126,16 +185,6 @@ export async function POST(request: Request) {
       // One bad batch shouldn't kill the run; the cursor will retry it later.
       failedTitles.push(...batch);
       continue;
-    }
-
-    // Local tracker rows for this batch, so entry_id resolves without a second pass.
-    const entryIdByDcwTitle = new Map<string, string>();
-    const { data: entryRows } = await supabase
-      .from("content_entries")
-      .select("id, dcw_title")
-      .in("dcw_title", batch);
-    for (const row of (entryRows ?? []) as { id: string; dcw_title: string | null }[]) {
-      if (row.dcw_title) entryIdByDcwTitle.set(row.dcw_title, row.id);
     }
 
     const stamp = new Date().toISOString();
@@ -173,7 +222,11 @@ export async function POST(request: Request) {
           cause_death_label: item.causeDeathLabel,
           suspects_label: item.suspectsLabel,
           image_name: item.imageName,
-          entry_id: entryIdByDcwTitle.get(title) ?? null,
+          entry_id:
+            entryIdByNormTitle.get(dcwNorm(title)) ??
+            entryIdByStrippedTitle.get(stripTrackerPrefix(title)) ??
+            entryIdByStrippedTitle.get(dcwNorm(title)) ??
+            null,
           updated_at: stamp,
         });
       }

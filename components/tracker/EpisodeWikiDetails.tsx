@@ -14,6 +14,10 @@ type EpisodeWikiDetailsProps = {
   /** Optional hint: content_entries.type. */
   contentType?: string | null
   className?: string
+  /** Suspects from dcw_cases (InfoBox Crime), passed from parent to keep modal short. */
+  suspects?: string | null
+  /** Culprits (spoiler) — manually curated per case; shown blurred until hover. */
+  culprits?: string[] | null
 }
 
 /* ------------------------------------------------------------------ */
@@ -246,6 +250,8 @@ export function EpisodeWikiDetails({
   episodeNumber,
   contentType,
   className,
+  suspects,
+  culprits,
 }: EpisodeWikiDetailsProps) {
   const fallback = fallbackTitle ?? title ?? null
 
@@ -335,6 +341,15 @@ export function EpisodeWikiDetails({
     )
   }
 
+  const detailChips: string[] = []
+  if (normalised.meta.length > 0) detailChips.push(`meta (${normalised.meta.length})`)
+  if (normalised.cast.length > 0) detailChips.push(`cast (${normalised.cast.length})`)
+  if (suspects) detailChips.push("suspects")
+  if (culprits && culprits.length > 0) detailChips.push("culprits")
+  if (normalised.gadgets.length > 0) detailChips.push(`gadgets (${normalised.gadgets.length})`)
+
+  const hasDetails = detailChips.length > 0
+
   return (
     <SectionShell className={className} right={sourceLink}>
       <div className="space-y-6">
@@ -342,63 +357,106 @@ export function EpisodeWikiDetails({
           <p className="font-body leading-relaxed text-ink-dim">{normalised.description}</p>
         ) : null}
 
-        {normalised.meta.length > 0 ? (
-          <div>
-            <SubHeading>Details</SubHeading>
-            <dl className="grid grid-cols-1 gap-x-6 gap-y-1 sm:grid-cols-2">
-              {normalised.meta.map((row) => (
-                <div
-                  key={`${row.label}-${row.value}`}
-                  className="flex gap-2 border-b border-line/60 py-1"
-                >
-                  <dt className="min-w-[7.5rem] shrink-0 font-body text-xs text-ink-dim/70">
-                    {row.label}
-                  </dt>
-                  <dd className="font-body text-xs text-ink-dim">{row.value}</dd>
-                </div>
-              ))}
-            </dl>
-          </div>
-        ) : null}
-
-        {normalised.gadgets.length > 0 ? (
-          <div>
-            <SubHeading>Gadgets</SubHeading>
-            <ul className="space-y-1">
-              {normalised.gadgets.map((gadget) => (
-                <li key={gadget.name} className="font-body text-xs text-ink-dim">
-                  <span className="text-ink">{gadget.name}</span>
-                  {gadget.introduced ? (
-                    <span className="ml-2 rounded border border-line px-1.5 py-0.5 font-display text-[10px] uppercase tracking-wider text-accent">
-                      introduced
-                    </span>
-                  ) : null}
-                  {gadget.note ? (
-                    <span className="ml-2 text-ink-dim/70">{gadget.note}</span>
-                  ) : null}
-                </li>
-              ))}
-            </ul>
-          </div>
-        ) : null}
-
-        {normalised.cast.length > 0 ? (
-          <div>
-            <SubHeading>Voice cast</SubHeading>
-            <ul className="grid grid-cols-1 gap-x-6 gap-y-1 sm:grid-cols-2">
-              {normalised.cast.map((row, index) => (
-                <li
-                  key={`${row.character}-${index}`}
-                  className="flex gap-2 border-b border-line/60 py-1 font-body text-xs"
-                >
-                  <span className="min-w-[7.5rem] shrink-0 text-ink">{row.character}</span>
-                  <span className="text-ink-dim/80">
-                    {row.actors.length ? row.actors.join(" / ") : "—"}
+        {hasDetails ? (
+          <details className="group/details rounded-md border border-line/60 bg-surface/30">
+            <summary className="flex cursor-pointer list-none items-center gap-2 px-3 py-2.5 font-display text-xs uppercase tracking-wider text-ink-dim/70 hover:text-ink [&::-webkit-details-marker]:hidden">
+              <span>Details</span>
+              <span className="flex flex-wrap items-center gap-x-1.5 gap-y-0.5 font-body text-[10px] normal-case tracking-normal text-ink-dim/70">
+                {detailChips.map((chip, index) => (
+                  <span key={chip} className="whitespace-nowrap">
+                    {index > 0 ? <span className="mr-1.5 text-ink-dim/40">·</span> : null}
+                    {chip}
                   </span>
-                </li>
-              ))}
-            </ul>
-          </div>
+                ))}
+              </span>
+              <span className="ml-auto text-[10px] transition-transform group-open/details:rotate-180">▼</span>
+            </summary>
+            <div className="space-y-4 px-3 pb-3">
+              {normalised.meta.length > 0 ? (
+                <div>
+                  <dl className="grid grid-cols-1 gap-x-6 gap-y-1 sm:grid-cols-2">
+                    {normalised.meta.map((row) => (
+                      <div
+                        key={`${row.label}-${row.value}`}
+                        className="flex gap-2 border-b border-line/60 py-1"
+                      >
+                        <dt className="min-w-[7.5rem] shrink-0 font-body text-xs text-ink-dim/70">
+                          {row.label}
+                        </dt>
+                        <dd className="font-body text-xs text-ink-dim">{row.value}</dd>
+                      </div>
+                    ))}
+                  </dl>
+                </div>
+              ) : null}
+
+              {suspects ? (
+                <div>
+                  <SubHeading>Suspects</SubHeading>
+                  <p className="font-body text-xs leading-relaxed text-ink-dim">{suspects}</p>
+                </div>
+              ) : null}
+
+              {culprits && culprits.length > 0 ? (
+                <div>
+                  <SubHeading>
+                    Culprit{culprits.length > 1 ? "s" : ""}{" "}
+                    {culprits.length >= 2 ? (
+                      <span className="ml-1 rounded bg-danger/10 px-1 py-0.5 font-mono text-[9px] text-danger">
+                        {culprits.length} killers
+                      </span>
+                    ) : null}
+                  </SubHeading>
+                  <p
+                    className="select-none blur-sm transition-[filter] hover:blur-none hover:select-text font-body text-xs leading-relaxed text-ink-dim cursor-pointer"
+                    title="Hover to reveal — spoiler"
+                  >
+                    {culprits.join(", ")}
+                  </p>
+                </div>
+              ) : null}
+
+              {normalised.cast.length > 0 ? (
+                <div>
+                  <SubHeading>Voice cast</SubHeading>
+                  <ul className="grid grid-cols-1 gap-x-6 gap-y-1 sm:grid-cols-2">
+                    {normalised.cast.map((row, index) => (
+                      <li
+                        key={`${row.character}-${index}`}
+                        className="flex gap-2 border-b border-line/60 py-1 font-body text-xs"
+                      >
+                        <span className="min-w-[7.5rem] shrink-0 text-ink">{row.character}</span>
+                        <span className="text-ink-dim/80">
+                          {row.actors.length ? row.actors.join(" / ") : "—"}
+                        </span>
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              ) : null}
+
+              {normalised.gadgets.length > 0 ? (
+                <div>
+                  <SubHeading>Gadgets</SubHeading>
+                  <ul className="space-y-1">
+                    {normalised.gadgets.map((gadget) => (
+                      <li key={gadget.name} className="font-body text-xs text-ink-dim">
+                        <span className="text-ink">{gadget.name}</span>
+                        {gadget.introduced ? (
+                          <span className="ml-2 rounded border border-line px-1.5 py-0.5 font-display text-[10px] uppercase tracking-wider text-accent">
+                            introduced
+                          </span>
+                        ) : null}
+                        {gadget.note ? (
+                          <span className="ml-2 text-ink-dim/70">{gadget.note}</span>
+                        ) : null}
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              ) : null}
+            </div>
+          </details>
         ) : null}
       </div>
     </SectionShell>

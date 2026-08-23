@@ -655,6 +655,36 @@ export interface Database {
       };
     };
     Views: {
+      all_episodes_with_crimes: {
+        Row: {
+          id: string
+          entry_id: string
+          entry_slug: string | null
+          entry_title: string | null
+          entry_type: string | null
+          entry_episode_number: number | null
+          entry_release_order: number | null
+          air_date: string | null
+          page_title: string | null
+          case_index: number | null
+          crime_type: string | null
+          crime_slug: string | null
+          cause_death: string | null
+          cause_slug: string | null
+          victim: string | null
+          victim_label: string | null
+          cause_death_label: string | null
+          suspects: string | null
+          suspects_label: string | null
+          location: string | null
+          description: string | null
+          date_text: string | null
+          image_name: string | null
+          culprits: string[] | null
+          culprit_count: number | null
+        }
+        Relationships: []
+      }
       dcw_cases_view: {
         Row: {
           id: string
