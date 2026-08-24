@@ -21,7 +21,9 @@ async function resolveOwnerUserId(): Promise<string | null> {
     ownerUserIdPromise = (async () => {
       const admin = createAdminClient()
       if (!admin) return null
-      const { data, error } = await admin.rpc("system_owner_id")
+      // system_owner_id is defined in migration-protect-system-owner.sql
+      // but not in the generated Supabase types — cast to bypass the typed RPC constraint.
+      const { data, error } = await (admin as any).rpc("system_owner_id")
       if (error) throw new Error(`owner lookup failed: ${error.message}`)
       return (data as string | null) ?? null
     })().catch((err) => {
