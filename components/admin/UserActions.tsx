@@ -16,10 +16,12 @@ export function UserActions({
   userId,
   status,
   isSelf,
+  isProtected,
 }: {
   userId: string
   status: UserStatus
   isSelf: boolean
+  isProtected?: boolean
 }) {
   const router = useRouter()
   const [pending, startTransition] = useTransition()
@@ -37,7 +39,8 @@ export function UserActions({
     })
   }
 
-  if (isSelf) return <span className="text-xs text-ink-faint">N/A</span>
+  const locked = isSelf || isProtected
+  if (locked) return <span className="text-xs text-ink-faint">N/A</span>
 
   return (
     <div className="flex flex-col items-end gap-2 md:flex-row md:items-center">

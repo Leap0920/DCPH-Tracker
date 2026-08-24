@@ -11,10 +11,12 @@ export function RoleSelect({
   userId,
   role,
   isSelf,
+  isProtected,
 }: {
   userId: string
   role: Role
   isSelf: boolean
+  isProtected?: boolean
 }) {
   const router = useRouter()
   const [pending, startTransition] = useTransition()
@@ -37,13 +39,15 @@ export function RoleSelect({
     })
   }
 
+  const locked = isSelf || isProtected
+
   return (
     <div className="flex items-center gap-2">
       <select
         value={value}
         onChange={onChange}
-        disabled={pending || isSelf}
-        title={isSelf ? "You can't change your own role" : undefined}
+        disabled={pending || locked}
+        title={locked ? (isProtected ? "System owner — protected account" : "You can't change your own role") : undefined}
         className="h-8 rounded-md border border-ink-dim/20 bg-surface px-2 text-xs text-ink focus:outline-none focus:ring-2 focus:ring-accent/20 disabled:opacity-60"
       >
         <option value="member">Member</option>

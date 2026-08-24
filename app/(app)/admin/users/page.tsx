@@ -1,8 +1,9 @@
 import Link from "next/link"
-import { Search } from "lucide-react"
+import { Search, ShieldCheck } from "lucide-react"
 import { createClient } from "@/utils/supabase/server"
 import { createAdminClient } from "@/utils/supabase/admin"
 import { requireAdmin } from "@/lib/auth/admin"
+import { isSystemOwner } from "@/lib/owner-protection"
 import { RoleSelect } from "@/components/admin/RoleSelect"
 import { UserActions } from "@/components/admin/UserActions"
 
@@ -99,6 +100,11 @@ export default async function AdminUsersPage({
 
   const emailById = await fetchEmailMap((users ?? []).map((u) => u.user_id))
 
+  // Resolve system owner flag (cached — one RPC per cold process, not per row).
+  const ownerFlags = await Promise.all(
+    (users ?? []).map((u) => isSystemOwner(u.user_id))
+  )
+
   const total = count ?? 0
   const totalPages = Math.max(1, Math.ceil(total / PAGE_SIZE))
 
@@ -148,9 +154,10 @@ export default async function AdminUsersPage({
             </tr>
           </thead>
           <tbody>
-            {(users ?? []).map((u) => {
+            {(users ?? []).map((u, i) => {
               const statusMeta = STATUS_LABELS[u.status] ?? STATUS_LABELS.active
               const email = emailById.get(u.user_id)
+              const owner = ownerFlags[i]
               return (
                 <tr
                   key={u.user_id}
@@ -185,6 +192,7 @@ export default async function AdminUsersPage({
                       userId={u.user_id}
                       role={u.role}
                       isSelf={u.user_id === me.user_id}
+                      isProtected={owner}
                     />
                   </td>
                   <td className="px-3 py-2.5">
@@ -193,12 +201,22 @@ export default async function AdminUsersPage({
                     >
                       {statusMeta.label}
                     </span>
+                    {owner && (
+                      <span
+                        className="ml-2 inline-flex items-center gap-1 rounded-full border border-amber-500/30 bg-amber-500/10 px-1.5 py-0.5 font-mono text-[9px] uppercase tracking-wide text-amber-400"
+                        title="System owner — protected account"
+                      >
+                        <ShieldCheck className="h-2.5 w-2.5" aria-hidden="true" />
+                        Owner
+                      </span>
+                    )}
                   </td>
                   <td className="px-3 py-2.5">
                     <UserActions
                       userId={u.user_id}
                       status={u.status ?? "active"}
                       isSelf={u.user_id === me.user_id}
+                      isProtected={owner}
                     />
                   </td>
                 </tr>

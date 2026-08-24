@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache"
 import { headers } from "next/headers"
 import { requireAdmin } from "@/lib/auth/admin"
 import { createAdminClient } from "@/utils/supabase/admin"
+import { ownerGuard } from "@/lib/owner-protection"
 
 export type ActionResult = { ok: true; message?: string } | { ok: false; error: string }
 
@@ -78,6 +79,10 @@ export async function updateUserRole(userId: string, role: Role): Promise<Action
     return { ok: false, error: "You can't change your own admin role." }
   }
 
+  // Block changes to the system owner account.
+  const ownerBlocked = await ownerGuard(userId)
+  if (ownerBlocked) return { ok: false, error: ownerBlocked }
+
   const { error } = await admin
     .from("profiles")
     .update({ role, updated_at: new Date().toISOString() })
@@ -115,6 +120,10 @@ export async function setUserStatus(
   if (userId === me.user_id) {
     return { ok: false, error: "You can't change your own account status." }
   }
+
+  // Block changes to the system owner account.
+  const ownerBlocked = await ownerGuard(userId)
+  if (ownerBlocked) return { ok: false, error: ownerBlocked }
 
   const now = new Date().toISOString()
   const patch: {
@@ -164,6 +173,10 @@ export async function deleteUserAccount(userId: string): Promise<ActionResult> {
   if (userId === me.user_id) {
     return { ok: false, error: "You can't delete your own account." }
   }
+
+  // Block deletion of the system owner account.
+  const ownerBlocked = await ownerGuard(userId)
+  if (ownerBlocked) return { ok: false, error: ownerBlocked }
 
   // Deleting from auth.users cascades to profiles (on delete cascade) and
   // any FK-cascading dependents; watch_status rows carry user FK references.
