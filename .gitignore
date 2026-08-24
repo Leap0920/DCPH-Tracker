@@ -67,3 +67,8 @@ logs/
 # curation backups
 /scripts/out/
 
+# task screenshots / AI artifacts
+task5-*.png
+*.xlsx
+tracker-t5-snapshot.yml
+
