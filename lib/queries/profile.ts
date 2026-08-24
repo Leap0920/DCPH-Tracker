@@ -1,5 +1,6 @@
 import { createClient } from "@/utils/supabase/server"
 import { createAdminClient } from "@/utils/supabase/admin"
+import { getDefaultRuntime } from "@/lib/utils"
 import type { Database } from "@/types/database.types"
 
 type Profile = Database["public"]["Tables"]["profiles"]["Row"]
@@ -73,20 +74,58 @@ export async function updateProfile(userId: string, updates: ProfileUpdate) {
 export async function getProfileStats(userId: string) {
   const supabase = createAdminClient() ?? (await createClient())
 
-  const { data: watchStatuses, error: watchError } = await supabase
-    .from("watch_status")
-    .select("status, content_entries(runtime_minutes)")
-    .eq("user_id", userId)
+  // PostgREST caps a single request at 1,000 rows — page to get everything.
+  const PAGE_SIZE = 1000
+  const watchStatuses: {
+    status: string | null
+    watch_count: number | null
+    content_entries: { runtime_minutes: number | null; type: string } | null
+  }[] = []
+  for (let from = 0; ; from += PAGE_SIZE) {
+    const { data: chunk, error: watchError } = await supabase
+      .from("watch_status")
+      .select("status, watch_count, content_entries(runtime_minutes, type)")
+      .eq("user_id", userId)
+      .range(from, from + PAGE_SIZE - 1)
 
-  if (watchError) throw watchError
+    if (watchError) throw watchError
+    if (!chunk || chunk.length === 0) break
+    watchStatuses.push(...chunk)
+    if (chunk.length < PAGE_SIZE) break
+  }
 
-  const watched = watchStatuses?.filter((ws) => ws.status === "watched") ?? []
-  const rewatched = watchStatuses?.filter((ws) => ws.status === "rewatched") ?? []
-  const totalMinutes = [...watched, ...rewatched].reduce((acc, ws) => {
+  const watched = watchStatuses.filter((ws) => ws.status === "watched")
+  const rewatched = watchStatuses.filter((ws) => ws.status === "rewatched")
+  const seen = [...watched, ...rewatched]
+
+  // Cases solved = unique entries seen at least once (matches analytics)
+  const casesSolved = watched.length + rewatched.length
+
+  // Total minutes with runtime fallback (matches analytics)
+  let totalMinutes = 0
+  for (const ws of seen) {
     const entry = Array.isArray(ws.content_entries) ? ws.content_entries[0] : ws.content_entries
-    return acc + (entry?.runtime_minutes ?? 0)
-  }, 0)
+    const minutes = entry?.runtime_minutes ?? getDefaultRuntime(entry?.type ?? "")
+    const views = ws.watch_count ?? 0
+    if (views > 0) totalMinutes += minutes * views
+  }
 
+  // Format time as "Xd Yh Zm"
+  const days = Math.floor(totalMinutes / (24 * 60))
+  const hours = Math.floor((totalMinutes % (24 * 60)) / 60)
+  const mins = Math.round(totalMinutes % 60)
+  const timeFormatted = days > 0
+    ? `${days}d ${hours}h ${mins}m`
+    : hours > 0
+      ? `${hours}h ${mins}m`
+      : `${mins}m`
+
+  // Total catalog count
+  const { count: totalCatalogCount } = await supabase
+    .from("content_entries")
+    .select("*", { count: "exact", head: true })
+
+  // Badge count
   const { count: badgeCount, error: badgeError } = await supabase
     .from("user_badges")
     .select("*", { count: "exact", head: true })
@@ -95,9 +134,11 @@ export async function getProfileStats(userId: string) {
   if (badgeError) throw badgeError
 
   return {
-    watchedCount: watched.length,
+    casesSolved,
     rewatchedCount: rewatched.length,
     totalMinutes,
+    timeFormatted,
+    totalCatalogCount: totalCatalogCount ?? 0,
     badgeCount: badgeCount ?? 0,
   }
 }
