@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useRef } from "react";
 import { motion, MotionConfig, type Variants } from "framer-motion";
 import { X } from "lucide-react";
-import { RELATIONSHIP_META, getCharacterById } from "@/lib/characters-guide";
+import { RELATIONSHIP_META, getCharacterById, getCharacterImage } from "@/lib/characters-guide";
 import type { Character, Relationship, RelationshipType } from "@/lib/characters-guide";
 import { getRelationshipColor } from "@/components/characters/graph-theme";
 import { useTheme } from "@/components/theme-provider";
@@ -172,6 +172,17 @@ export function CharacterDetailPanel({
         </div>
 
         <div className="flex-1 space-y-4 overflow-y-auto p-4 text-left sm:p-5">
+          {/* Character portrait */}
+          {getCharacterImage(character.id) && (
+            <div className="flex justify-center">
+              <img
+                src={getCharacterImage(character.id)!}
+                alt={character.name}
+                className="h-32 w-32 rounded-xl border border-line object-cover shadow-card sm:h-40 sm:w-40"
+              />
+            </div>
+          )}
+
           <p className="text-xs leading-relaxed text-ink-dim sm:text-sm">{character.bio}</p>
 
           <div className="border-t border-line pt-4">
