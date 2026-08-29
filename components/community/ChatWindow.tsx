@@ -18,7 +18,7 @@ import {
   CHAT_PAGE_SIZE,
   type ChatMessage,
 } from "@/lib/queries/client/chat"
-import { MAX_MESSAGE_LENGTH, CHAT_RETENTION_HOURS } from "@/lib/chat-constants"
+import { MAX_MESSAGE_LENGTH } from "@/lib/chat-constants"
 import { redactForbiddenWords } from "@/lib/profanity"
 import { mergeChatMessages } from "@/lib/chat-merge"
 import type { Database } from "@/types/database.types"
@@ -669,12 +669,6 @@ export function ChatWindow({
           </div>
         ) : (
           <div className="space-y-1">
-            {/* Retention notice — pinned to the top of the history so it is
-                seen before any message, unlike the composer footnote. */}
-            <p className="pb-2 pt-1 text-center font-mono text-[11px] text-ink-faint">
-              Messages automatically disappear after{" "}
-              {CHAT_RETENTION_HOURS} hours
-            </p>
             {hasMore && (
               <div className="flex justify-center py-2">
                 <button
@@ -905,8 +899,7 @@ export function ChatWindow({
         {userId && (
           <p className="mt-1.5 px-1 text-[11px] text-ink-faint">
             <kbd className="font-mono">Enter</kbd> to send ·{" "}
-            <kbd className="font-mono">Shift + Enter</kbd> for a new line ·
-            messages clear after {CHAT_RETENTION_HOURS}h
+            <kbd className="font-mono">Shift + Enter</kbd> for a new line
           </p>
         )}
       </div>
