@@ -139,6 +139,7 @@ function TrackerPageContent() {
     queryKey: queryKeys.content.all(),
     queryFn: fetchContentEntries,
     staleTime: 1000 * 60 * 60, // Cache content entries for 1 hour
+    gcTime: 1000 * 60 * 60, // Keep in memory for 1 hour (match staleTime)
   })
   const entries = contentQuery.data?.entries ?? []
   const arcMap = contentQuery.data?.arcMap ?? null
