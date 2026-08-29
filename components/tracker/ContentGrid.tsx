@@ -661,15 +661,21 @@ export function ContentGrid({
   return (
     <div className="space-y-0">
       {/* ── Hero Banner ── */}
-      <div className="relative w-full h-48 sm:h-64 bg-gradient-to-b from-surface-muted to-surface overflow-hidden rounded-t-lg">
-        <div className="absolute inset-0 bg-gradient-to-tr from-accent-soft via-transparent to-transparent" />
-        <div className="absolute inset-0 bg-[linear-gradient(to_right,rgba(225,29,72,0.05)_1px,transparent_1px),linear-gradient(to_bottom,rgba(225,29,72,0.05)_1px,transparent_1px)] bg-[size:3rem_3rem]" />
-        <div className="absolute bottom-0 left-0 right-0 h-32 bg-gradient-to-t from-surface to-transparent" />
-        <div className="absolute bottom-0 left-0 right-0 p-6 sm:p-8">
-          <h1 className="font-display text-3xl sm:text-5xl leading-tight tracking-tight text-ink mb-2">
+      <div className="relative w-full h-64 sm:h-80 bg-surface-muted overflow-hidden rounded-t-lg border-b border-line/40">
+        {/* Tracker Banner Image */}
+        <img
+          src="/tracker-image.jpg"
+          alt="Detective Conan Tracker Banner"
+          className="absolute inset-0 h-full w-full object-cover object-[center_10%]"
+        />
+        {/* Gradient overlay at bottom to ensure text readability on top of straight image */}
+        <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/25 to-transparent" />
+
+        <div className="relative z-10 flex flex-col justify-end h-full p-6 sm:p-8 text-white">
+          <h1 className="font-display text-3xl sm:text-5xl leading-tight tracking-tight text-white mb-2 drop-shadow-md">
             Detective Conan
           </h1>
-          <div className="flex items-center gap-2 text-sm text-ink-dim mb-2">
+          <div className="flex items-center gap-2 text-sm text-white/90 mb-3 drop-shadow">
             <span className="font-mono text-xs">{totalYears} years</span>
             <span>·</span>
             <span className="font-mono text-xs">{totalEpisodes} episodes</span>
@@ -677,15 +683,15 @@ export function ContentGrid({
             <span className="font-mono text-xs">{totalMovies} movies</span>
           </div>
           <div className="flex items-center gap-2.5 max-w-md">
-            <div className="flex-1 h-1.5 bg-surface-muted rounded-full overflow-hidden">
+            <div className="flex-1 h-2 bg-black/40 backdrop-blur-xs rounded-full overflow-hidden border border-white/20">
               <motion.div
-                className="h-full bg-ink rounded-full"
+                className="h-full bg-accent rounded-full"
                 initial={{ width: 0 }}
                 animate={{ width: `${overallPercent}%` }}
                 transition={{ duration: 0.8, ease: "easeOut" }}
               />
             </div>
-            <span className="font-mono text-xs text-ink font-bold">{overallPercent}%</span>
+            <span className="font-mono text-xs text-white font-bold drop-shadow">{overallPercent}%</span>
           </div>
         </div>
       </div>
