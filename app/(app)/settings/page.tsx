@@ -16,7 +16,8 @@ import {
   updateProfile,
 } from "@/lib/queries/client/profile"
 import { Camera, Trash2, Check, Loader2, LogOut, Lock, Eye, EyeOff, Mail, Smartphone } from "lucide-react"
-import { ResetTrackerCard } from "@/components/settings/ResetTrackerCard"
+import { ResetProgressCard } from "@/components/settings/ResetProgressCard"
+import { DeleteAccountCard } from "@/components/settings/DeleteAccountCard"
 import type { Database } from "@/types/database.types"
 
 type Profile = Database["public"]["Tables"]["profiles"]["Row"]
@@ -677,8 +678,30 @@ export default function SettingsPage() {
           </form>
         </div>
 
-        {/* Danger zone — must stay last, below everything constructive. */}
-        {userId && <ResetTrackerCard userId={userId} />}
+        {/* Danger zone — must stay last, below everything constructive.
+            Both cards are irreversible; the confirmation phrase is re-checked
+            server-side in each route. */}
+        {userId && (
+          <section
+            className="mt-8"
+            aria-labelledby="danger-zone-heading"
+          >
+            <h2
+              id="danger-zone-heading"
+              className="font-display text-base tracking-tight text-danger"
+            >
+              Danger zone
+            </h2>
+            <p className="mt-1 text-sm text-ink-dim">
+              Irreversible actions. Nothing here can be recovered.
+            </p>
+
+            <div className="mt-3 space-y-4">
+              <ResetProgressCard userId={userId} />
+              <DeleteAccountCard userId={userId} email={email} />
+            </div>
+          </section>
+        )}
       </div>
     </div>
   )

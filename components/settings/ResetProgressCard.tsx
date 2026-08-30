@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useRef, useState } from "react"
 import { useRouter } from "next/navigation"
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
-import { Loader2, Trash2, TriangleAlert } from "lucide-react"
+import { Loader2, RotateCcw, TriangleAlert } from "lucide-react"
 import { createClient } from "@/utils/supabase/client"
 import { queryKeys } from "@/lib/queries/keys"
 import {
@@ -15,23 +15,26 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog"
 import { RESET_CONFIRM_PHRASE, isResetConfirmed } from "@/lib/tracker-reset"
+import { resetProgress } from "@/lib/queries/client/account"
 
 /**
- * Danger-zone card: deletes every watch_status row belonging to the signed-in
- * user.
+ * Danger-zone card: wipes the signed-in user's viewing progress.
  *
- * WHY NO API ROUTE. The delete runs client-side against PostgREST because RLS
- * already provides everything a hardened route would:
- *   - "Users can delete own watch status" (using auth.uid() = user_id) means the
- *     .eq("user_id", userId) filter below is belt-and-braces, not the security
- *     boundary. A tampered userId prop still cannot reach another user's rows.
- *   - the restrictive inactive-user policy blocks banned accounts at the database.
- * Rate limiting would protect nobody: the only data reachable is the caller's own.
+ * The delete runs through POST /api/account/reset-progress rather than against
+ * PostgREST directly, because progress now lives in two tables and only one of
+ * them is deletable from the browser — watch_events (the log behind the rolling
+ * 7/30-day leaderboards) has DELETE revoked from `authenticated`. See the route
+ * for the full reasoning.
+ *
+ * The route resolves the user id from the session cookie, so the `userId` prop
+ * is used for cache keys and counts only. A tampered value cannot reach another
+ * account's rows.
  */
 
-const TRACKED_COUNT_KEY = (userId: string) => ["settings", "tracked-count", userId] as const
+const TRACKED_COUNT_KEY = (userId: string) =>
+  ["settings", "tracked-count", userId] as const
 
-export function ResetTrackerCard({ userId }: { userId: string }) {
+export function ResetProgressCard({ userId }: { userId: string }) {
   const router = useRouter()
   const queryClient = useQueryClient()
   // Memoised: createClient() returns a fresh object each call, and an unstable
@@ -40,7 +43,10 @@ export function ResetTrackerCard({ userId }: { userId: string }) {
 
   const [open, setOpen] = useState(false)
   const [typed, setTyped] = useState("")
-  const [message, setMessage] = useState<{ kind: "success" | "error"; text: string } | null>(null)
+  const [message, setMessage] = useState<{
+    kind: "success" | "error"
+    text: string
+  } | null>(null)
   const inputRef = useRef<HTMLInputElement>(null)
 
   // Clear the typed phrase whenever the dialog closes, so reopening never starts
@@ -64,46 +70,33 @@ export function ResetTrackerCard({ userId }: { userId: string }) {
   })
 
   const reset = useMutation({
-    mutationFn: async () => {
-      // .select() returns the deleted rows, which gives us both the count for the
-      // banner and the exact content ids whose community rating averages moved.
-      const { data, error } = await supabase
-        .from("watch_status")
-        .delete()
-        .eq("user_id", userId)
-        .select("content_id")
-      if (error) throw error
-      return (data ?? []).map((row) => row.content_id as string)
-    },
-    onSuccess: async (contentIds) => {
-      const expected = trackedCount ?? 0
-
-      // Zero deleted while rows were known to exist means RLS refused silently —
-      // almost certainly the inactive-user ban gate. Not a success.
-      if (contentIds.length === 0 && expected > 0) {
-        setMessage({
-          kind: "error",
-          text: "Reset was blocked. Your account may be restricted — contact an admin.",
-        })
-        return
-      }
-
+    mutationFn: () => resetProgress(RESET_CONFIRM_PHRASE),
+    onSuccess: async (result) => {
       await Promise.all([
         // watchStatus.all is the prefix of watchStatus.byContent, so this
-        // invalidates every per-entry watch query too. If your keys are NOT
-        // nested that way, add the derived-prefix trick used for ratings below.
-        queryClient.invalidateQueries({ queryKey: queryKeys.watchStatus.all(userId) }),
-        queryClient.invalidateQueries({ queryKey: queryKeys.continueWatching.all(userId) }),
-        queryClient.invalidateQueries({ queryKey: queryKeys.continueWatching.nextUp(userId) }),
-        queryClient.invalidateQueries({ queryKey: queryKeys.analytics.self(userId) }),
+        // invalidates every per-entry watch query too.
+        queryClient.invalidateQueries({
+          queryKey: queryKeys.watchStatus.all(userId),
+        }),
+        queryClient.invalidateQueries({
+          queryKey: queryKeys.continueWatching.all(userId),
+        }),
+        queryClient.invalidateQueries({
+          queryKey: queryKeys.continueWatching.nextUp(userId),
+        }),
+        queryClient.invalidateQueries({
+          queryKey: queryKeys.analytics.self(userId),
+        }),
         queryClient.invalidateQueries({ queryKey: queryKeys.leaderboard.all() }),
-        queryClient.invalidateQueries({ queryKey: queryKeys.profile.stats(userId) }),
+        queryClient.invalidateQueries({
+          queryKey: queryKeys.profile.stats(userId),
+        }),
         queryClient.invalidateQueries({ queryKey: TRACKED_COUNT_KEY(userId) }),
         // Community rating averages included this user's rating. Rather than
         // firing one invalidation per deleted row, drop the contentId segment
         // from a probe key and invalidate the whole rating namespace in one call.
         // ASSUMES contentId is the LAST segment of content.rating(contentId).
-        contentIds.length > 0
+        result.contentIds.length > 0
           ? queryClient.invalidateQueries({
               queryKey: queryKeys.content.rating("__probe__").slice(0, -1),
             })
@@ -118,17 +111,22 @@ export function ResetTrackerCard({ userId }: { userId: string }) {
       setMessage({
         kind: "success",
         text:
-          contentIds.length === 0
+          result.tracked === 0
             ? "Nothing was tracked, so there was nothing to reset."
-            : `Tracker reset. Cleared ${contentIds.length.toLocaleString()} ${
-                contentIds.length === 1 ? "entry" : "entries"
-              }.`,
+            : `Progress reset. Cleared ${result.tracked.toLocaleString()} ${
+                result.tracked === 1 ? "entry" : "entries"
+              }${
+                result.eventsCleared === null
+                  ? ". Your activity log could not be cleared — ask an admin to configure the service-role key."
+                  : "."
+              }`,
       })
     },
     onError: (error: unknown) => {
       setMessage({
         kind: "error",
-        text: error instanceof Error ? error.message : "Could not reset your tracker.",
+        text:
+          error instanceof Error ? error.message : "Could not reset your progress.",
       })
     },
   })
@@ -138,10 +136,12 @@ export function ResetTrackerCard({ userId }: { userId: string }) {
 
   return (
     <div className="rounded-xl border border-danger/30 bg-surface p-5">
-      <h2 className="text-sm font-medium text-ink">Reset tracker record</h2>
+      <h2 className="text-sm font-medium text-ink">Reset progress</h2>
       <p className="mt-1 text-sm text-ink-dim">
-        Clears your entire watch history — every watched and rewatched entry, your rewatch
-        counts, your ratings and your favorites. This cannot be undone.
+        Clears your entire watch history — every watched and rewatched entry, your
+        rewatch counts, your ratings, your favorites, and the activity log behind
+        the weekly and monthly leaderboards. Your account, profile and comments
+        are not affected. This cannot be undone.
       </p>
 
       <p className="mt-3 text-sm text-ink-dim">
@@ -182,8 +182,8 @@ export function ResetTrackerCard({ userId }: { userId: string }) {
         disabled={!hasRecords || countPending || reset.isPending}
         className="mt-4 inline-flex items-center gap-2 rounded-lg border border-danger/30 bg-danger/10 px-3 py-2 text-sm font-medium text-danger transition-colors hover:bg-danger/20 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-danger/40 disabled:cursor-not-allowed disabled:opacity-50"
       >
-        <Trash2 className="h-4 w-4" aria-hidden="true" />
-        Reset tracker record
+        <RotateCcw className="h-4 w-4" aria-hidden="true" />
+        Reset progress
       </button>
 
       <Dialog open={open} onOpenChange={(next) => !reset.isPending && setOpen(next)}>
@@ -200,21 +200,25 @@ export function ResetTrackerCard({ userId }: { userId: string }) {
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
               <TriangleAlert className="h-4 w-4 text-danger" aria-hidden="true" />
-              Reset tracker record?
+              Reset your progress?
             </DialogTitle>
             <DialogDescription>
               This permanently deletes all{" "}
               <span className="font-medium text-ink">
                 {(trackedCount ?? 0).toLocaleString()}
               </span>{" "}
-              of your tracked entries, including your ratings and favorites. Your account,
-              profile and comments are not affected. There is no undo and no backup.
+              of your tracked entries, including your ratings, favorites and the
+              activity behind your leaderboard standing. Your account, profile and
+              comments are not affected. There is no undo and no backup.
             </DialogDescription>
           </DialogHeader>
 
           <div className="space-y-2">
             <label htmlFor="reset-confirm" className="block text-sm text-ink-dim">
-              Type <span className="font-mono font-medium text-ink">{RESET_CONFIRM_PHRASE}</span>{" "}
+              Type{" "}
+              <span className="font-mono font-medium text-ink">
+                {RESET_CONFIRM_PHRASE}
+              </span>{" "}
               to confirm
             </label>
             <input
@@ -246,7 +250,9 @@ export function ResetTrackerCard({ userId }: { userId: string }) {
               disabled={!canConfirm}
               className="inline-flex items-center gap-2 rounded-lg bg-danger px-3 py-2 text-sm font-medium text-white transition-opacity hover:opacity-90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-danger/40 disabled:cursor-not-allowed disabled:opacity-50"
             >
-              {reset.isPending && <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" />}
+              {reset.isPending && (
+                <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" />
+              )}
               {reset.isPending ? "Resetting…" : "Reset everything"}
             </button>
           </DialogFooter>

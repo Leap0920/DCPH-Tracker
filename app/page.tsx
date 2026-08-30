@@ -8,6 +8,7 @@ import { LatestContent } from "@/components/marketing/LatestContent"
 import { HomeCta } from "@/components/marketing/HomeCta"
 import { BlockScreeningSection } from "@/components/marketing/BlockScreeningSection"
 import { FourYearsSection } from "@/components/marketing/FourYearsSection"
+import { AccountDeletedNotice } from "@/components/layout/AccountDeletedNotice"
 import {
   LiveEpisodeBadge,
   LiveEpisodeBadgeSkeleton,
@@ -24,6 +25,12 @@ export default function HomePage() {
     <div className="bg-page text-ink flex min-h-screen flex-col overflow-x-hidden w-full max-w-full">
       <Navbar />
       <main className="flex-1">
+        {/* Client-side so reading the query string does not opt the whole
+            marketing page out of static rendering. */}
+        <Suspense fallback={null}>
+          <AccountDeletedNotice />
+        </Suspense>
+
         {/* The badge is a server component: it is created here and handed to the
             client HeroSection as a slot, so the episode query stays server-side. */}
         <HeroSection

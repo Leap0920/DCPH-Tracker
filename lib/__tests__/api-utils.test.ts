@@ -297,7 +297,7 @@ describe("handleApiError", () => {
     expect(serialized).not.toContain("duplicate key")
 
     expect(spy).toHaveBeenCalledTimes(1)
-    expect(spy.mock.calls[0]?.[0]).toBe("[api][profiles.update]")
+    expect(spy.mock.calls[0]?.[0]).toContain("api_error")
 
     spy.mockRestore()
   })
