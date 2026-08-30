@@ -127,16 +127,15 @@ export function ContentDetail({ entry, inModal }: { entry: ContentEntry; inModal
   const watchMutation = useMutation({
     mutationFn: ({
       nextStatus,
-      nextCount,
     }: {
       nextStatus: WatchStatus
-      nextCount: number
-    }) => setWatchStatus(userId as string, entry.id, nextStatus, nextCount),
-    onMutate: async ({ nextStatus, nextCount }) => {
+    }) => setWatchStatus(userId as string, entry.id, nextStatus, watchCount),
+    onMutate: async ({ nextStatus }) => {
       if (!watchStatusKey) return { prev: undefined }
       await queryClient.cancelQueries({ queryKey: watchStatusKey })
       const prev = queryClient.getQueryData<UserWatchStatuses>(watchStatusKey)
       if (prev) {
+        const { nextCount } = nextWatchState(status, watchCount)
         queryClient.setQueryData<UserWatchStatuses>(watchStatusKey, {
           statuses: new Map(prev.statuses).set(entry.id, nextStatus),
           counts: new Map(prev.counts).set(entry.id, nextCount),
@@ -255,7 +254,7 @@ export function ContentDetail({ entry, inModal }: { entry: ContentEntry; inModal
 
   function handleWatchToggle() {
     if (!userId || watchStatusQuery.isLoading) return
-    watchMutation.mutate({ nextStatus: toggle.nextStatus, nextCount: toggle.nextCount })
+    watchMutation.mutate({ nextStatus: toggle.nextStatus })
   }
 
   function handleSetRating(star: number) {
