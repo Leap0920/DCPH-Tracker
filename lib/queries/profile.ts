@@ -101,6 +101,10 @@ export async function getProfileStats(userId: string) {
   // Cases solved = unique entries seen at least once (matches analytics)
   const casesSolved = watched.length + rewatched.length
 
+  // Total rewatch views = sum of watch_count for rewatched items.
+  // e.g. ep1 rewatched 5x + ep23 rewatched 2x = 7 total rewatch views
+  const totalRewatchViews = rewatched.reduce((sum, ws) => sum + (ws.watch_count ?? 0), 0)
+
   // Total minutes with runtime fallback (matches analytics)
   let totalMinutes = 0
   for (const ws of seen) {
@@ -135,7 +139,7 @@ export async function getProfileStats(userId: string) {
 
   return {
     casesSolved,
-    rewatchedCount: rewatched.length,
+    totalRewatchViews,
     totalMinutes,
     timeFormatted,
     totalCatalogCount: totalCatalogCount ?? 0,

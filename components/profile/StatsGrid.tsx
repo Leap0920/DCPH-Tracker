@@ -5,7 +5,7 @@ import { Eye, RefreshCw, Clock, Award } from "lucide-react"
 interface StatsGridProps {
   stats: {
     casesSolved: number
-    rewatchedCount: number
+    totalRewatchViews: number
     totalMinutes: number
     timeFormatted: string
     totalCatalogCount: number
@@ -24,12 +24,12 @@ const statItems = [
       `${s.totalCatalogCount.toLocaleString()} total in catalog`,
   },
   {
-    key: "rewatchedCount" as const,
+    key: "totalRewatchViews" as const,
     icon: RefreshCw,
-    label: "Rewatched",
+    label: "Total Rewatches",
     color: "text-accent",
     format: (v: number) => v.toLocaleString(),
-    sub: () => "Of those, seen more than once",
+    sub: () => "Times you hit rewatch",
   },
   {
     key: "totalMinutes" as const,

@@ -261,6 +261,7 @@ export async function getSelfAnalytics(userId: string): Promise<SelfAnalytics> {
   let rewatchedCount = 0
   let totalViews = 0
   let minutesWatched = 0
+  let totalRewatchViews = 0
 
   const favorites: FavoriteEntry[] = []
   const topRated: TopRatedEntry[] = []
@@ -300,6 +301,8 @@ export async function getSelfAnalytics(userId: string): Promise<SelfAnalytics> {
     else if (status === "rewatched") rewatchedCount++
 
     const views = row.watch_count ?? 0
+    // Total rewatch views = sum of watch_count for rewatched items
+    if (status === "rewatched" && views > 0) totalRewatchViews += views
     // Only watched/rewatched rows count as views; an "unwatched" row keeps its
     // historical watch_count but must not inflate stats (matches leaderboard).
     if (isSeen && views > 0) {
@@ -483,7 +486,7 @@ export async function getSelfAnalytics(userId: string): Promise<SelfAnalytics> {
 
   return {
     watchedCount,
-    rewatchedCount,
+    rewatchedCount: totalRewatchViews,
     totalViews,
     minutesWatched,
     timeFormatted: {
