@@ -1,10 +1,13 @@
 "use client"
 
 import * as React from "react"
-import { MessageSquare, X, RotateCcw } from "lucide-react"
+import { MessageSquare, X, RotateCcw, Lock, LogIn } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { ChatInput } from "@/components/chat/ChatInput"
 import { ChatMessage, type ChatMessageData } from "@/components/chat/ChatMessage"
+import { createClient } from "@/utils/supabase/client"
+import { openAuthModal } from "@/lib/auth-modal"
+import type { User as SupabaseUser } from "@supabase/supabase-js"
 
 const GREETING: ChatMessageData = {
   id: "greeting",
@@ -21,9 +24,30 @@ export function ChatWidget() {
   const [messages, setMessages] = React.useState<ChatMessageData[]>([GREETING])
   const [isLoading, setIsLoading] = React.useState(false)
   const [error, setError] = React.useState<string | null>(null)
+  const [user, setUser] = React.useState<SupabaseUser | null>(null)
+  const [authLoading, setAuthLoading] = React.useState(true)
 
   const scrollRef = React.useRef<HTMLDivElement>(null)
   const abortRef = React.useRef<AbortController | null>(null)
+
+  React.useEffect(() => {
+    const supabase = createClient()
+    supabase.auth.getUser().then(({ data: { user } }) => {
+      setUser(user)
+      setAuthLoading(false)
+    })
+
+    const {
+      data: { subscription },
+    } = supabase.auth.onAuthStateChange((_event, session) => {
+      setUser(session?.user ?? null)
+      setAuthLoading(false)
+    })
+
+    return () => {
+      subscription.unsubscribe()
+    }
+  }, [])
 
   // Drive the enter/exit transition without needing custom Tailwind keyframes.
   React.useEffect(() => {
@@ -178,14 +202,16 @@ export function ChatWidget() {
             </div>
 
             <div className="flex shrink-0 items-center gap-1">
-              <button
-                type="button"
-                onClick={reset}
-                aria-label="Start a new conversation"
-                className="rounded-lg p-1.5 text-ink-faint transition-colors hover:bg-surface-muted hover:text-ink"
-              >
-                <RotateCcw className="size-4" />
-              </button>
+              {user && (
+                <button
+                  type="button"
+                  onClick={reset}
+                  aria-label="Start a new conversation"
+                  className="rounded-lg p-1.5 text-ink-faint transition-colors hover:bg-surface-muted hover:text-ink"
+                >
+                  <RotateCcw className="size-4" />
+                </button>
+              )}
               <button
                 type="button"
                 onClick={() => setOpen(false)}
@@ -197,28 +223,50 @@ export function ChatWidget() {
             </div>
           </header>
 
-          <div
-            ref={scrollRef}
-            className="flex-1 space-y-3 overflow-y-auto px-4 py-4"
-            aria-live="polite"
-            aria-atomic="false"
-          >
-            {messages.map((message) => (
-              <ChatMessage
-                key={message.id}
-                message={message}
-                isStreaming={isLoading && message.id === lastMessage?.id}
-              />
-            ))}
-
-            {error && (
-              <p className="rounded-xl border border-accent/40 bg-accent/10 px-3 py-2 text-xs text-accent-bright">
-                {error}
+          {!authLoading && !user ? (
+            <div className="flex flex-1 flex-col items-center justify-center p-6 text-center">
+              <div className="mb-4 flex size-14 items-center justify-center rounded-2xl bg-accent/15 text-accent-bright ring-1 ring-accent/30 shadow-lg shadow-accent/10">
+                <Lock className="size-7" />
+              </div>
+              <h3 className="font-display text-lg font-bold text-ink">Member Access Only</h3>
+              <p className="mt-2 max-w-xs text-xs leading-relaxed text-ink-dim">
+                DCPH Bot is exclusively available to signed-in community members. Sign in or create a free account to find episodes, explore cases, and get personalized recommendations!
               </p>
-            )}
-          </div>
+              <button
+                type="button"
+                onClick={() => openAuthModal("signin")}
+                className="mt-5 inline-flex items-center justify-center gap-2 rounded-xl bg-accent px-5 py-2.5 text-sm font-semibold text-white shadow-lg shadow-accent/25 transition-all hover:bg-accent-bright"
+              >
+                <LogIn className="size-4" />
+                Sign In to Chat
+              </button>
+            </div>
+          ) : (
+            <>
+              <div
+                ref={scrollRef}
+                className="flex-1 space-y-3 overflow-y-auto px-4 py-4"
+                aria-live="polite"
+                aria-atomic="false"
+              >
+                {messages.map((message) => (
+                  <ChatMessage
+                    key={message.id}
+                    message={message}
+                    isStreaming={isLoading && message.id === lastMessage?.id}
+                  />
+                ))}
 
-          <ChatInput onSend={send} onStop={stop} disabled={isLoading} isStreaming={isLoading} />
+                {error && (
+                  <p className="rounded-xl border border-accent/40 bg-accent/10 px-3 py-2 text-xs text-accent-bright">
+                    {error}
+                  </p>
+                )}
+              </div>
+
+              <ChatInput onSend={send} onStop={stop} disabled={isLoading} isStreaming={isLoading} />
+            </>
+          )}
         </div>
       )}
     </>

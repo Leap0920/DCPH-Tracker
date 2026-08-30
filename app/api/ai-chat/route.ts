@@ -46,7 +46,12 @@ function buildProviderTargets(): ChatProviderTarget[] {
   // 1. Google Gemini (Google AI Studio)
   const geminiKey = process.env.GEMINI_API_KEY
   if (geminiKey) {
-    const geminiModels = ["gemini-3.6-flash", "gemini-3.5-flash-lite", "gemini-flash-lite-latest"]
+    const geminiModels = [
+      "gemini-3.5-flash-lite",
+      "gemini-3.1-flash-lite",
+      "gemini-3.6-flash",
+      "gemini-3-flash",
+    ]
     for (const model of geminiModels) {
       targets.push({
         name: `Gemini (${model})`,
@@ -278,26 +283,27 @@ export async function POST(request: Request) {
   const userMessage = message.trim()
   const priorTurns = sanitizeHistory(history)
 
-  // Auth is optional — anonymous users still get answers, just no watch history.
-  let userId: string | undefined
+  // Auth is required — anonymous users must sign in.
+  const supabase = await createClient()
+  const {
+    data: { user },
+  } = await supabase.auth.getUser()
+
+  if (!user) {
+    return jsonError("Please sign in to chat with DCPH Bot.", 401)
+  }
+
+  const userId = user.id
   let displayName: string | null = null
   try {
-    const supabase = await createClient()
-    const {
-      data: { user },
-    } = await supabase.auth.getUser()
-
-    if (user) {
-      userId = user.id
-      const { data: profile } = await supabase
-        .from("profiles")
-        .select("display_name, username")
-        .eq("user_id", user.id)
-        .maybeSingle()
-      displayName = profile?.display_name ?? profile?.username ?? null
-    }
+    const { data: profile } = await supabase
+      .from("profiles")
+      .select("display_name, username")
+      .eq("user_id", user.id)
+      .maybeSingle()
+    displayName = profile?.display_name ?? profile?.username ?? null
   } catch {
-    // Treat auth failures as anonymous rather than failing the request.
+    // Non-fatal profile lookup error
   }
 
   // Include the previous user turn so follow-ups ("what about the victim?") retrieve.
