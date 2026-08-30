@@ -4,7 +4,8 @@ import Link from "next/link"
 import { Button } from "@/components/ui/button"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { avatarUrl } from "@/lib/constants"
-import { Pencil } from "lucide-react"
+import { Pencil, Award } from "lucide-react"
+import { getDetectiveRank } from "@/lib/ranks"
 
 /**
  * Public-facing profile shape — the PII-safe subset exposed by the
@@ -16,15 +17,20 @@ export interface PublicProfile {
   username: string
   display_name: string
   avatar_url: string | null
+  bio?: string | null
 }
 
 export function ProfileCard({
   profile,
   isOwn = false,
+  casesSolved = 0,
 }: {
   profile: PublicProfile
   isOwn?: boolean
+  casesSolved?: number
 }) {
+  const rank = getDetectiveRank(casesSolved)
+
   return (
     <div className="relative rounded-lg border border-ink-dim/20 bg-surface p-6 shadow-card sm:p-8">
       <span className="dossier-stamp">Detective</span>
@@ -44,6 +50,13 @@ export function ProfileCard({
             <h1 className="font-display text-2xl tracking-tight text-ink">
               {profile.display_name}
             </h1>
+            <span
+              className={`inline-flex items-center gap-1 rounded-md border px-2.5 py-0.5 font-mono text-xs font-semibold ${rank.badgeColor}`}
+              title={`Level ${rank.level}: ${rank.title}`}
+            >
+              <Award className="size-3.5 shrink-0" />
+              {rank.title}
+            </span>
             {isOwn && (
               <Link href="/settings" className="ml-auto">
                 <Button
@@ -61,6 +74,12 @@ export function ProfileCard({
           <p className="mt-1 font-mono text-sm text-ink-faint">
             @{profile.username}
           </p>
+
+          {profile.bio && (
+            <p className="mt-3 text-sm leading-relaxed text-ink-dim whitespace-pre-wrap">
+              {profile.bio}
+            </p>
+          )}
         </div>
       </div>
     </div>

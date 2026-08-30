@@ -73,7 +73,7 @@ export default async function ProfilePage({
           <span className="redacted-bar w-16" />
         </div>
 
-        <ProfileCard profile={profile} isOwn={isOwn} />
+        <ProfileCard profile={profile} isOwn={isOwn} casesSolved={stats.casesSolved} />
         <StatsGrid stats={stats} />
         <CommentTrail
           userId={profile.user_id}

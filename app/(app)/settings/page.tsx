@@ -27,6 +27,7 @@ const MAX_AVATAR_MB = 3
 export default function SettingsPage() {
   const [userId, setUserId] = useState<string | null>(null)
   const [email, setEmail] = useState<string | null>(null)
+  const [username, setUsername] = useState("")
   const [displayName, setDisplayName] = useState("")
   const [bio, setBio] = useState("")
   const [birthday, setBirthday] = useState<string | null>(null)
@@ -80,6 +81,7 @@ export default function SettingsPage() {
   // Sync form fields once when the profile arrives.
   useEffect(() => {
     if (profile) {
+      setUsername(profile.username)
       setDisplayName(profile.display_name)
       setBio(profile.bio ?? "")
       setBirthday(profile.birthday ?? null)
@@ -92,15 +94,20 @@ export default function SettingsPage() {
     onSuccess: (data) => {
       queryClient.setQueryData(queryKeys.profile.byId(userId as string), data)
       resetAvatar()
-      setMessage({ type: "success", text: "Profile updated." })
+      setMessage({ type: "success", text: "Profile and codename updated." })
       router.refresh()
     },
     onError: (err) => {
       setUploading(false)
-      setMessage({
-        type: "error",
-        text: err instanceof Error ? err.message : "Failed to save changes.",
-      })
+      const msg = err instanceof Error ? err.message : "Failed to save changes."
+      if (msg.includes("duplicate key") || msg.includes("profiles_username_key") || msg.includes("23505")) {
+        setMessage({ type: "error", text: "This Detective Codename is already taken. Please choose another." })
+      } else {
+        setMessage({
+          type: "error",
+          text: msg,
+        })
+      }
     },
   })
 
@@ -169,6 +176,33 @@ export default function SettingsPage() {
     setMessage(null)
 
     try {
+      const cleanedUsername = username.trim().toLowerCase()
+      if (!/^[a-z0-9_]{3,30}$/.test(cleanedUsername)) {
+        setSaving(false)
+        setMessage({
+          type: "error",
+          text: "Codename must be 3–30 characters and contain only lowercase letters, numbers, and underscores.",
+        })
+        return
+      }
+
+      if (cleanedUsername !== profile.username) {
+        const { data: existingUser } = await supabase
+          .from("profiles")
+          .select("user_id")
+          .eq("username", cleanedUsername)
+          .maybeSingle()
+
+        if (existingUser && existingUser.user_id !== profile.user_id) {
+          setSaving(false)
+          setMessage({
+            type: "error",
+            text: `Codename @${cleanedUsername} is already taken. Please choose another.`,
+          })
+          return
+        }
+      }
+
       let avatar_url = profile.avatar_url
 
       if (avatarAction === "new" && pendingFile) {
@@ -197,7 +231,8 @@ export default function SettingsPage() {
       }
 
       updateProfileMutation.mutate({
-        display_name: displayName,
+        username: cleanedUsername,
+        display_name: displayName.trim(),
         bio: bio || null,
         birthday: birthday || null,
         avatar_url,
@@ -441,15 +476,29 @@ export default function SettingsPage() {
 
             <div className="mt-4 space-y-4">
               <div className="space-y-2">
-                <Label htmlFor="username">Detective Codename</Label>
-                <Input
-                  id="username"
-                  value={profile?.username ?? ""}
-                  disabled
-                  className="bg-surface-muted opacity-70"
-                />
+                <Label htmlFor="username">Detective Codename (@handle)</Label>
+                <div className="relative flex items-center">
+                  <span className="absolute left-3 font-mono text-sm text-ink-faint">@</span>
+                  <Input
+                    id="username"
+                    value={username}
+                    onChange={(e) =>
+                      setUsername(
+                        e.target.value
+                          .toLowerCase()
+                          .replace(/[^a-z0-9_]/g, "")
+                          .slice(0, 30)
+                      )
+                    }
+                    required
+                    minLength={3}
+                    maxLength={30}
+                    placeholder="your_codename"
+                    className="pl-8 font-mono text-sm"
+                  />
+                </div>
                 <p className="text-xs text-ink-faint">
-                  Codename cannot be changed.
+                  Lowercase letters, numbers, and underscores only (3–30 chars). Used for your public URL handle.
                 </p>
               </div>
 

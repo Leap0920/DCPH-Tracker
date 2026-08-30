@@ -732,6 +732,7 @@ export interface Database {
           username: string;
           display_name: string;
           avatar_url: string | null;
+          bio: string | null;
         };
         Relationships: [];
       };

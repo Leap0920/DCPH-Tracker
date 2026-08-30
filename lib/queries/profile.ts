@@ -10,13 +10,11 @@ type ProfileUpdate = Database["public"]["Tables"]["profiles"]["Update"]
  * Safe public columns only. Never select("*") — the base table holds PII
  * (birthday, bio, status, ban_reason, ...) that must stay private.
  */
-export const PUBLIC_PROFILE_COLUMNS = "user_id, username, display_name, avatar_url"
+export const PUBLIC_PROFILE_COLUMNS = "user_id, username, display_name, avatar_url, bio"
 
 /**
- * Reads a profile through the `public_profiles` security-definer view
- * (safe columns only). Falls back to the base table with safe columns when
- * the view has not been created yet (migration not applied). This function
- * is safe to call for anonymous visitors — the view grants anon read.
+ * Reads a profile through the admin client or `public_profiles` view
+ * (safe columns only: user_id, username, display_name, avatar_url, bio).
  */
 async function selectPublicProfile(
   supabase: Awaited<ReturnType<typeof createClient>>,
@@ -24,6 +22,20 @@ async function selectPublicProfile(
   value: string,
   mode: "maybeSingle" | "single"
 ) {
+  try {
+    const admin = createAdminClient()
+    if (admin) {
+      const baseQuery = admin
+        .from("profiles")
+        .select(PUBLIC_PROFILE_COLUMNS)
+        .eq(column, value)
+      const base = await (mode === "maybeSingle" ? baseQuery.maybeSingle() : baseQuery.single())
+      if (!base.error && base.data) return base
+    }
+  } catch {
+    // Non-fatal, fallback to view
+  }
+
   const viewQuery = supabase
     .from("public_profiles")
     .select(PUBLIC_PROFILE_COLUMNS)
@@ -33,15 +45,13 @@ async function selectPublicProfile(
 
   if (!view.error) return view
 
-  // Fallback: view missing (migration not applied) → safe columns on base table.
-  const base = supabase
-    .from("profiles")
-    .select(PUBLIC_PROFILE_COLUMNS)
+  // Fallback: view missing bio column → safe 4 columns
+  const fallbackQuery = supabase
+    .from("public_profiles")
+    .select("user_id, username, display_name, avatar_url")
     .eq(column, value)
 
-  const fb = await (mode === "maybeSingle" ? base.maybeSingle() : base.single())
-  if (fb.error) throw fb.error
-  return fb
+  return mode === "maybeSingle" ? fallbackQuery.maybeSingle() : fallbackQuery.single()
 }
 
 export async function getProfileByUsername(username: string) {
