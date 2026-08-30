@@ -103,6 +103,7 @@ export const NAV_ROUTES = [
   { href: "/arcs", label: "Story Arcs" },
   { href: "/characters", label: "Characters" },
   { href: "/analytics", label: "Self Analytics" },
+  { href: "/wrapped", label: "Wrapped" },
   { href: "/community/rankings", label: "Rankings" },
   { href: "/community/chat", label: "Chat" },
 ] as const;
@@ -124,6 +125,7 @@ export const NAV_EXPLORE: NavSubItem[] = [
   { href: "/cases", label: "Case Files", description: "Every crime catalogued — types, victims & methods", icon: "FileText" },
   { href: "/characters", label: "Characters", description: "Character profiles & relationships", icon: "Users" },
   { href: "/analytics", label: "Self Analytics", description: "Personal stats & viewing insights", icon: "BarChart3" },
+  { href: "/wrapped", label: "Wrapped", description: "Your watch stats as a shareable card", icon: "BarChart3" },
 ];
 
 export const NAV_COMMUNITY: NavSubItem[] = [
