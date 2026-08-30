@@ -65,7 +65,13 @@ function buildProviderTargets(): ChatProviderTarget[] {
   // 2. Groq Cloud
   const groqKey = process.env.GROQ_API_KEY
   if (groqKey) {
-    const groqModels = ["openai/gpt-oss-120b", "qwen/qwen3.8-27b", "openai/gpt-oss-20b", "groq/compound"]
+    const groqModels = [
+      "openai/gpt-oss-120b",
+      "qwen/qwen3.8-27b",
+      "qwen/qwen3.6-27b",
+      "openai/gpt-oss-20b",
+      "groq/compound",
+    ]
     for (const model of groqModels) {
       targets.push({
         name: `Groq (${model})`,

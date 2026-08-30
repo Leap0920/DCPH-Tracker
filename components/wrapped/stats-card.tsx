@@ -250,7 +250,7 @@ export const StatsCard = forwardRef<HTMLDivElement, StatsCardProps>(
           {/* footer */}
           <div className="mt-[56px] flex items-end justify-between border-t border-white/[0.12] pt-[32px] [text-shadow:0_1px_6px_rgba(0,0,0,0.8)]">
             <div className="font-mono text-[22px] text-white/70">
-              detectiveconanph.com/{username}
+              dcphtracker.vercel.app/{username}
             </div>
             <div className="font-mono text-[22px] uppercase text-white/60">
               {issuedOn}
