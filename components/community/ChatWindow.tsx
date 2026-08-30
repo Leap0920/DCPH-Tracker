@@ -307,8 +307,7 @@ export function ChatWindow({
             // No `filter` here, deliberately: under the default REPLICA IDENTITY
             // a DELETE payload's `old` record carries ONLY the primary key, so a
             // room_id filter can never match and the event would be dropped. We
-            // match ids against our own cache instead. This also absorbs the
-            // scheduled 12-hour purge, which deletes rows in batches.
+            // match ids against our own cache instead to handle message unsends.
             const deletedId = (payload.old as { id?: string } | null)?.id
             if (!deletedId) return
             removedIdsRef.current.add(deletedId)

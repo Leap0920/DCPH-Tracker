@@ -69,7 +69,7 @@ Migrations live in `supabase/` and are run by hand in the Dashboard SQL Editor, 
 - `migration-movie-dedup.sql` — removes duplicate movie entries
 - `migration-movie-renumber.sql` — renumbers the movie entries after dedup
 - `migration-chat-realtime.sql` — adds `chat_messages` to the realtime publication
-- `migration-chat-purge-12h.sql` — pg_cron job deleting chat messages older than 12 hours, hourly
+- `migration-remove-chat-purge.sql` — removes automatic chat purge (messages are kept permanently)
 - `migration-fix-runtime-minutes.sql` — repairs `runtime_minutes` (NULL episodes and imported source IDs)
 - `migration-magic-kaito-1412.sql` — restructures Magic Kaito 1412 into 24 individual episodes with wiki lookup keys
 
