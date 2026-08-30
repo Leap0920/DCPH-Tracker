@@ -101,7 +101,7 @@ function buildProviderTargets(): ChatProviderTarget[] {
         key: uniqueOrKeys[i],
         model,
         headers: {
-          "HTTP-Referer": process.env.NEXT_PUBLIC_SITE_URL ?? "https://dcph-tracker.local",
+          "HTTP-Referer": process.env.NEXT_PUBLIC_SITE_URL ?? "https://dcphtracker.vercel.app",
           "X-Title": "DCPH Tracker",
         },
       })
@@ -311,7 +311,7 @@ export async function POST(request: Request) {
     context = { episodes: [], cases: [], dcwWiki: [] }
   }
 
-  const siteUrl = process.env.NEXT_PUBLIC_SITE_URL ?? "https://dcph-tracker.local"
+  const siteUrl = process.env.NEXT_PUBLIC_SITE_URL ?? "https://dcphtracker.vercel.app"
 
   const systemPrompt = buildSystemPrompt({
     context,

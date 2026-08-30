@@ -104,7 +104,7 @@ export function buildSystemPrompt({
   context,
   displayName,
   isSignedIn,
-  siteUrl = "https://dcph-tracker.local",
+  siteUrl = "https://dcphtracker.vercel.app",
 }: BuildSystemPromptArgs): string {
   const sections: string[] = []
 
