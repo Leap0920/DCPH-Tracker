@@ -1,7 +1,18 @@
 "use client"
 
 import * as React from "react"
-import { MessageSquare, X, RotateCcw, Lock, LogIn } from "lucide-react"
+import {
+  MessageSquare,
+  X,
+  RotateCcw,
+  Lock,
+  LogIn,
+  Sparkles,
+  Compass,
+  BookOpen,
+  Wrench,
+  Film,
+} from "lucide-react"
 import { cn } from "@/lib/utils"
 import { ChatInput } from "@/components/chat/ChatInput"
 import { ChatMessage, type ChatMessageData } from "@/components/chat/ChatMessage"
@@ -13,10 +24,40 @@ const GREETING: ChatMessageData = {
   id: "greeting",
   role: "assistant",
   content:
-    "Hi! I'm **DCPH Bot**. Ask me things like:\n- Which episode has the ski resort murder?\n- What happens in episode 219?\n- What should I watch next?",
+    "Hi! I'm **DCPH Bot**, your assistant for Detective Conan episodes, movies, characters, and tracker guides! How can I help you today?",
 }
 
+interface SuggestionChip {
+  label: string
+  icon: React.ElementType
+  prompt: string
+}
+
+const SUGGESTION_CHIPS: SuggestionChip[] = [
+  {
+    label: "What should I watch next?",
+    icon: Compass,
+    prompt: "What should I watch next based on my tracker progress?",
+  },
+  {
+    label: "Manga Canon Guide",
+    icon: BookOpen,
+    prompt: "How do I watch only Manga Canon episodes and skip filler?",
+  },
+  {
+    label: "Agasa's Gadgets",
+    icon: Wrench,
+    prompt: "What are the gadgets Professor Agasa invented for Conan?",
+  },
+  {
+    label: "Movies vs Episodes",
+    icon: Film,
+    prompt: "Should I watch movies or episodes first, and can I watch the latest movie early?",
+  },
+]
+
 const HISTORY_TURNS = 8
+const STORAGE_KEY = "dcph_chat_history_v1"
 
 export function ChatWidget() {
   const [open, setOpen] = React.useState(false)
@@ -29,6 +70,32 @@ export function ChatWidget() {
 
   const scrollRef = React.useRef<HTMLDivElement>(null)
   const abortRef = React.useRef<AbortController | null>(null)
+
+  // Restore saved messages from sessionStorage on initial client load
+  React.useEffect(() => {
+    try {
+      const saved = sessionStorage.getItem(STORAGE_KEY)
+      if (saved) {
+        const parsed = JSON.parse(saved)
+        if (Array.isArray(parsed) && parsed.length > 0) {
+          setMessages(parsed)
+        }
+      }
+    } catch {
+      // sessionStorage unavailable
+    }
+  }, [])
+
+  // Persist messages to sessionStorage when updated
+  React.useEffect(() => {
+    if (messages.length > 1 || (messages.length === 1 && messages[0].id !== "greeting")) {
+      try {
+        sessionStorage.setItem(STORAGE_KEY, JSON.stringify(messages))
+      } catch {
+        // storage quota or disabled
+      }
+    }
+  }, [messages])
 
   React.useEffect(() => {
     const supabase = createClient()
@@ -84,6 +151,11 @@ export function ChatWidget() {
     stop()
     setMessages([GREETING])
     setError(null)
+    try {
+      sessionStorage.removeItem(STORAGE_KEY)
+    } catch {
+      // ignore
+    }
   }, [stop])
 
   const send = React.useCallback(
@@ -155,6 +227,7 @@ export function ChatWidget() {
   )
 
   const lastMessage = messages[messages.length - 1]
+  const isConversationFresh = messages.length <= 1
 
   return (
     <>
@@ -197,7 +270,7 @@ export function ChatWidget() {
               </span>
               <div className="min-w-0">
                 <p className="truncate text-sm font-semibold text-ink">DCPH Bot</p>
-                <p className="truncate text-xs text-ink-faint">Detective Conan episode finder</p>
+                <p className="truncate text-xs text-ink-faint">Detective Conan assistant & tracker</p>
               </div>
             </div>
 
@@ -207,6 +280,7 @@ export function ChatWidget() {
                   type="button"
                   onClick={reset}
                   aria-label="Start a new conversation"
+                  title="New conversation"
                   className="rounded-lg p-1.5 text-ink-faint transition-colors hover:bg-surface-muted hover:text-ink"
                 >
                   <RotateCcw className="size-4" />
@@ -256,6 +330,31 @@ export function ChatWidget() {
                     isStreaming={isLoading && message.id === lastMessage?.id}
                   />
                 ))}
+
+                {isConversationFresh && !isLoading && (
+                  <div className="mt-4 pt-1">
+                    <div className="mb-2 flex items-center gap-1.5 px-1 text-[11px] font-medium text-ink-faint">
+                      <Sparkles className="size-3 text-accent-bright" />
+                      <span>Suggested questions:</span>
+                    </div>
+                    <div className="flex flex-wrap gap-1.5">
+                      {SUGGESTION_CHIPS.map((chip, idx) => {
+                        const Icon = chip.icon
+                        return (
+                          <button
+                            key={idx}
+                            type="button"
+                            onClick={() => send(chip.prompt)}
+                            className="group inline-flex items-center gap-1.5 rounded-full border border-line bg-surface-muted px-3 py-1.5 text-xs text-ink transition-all hover:border-accent/50 hover:bg-accent/10 hover:text-accent-bright text-left"
+                          >
+                            <Icon className="size-3.5 text-accent-bright shrink-0 transition-transform group-hover:scale-110" />
+                            <span>{chip.label}</span>
+                          </button>
+                        )
+                      })}
+                    </div>
+                  </div>
+                )}
 
                 {error && (
                   <p className="rounded-xl border border-accent/40 bg-accent/10 px-3 py-2 text-xs text-accent-bright">
