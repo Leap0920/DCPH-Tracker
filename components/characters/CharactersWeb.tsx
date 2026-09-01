@@ -418,6 +418,9 @@ export default function CharactersWeb({
       minY = Math.min(minY, cy - n.r - 12);
       maxY = Math.max(maxY, cy + n.r + 30);
     }
+    if (!Number.isFinite(minX) || !Number.isFinite(minY)) {
+      return { minX: -500, minY: -500, w: 1000, h: 1000 };
+    }
     const m = DRIFT_AMP + 6;
     return {
       minX: minX - m,
@@ -572,6 +575,33 @@ export default function CharactersWeb({
     const wy = geom.curY[i] || geom.base[i * 2 + 1];
     zoomToPoint(wx, wy, 1.35);
   }, [indexById, geom, zoomToPoint, fitToContent]);
+
+  /* ── synchronous node / edge layout setup ─────────────────────── */
+  useIsoLayoutEffect(() => {
+    nodeEls.current.length = nodes.length;
+    labelEls.current.length = nodes.length;
+    edgeEls.current.length = edges.length;
+
+    for (let i = 0; i < nodes.length; i++) {
+      const g = nodeEls.current[i];
+      if (g) {
+        g.setAttribute(
+          "transform",
+          `translate(${geom.curX[i].toFixed(2)} ${geom.curY[i].toFixed(2)})`
+        );
+      }
+    }
+    for (let i = 0; i < edges.length; i++) {
+      const el = edgeEls.current[i];
+      if (el) {
+        const e = edges[i];
+        el.setAttribute(
+          "d",
+          quadPath(geom.curX[e.s], geom.curY[e.s], geom.curX[e.t], geom.curY[e.t], e.off)
+        );
+      }
+    }
+  }, [nodes, edges, geom]);
 
   /* ── size observation + initial fit ───────────────────────────── */
   useIsoLayoutEffect(() => {
@@ -883,8 +913,8 @@ export default function CharactersWeb({
     index: number;
     cx: number;
     cy: number;
-    bx: number;
-    by: number;
+    offX: number;
+    offY: number;
   } | null>(null);
   const pinchRef = useRef<{
     dist: number;
@@ -946,12 +976,17 @@ export default function CharactersWeb({
     e.stopPropagation();
     didDragRef.current = false;
     panRef.current = null;
+    const cam = camRef.current;
+    const { sx, sy } = localPoint(e.clientX, e.clientY);
+    const k = cam.k || 1;
+    const wx = (sx - cam.x) / k;
+    const wy = (sy - cam.y) / k;
     dragNodeRef.current = {
       index,
       cx: e.clientX,
       cy: e.clientY,
-      bx: geom.base[index * 2],
-      by: geom.base[index * 2 + 1],
+      offX: wx - geom.base[index * 2],
+      offY: wy - geom.base[index * 2 + 1],
     };
     isGrabbingRef.current = true;
     if (svgRef.current) svgRef.current.style.cursor = "grabbing";
@@ -981,18 +1016,30 @@ export default function CharactersWeb({
         return;
       }
 
-      // Node drag — world delta is a plain pixel delta over k.
+      // Node drag — live world coordinate tracking without anchor slip during zoom/pan.
       const drag = dragNodeRef.current;
       if (drag) {
-        const k = camRef.current.k || 1;
-        const dx = (e.clientX - drag.cx) / k;
-        const dy = (e.clientY - drag.cy) / k;
-        if (Math.hypot(e.clientX - drag.cx, e.clientY - drag.cy) >
-          (e.pointerType === "touch" ? 12 : 4)) {
+        if (
+          Math.hypot(e.clientX - drag.cx, e.clientY - drag.cy) >
+          (e.pointerType === "touch" ? 12 : 4)
+        ) {
           didDragRef.current = true;
         }
-        geom.base[drag.index * 2] = clamp(drag.bx + dx, bbox.minX - 400, bbox.minX + bbox.w + 400);
-        geom.base[drag.index * 2 + 1] = clamp(drag.by + dy, bbox.minY - 400, bbox.minY + bbox.h + 400);
+        const { sx, sy } = localPoint(e.clientX, e.clientY);
+        const cam = camRef.current;
+        const k = cam.k || 1;
+        const wx = (sx - cam.x) / k;
+        const wy = (sy - cam.y) / k;
+        geom.base[drag.index * 2] = clamp(
+          wx - drag.offX,
+          bbox.minX - 400,
+          bbox.minX + bbox.w + 400
+        );
+        geom.base[drag.index * 2 + 1] = clamp(
+          wy - drag.offY,
+          bbox.minY - 400,
+          bbox.minY + bbox.h + 400
+        );
         return;
       }
 
@@ -1019,7 +1066,11 @@ export default function CharactersWeb({
     const onUp = (e: PointerEvent) => {
       pointersRef.current.delete(e.pointerId);
       if (pointersRef.current.size === 0) rectRef.current = null;
-      if (pointersRef.current.size < 2) pinchRef.current = null;
+      if (pointersRef.current.size >= 2) {
+        beginPinch();
+      } else {
+        pinchRef.current = null;
+      }
 
       const pan = panRef.current;
       if (pan && !reduceRef.current) {
@@ -1223,7 +1274,6 @@ export default function CharactersWeb({
               }}
               r={p.r}
               fill={pal.particle}
-              opacity={0}
             />
           ))}
         </g>
@@ -1256,11 +1306,6 @@ export default function CharactersWeb({
               const color = isLockedEdge
                 ? LOCKED_EDGE_COLOR
                 : getRelationshipColor(e.rel.type, isDark);
-              const initSx = nodes[e.s]?.c.x ?? 0;
-              const initSy = nodes[e.s]?.c.y ?? 0;
-              const initTx = nodes[e.t]?.c.x ?? 0;
-              const initTy = nodes[e.t]?.c.y ?? 0;
-              const initialD = quadPath(initSx, initSy, initTx, initTy, e.off);
 
               return (
                 <path
@@ -1268,7 +1313,6 @@ export default function CharactersWeb({
                   ref={(el) => {
                     edgeEls.current[i] = el;
                   }}
-                  d={initialD}
                   fill="none"
                   stroke={color}
                   strokeWidth={isTarget ? STRING_WIDTH + 1.8 : STRING_WIDTH}
@@ -1294,16 +1338,12 @@ export default function CharactersWeb({
                 ? `url(#dcph-glow-locked)`
                 : `url(#dcph-glow-${factionSlug(n.factionKey)})`;
               const emphasised = isSelected || isHovered;
-              const initX = n.c.x ?? 0;
-              const initY = n.c.y ?? 0;
-
               return (
                 <g
                   key={n.c.id}
                   ref={(el) => {
                     nodeEls.current[i] = el;
                   }}
-                  transform={`translate(${initX} ${initY})`}
                 >
                   <g style={{ transformOrigin: "0px 0px" }}>
                     <g
@@ -1320,8 +1360,12 @@ export default function CharactersWeb({
                         handleSelectNode(i);
                       }}
                       onKeyDown={handleNodeKeyDown(i)}
-                      onMouseEnter={isGrabbingRef.current ? undefined : () => setHoveredId(n.c.id)}
-                      onMouseLeave={isGrabbingRef.current ? undefined : () => setHoveredId(null)}
+                      onMouseEnter={() => {
+                        if (!isGrabbingRef.current) setHoveredId(n.c.id);
+                      }}
+                      onMouseLeave={() => {
+                        if (!isGrabbingRef.current) setHoveredId(null);
+                      }}
                       onFocus={() => setHoveredId(n.c.id)}
                       onBlur={() => setHoveredId(null)}
                     >
@@ -1595,9 +1639,7 @@ export default function CharactersWeb({
           ref={zoomLabelRef}
           className="w-10 text-center font-mono text-[10px] tabular-nums text-ink-faint"
           aria-hidden
-        >
-          100%
-        </span>
+        />
 
         <button
           type="button"
