@@ -114,67 +114,80 @@ export default function CharactersExplorer({
   const lockedCount = graph.stats.locked + graph.stats.hidden
   const totalCount = graph.stats.total
 
-  const filterControls = (
-    <div className="flex flex-col gap-2">
-      <SpoilerToggle
-        showEverything={showEverything}
-        onChange={setShowEverything}
-        lockedCount={lockedCount}
-        totalCount={totalCount}
-        isSignedIn={isSignedIn}
-      />
-      <button
-        type="button"
-        onClick={() => setLegendOpen((v) => !v)}
-        aria-expanded={legendOpen}
-        className={cn(
-          "group flex w-full items-center gap-1.5 rounded-full border px-3.5 py-1.5 text-xs font-semibold shadow-lift backdrop-blur-md transition-all",
-          "border-line bg-surface/90 text-ink hover:border-ink-faint/40 hover:bg-surface-muted",
-        )}
-      >
-        {/* accent-bright, not accent: at icon size the plain crimson is only
-            ~3.3:1 against the near-black surface. */}
-        <Filter className="h-3.5 w-3.5 shrink-0 text-accent-bright transition-transform duration-300 group-hover:rotate-12" />
-        <span className="min-w-0 flex-1 truncate text-left">
-          {filter ? relationshipMeta[filter].label : "All Relationships"}
-        </span>
-        {filter && (
-          <span
-            className="h-2 w-2 shrink-0 rounded-full"
-            style={{ backgroundColor: getRelationshipColor(filter, isDark) }}
-          />
-        )}
-        <ChevronDown
-          className={cn(
-            "h-3.5 w-3.5 shrink-0 opacity-60 transition-transform duration-300",
-            legendOpen && "rotate-180",
-          )}
+  const filterControls = useMemo(
+    () => (
+      <div className="flex flex-col gap-2">
+        <SpoilerToggle
+          showEverything={showEverything}
+          onChange={setShowEverything}
+          lockedCount={lockedCount}
+          totalCount={totalCount}
+          isSignedIn={isSignedIn}
         />
-      </button>
+        <button
+          type="button"
+          onClick={() => setLegendOpen((v) => !v)}
+          aria-expanded={legendOpen}
+          className={cn(
+            "group flex w-full items-center gap-1.5 rounded-full border px-3.5 py-1.5 text-xs font-semibold shadow-lift backdrop-blur-md transition-all",
+            "border-line bg-surface/90 text-ink hover:border-ink-faint/40 hover:bg-surface-muted",
+          )}
+        >
+          {/* accent-bright, not accent: at icon size the plain crimson is only
+              ~3.3:1 against the near-black surface. */}
+          <Filter className="h-3.5 w-3.5 shrink-0 text-accent-bright transition-transform duration-300 group-hover:rotate-12" />
+          <span className="min-w-0 flex-1 truncate text-left">
+            {filter ? relationshipMeta[filter].label : "All Relationships"}
+          </span>
+          {filter && (
+            <span
+              className="h-2 w-2 shrink-0 rounded-full"
+              style={{ backgroundColor: getRelationshipColor(filter, isDark) }}
+            />
+          )}
+          <ChevronDown
+            className={cn(
+              "h-3.5 w-3.5 shrink-0 opacity-60 transition-transform duration-300",
+              legendOpen && "rotate-180",
+            )}
+          />
+        </button>
 
-      <AnimatePresence initial={false}>
-        {legendOpen && (
-          <motion.div
-            initial={{ opacity: 0, y: -8, height: 0 }}
-            animate={{ opacity: 1, y: 0, height: "auto" }}
-            exit={{ opacity: 0, y: -8, height: 0 }}
-            transition={{ duration: 0.28, ease: EASE }}
-            className="overflow-hidden"
-          >
-            <div className="max-h-[52vh] overflow-y-auto rounded-2xl border border-line bg-surface/95 p-3 text-ink shadow-lift backdrop-blur-xl">
-              <div className="mb-2.5 font-mono text-[10px] font-semibold uppercase tracking-wider text-ink-faint">
-                Filter by relationship
+        <AnimatePresence initial={false}>
+          {legendOpen && (
+            <motion.div
+              initial={{ opacity: 0, y: -8, height: 0 }}
+              animate={{ opacity: 1, y: 0, height: "auto" }}
+              exit={{ opacity: 0, y: -8, height: 0 }}
+              transition={{ duration: 0.28, ease: EASE }}
+              className="overflow-hidden"
+            >
+              <div className="max-h-[52vh] overflow-y-auto rounded-2xl border border-line bg-surface/95 p-3 text-ink shadow-lift backdrop-blur-xl">
+                <div className="mb-2.5 font-mono text-[10px] font-semibold uppercase tracking-wider text-ink-faint">
+                  Filter by relationship
+                </div>
+                <RelationshipLegend
+                  activeFilter={filter}
+                  onFilterType={setFilter}
+                  compact
+                />
               </div>
-              <RelationshipLegend
-                activeFilter={filter}
-                onFilterType={setFilter}
-                compact
-              />
-            </div>
-          </motion.div>
-        )}
-      </AnimatePresence>
-    </div>
+            </motion.div>
+          )}
+        </AnimatePresence>
+      </div>
+    ),
+    [
+      showEverything,
+      setShowEverything,
+      lockedCount,
+      totalCount,
+      isSignedIn,
+      legendOpen,
+      filter,
+      relationshipMeta,
+      isDark,
+    ],
   )
 
   return (

@@ -51,7 +51,7 @@ import {
   type KeyboardEvent as ReactKeyboardEvent,
   type PointerEvent as ReactPointerEvent,
 } from "react";
-import { motion, MotionConfig, useReducedMotion, type Variants } from "framer-motion";
+import { useReducedMotion } from "framer-motion";
 import {
   CHARACTERS,
   RELATIONSHIPS,
@@ -169,20 +169,6 @@ const CANVAS = {
     stringIdle: 0.18,
   },
 } as const;
-
-const nodeVariants: Variants = {
-  hidden: { opacity: 0, scale: 0.3 },
-  show: {
-    opacity: 1,
-    scale: 1,
-    transition: { type: "spring", stiffness: 320, damping: 26 },
-  },
-};
-
-const containerVariants: Variants = {
-  hidden: {},
-  show: { transition: { staggerChildren: 0.012 } },
-};
 
 /* ── geometry helpers ─────────────────────────────────────────────── */
 
@@ -307,7 +293,6 @@ export default function CharactersWeb({
   const [searchFocused, setSearchFocused] = useState(false);
   const [size, setSize] = useState({ w: 0, h: 0 });
   const [ready, setReady] = useState(false);
-  const [grabbing, setGrabbing] = useState(false);
 
   /* ── refs the rAF loop reads ───────────────────────────────────── */
   const containerRef = useRef<HTMLDivElement>(null);
@@ -325,6 +310,8 @@ export default function CharactersWeb({
   const userAdjustedRef = useRef(false);
   const didFitRef = useRef(false);
   const forcedLabelsRef = useRef<Set<number>>(new Set());
+  const labelsDirtyRef = useRef(true);
+  const isGrabbingRef = useRef(false);
 
   useEffect(() => {
     isMobileRef.current = isMobile;
@@ -403,11 +390,17 @@ export default function CharactersWeb({
   const geom = useMemo(() => {
     const n = nodes.length;
     const base = new Float64Array(n * 2);
+    const curX = new Float64Array(n);
+    const curY = new Float64Array(n);
     nodes.forEach((node, i) => {
-      base[i * 2] = node.c.x ?? 0;
-      base[i * 2 + 1] = node.c.y ?? 0;
+      const x = node.c.x ?? 0;
+      const y = node.c.y ?? 0;
+      base[i * 2] = x;
+      base[i * 2 + 1] = y;
+      curX[i] = x;
+      curY[i] = y;
     });
-    return { base, curX: new Float64Array(n), curY: new Float64Array(n) };
+    return { base, curX, curY };
   }, [nodes]);
 
   /** Content bounding box, inflated for label boxes and drift headroom. */
@@ -476,6 +469,19 @@ export default function CharactersWeb({
     return set;
   }, [searchLower, characters]);
 
+  const updateLabelOpacities = useCallback(
+    (k: number) => {
+      const forced = forcedLabelsRef.current;
+      for (let i = 0; i < nodes.length; i++) {
+        const el = labelEls.current[i];
+        if (!el) continue;
+        const o = forced.has(i) ? 1 : labelOpacityFor(k, nodes[i].tier);
+        el.style.opacity = o.toFixed(2);
+      }
+    },
+    [nodes]
+  );
+
   // Labels that must stay fully legible regardless of zoom.
   useEffect(() => {
     const forced = new Set<number>();
@@ -488,7 +494,9 @@ export default function CharactersWeb({
     add(selectedCharacterId ?? null);
     searchMatches.forEach(add);
     forcedLabelsRef.current = forced;
-  }, [hoveredId, selectedCharacterId, searchMatches, indexById]);
+    labelsDirtyRef.current = true;
+    updateLabelOpacities(camRef.current.k || 1);
+  }, [hoveredId, selectedCharacterId, searchMatches, indexById, updateLabelOpacities]);
 
   /* ── camera commands ──────────────────────────────────────────── */
 
@@ -560,7 +568,9 @@ export default function CharactersWeb({
       fitToContent();
       return;
     }
-    zoomToPoint(geom.base[i * 2], geom.base[i * 2 + 1], 1.35);
+    const wx = geom.curX[i] || geom.base[i * 2];
+    const wy = geom.curY[i] || geom.base[i * 2 + 1];
+    zoomToPoint(wx, wy, 1.35);
   }, [indexById, geom, zoomToPoint, fitToContent]);
 
   /* ── size observation + initial fit ───────────────────────────── */
@@ -594,17 +604,33 @@ export default function CharactersWeb({
     let last = t0;
     let lastLabelK = -1;
     let lastZoomLabel = -1;
+    let lastCamX = -99999;
+    let lastCamY = -99999;
+    let lastCamK = -99999;
+
+    const N = nodes.length;
+    const E = edges.length;
 
     /* Persistent separation offsets + the frame's drifted home positions.
        Recreated whenever the effect re-runs (i.e. when `nodes` changes),
        so they can never outlive the layout they describe. */
-    const offX = new Float64Array(nodes.length);
-    const offY = new Float64Array(nodes.length);
-    const homeX = new Float64Array(nodes.length);
-    const homeY = new Float64Array(nodes.length);
+    const offX = new Float64Array(N);
+    const offY = new Float64Array(N);
+    const homeX = new Float64Array(N);
+    const homeY = new Float64Array(N);
+    const lastNodeRenderX = new Float64Array(N).fill(-99999);
+    const lastNodeRenderY = new Float64Array(N).fill(-99999);
+    const lastEdgeSX = new Float64Array(E).fill(-99999);
+    const lastEdgeSY = new Float64Array(E).fill(-99999);
+    const lastEdgeTX = new Float64Array(E).fill(-99999);
+    const lastEdgeTY = new Float64Array(E).fill(-99999);
+
+    let hasActiveOffsets = false;
+    let frameCount = 0;
 
     const loop = (now: number) => {
       raf = requestAnimationFrame(loop);
+      frameCount++;
       const dt = Math.min(50, now - last);
       last = now;
       const t = now - t0;
@@ -620,20 +646,29 @@ export default function CharactersWeb({
       if (Math.abs(tgt.y - cam.y) < 0.04) cam.y = tgt.y;
       if (Math.abs(tgt.k - cam.k) < 0.0004) cam.k = tgt.k;
 
-      worldRef.current?.setAttribute(
-        "transform",
-        `translate(${cam.x.toFixed(2)} ${cam.y.toFixed(2)}) scale(${cam.k.toFixed(4)})`
-      );
+      if (
+        Math.abs(cam.x - lastCamX) > 0.01 ||
+        Math.abs(cam.y - lastCamY) > 0.01 ||
+        Math.abs(cam.k - lastCamK) > 0.0002
+      ) {
+        lastCamX = cam.x;
+        lastCamY = cam.y;
+        lastCamK = cam.k;
+        worldRef.current?.setAttribute(
+          "transform",
+          `translate(${cam.x.toFixed(2)} ${cam.y.toFixed(2)}) scale(${cam.k.toFixed(4)})`
+        );
+      }
 
       /* 2 — node drift + anti-collision (positions feed BOTH nodes and strings) */
       const amp = reduceRef.current ? 0 : DRIFT_AMP;
       const { base, curX, curY } = geom;
       const dragIdx = dragNodeRef.current?.index ?? -1;
-      const N = nodes.length;
 
-      /* 2a — drifted home positions, plus last frame's separation offsets
-              decayed toward zero so circles ease back once they are clear */
+      /* 2a — drifted home positions, plus separation offsets */
       const decay = Math.exp(-dt / COLLIDE_RELAX_TAU);
+      let maxOffsetSq = 0;
+
       for (let i = 0; i < N; i++) {
         const n = nodes[i];
         let x = base[i * 2];
@@ -648,120 +683,148 @@ export default function CharactersWeb({
         }
         homeX[i] = x;
         homeY[i] = y;
+
         if (i === dragIdx) {
-          // The dragged circle is pinned to the pointer: it displaces others
-          // but is never displaced itself.
           offX[i] = 0;
           offY[i] = 0;
-        } else {
+        } else if (hasActiveOffsets) {
           offX[i] *= decay;
           offY[i] *= decay;
+          const magSq = offX[i] * offX[i] + offY[i] * offY[i];
+          if (magSq > maxOffsetSq) maxOffsetSq = magSq;
         }
         curX[i] = x + offX[i];
         curY[i] = y + offY[i];
       }
 
-      /* 2b — pairwise separation. Gauss-Seidel: each pass reads the positions
-              the previous pair already corrected, so a few passes untangle
-              clusters instead of fighting over one axis. ~60 nodes = 1770
-              pairs per pass; trivial next to the SVG attribute writes. */
-      for (let iter = 0; iter < COLLIDE_ITERS; iter++) {
-        for (let i = 0; i < N; i++) {
-          const ri = nodes[i].r;
-          const iFixed = i === dragIdx;
-          let xi = curX[i];
-          let yi = curY[i];
-
-          for (let j = i + 1; j < N; j++) {
-            const min = ri + nodes[j].r + COLLIDE_PAD;
-            let dx = curX[j] - xi;
-            let dy = curY[j] - yi;
-            const d2 = dx * dx + dy * dy;
-            if (d2 >= min * min) continue; // not touching
-
-            let d = Math.sqrt(d2);
-            if (d < 1e-4) {
-              // Exactly coincident: pick a deterministic axis from the index
-              // pair (golden-angle) so the split is stable frame to frame.
-              const ang = i * 2.3999632 + j * 0.7853982;
-              dx = Math.cos(ang);
-              dy = Math.sin(ang);
-              d = 1e-4;
-            } else {
-              dx /= d;
-              dy /= d;
-            }
-
-            const push = (min - d) * COLLIDE_STIFF;
-            const jFixed = j === dragIdx;
-            // A pinned neighbour transfers its whole share to the other node.
-            const si = iFixed ? 0 : jFixed ? 1 : 0.5;
-            const sj = jFixed ? 0 : iFixed ? 1 : 0.5;
-
-            if (si > 0) {
-              const px = dx * push * si;
-              const py = dy * push * si;
-              xi -= px;
-              yi -= py;
-              offX[i] -= px;
-              offY[i] -= py;
-            }
-            if (sj > 0) {
-              const px = dx * push * sj;
-              const py = dy * push * sj;
-              curX[j] += px;
-              curY[j] += py;
-              offX[j] += px;
-              offY[j] += py;
-            }
-          }
-
-          curX[i] = xi;
-          curY[i] = yi;
-        }
+      if (dragIdx !== -1) {
+        hasActiveOffsets = true;
+      } else if (hasActiveOffsets && maxOffsetSq < 0.005) {
+        hasActiveOffsets = false;
+        offX.fill(0);
+        offY.fill(0);
       }
 
-      /* 2c — cap total displacement so a dense cluster can never shred the
-              seeded composition; the offset is clamped, then the position is
-              rebuilt from the drifted home to stay exact. */
-      for (let i = 0; i < N; i++) {
-        if (i === dragIdx) continue;
-        const ox = offX[i];
-        const oy = offY[i];
-        const m2 = ox * ox + oy * oy;
-        if (m2 > COLLIDE_MAX_OFFSET * COLLIDE_MAX_OFFSET) {
-          const s = COLLIDE_MAX_OFFSET / Math.sqrt(m2);
-          offX[i] = ox * s;
-          offY[i] = oy * s;
-          curX[i] = homeX[i] + offX[i];
-          curY[i] = homeY[i] + offY[i];
+      /* 2b — pairwise separation (only run Gauss-Seidel when dragging or settling) */
+      if (dragIdx !== -1 || hasActiveOffsets) {
+        for (let iter = 0; iter < COLLIDE_ITERS; iter++) {
+          for (let i = 0; i < N; i++) {
+            const ri = nodes[i].r;
+            const iFixed = i === dragIdx;
+            let xi = curX[i];
+            let yi = curY[i];
+
+            for (let j = i + 1; j < N; j++) {
+              const min = ri + nodes[j].r + COLLIDE_PAD;
+              let dx = curX[j] - xi;
+              let dy = curY[j] - yi;
+              const d2 = dx * dx + dy * dy;
+              if (d2 >= min * min) continue; // not touching
+
+              let d = Math.sqrt(d2);
+              if (d < 1e-4) {
+                const ang = i * 2.3999632 + j * 0.7853982;
+                dx = Math.cos(ang);
+                dy = Math.sin(ang);
+                d = 1e-4;
+              } else {
+                dx /= d;
+                dy /= d;
+              }
+
+              const push = (min - d) * COLLIDE_STIFF;
+              const jFixed = j === dragIdx;
+              const si = iFixed ? 0 : jFixed ? 1 : 0.5;
+              const sj = jFixed ? 0 : iFixed ? 1 : 0.5;
+
+              if (si > 0) {
+                const px = dx * push * si;
+                const py = dy * push * si;
+                xi -= px;
+                yi -= py;
+                offX[i] -= px;
+                offY[i] -= py;
+              }
+              if (sj > 0) {
+                const px = dx * push * sj;
+                const py = dy * push * sj;
+                curX[j] += px;
+                curY[j] += py;
+                offX[j] += px;
+                offY[j] += py;
+              }
+            }
+
+            curX[i] = xi;
+            curY[i] = yi;
+          }
+        }
+
+        /* 2c — cap total displacement */
+        for (let i = 0; i < N; i++) {
+          if (i === dragIdx) continue;
+          const ox = offX[i];
+          const oy = offY[i];
+          const m2 = ox * ox + oy * oy;
+          if (m2 > COLLIDE_MAX_OFFSET * COLLIDE_MAX_OFFSET) {
+            const s = COLLIDE_MAX_OFFSET / Math.sqrt(m2);
+            offX[i] = ox * s;
+            offY[i] = oy * s;
+            curX[i] = homeX[i] + offX[i];
+            curY[i] = homeY[i] + offY[i];
+          }
         }
       }
 
       /* 2d — commit the corrected positions to the DOM */
       for (let i = 0; i < N; i++) {
-        const g = nodeEls.current[i];
-        if (g) {
-          g.setAttribute(
-            "transform",
-            `translate(${curX[i].toFixed(2)} ${curY[i].toFixed(2)})`
-          );
+        const x = curX[i];
+        const y = curY[i];
+        if (
+          Math.abs(x - lastNodeRenderX[i]) > 0.04 ||
+          Math.abs(y - lastNodeRenderY[i]) > 0.04
+        ) {
+          lastNodeRenderX[i] = x;
+          lastNodeRenderY[i] = y;
+          const g = nodeEls.current[i];
+          if (g) {
+            g.setAttribute(
+              "transform",
+              `translate(${x.toFixed(2)} ${y.toFixed(2)})`
+            );
+          }
         }
       }
 
       /* 3 — strings follow the same drifted coordinates */
-      for (let i = 0; i < edges.length; i++) {
+      for (let i = 0; i < E; i++) {
         const el = edgeEls.current[i];
         if (!el || el.style.display === "none") continue;
         const e = edges[i];
-        el.setAttribute("d", quadPath(curX[e.s], curY[e.s], curX[e.t], curY[e.t], e.off));
+        const sx = curX[e.s];
+        const sy = curY[e.s];
+        const tx = curX[e.t];
+        const ty = curY[e.t];
+        if (
+          Math.abs(sx - lastEdgeSX[i]) > 0.04 ||
+          Math.abs(sy - lastEdgeSY[i]) > 0.04 ||
+          Math.abs(tx - lastEdgeTX[i]) > 0.04 ||
+          Math.abs(ty - lastEdgeTY[i]) > 0.04
+        ) {
+          lastEdgeSX[i] = sx;
+          lastEdgeSY[i] = sy;
+          lastEdgeTX[i] = tx;
+          lastEdgeTY[i] = ty;
+          el.setAttribute("d", quadPath(sx, sy, tx, ty, e.off));
+        }
       }
 
-      /* 4 — zoom-dependent label opacity (only when zoom actually moved) */
-      if (Math.abs(cam.k - lastLabelK) > 0.004) {
+      /* 4 — zoom-dependent label opacity */
+      if (labelsDirtyRef.current || Math.abs(cam.k - lastLabelK) > 0.003) {
+        labelsDirtyRef.current = false;
         lastLabelK = cam.k;
         const forced = forcedLabelsRef.current;
-        for (let i = 0; i < nodes.length; i++) {
+        for (let i = 0; i < N; i++) {
           const el = labelEls.current[i];
           if (!el) continue;
           const o = forced.has(i) ? 1 : labelOpacityFor(cam.k, nodes[i].tier);
@@ -769,8 +832,8 @@ export default function CharactersWeb({
         }
       }
 
-      /* 5 — ambient particles (screen space, behind the world) */
-      if (!reduceRef.current) {
+      /* 5 — ambient particles (screen space, behind the world — throttled to every 2nd frame) */
+      if (!reduceRef.current && frameCount % 2 === 0) {
         const { w, h } = sizeRef.current;
         if (w && h) {
           for (let i = 0; i < particles.length; i++) {
@@ -849,8 +912,8 @@ export default function CharactersWeb({
     pinchRef.current = {
       dist,
       k: cam.k,
-      wx: (sx - cam.x) / cam.k,
-      wy: (sy - cam.y) / cam.k,
+      wx: (sx - cam.x) / (cam.k || 1),
+      wy: (sy - cam.y) / (cam.k || 1),
     };
   };
 
@@ -873,7 +936,8 @@ export default function CharactersWeb({
       vy: 0,
       lastT: performance.now(),
     };
-    setGrabbing(true);
+    isGrabbingRef.current = true;
+    if (svgRef.current) svgRef.current.style.cursor = "grabbing";
     userAdjustedRef.current = true;
   };
 
@@ -889,7 +953,8 @@ export default function CharactersWeb({
       bx: geom.base[index * 2],
       by: geom.base[index * 2 + 1],
     };
-    setGrabbing(true);
+    isGrabbingRef.current = true;
+    if (svgRef.current) svgRef.current.style.cursor = "grabbing";
   };
 
   useEffect(() => {
@@ -953,6 +1018,7 @@ export default function CharactersWeb({
 
     const onUp = (e: PointerEvent) => {
       pointersRef.current.delete(e.pointerId);
+      if (pointersRef.current.size === 0) rectRef.current = null;
       if (pointersRef.current.size < 2) pinchRef.current = null;
 
       const pan = panRef.current;
@@ -969,7 +1035,8 @@ export default function CharactersWeb({
       }
       panRef.current = null;
       dragNodeRef.current = null;
-      setGrabbing(false);
+      isGrabbingRef.current = false;
+      if (svgRef.current) svgRef.current.style.cursor = "";
     };
 
     window.addEventListener("pointermove", onMove);
@@ -989,19 +1056,19 @@ export default function CharactersWeb({
     const onWheel = (e: WheelEvent) => {
       e.preventDefault();
       const { sx, sy } = localPoint(e.clientX, e.clientY);
-      const t = targetRef.current;
-      // Anchor against the TARGET so rapid wheel bursts compound coherently
-      // instead of fighting the in-flight animation.
-      const wx = (sx - t.x) / t.k;
-      const wy = (sy - t.y) / t.k;
+      const cam = camRef.current;
+      // Anchor against the current screen-to-world position under cursor
+      const currentWx = (sx - cam.x) / (cam.k || 1);
+      const currentWy = (sy - cam.y) / (cam.k || 1);
       const step = e.deltaMode === 1 ? e.deltaY * 16 : e.deltaY;
+      const t = targetRef.current;
       const nk = clamp(
         t.k * Math.exp(-clamp(step, -180, 180) * 0.0016),
         minZoomRef.current,
         MAX_ZOOM
       );
-      if (nk === t.k) return;
-      targetRef.current = { k: nk, x: sx - wx * nk, y: sy - wy * nk };
+      if (nk === t.k && Math.abs(cam.k - t.k) < 0.001) return;
+      targetRef.current = { k: nk, x: sx - currentWx * nk, y: sy - currentWy * nk };
       if (reduceRef.current) camRef.current = { ...targetRef.current };
       userAdjustedRef.current = true;
     };
@@ -1026,7 +1093,9 @@ export default function CharactersWeb({
   /* ── selection ────────────────────────────────────────────────── */
   const handleSelectNode = (index: number) => {
     const n = nodes[index];
-    zoomToPoint(geom.base[index * 2], geom.base[index * 2 + 1], ZOOM_TO_NODE, true);
+    const wx = geom.curX[index] || geom.base[index * 2];
+    const wy = geom.curY[index] || geom.base[index * 2 + 1];
+    zoomToPoint(wx, wy, ZOOM_TO_NODE, true);
     onSelectCharacter(n.c);
   };
 
@@ -1056,351 +1125,361 @@ export default function CharactersWeb({
         className
       )}
     >
-      <MotionConfig reducedMotion="user">
-        <svg
-          ref={svgRef}
-          viewBox={`0 0 ${vw} ${vh}`}
-          preserveAspectRatio="xMidYMid meet"
-          className={cn(
-            "h-full w-full touch-none select-none transition-opacity duration-700",
-            ready ? "opacity-100" : "opacity-0",
-            grabbing ? "cursor-grabbing" : "cursor-grab"
-          )}
-          aria-label="Detective Conan character relationship graph"
-          onPointerDownCapture={handleCapturePointerDown}
-          onPointerDown={handleCanvasPointerDown}
-        >
-          <defs>
-            <radialGradient id="dcph-bg" cx="50%" cy="42%" r="78%">
-              <stop offset="0%" stopColor={pal.bg0} />
-              <stop offset="100%" stopColor={pal.bg1} />
-            </radialGradient>
+      <svg
+        ref={svgRef}
+        viewBox={`0 0 ${vw} ${vh}`}
+        preserveAspectRatio="xMidYMid meet"
+        className={cn(
+          "h-full w-full touch-none select-none cursor-grab active:cursor-grabbing transition-opacity duration-500",
+          ready ? "opacity-100" : "opacity-0"
+        )}
+        aria-label="Detective Conan character relationship graph"
+        onPointerDownCapture={handleCapturePointerDown}
+        onPointerDown={handleCanvasPointerDown}
+      >
+        <defs>
+          <radialGradient id="dcph-bg" cx="50%" cy="42%" r="78%">
+            <stop offset="0%" stopColor={pal.bg0} />
+            <stop offset="100%" stopColor={pal.bg1} />
+          </radialGradient>
 
-            {/* Aura A: a neutral light bloom (was cyan — the only cyan in the
-                app, and it read as a leftover next to the crimson accent). */}
-            <radialGradient id="dcph-aura-a" cx="50%" cy="50%" r="50%">
-              <stop
-                offset="0%"
-                stopColor={pal.auraNeutral}
-                stopOpacity={pal.auraNeutralOpacity}
-              />
-              <stop offset="100%" stopColor={pal.auraNeutral} stopOpacity="0" />
-            </radialGradient>
-            {/* Aura B: the single accent bloom. */}
-            <radialGradient id="dcph-aura-b" cx="50%" cy="50%" r="50%">
-              <stop
-                offset="0%"
-                stopColor={pal.auraAccent}
-                stopOpacity={pal.auraAccentOpacity}
-              />
-              <stop offset="100%" stopColor={pal.auraAccent} stopOpacity="0" />
-            </radialGradient>
+          {/* Aura A: a neutral light bloom (was cyan — the only cyan in the
+              app, and it read as a leftover next to the crimson accent). */}
+          <radialGradient id="dcph-aura-a" cx="50%" cy="50%" r="50%">
+            <stop
+              offset="0%"
+              stopColor={pal.auraNeutral}
+              stopOpacity={pal.auraNeutralOpacity}
+            />
+            <stop offset="100%" stopColor={pal.auraNeutral} stopOpacity="0" />
+          </radialGradient>
+          {/* Aura B: the single accent bloom. */}
+          <radialGradient id="dcph-aura-b" cx="50%" cy="50%" r="50%">
+            <stop
+              offset="0%"
+              stopColor={pal.auraAccent}
+              stopOpacity={pal.auraAccentOpacity}
+            />
+            <stop offset="100%" stopColor={pal.auraAccent} stopOpacity="0" />
+          </radialGradient>
 
-            <pattern id="dcph-dots" width="26" height="26" patternUnits="userSpaceOnUse">
-              <circle cx="13" cy="13" r={pal.dotRadius} fill={pal.dot} />
-            </pattern>
+          <pattern id="dcph-dots" width="26" height="26" patternUnits="userSpaceOnUse">
+            <circle cx="13" cy="13" r={pal.dotRadius} fill={pal.dot} />
+          </pattern>
 
-            {/* One soft-glow gradient per faction — gives every node a real
-                neon halo with zero SVG filters (filters at 62x kill the frame). */}
-            {FACTION_KEYS.map((key) => {
-              const t = FACTION_THEMES[key];
+          {/* One soft-glow gradient per faction — gives every node a real
+              neon halo with zero SVG filters (filters at 62x kill the frame). */}
+          {FACTION_KEYS.map((key) => {
+            const t = FACTION_THEMES[key];
+            return (
+              <radialGradient
+                key={key}
+                id={`dcph-glow-${factionSlug(key)}`}
+                cx="50%"
+                cy="50%"
+                r="50%"
+              >
+                <stop offset="0%" stopColor={t.primary} stopOpacity={pal.glowInner} />
+                <stop offset="55%" stopColor={t.primary} stopOpacity={pal.glowMid} />
+                <stop offset="100%" stopColor={t.primary} stopOpacity="0" />
+              </radialGradient>
+            );
+          })}
+          <radialGradient id="dcph-glow-locked" cx="50%" cy="50%" r="50%">
+            <stop offset="0%" stopColor={LOCKED_THEME.glow} stopOpacity={pal.glowInner} />
+            <stop offset="55%" stopColor={LOCKED_THEME.glow} stopOpacity={pal.glowMid} />
+            <stop offset="100%" stopColor={LOCKED_THEME.glow} stopOpacity="0" />
+          </radialGradient>
+        </defs>
+
+        {/* Background stack: vignette → drifting auras → dot matrix → motes */}
+        <rect width={vw} height={vh} fill="url(#dcph-bg)" />
+        <g>
+          <ellipse
+            className="dcph-aura-a"
+            cx={vw * 0.32}
+            cy={vh * 0.3}
+            rx={vw * 0.42}
+            ry={vh * 0.4}
+            fill="url(#dcph-aura-a)"
+          />
+          <ellipse
+            className="dcph-aura-b"
+            cx={vw * 0.74}
+            cy={vh * 0.68}
+            rx={vw * 0.38}
+            ry={vh * 0.36}
+            fill="url(#dcph-aura-b)"
+          />
+        </g>
+        <rect width={vw} height={vh} fill="url(#dcph-dots)" />
+
+        <g aria-hidden>
+          {particles.map((p, i) => (
+            <circle
+              key={i}
+              ref={(el) => {
+                particleEls.current[i] = el;
+              }}
+              r={p.r}
+              fill={pal.particle}
+              opacity={0}
+            />
+          ))}
+        </g>
+
+        {/* World layer — transform written by the rAF loop, never by CSS */}
+        <g ref={worldRef} style={{ transformOrigin: "0px 0px" }}>
+          <g>
+            {/* Strings — `d` is owned by the loop; React owns only paint props */}
+            {edges.map((e, i) => {
+              const hidden = Boolean(activeFilter && e.rel.type !== activeFilter);
+              const isTarget =
+                hoveredId === e.rel.source ||
+                hoveredId === e.rel.target ||
+                selectedCharacterId === e.rel.source ||
+                selectedCharacterId === e.rel.target;
+              const matchesSearch =
+                searchMatches.size === 0 ||
+                searchMatches.has(e.rel.source) ||
+                searchMatches.has(e.rel.target);
+              const opacity = dimmed
+                ? isTarget
+                  ? 1
+                  : DIM_OPACITY
+                : matchesSearch
+                  ? pal.stringActive
+                  : pal.stringIdle;
+              const isLockedEdge = Boolean(
+                (e.rel as unknown as { locked?: boolean }).locked,
+              );
+              const color = isLockedEdge
+                ? LOCKED_EDGE_COLOR
+                : getRelationshipColor(e.rel.type, isDark);
+              const initSx = nodes[e.s]?.c.x ?? 0;
+              const initSy = nodes[e.s]?.c.y ?? 0;
+              const initTx = nodes[e.t]?.c.x ?? 0;
+              const initTy = nodes[e.t]?.c.y ?? 0;
+              const initialD = quadPath(initSx, initSy, initTx, initTy, e.off);
+
               return (
-                <radialGradient
-                  key={key}
-                  id={`dcph-glow-${factionSlug(key)}`}
-                  cx="50%"
-                  cy="50%"
-                  r="50%"
-                >
-                  <stop offset="0%" stopColor={t.primary} stopOpacity={pal.glowInner} />
-                  <stop offset="55%" stopColor={t.primary} stopOpacity={pal.glowMid} />
-                  <stop offset="100%" stopColor={t.primary} stopOpacity="0" />
-                </radialGradient>
+                <path
+                  key={e.rel.id}
+                  ref={(el) => {
+                    edgeEls.current[i] = el;
+                  }}
+                  d={initialD}
+                  fill="none"
+                  stroke={color}
+                  strokeWidth={isTarget ? STRING_WIDTH + 1.8 : STRING_WIDTH}
+                  strokeLinecap="round"
+                  strokeDasharray={isLockedEdge ? LOCKED_THEME.dash : undefined}
+                  opacity={isLockedEdge ? 0.22 : opacity}
+                  style={{
+                    display: hidden ? "none" : undefined,
+                    transition: "opacity 180ms ease, stroke-width 180ms ease",
+                  }}
+                />
               );
             })}
-            <radialGradient id="dcph-glow-locked" cx="50%" cy="50%" r="50%">
-              <stop offset="0%" stopColor={LOCKED_THEME.glow} stopOpacity={pal.glowInner} />
-              <stop offset="55%" stopColor={LOCKED_THEME.glow} stopOpacity={pal.glowMid} />
-              <stop offset="100%" stopColor={LOCKED_THEME.glow} stopOpacity="0" />
-            </radialGradient>
-          </defs>
 
-          {/* Background stack: vignette → drifting auras → dot matrix → motes */}
-          <rect width={vw} height={vh} fill="url(#dcph-bg)" />
-          <g>
-            <ellipse
-              className="dcph-aura-a"
-              cx={vw * 0.32}
-              cy={vh * 0.3}
-              rx={vw * 0.42}
-              ry={vh * 0.4}
-              fill="url(#dcph-aura-a)"
-            />
-            <ellipse
-              className="dcph-aura-b"
-              cx={vw * 0.74}
-              cy={vh * 0.68}
-              rx={vw * 0.38}
-              ry={vh * 0.36}
-              fill="url(#dcph-aura-b)"
-            />
-          </g>
-          <rect width={vw} height={vh} fill="url(#dcph-dots)" />
+            {/* Nodes — outer <g> transform is owned by the loop */}
+            {nodes.map((n, i) => {
+              const isSelected = selectedCharacterId === n.c.id;
+              const isHovered = hoveredId === n.c.id;
+              const isSearchMatch = searchMatches.has(n.c.id);
+              const isConan = n.c.id === "conan-edogawa";
+              const isLocked = Boolean((n.c as unknown as { locked?: boolean }).locked);
+              const glowUrl = isLocked
+                ? `url(#dcph-glow-locked)`
+                : `url(#dcph-glow-${factionSlug(n.factionKey)})`;
+              const emphasised = isSelected || isHovered;
+              const initX = n.c.x ?? 0;
+              const initY = n.c.y ?? 0;
 
-          <g aria-hidden>
-            {particles.map((p, i) => (
-              <circle
-                key={i}
-                ref={(el) => {
-                  particleEls.current[i] = el;
-                }}
-                r={p.r}
-                fill={pal.particle}
-                opacity={0}
-              />
-            ))}
-          </g>
+              return (
+                <g
+                  key={n.c.id}
+                  ref={(el) => {
+                    nodeEls.current[i] = el;
+                  }}
+                  transform={`translate(${initX} ${initY})`}
+                >
+                  <g style={{ transformOrigin: "0px 0px" }}>
+                    <g
+                      role="button"
+                      tabIndex={0}
+                      aria-label={`${n.c.name}, ${n.c.role}, ${n.degree} relationships`}
+                      className="group cursor-pointer outline-none"
+                      onPointerDown={(e) => handleNodePointerDown(i, e)}
+                      onClick={() => {
+                        if (didDragRef.current) {
+                          didDragRef.current = false;
+                          return;
+                        }
+                        handleSelectNode(i);
+                      }}
+                      onKeyDown={handleNodeKeyDown(i)}
+                      onMouseEnter={isGrabbingRef.current ? undefined : () => setHoveredId(n.c.id)}
+                      onMouseLeave={isGrabbingRef.current ? undefined : () => setHoveredId(null)}
+                      onFocus={() => setHoveredId(n.c.id)}
+                      onBlur={() => setHoveredId(null)}
+                    >
+                      {/* Ambient faction halo — always on, stronger when active */}
+                      <circle
+                        key="halo"
+                        r={n.r * 2.6}
+                        fill={glowUrl}
+                        opacity={
+                          emphasised || isConan ? 1 : isSearchMatch ? 0.85 : 0.42
+                        }
+                        style={{ transition: "opacity 180ms ease" }}
+                        pointerEvents="none"
+                      />
 
-          {/* World layer — transform written by the rAF loop, never by CSS */}
-          <g ref={worldRef} style={{ transformOrigin: "0px 0px" }}>
-            <motion.g
-              variants={containerVariants}
-              initial={reduce ? "show" : "hidden"}
-              animate="show"
-            >
-              {/* Strings — `d` is owned by the loop; React owns only paint props */}
-              {edges.map((e, i) => {
-                const hidden = Boolean(activeFilter && e.rel.type !== activeFilter);
-                const isTarget =
-                  hoveredId === e.rel.source ||
-                  hoveredId === e.rel.target ||
-                  selectedCharacterId === e.rel.source ||
-                  selectedCharacterId === e.rel.target;
-                const matchesSearch =
-                  searchMatches.size === 0 ||
-                  searchMatches.has(e.rel.source) ||
-                  searchMatches.has(e.rel.target);
-                const opacity = dimmed
-                  ? isTarget
-                    ? 1
-                    : DIM_OPACITY
-                  : matchesSearch
-                    ? pal.stringActive
-                    : pal.stringIdle;
-                const isLockedEdge = Boolean(
-                  (e.rel as unknown as { locked?: boolean }).locked,
-                );
-                const color = isLockedEdge
-                  ? LOCKED_EDGE_COLOR
-                  : getRelationshipColor(e.rel.type, isDark);
-                return (
-                  <path
-                    key={e.rel.id}
-                    ref={(el) => {
-                      edgeEls.current[i] = el;
-                    }}
-                    fill="none"
-                    stroke={color}
-                    strokeWidth={isTarget ? STRING_WIDTH + 1.8 : STRING_WIDTH}
-                    strokeLinecap="round"
-                    strokeDasharray={isLockedEdge ? LOCKED_THEME.dash : undefined}
-                    opacity={isLockedEdge ? 0.22 : opacity}
-                    style={{
-                      display: hidden ? "none" : undefined,
-                      transition: "opacity 220ms ease, stroke-width 220ms ease",
-                      filter:
-                        isTarget && !isLockedEdge
-                          ? `drop-shadow(0 0 6px ${color})`
-                          : undefined,
-                    }}
-                  />
-                );
-              })}
+                      {isConan && (
+                        <circle
+                          key="conan-ripple"
+                          className="dcph-ripple"
+                          r={n.r + 12}
+                          fill="none"
+                          stroke={n.theme.primary}
+                          strokeWidth={2}
+                          pointerEvents="none"
+                        />
+                      )}
 
-              {/* Nodes — outer <g> transform is owned by the loop */}
-              {nodes.map((n, i) => {
-                const isSelected = selectedCharacterId === n.c.id;
-                const isHovered = hoveredId === n.c.id;
-                const isSearchMatch = searchMatches.has(n.c.id);
-                const isConan = n.c.id === "conan-edogawa";
-                const isLocked = Boolean((n.c as unknown as { locked?: boolean }).locked);
-                const glowUrl = isLocked
-                  ? `url(#dcph-glow-locked)`
-                  : `url(#dcph-glow-${factionSlug(n.factionKey)})`;
-                const emphasised = isSelected || isHovered;
+                      {/* Breathing ring — pure opacity keyframes, zero layout overhead */}
+                      <circle
+                        key="breathe-ring"
+                        className="dcph-breathe"
+                        r={n.r + 3}
+                        fill="none"
+                        stroke={isLocked ? LOCKED_THEME.stroke : n.theme.border}
+                        strokeWidth={1}
+                        pointerEvents="none"
+                        style={
+                          {
+                            "--dcph-dur": `${n.breatheDur}s`,
+                            "--dcph-delay": `${n.breatheDelay}s`,
+                          } as CSSProperties
+                        }
+                      />
 
-                return (
-                  <g
-                    key={n.c.id}
-                    ref={(el) => {
-                      nodeEls.current[i] = el;
-                    }}
-                  >
-                    <motion.g variants={nodeVariants} style={{ transformOrigin: "0px 0px" }}>
+                      {/* Selection / Search indicator ring - stable element in DOM */}
+                      <circle
+                        key="selection-ring"
+                        r={n.r + 7}
+                        fill="none"
+                        stroke={
+                          isLocked
+                            ? LOCKED_THEME.stroke
+                            : isSelected
+                              ? pal.strokeStrong
+                              : n.theme.border
+                        }
+                        strokeWidth={2}
+                        opacity={isSelected || isSearchMatch ? 1 : 0}
+                        style={{ transition: "opacity 180ms ease" }}
+                        pointerEvents="none"
+                      />
+
+                      {/* Hover highlight ring */}
+                      <circle
+                        key="hover-ring"
+                        r={n.r + 5}
+                        fill="none"
+                        stroke={isLocked ? LOCKED_THEME.stroke : n.theme.border}
+                        strokeWidth={1.5}
+                        className="opacity-0 transition-opacity duration-200 group-hover:opacity-100"
+                        pointerEvents="none"
+                      />
+
+                      {/* Main node circle */}
+                      <circle
+                        key="node-body"
+                        r={n.r}
+                        fill={
+                          isLocked
+                            ? isDark
+                              ? LOCKED_THEME.fill
+                              : LOCKED_THEME.fillLight
+                            : isSelected
+                              ? n.theme.primary
+                              : isDark
+                                ? n.theme.darkFill
+                                : n.theme.lightFill
+                        }
+                        stroke={
+                          isLocked
+                            ? LOCKED_THEME.stroke
+                            : emphasised
+                              ? pal.strokeStrong
+                              : n.theme.border
+                        }
+                        strokeWidth={isConan ? 3.5 : isSelected ? 3 : 2}
+                        strokeDasharray={isLocked ? LOCKED_THEME.dash : undefined}
+                        opacity={isLocked ? 0.9 : 1}
+                        className="transition-[fill,stroke] duration-200"
+                      />
+
+                      {/* Center core dot */}
+                      <circle
+                        key="node-core"
+                        r={isConan ? 6 : n.r > 16 ? 4.5 : 3.5}
+                        fill={
+                          isLocked
+                            ? LOCKED_THEME.stroke
+                            : emphasised
+                              ? pal.strokeStrong
+                              : n.theme.primary
+                        }
+                        pointerEvents="none"
+                      />
+
+                      {/* Label — stable key and ref, never unmounted */}
                       <g
-                        role="button"
-                        tabIndex={0}
-                        aria-label={`${n.c.name}, ${n.c.role}, ${n.degree} relationships`}
-                        className="group cursor-pointer outline-none"
-                        onPointerDown={(e) => handleNodePointerDown(i, e)}
-                        onClick={() => {
-                          if (didDragRef.current) {
-                            didDragRef.current = false;
-                            return;
-                          }
-                          handleSelectNode(i);
+                        key="node-label"
+                        ref={(el) => {
+                          labelEls.current[i] = el;
                         }}
-                        onKeyDown={handleNodeKeyDown(i)}
-                        onMouseEnter={grabbing ? undefined : () => setHoveredId(n.c.id)}
-                        onMouseLeave={grabbing ? undefined : () => setHoveredId(null)}
-                        onFocus={() => setHoveredId(n.c.id)}
-                        onBlur={() => setHoveredId(null)}
+                        transform={`translate(0, ${n.r + 15})`}
+                        pointerEvents="none"
                       >
-                        {/* Ambient faction halo — always on, stronger when active */}
-                        <circle
-                          r={n.r * 2.6}
-                          fill={glowUrl}
-                          opacity={
-                            emphasised || isConan ? 1 : isSearchMatch ? 0.85 : 0.42
-                          }
-                          style={{ transition: "opacity 220ms ease" }}
-                          pointerEvents="none"
-                        />
-
-                        {isConan && (
-                          <circle
-                            className="dcph-ripple"
-                            r={n.r + 12}
-                            fill="none"
-                            stroke={n.theme.primary}
-                            strokeWidth={2}
-                            pointerEvents="none"
-                          />
-                        )}
-
-                        {/* Breathing ring — CSS keyframes, not 62 JS animations */}
-                        <circle
-                          className="dcph-breathe"
-                          r={n.r + 3}
-                          fill="none"
-                          stroke={isLocked ? LOCKED_THEME.stroke : n.theme.border}
-                          strokeWidth={1}
-                          opacity={isLocked ? 0.35 : 1}
-                          pointerEvents="none"
-                          style={
-                            {
-                              "--dcph-dur": `${n.breatheDur}s`,
-                              "--dcph-delay": `${n.breatheDelay}s`,
-                            } as CSSProperties
-                          }
-                        />
-
-                        {(isSelected || isSearchMatch) && (
-                          <circle
-                            r={n.r + 7}
-                            fill="none"
-                            stroke={
-                              isLocked
-                                ? LOCKED_THEME.stroke
-                                : isSelected
-                                  ? pal.strokeStrong
-                                  : n.theme.border
-                            }
-                            strokeWidth={2}
-                            pointerEvents="none"
-                          />
-                        )}
-
-                        <circle
-                          r={n.r + 5}
-                          fill="none"
-                          stroke={isLocked ? LOCKED_THEME.stroke : n.theme.border}
-                          strokeWidth={1.5}
-                          className="opacity-0 transition-opacity duration-200 group-hover:opacity-100"
-                          pointerEvents="none"
-                        />
-
-                        <circle
-                          r={n.r}
-                          fill={
-                            isLocked
-                              ? isDark
-                                ? LOCKED_THEME.fill
-                                : LOCKED_THEME.fillLight
-                              : isSelected
-                                ? n.theme.primary
-                                : isDark
-                                  ? n.theme.darkFill
-                                  : n.theme.lightFill
-                          }
-                          stroke={
-                            isLocked
-                              ? LOCKED_THEME.stroke
+                        <text
+                          textAnchor="middle"
+                          className={cn(
+                            "select-none font-display tracking-tight",
+                            isConan
+                              ? "text-[14px] font-extrabold"
+                              : n.r > 16
+                                ? "text-[13px] font-bold"
+                                : "text-[12px] font-semibold"
+                          )}
+                          style={{
+                            fill: isLocked
+                              ? LOCKED_THEME.label
                               : emphasised
-                                ? pal.strokeStrong
-                                : n.theme.border
-                          }
-                          strokeWidth={isConan ? 3.5 : isSelected ? 3 : 2}
-                          strokeDasharray={isLocked ? LOCKED_THEME.dash : undefined}
-                          opacity={isLocked ? 0.9 : 1}
-                          className="transition-[fill,stroke] duration-200"
-                        />
-
-                        <circle
-                          r={isConan ? 6 : n.r > 16 ? 4.5 : 3.5}
-                          fill={
-                            isLocked
-                              ? LOCKED_THEME.stroke
-                              : emphasised
-                                ? pal.strokeStrong
-                                : n.theme.primary
-                          }
-                          pointerEvents="none"
-                        />
-
-                        {/* Label — halo never matches the fill, in either theme */}
-                        <g
-                          ref={(el) => {
-                            labelEls.current[i] = el;
+                                ? pal.labelStrong
+                                : pal.label,
+                            paintOrder: "stroke",
+                            stroke: pal.labelHalo,
+                            strokeWidth: 3,
+                            strokeLinejoin: "round",
+                            vectorEffect: "non-scaling-stroke",
                           }}
-                          transform={`translate(0, ${n.r + 15})`}
-                          pointerEvents="none"
                         >
-                          <text
-                            textAnchor="middle"
-                            className={cn(
-                              "select-none font-display tracking-tight",
-                              isConan
-                                ? "text-[14px] font-extrabold"
-                                : n.r > 16
-                                  ? "text-[13px] font-bold"
-                                  : "text-[12px] font-semibold"
-                            )}
-                            style={{
-                              fill: isLocked
-                                ? LOCKED_THEME.label
-                                : emphasised
-                                  ? pal.labelStrong
-                                  : pal.label,
-                              paintOrder: "stroke",
-                              stroke: pal.labelHalo,
-                              strokeWidth: 3,
-                              strokeLinejoin: "round",
-                              vectorEffect: "non-scaling-stroke",
-                            }}
-                          >
-                            {isLocked ? "???" : n.c.name.split("/")[0].trim()}
-                          </text>
-                        </g>
+                          {isLocked ? "???" : n.c.name.split("/")[0].trim()}
+                        </text>
                       </g>
-                    </motion.g>
+                    </g>
                   </g>
-                );
-              })}
-            </motion.g>
+                </g>
+              );
+            })}
           </g>
-        </svg>
-      </MotionConfig>
+        </g>
+      </svg>
 
       {/* ── top-left control column: search → host slot → results ──
            One flex column of flow siblings, so nothing can overlap. */}

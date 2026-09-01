@@ -1,4 +1,8 @@
-import { CHARACTERS, RELATIONSHIPS, RELATIONSHIP_META } from "@/lib/characters-guide"
+import {
+  getLightweightCharacters,
+  getLightweightRelationships,
+  RELATIONSHIP_META,
+} from "@/lib/characters-guide"
 import { getWatchedProgress } from "@/lib/queries/watched-progress"
 import CharactersExplorer from "@/components/characters/CharactersExplorer"
 
@@ -18,8 +22,8 @@ export default async function CharactersPage() {
   return (
     <div className="fixed inset-0 h-screen w-screen overflow-hidden bg-page z-0 pt-16 md:pt-0">
       <CharactersExplorer
-        characters={CHARACTERS}
-        relationships={RELATIONSHIPS}
+        characters={getLightweightCharacters()}
+        relationships={getLightweightRelationships()}
         relationshipMeta={RELATIONSHIP_META}
         isSignedIn={progress.isSignedIn}
         watchedEpisodes={progress.watchedEpisodes}

@@ -28,7 +28,7 @@ export interface Character {
   aliases?: string[]
   role: string
   affiliation: string
-  bio: string
+  bio?: string
   /** Character portrait image path (relative to /characters/) */
   image?: string
   /** Fixed canvas position for the SVG graph */
@@ -149,7 +149,7 @@ export interface Relationship {
   source: string
   target: string
   type: RelationshipType
-  detail: string
+  detail?: string
 }
 
 export const RELATIONSHIP_META: Record<
@@ -2305,8 +2305,22 @@ export const RELATIONSHIPS: Relationship[] = [
   },
 ]
 
+// Fast indexed lookup caches for instant O(1) retrieval
+const CHARACTER_MAP = new Map<string, Character>(CHARACTERS.map((c) => [c.id, c]))
+const RELATIONSHIPS_MAP = new Map<string, Relationship>(RELATIONSHIPS.map((r) => [r.id, r]))
+const RELATIONSHIPS_BY_CHAR = new Map<string, Relationship[]>()
+
+for (const r of RELATIONSHIPS) {
+  const sList = RELATIONSHIPS_BY_CHAR.get(r.source) || []
+  sList.push(r)
+  RELATIONSHIPS_BY_CHAR.set(r.source, sList)
+  const tList = RELATIONSHIPS_BY_CHAR.get(r.target) || []
+  tList.push(r)
+  RELATIONSHIPS_BY_CHAR.set(r.target, tList)
+}
+
 export function getCharacterById(id: string): Character | undefined {
-  return CHARACTERS.find((c) => c.id === id)
+  return CHARACTER_MAP.get(id)
 }
 
 export function getCharacters(): Character[] {
@@ -2318,9 +2332,21 @@ export function getRelationships(): Relationship[] {
 }
 
 export function getRelationshipsFor(characterId: string): Relationship[] {
-  return RELATIONSHIPS.filter(
-    (r) => r.source === characterId || r.target === characterId
-  )
+  return RELATIONSHIPS_BY_CHAR.get(characterId) || []
+}
+
+export function getRelationshipById(id: string): Relationship | undefined {
+  return RELATIONSHIPS_MAP.get(id)
+}
+
+/** Lightweight versions of characters without bio (for fast canvas rendering) */
+export function getLightweightCharacters(): Character[] {
+  return CHARACTERS.map(({ bio: _b, image: _img, ...c }) => c)
+}
+
+/** Lightweight versions of relationships without detail string (for fast canvas rendering) */
+export function getLightweightRelationships(): Relationship[] {
+  return RELATIONSHIPS.map(({ detail: _d, ...r }) => r)
 }
 
 export function getRelationshipMeta(

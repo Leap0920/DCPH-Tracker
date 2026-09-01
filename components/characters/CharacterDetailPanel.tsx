@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useRef } from "react";
 import { motion, MotionConfig, type Variants } from "framer-motion";
 import { X } from "lucide-react";
-import { RELATIONSHIP_META, getCharacterById, getCharacterImage } from "@/lib/characters-guide";
+import { RELATIONSHIP_META, getCharacterById, getRelationshipById, getCharacterImage } from "@/lib/characters-guide";
 import type { Character, Relationship, RelationshipType } from "@/lib/characters-guide";
 import { getRelationshipColor } from "@/components/characters/graph-theme";
 import { useTheme } from "@/components/theme-provider";
@@ -96,12 +96,16 @@ export function CharacterDetailPanel({
 
   if (!character) return null;
 
+  // Resolve full character info (including bio) on demand
+  const fullCharacter = getCharacterById(character.id) ?? character;
+
   const threads = relationships.map((relationship) => {
     const otherId =
       relationship.source === character.id ? relationship.target : relationship.source;
     const other = getCharacterById(otherId);
+    const fullRel = getRelationshipById(relationship.id) ?? relationship;
     return {
-      relationship,
+      relationship: fullRel,
       meta: RELATIONSHIP_META[relationship.type],
       color: getRelationshipColor(relationship.type, isDark),
       otherName: other?.name ?? otherId,
@@ -183,7 +187,9 @@ export function CharacterDetailPanel({
             </div>
           )}
 
-          <p className="text-xs leading-relaxed text-ink-dim sm:text-sm">{character.bio}</p>
+          <p className="text-xs leading-relaxed text-ink-dim sm:text-sm">
+            {fullCharacter.bio || character.bio}
+          </p>
 
           <div className="border-t border-line pt-4">
             <h3 className="font-mono text-[10px] uppercase tracking-stamp text-ink-faint">
