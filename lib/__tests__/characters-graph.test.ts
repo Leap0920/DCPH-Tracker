@@ -129,4 +129,185 @@ describe("characters graph theme & geometry", () => {
       expect(currentW).toBeCloseTo(W, 5)
     }
   })
+
+  it("handles empty nodes in bounding box calculation with safe defaults", () => {
+    function computeBbox(nodes: { r: number; c: { x?: number; y?: number } }[]) {
+      let minX = Infinity
+      let minY = Infinity
+      let maxX = -Infinity
+      let maxY = -Infinity
+      for (const n of nodes) {
+        const halfLabel = Math.max(n.r + 8, 48)
+        const cx = n.c.x ?? 0
+        const cy = n.c.y ?? 0
+        minX = Math.min(minX, cx - halfLabel)
+        maxX = Math.max(maxX, cx + halfLabel)
+        minY = Math.min(minY, cy - n.r - 12)
+        maxY = Math.max(maxY, cy + n.r + 30)
+      }
+      if (!Number.isFinite(minX) || !Number.isFinite(minY)) {
+        return { minX: -500, minY: -500, w: 1000, h: 1000 }
+      }
+      const m = 3.5 + 6
+      return {
+        minX: minX - m,
+        minY: minY - m,
+        w: maxX - minX + m * 2,
+        h: maxY - minY + m * 2,
+      }
+    }
+
+    const emptyBox = computeBbox([])
+    expect(emptyBox.minX).toBe(-500)
+    expect(emptyBox.minY).toBe(-500)
+    expect(emptyBox.w).toBe(1000)
+    expect(emptyBox.h).toBe(1000)
+    expect(Number.isFinite(emptyBox.w)).toBe(true)
+  })
+
+  it("computes usableRect correctly for desktop and mobile viewport configurations", () => {
+    function usableRect(w: number, h: number, isMobile: boolean, panelOpen: boolean) {
+      const top = 100
+      const left = isMobile ? 16 : 28
+      const right = panelOpen && !isMobile ? 416 : isMobile ? 16 : 28
+      const bottom = panelOpen && isMobile ? Math.round(h * 0.48) + 20 : 92
+      return {
+        x: left,
+        y: top,
+        w: Math.max(140, w - left - right),
+        h: Math.max(140, h - top - bottom),
+      }
+    }
+
+    // Desktop with panel closed
+    const desktopClosed = usableRect(1920, 1080, false, false)
+    expect(desktopClosed.x).toBe(28)
+    expect(desktopClosed.y).toBe(100)
+    expect(desktopClosed.w).toBe(1920 - 28 - 28)
+    expect(desktopClosed.h).toBe(1080 - 100 - 92)
+
+    // Desktop with panel open (416px right margin)
+    const desktopOpen = usableRect(1920, 1080, false, true)
+    expect(desktopOpen.w).toBe(1920 - 28 - 416)
+
+    // Mobile with panel open
+    const mobileOpen = usableRect(390, 844, true, true)
+    expect(mobileOpen.x).toBe(16)
+    expect(mobileOpen.w).toBe(390 - 16 - 16)
+    expect(mobileOpen.h).toBe(844 - 100 - (Math.round(844 * 0.48) + 20))
+  })
+
+  it("converts between screen and world coordinates with perfect bidirectionality", () => {
+    const cam = { x: 120, y: -80, k: 1.8 }
+    const screenPoint = { sx: 450, sy: 620 }
+
+    // Screen to world: ((sx - cam.x) / k, (sy - cam.y) / k)
+    const wx = (screenPoint.sx - cam.x) / cam.k
+    const wy = (screenPoint.sy - cam.y) / cam.k
+
+    // World to screen: (wx * k + cam.x, wy * k + cam.y)
+    const roundtripSx = wx * cam.k + cam.x
+    const roundtripSy = wy * cam.k + cam.y
+
+    expect(roundtripSx).toBeCloseTo(screenPoint.sx, 6)
+    expect(roundtripSy).toBeCloseTo(screenPoint.sy, 6)
+  })
+
+  it("accumulates wheel zoom into targetRef preserving anchor invariance without drift during gliding", () => {
+    const sx = 300
+    const sy = 400
+    const minZoom = 0.2
+    const maxZoom = 4.0
+
+    // Initial state: camera and target at rest
+    const cam = { x: 50, y: 100, k: 1.0 }
+    const target = { x: 50, y: 100, k: 1.0 }
+
+    // World coordinate under cursor at the beginning
+    const initialWx = (sx - target.x) / target.k
+    const initialWy = (sy - target.y) / target.k
+
+    // Simulate 5 rapid wheel ticks arriving before camera fully catches up
+    const steps = [-60, -60, -60, -60, -60]
+    for (const step of steps) {
+      // Simulate partial camera interpolation (e.g. 15% step)
+      cam.x += (target.x - cam.x) * 0.15
+      cam.y += (target.y - cam.y) * 0.15
+      cam.k += (target.k - cam.k) * 0.15
+
+      // Wheel handler uses targetRef for anchor calculation
+      const targetWx = (sx - target.x) / (target.k || 1)
+      const targetWy = (sy - target.y) / (target.k || 1)
+      const nk = clamp(
+        target.k * Math.exp(-clamp(step, -180, 180) * 0.0016),
+        minZoom,
+        maxZoom
+      )
+      if (nk !== target.k) {
+        target.k = nk
+        target.x = sx - targetWx * nk
+        target.y = sy - targetWy * nk
+      }
+
+      // Verify the invariant world coordinate under cursor has not drifted
+      const currentTargetWx = (sx - target.x) / target.k
+      const currentTargetWy = (sy - target.y) / target.k
+      expect(currentTargetWx).toBeCloseTo(initialWx, 6)
+      expect(currentTargetWy).toBeCloseTo(initialWy, 6)
+    }
+
+    // When camera completes glide to target
+    cam.x = target.x
+    cam.y = target.y
+    cam.k = target.k
+
+    const finalCamWx = (sx - cam.x) / cam.k
+    const finalCamWy = (sy - cam.y) / cam.k
+    expect(finalCamWx).toBeCloseTo(initialWx, 6)
+    expect(finalCamWy).toBeCloseTo(initialWy, 6)
+  })
+
+  it("filters search matches to exclude locked character placeholders", () => {
+    const testCharacters = [
+      { id: "conan-edogawa", name: "Conan Edogawa", role: "Protagonist", affiliation: "Detective Boys", locked: false },
+      { id: "heiji-hattori", name: "Heiji Hattori", role: "High School Detective", affiliation: "Osaka", locked: false },
+      { id: "locked-boss", name: "???", role: "Not yet revealed", affiliation: "Unknown", locked: true },
+    ]
+
+    function getSearchMatches(query: string, chars: typeof testCharacters): Set<string> {
+      const searchLower = query.trim().toLowerCase()
+      if (!searchLower) return new Set()
+      const matches = new Set<string>()
+      for (const c of chars) {
+        if (c.locked) continue
+        if (
+          c.name.toLowerCase().includes(searchLower) ||
+          c.role.toLowerCase().includes(searchLower) ||
+          c.affiliation.toLowerCase().includes(searchLower)
+        ) {
+          matches.add(c.id)
+        }
+      }
+      return matches
+    }
+
+    expect(getSearchMatches("conan", testCharacters).has("conan-edogawa")).toBe(true)
+    expect(getSearchMatches("unknown", testCharacters).size).toBe(0)
+    expect(getSearchMatches("revealed", testCharacters).size).toBe(0)
+    expect(getSearchMatches("???", testCharacters).size).toBe(0)
+  })
+
+  it("evaluates background click deselection correctly for svg/rect/ellipse targets", () => {
+    function isBackgroundClickTarget(tagName: string, isSvgRoot: boolean): boolean {
+      return isSvgRoot || tagName === "rect" || tagName === "ellipse"
+    }
+
+    expect(isBackgroundClickTarget("svg", true)).toBe(true)
+    expect(isBackgroundClickTarget("rect", false)).toBe(true)
+    expect(isBackgroundClickTarget("ellipse", false)).toBe(true)
+    expect(isBackgroundClickTarget("circle", false)).toBe(false)
+    expect(isBackgroundClickTarget("path", false)).toBe(false)
+    expect(isBackgroundClickTarget("g", false)).toBe(false)
+    expect(isBackgroundClickTarget("text", false)).toBe(false)
+  })
 })

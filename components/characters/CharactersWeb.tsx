@@ -78,11 +78,10 @@ import { cn } from "@/lib/utils";
 
 export { FACTION_THEMES, getFactionTheme } from "@/components/characters/graph-theme";
 
-// Use useEffect on both server and client to avoid hydration mismatch
-// (previous typeof window ? useLayoutEffect : useEffect caused different
-// hook types on server vs client). ResizeObserver setup does not need
-// layout-phase timing.
-const useIsoLayoutEffect = useEffect;
+// Hydration-safe isomorphic layout effect: runs synchronously before paint on
+// client to eliminate 1-frame position/opacity flashes, falls back to useEffect on SSR.
+const useIsoLayoutEffect =
+  typeof window !== "undefined" ? useLayoutEffect : useEffect;
 
 /** Hydration-safe matchMedia hook. */
 export function useMediaQuery(query: string): boolean {
@@ -460,6 +459,8 @@ export default function CharactersWeb({
     if (!searchLower) return new Set<string>();
     const set = new Set<string>();
     for (const c of characters) {
+      const isLocked = Boolean((c as unknown as { locked?: boolean }).locked);
+      if (isLocked) continue;
       if (
         c.name.toLowerCase().includes(searchLower) ||
         c.role.toLowerCase().includes(searchLower) ||
@@ -556,6 +557,7 @@ export default function CharactersWeb({
     const cx = vp.x + vp.w / 2;
     const cy = vp.y + vp.h / 2;
     const nk = clamp(t.k * factor, minZoomRef.current, MAX_ZOOM);
+    if (nk === t.k) return;
     targetRef.current = {
       k: nk,
       x: cx - ((cx - t.x) * nk) / t.k,
@@ -576,12 +578,14 @@ export default function CharactersWeb({
     zoomToPoint(wx, wy, 1.35);
   }, [indexById, geom, zoomToPoint, fitToContent]);
 
-  /* ── synchronous node / edge layout setup ─────────────────────── */
+  /* ── synchronous node / edge / label layout setup ─────────────── */
   useIsoLayoutEffect(() => {
     nodeEls.current.length = nodes.length;
     labelEls.current.length = nodes.length;
     edgeEls.current.length = edges.length;
 
+    const forced = forcedLabelsRef.current;
+    const currentK = camRef.current.k || 1;
     for (let i = 0; i < nodes.length; i++) {
       const g = nodeEls.current[i];
       if (g) {
@@ -589,6 +593,11 @@ export default function CharactersWeb({
           "transform",
           `translate(${geom.curX[i].toFixed(2)} ${geom.curY[i].toFixed(2)})`
         );
+      }
+      const lbl = labelEls.current[i];
+      if (lbl) {
+        const o = forced.has(i) ? 1 : labelOpacityFor(currentK, nodes[i].tier);
+        lbl.style.opacity = o.toFixed(2);
       }
     }
     for (let i = 0; i < edges.length; i++) {
@@ -923,13 +932,13 @@ export default function CharactersWeb({
     wy: number;
   } | null>(null);
 
-  const localPoint = (clientX: number, clientY: number) => {
+  const localPoint = useCallback((clientX: number, clientY: number) => {
     const r = rectRef.current ?? svgRef.current?.getBoundingClientRect();
     if (!r) return { sx: 0, sy: 0 };
     return { sx: clientX - r.left, sy: clientY - r.top };
-  };
+  }, []);
 
-  const beginPinch = () => {
+  const beginPinch = useCallback(() => {
     const pts = Array.from(pointersRef.current.values());
     if (pts.length < 2) return;
     panRef.current = null;
@@ -945,7 +954,7 @@ export default function CharactersWeb({
       wx: (sx - cam.x) / (cam.k || 1),
       wy: (sy - cam.y) / (cam.k || 1),
     };
-  };
+  }, [localPoint]);
 
   /** Capture phase: every pointer that touches the canvas is registered here,
    *  including ones that land on a node, so pinch works anywhere. */
@@ -1090,15 +1099,27 @@ export default function CharactersWeb({
       if (svgRef.current) svgRef.current.style.cursor = "";
     };
 
+    const onBlur = () => {
+      pointersRef.current.clear();
+      rectRef.current = null;
+      pinchRef.current = null;
+      panRef.current = null;
+      dragNodeRef.current = null;
+      isGrabbingRef.current = false;
+      if (svgRef.current) svgRef.current.style.cursor = "";
+    };
+
     window.addEventListener("pointermove", onMove);
     window.addEventListener("pointerup", onUp);
     window.addEventListener("pointercancel", onUp);
+    window.addEventListener("blur", onBlur);
     return () => {
       window.removeEventListener("pointermove", onMove);
       window.removeEventListener("pointerup", onUp);
       window.removeEventListener("pointercancel", onUp);
+      window.removeEventListener("blur", onBlur);
     };
-  }, [geom, bbox]);
+  }, [geom, bbox, beginPinch, localPoint]);
 
   /* ── wheel zoom: accumulates into the target, loop glides there ── */
   useEffect(() => {
@@ -1107,31 +1128,35 @@ export default function CharactersWeb({
     const onWheel = (e: WheelEvent) => {
       e.preventDefault();
       const { sx, sy } = localPoint(e.clientX, e.clientY);
-      const cam = camRef.current;
-      // Anchor against the current screen-to-world position under cursor
-      const currentWx = (sx - cam.x) / (cam.k || 1);
-      const currentWy = (sy - cam.y) / (cam.k || 1);
       const step = e.deltaMode === 1 ? e.deltaY * 16 : e.deltaY;
       const t = targetRef.current;
+      // Anchor against the target screen-to-world position under cursor
+      const targetWx = (sx - t.x) / (t.k || 1);
+      const targetWy = (sy - t.y) / (t.k || 1);
       const nk = clamp(
         t.k * Math.exp(-clamp(step, -180, 180) * 0.0016),
         minZoomRef.current,
         MAX_ZOOM
       );
-      if (nk === t.k && Math.abs(cam.k - t.k) < 0.001) return;
-      targetRef.current = { k: nk, x: sx - currentWx * nk, y: sy - currentWy * nk };
+      if (nk === t.k) return;
+      targetRef.current = { k: nk, x: sx - targetWx * nk, y: sy - targetWy * nk };
       if (reduceRef.current) camRef.current = { ...targetRef.current };
       userAdjustedRef.current = true;
     };
     svg.addEventListener("wheel", onWheel, { passive: false });
     return () => svg.removeEventListener("wheel", onWheel);
-  }, []);
+  }, [localPoint]);
 
   /* ── keyboard shortcuts ───────────────────────────────────────── */
   useEffect(() => {
     const onKey = (e: globalThis.KeyboardEvent) => {
       const el = document.activeElement;
-      if (el instanceof HTMLInputElement || el instanceof HTMLTextAreaElement) return;
+      if (
+        el instanceof HTMLInputElement ||
+        el instanceof HTMLTextAreaElement ||
+        (el as HTMLElement)?.isContentEditable
+      )
+        return;
       if (e.key === "+" || e.key === "=") zoomBy(ZOOM_STEP);
       else if (e.key === "-" || e.key === "_") zoomBy(1 / ZOOM_STEP);
       else if (e.key === "0") fitToContent();
@@ -1187,6 +1212,20 @@ export default function CharactersWeb({
         aria-label="Detective Conan character relationship graph"
         onPointerDownCapture={handleCapturePointerDown}
         onPointerDown={handleCanvasPointerDown}
+        onClick={(e) => {
+          if (didDragRef.current) {
+            didDragRef.current = false;
+            return;
+          }
+          if (
+            selectedCharacterId &&
+            (e.target === svgRef.current ||
+              (e.target as Element)?.tagName === "rect" ||
+              (e.target as Element)?.tagName === "ellipse")
+          ) {
+            onSelectCharacter(null);
+          }
+        }}
       >
         <defs>
           <radialGradient id="dcph-bg" cx="50%" cy="42%" r="78%">
@@ -1265,7 +1304,7 @@ export default function CharactersWeb({
         </g>
         <rect width={vw} height={vh} fill="url(#dcph-dots)" />
 
-        <g aria-hidden>
+        <g aria-hidden pointerEvents="none" className="pointer-events-none">
           {particles.map((p, i) => (
             <circle
               key={i}
