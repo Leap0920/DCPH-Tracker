@@ -133,3 +133,48 @@ describe("ThinkingFilter", () => {
     expect(filter.finish()).toBe("")
   })
 })
+
+describe("stripThinking - fenced code blocks", () => {
+  it("removes closed fenced code blocks", () => {
+    const stripped = stripThinking(
+      ["Here is the list:", "```", "[1, 2, 3]", "```", "Movie 19 is the answer."].join("\n")
+    )
+    expect(stripped).not.toContain("```")
+    expect(stripped).not.toContain("[1, 2, 3]")
+    expect(stripped).toContain("Movie 19 is the answer.")
+  })
+
+  it("drops unterminated fences to the end of the output", () => {
+    expect(stripThinking("```javascript\nconsole.log('leak')\n")).toBe("")
+  })
+
+  it("keeps single backticks that are not code fences", () => {
+    const answer = "The gadget is called `solar-powered skateboard`."
+    expect(stripThinking(answer)).toBe(answer)
+  })
+})
+
+describe("ThinkingFilter - fenced code blocks never reach the user", () => {
+  it("drops a code fence that opens after streaming has started", () => {
+    const filter = new ThinkingFilter()
+    expect(filter.push("Movie 19 is the answer.\n")).toBe("Movie 19 is the answer.\n")
+    expect(filter.push("Here is the code:\n```\n[1, 2, 3]\n```\nThe end.\n")).toBe(
+      "Here is the code:\n\nThe end.\n"
+    )
+    expect(filter.finish()).toBe("")
+  })
+
+  it("drops a fence whose opener, body, and closer arrive in separate chunks", () => {
+    const filter = new ThinkingFilter()
+    expect(filter.push("Answer:\n```py")).toBe("Answer:\n")
+    expect(filter.push("thon\narr = [1, 2]\n```\nTail\n")).toBe("\nTail\n")
+    expect(filter.finish()).toBe("")
+  })
+
+  it("never emits an unterminated fence, and finish() drops its tail", () => {
+    const filter = new ThinkingFilter()
+    expect(filter.push("The answer is here.\n")).toBe("The answer is here.\n")
+    expect(filter.push("Details:\n```\nleaked body")).toBe("Details:\n")
+    expect(filter.finish()).toBe("")
+  })
+})

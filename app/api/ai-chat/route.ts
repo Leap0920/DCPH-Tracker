@@ -2,6 +2,11 @@ import { createClient } from "@/utils/supabase/server"
 import { searchAll } from "@/lib/chat/search"
 import { buildSystemPrompt } from "@/lib/chat/prompt"
 import { ThinkingFilter } from "@/lib/chat/answer"
+import {
+  REFUSAL_NO_CONTEXT,
+  classifyChatIntent,
+  shouldRefuseForMissingContext,
+} from "@/lib/chat/intent"
 
 export const runtime = "nodejs"
 export const dynamic = "force-dynamic"
@@ -177,6 +182,22 @@ function jsonError(message: string, status: number, extraHeaders?: HeadersInit) 
   })
 }
 
+/**
+ * A polite refusal, sent as a normal `text/plain` 200 body so the chat widget
+ * renders it as a bot message (same shape the streaming response uses).
+ */
+function refusalResponse(reply: string): Response {
+  return new Response(reply, {
+    status: 200,
+    headers: {
+      "Content-Type": "text/plain; charset=utf-8",
+      "Cache-Control": "no-cache, no-store, no-transform",
+      Connection: "keep-alive",
+      "X-Accel-Buffering": "no",
+    },
+  })
+}
+
 interface PumpResult {
   /** True when the client disconnected; the caller must stop everything. */
   aborted: boolean
@@ -299,6 +320,14 @@ export async function POST(request: Request) {
     return jsonError("Please sign in to chat with DCPH Bot.", 401)
   }
 
+  // Lightweight out-of-domain pre-check: clearly off-topic requests (coding help,
+  // other franchises, homework, recipes, ...) are refused with a polite reply
+  // before any retrieval, prompt building, or provider inference runs.
+  const intent = classifyChatIntent(userMessage)
+  if (intent.action === "refuse") {
+    return refusalResponse(intent.reply)
+  }
+
   const userId = user.id
   let displayName: string | null = null
   try {
@@ -323,6 +352,27 @@ export async function POST(request: Request) {
     context = { episodes: [], cases: [], dcwWiki: [] }
   }
 
+
+  // Strict domain validation: an information-seeking question that retrieval
+  // could not ground in the Detective Conan universe - and that never mentioned
+  // the series, now or in the recent conversation - is refused before any
+  // provider call. This stops the model from answering out-of-scope questions
+  // out of injected general-knowledge context (e.g. the Wikipedia fallback).
+  const hasInDomainContext =
+    context.episodes.length > 0 ||
+    context.cases.length > 0 ||
+    context.dcwWiki.some((r) => r.source === "dcw")
+  if (
+    shouldRefuseForMissingContext({
+      searchQuery,
+      priorUserMessages: priorTurns
+        .filter((t) => t.role === "user")
+        .map((t) => t.content),
+      hasContext: hasInDomainContext,
+    })
+  ) {
+    return refusalResponse(REFUSAL_NO_CONTEXT)
+  }
   const siteUrl = process.env.NEXT_PUBLIC_SITE_URL ?? "https://dcphtracker.vercel.app"
 
   const systemPrompt = buildSystemPrompt({

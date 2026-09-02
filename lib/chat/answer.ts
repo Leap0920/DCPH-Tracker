@@ -77,6 +77,11 @@ export function stripThinking(text: string): string {
   // 1. Explicit <think>...</think> blocks, including unterminated ones.
   cleaned = cleaned.replace(/<think>[\s\S]*?<\/think>/gi, " ")
   cleaned = cleaned.replace(/<think>[\s\S]*$/gi, " ")
+  // 1b. Fenced code blocks - free models occasionally emit "code arrays" for
+  //     requests that slipped past the scope boundary. Code must never reach
+  //     the user, so closed fences AND unterminated fences are dropped.
+  cleaned = cleaned.replace(/```[\s\S]*?```/g, " ")
+  cleaned = cleaned.replace(/```[\s\S]*$/g, " ")
 
   // 2. Inline reasoning prefixes that can appear mid-sentence.
   cleaned = cleaned.replace(/here'?s?\s+(a|my|the)\s+(thinking|analysis|reasoning)\s+process\s*:/gi, "")
@@ -154,6 +159,7 @@ export class ThinkingFilter {
   private held = ""
   private released = false
   private inThink = false
+  private inFence = false
   private carry = ""
 
   /** True once the filter has decided the answer has started. */
@@ -168,11 +174,11 @@ export class ThinkingFilter {
   push(delta: string): string {
     if (!delta) return ""
 
-    if (this.released) return this.stripThinkBlocks(delta)
+    if (this.released) return this.stripBlockedRegions(delta)
 
     // Drop <think> blocks before line analysis so their contents are not
     // mistaken for the answer.
-    const visible = this.stripThinkBlocks(delta)
+    const visible = this.stripBlockedRegions(delta)
     if (!visible) return ""
 
     this.held += visible
@@ -194,12 +200,12 @@ export class ThinkingFilter {
   /** Flush whatever survived. Call once, after the final chunk. */
   finish(): string {
     if (this.released) {
-      const tail = this.inThink ? "" : this.carry
+      const tail = this.inThink || this.inFence ? "" : this.carry
       this.carry = ""
       return tail
     }
 
-    const rest = this.inThink ? "" : this.carry + this.held
+    const rest = this.inThink || this.inFence ? "" : this.carry + this.held
     this.held = ""
     this.carry = ""
     return stripThinking(rest)
@@ -210,6 +216,7 @@ export class ThinkingFilter {
     this.held = ""
     this.released = false
     this.inThink = false
+    this.inFence = false
     this.carry = ""
   }
 
@@ -217,38 +224,82 @@ export class ThinkingFilter {
    * Removes `<think>...</think>` regions, tolerating tags that OpenRouter
    * splits across chunk boundaries.
    */
-  private stripThinkBlocks(text: string): string {
+  /**
+   * Removes think blocks and fenced code blocks with streaming-safe
+   * carry-over for tags/fences split across chunk boundaries.
+   *
+   * Inside a blocked region nothing is emitted - neither the opener nor the
+   * body - and only a short carry tail survives to catch a split closer, so
+   * neither reasoning nor "code arrays" can ever reach the user.
+   */
+  private stripBlockedRegions(text: string): string {
     let combined = this.carry + text
     this.carry = ""
     let out = ""
 
     for (;;) {
       if (this.inThink) {
-        const end = combined.indexOf("</think>")
+        const end = combined.indexOf('</think>')
         if (end === -1) {
           // Keep a tail in case the closing tag is split across chunks.
           this.carry = combined.slice(-CARRY_SIZE)
           return out
         }
         this.inThink = false
-        combined = combined.slice(end + "</think>".length)
+        combined = combined.slice(end + '</think>'.length)
         continue
       }
 
-      const start = combined.indexOf("<think>")
+      if (this.inFence) {
+        const end = combined.indexOf("```")
+        if (end === -1) {
+          // The fence body is dropped, never emitted; keep only a small tail
+          // in case the closing fence is split across chunks.
+          this.carry = combined.slice(-CARRY_SIZE)
+          return out
+        }
+        this.inFence = false
+        combined = combined.slice(end + "```".length)
+        continue
+      }
+
+      const thinkStart = combined.indexOf('<think>')
+      const fenceStart = combined.indexOf("```")
+      let start = -1
+      let isThink = false
+      if (thinkStart !== -1 && (fenceStart === -1 || thinkStart < fenceStart)) {
+        start = thinkStart
+        isThink = true
+      } else if (fenceStart !== -1) {
+        start = fenceStart
+      }
+
       if (start === -1) {
-        // A partial "<thi" may be waiting at the very end of this chunk.
+        // A partial opener may be waiting at the very end of this chunk:
+        // a truncated think tag, or one/two backticks for a code fence.
         const lt = combined.lastIndexOf("<")
         if (lt !== -1 && combined.length - lt < CARRY_SIZE) {
           this.carry = combined.slice(lt)
           return out + combined.slice(0, lt)
         }
+        const tickMatch = combined.match(/`{1,2}$/)
+        if (tickMatch) {
+          const n = tickMatch[0].length
+          this.carry = combined.slice(-n)
+          return out + combined.slice(0, combined.length - n)
+        }
         return out + combined
       }
 
       out += combined.slice(0, start)
-      this.inThink = true
-      combined = combined.slice(start + "<think>".length)
+      if (isThink) {
+        this.inThink = true
+        combined = combined.slice(start + '<think>'.length)
+      } else {
+        this.inFence = true
+        combined = combined.slice(start + "```".length)
+      }
     }
   }
 }
+
