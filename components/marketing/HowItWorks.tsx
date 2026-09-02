@@ -1,6 +1,7 @@
 "use client"
 
 import Link from "next/link"
+import Image from "next/image"
 import { motion, useReducedMotion, type Variants } from "framer-motion"
 import { UserPlus, ListChecks, Trophy, ArrowRight } from "lucide-react"
 import { openAuthModal } from "@/lib/auth-modal"
@@ -47,22 +48,28 @@ export function HowItWorks() {
           whileInView={{ opacity: 1, x: 0, filter: "blur(0px)" }}
           viewport={{ once: true, margin: "-60px" }}
           transition={{ duration: 0.7, ease: EASE }}
-          className="relative w-full max-w-sm sm:max-w-md h-[280px] sm:h-[380px] flex items-center justify-center"
+          className="relative w-full max-w-sm sm:max-w-md h-[280px] sm:h-[380px]"
         >
           {/* Background Image Card (Shinichi Kudo) */}
           <div className="absolute top-0 left-2 sm:left-4 w-44 sm:w-60 h-56 sm:h-72 overflow-hidden rounded-2xl sm:rounded-3xl border border-ink-dim/20 shadow-lg -rotate-3 hover:rotate-0 transition-all duration-500">
-            <img
+            <Image
               src="/img/shinichi.jpg"
               alt="Shinichi Kudo - Detective Conan"
+              fill
+              sizes="(max-width: 640px) 176px, 240px"
+              loading="lazy"
               className="h-full w-full object-cover"
             />
           </div>
 
           {/* Foreground Image Card (Jinpei Matsuda) */}
-          <div className="absolute bottom-0 right-2 sm:right-4 w-44 sm:w-60 h-56 sm:h-72 overflow-hidden rounded-2xl sm:rounded-3xl border-2 border-white shadow-2xl rotate-3 hover:rotate-0 transition-all duration-500 z-10">
-            <img
+          <div className="absolute bottom-0 right-2 sm:right-4 z-10 w-44 sm:w-60 h-56 sm:h-72 overflow-hidden rounded-2xl sm:rounded-3xl border-2 border-white shadow-2xl rotate-3 hover:rotate-0 transition-all duration-500">
+            <Image
               src="/img/Jinpei.jpg"
               alt="Jinpei Matsuda - Police Academy"
+              fill
+              sizes="(max-width: 640px) 176px, 240px"
+              loading="lazy"
               className="h-full w-full object-cover"
             />
           </div>

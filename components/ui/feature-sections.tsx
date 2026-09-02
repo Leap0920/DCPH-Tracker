@@ -1,11 +1,12 @@
 import Link from "next/link";
+import Image from "next/image";
 import { UserPlus, ListChecks, Trophy, ArrowRight } from "lucide-react";
 
 export default function FeatureSections() {
   return (
     <section className="w-full py-16 bg-surface">
       <div className="text-center max-w-2xl mx-auto mb-12 px-4">
-        <span className="text-xs font-semibold uppercase tracking-wider text-accent">How it works</span>
+        <span className="text-xs font-semibold uppercase tracking-wider text-accent dark:text-accent-bright">How it works</span>
         <h2 className="text-3xl font-bold font-display text-ink mt-1">From zero to full detective</h2>
         <p className="text-sm text-ink-dim mt-2 font-body">
           Three simple steps to start tracking, ranking, and chatting with the community.
@@ -14,18 +15,24 @@ export default function FeatureSections() {
 
       <div className="flex flex-col md:flex-row items-center justify-between gap-12 max-w-6xl mx-auto px-6">
         {/* Left Side: Overlapping image cards (Shinichi & Jinpei) */}
-        <div className="relative w-full max-w-md h-[360px] sm:h-[420px] flex items-center justify-center">
+        <div className="relative w-full max-w-md h-[360px] sm:h-[420px]">
           <div className="absolute top-0 left-2 sm:left-4 w-60 sm:w-72 h-72 sm:h-88 overflow-hidden rounded-3xl border border-ink-dim/20 shadow-lg -rotate-3 hover:rotate-0 transition-all duration-500">
-            <img
+            <Image
               src="/img/shinichi.jpg"
               alt="Shinichi Kudo"
+              fill
+              sizes="(max-width: 640px) 240px, 288px"
+              loading="lazy"
               className="h-full w-full object-cover"
             />
           </div>
-          <div className="absolute bottom-0 right-2 sm:right-4 w-60 sm:w-72 h-72 sm:h-88 overflow-hidden rounded-3xl border-2 border-white shadow-2xl rotate-3 hover:rotate-0 transition-all duration-500 z-10">
-            <img
+          <div className="absolute bottom-0 right-2 sm:right-4 z-10 w-60 sm:w-72 h-72 sm:h-88 overflow-hidden rounded-3xl border-2 border-white shadow-2xl rotate-3 hover:rotate-0 transition-all duration-500">
+            <Image
               src="/img/Jinpei.jpg"
               alt="Jinpei Matsuda"
+              fill
+              sizes="(max-width: 640px) 240px, 288px"
+              loading="lazy"
               className="h-full w-full object-cover"
             />
           </div>
