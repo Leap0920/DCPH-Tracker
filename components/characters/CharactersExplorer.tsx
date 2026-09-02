@@ -129,8 +129,8 @@ export default function CharactersExplorer({
           onClick={() => setLegendOpen((v) => !v)}
           aria-expanded={legendOpen}
           className={cn(
-            "group flex w-full items-center gap-1.5 rounded-full border px-3.5 py-1.5 text-xs font-semibold shadow-lift backdrop-blur-md transition-all",
-            "border-line bg-surface/90 text-ink hover:border-ink-faint/40 hover:bg-surface-muted",
+            "group flex w-full items-center gap-1.5 rounded-full border px-3.5 py-1.5 text-xs font-semibold shadow-lift transition-all",
+            "border-line bg-surface text-ink hover:border-ink-faint/40 hover:bg-surface-muted",
           )}
         >
           {/* accent-bright, not accent: at icon size the plain crimson is only
@@ -162,7 +162,7 @@ export default function CharactersExplorer({
               transition={{ duration: 0.28, ease: EASE }}
               className="overflow-hidden"
             >
-              <div className="max-h-[52vh] overflow-y-auto rounded-2xl border border-line bg-surface/95 p-3 text-ink shadow-lift backdrop-blur-xl">
+              <div className="max-h-[52vh] overflow-y-auto rounded-2xl border border-line bg-surface p-3 text-ink shadow-lift">
                 <div className="mb-2.5 font-mono text-[10px] font-semibold uppercase tracking-wider text-ink-faint">
                   Filter by relationship
                 </div>
@@ -212,7 +212,7 @@ export default function CharactersExplorer({
             className="pointer-events-auto fixed inset-x-0 bottom-0 z-40 w-full sm:absolute sm:inset-auto sm:bottom-4 sm:right-4 sm:w-96 sm:max-w-md"
           >
             {isSelectionLocked ? (
-              <div className="rounded-2xl border border-line bg-surface/95 shadow-card backdrop-blur-xl">
+              <div className="rounded-2xl border border-line bg-surface shadow-card">
                 <LockedCharacterCard
                   meta={selectedMeta}
                   progress={effectiveProgress}

@@ -258,6 +258,16 @@
     animation: dcph-aura-b 34s ease-in-out infinite;
   }
 
+  /* Graph idle park: while the rAF loop is suspended (idle or hidden tab)
+     the canvas should be FULLY still — pause every keyframe that animates
+     it, or the 95 breathing rings + auras would keep the compositor busy. */
+  .dcph-parked .dcph-breathe,
+  .dcph-parked .dcph-ripple,
+  .dcph-parked .dcph-aura-a,
+  .dcph-parked .dcph-aura-b {
+    animation-play-state: paused;
+  }
+
   /* Left-to-right accent hairline reveal. */
   .dcph-underline-sweep {
     transform-origin: left center;

@@ -124,7 +124,7 @@ export function CharacterDetailPanel({
         animate={{ opacity: 1, y: 0, scale: 1 }}
         exit={{ opacity: 0, y: 40, scale: 0.985 }}
         transition={{ type: "spring", stiffness: 320, damping: 30 }}
-        className="dossier-card relative flex max-h-[48vh] w-full flex-col overflow-hidden rounded-t-2xl border-t border-line bg-surface/95 p-0 shadow-card outline-none backdrop-blur-xl sm:max-h-[85vh] sm:rounded-2xl sm:border"
+        className="dossier-card relative flex max-h-[48vh] w-full flex-col overflow-hidden rounded-t-2xl border-t border-line bg-surface p-0 shadow-card outline-none sm:max-h-[85vh] sm:rounded-2xl sm:border"
       >
         {/* Accent hairline that sweeps in on open */}
         <span
@@ -136,7 +136,7 @@ export function CharacterDetailPanel({
           <div className="h-1.5 w-12 rounded-full bg-line" />
         </div>
 
-        <div className="sticky top-0 z-20 flex shrink-0 items-start justify-between gap-3 border-b border-line bg-surface/95 px-4 py-3 backdrop-blur-md sm:p-5">
+        <div className="sticky top-0 z-20 flex shrink-0 items-start justify-between gap-3 border-b border-line bg-surface px-4 py-3 sm:p-5">
           <div className="min-w-0 pr-4">
             <div className="flex flex-wrap items-center gap-1.5">
               <span className="rounded-md bg-accent/10 px-2 py-0.5 font-mono text-[10px] font-semibold uppercase tracking-wide text-accent-bright">

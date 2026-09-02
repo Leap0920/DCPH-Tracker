@@ -41,6 +41,7 @@
 */
 
 import {
+  memo,
   useCallback,
   useEffect,
   useLayoutEffect,
@@ -48,7 +49,6 @@ import {
   useRef,
   useState,
   type CSSProperties,
-  type KeyboardEvent as ReactKeyboardEvent,
   type PointerEvent as ReactPointerEvent,
 } from "react";
 import { useReducedMotion } from "framer-motion";
@@ -126,6 +126,20 @@ const PARALLEL_GAP = 22;
 const STRING_WIDTH = 2;
 const DIM_OPACITY = 0.1;
 const PARTICLE_COUNT = 30;
+/** Idle seconds before the animation loop parks (drift + CSS keyframes stop). */
+const IDLE_PARK_MS = 4000;
+
+/* ── stable style objects ──────────────────────────────────────
+ * Module-scope so re-rendered edges/nodes never hand React a fresh object
+ * identity (which would force a DOM style write) for an unchanged transition. */
+const EDGE_STYLE: CSSProperties = {
+  transition: "opacity 180ms ease, stroke-width 180ms ease",
+};
+const EDGE_STYLE_HIDDEN: CSSProperties = {
+  transition: "opacity 180ms ease, stroke-width 180ms ease",
+  display: "none",
+};
+const NODE_FADE_STYLE: CSSProperties = { transition: "opacity 180ms ease" };
 
 /* ── canvas palette (mirrors the CSS tokens; see header note) ────── */
 const CANVAS = {
@@ -230,6 +244,8 @@ type NodeSpec = {
   factionKey: string;
   theme: FactionTheme;
   degree: number;
+  /** Hoisted at build time so the render loop never re-casts Character. */
+  locked: boolean;
   f1: number;
   f2: number;
   f3: number;
@@ -242,7 +258,16 @@ type NodeSpec = {
   breatheDelay: number;
 };
 
-type EdgeSpec = { rel: Relationship; s: number; t: number; off: number };
+type EdgeSpec = {
+  rel: Relationship;
+  s: number;
+  t: number;
+  off: number;
+  /** Static paint hoisted out of render — resolved once per graph build. */
+  locked: boolean;
+  color: string;
+  dash: string | undefined;
+};
 
 type Particle = {
   x0: number;
@@ -271,6 +296,274 @@ export interface CharactersWebProps {
   theme?: "light" | "dark";
   className?: string;
 }
+
+/* ── memoized leaf components ────────────────────────────────────
+ * The graph lives in one stateful parent; every hover, search keystroke,
+ * selection and (debounced) resize used to reconcile the ENTIRE SVG tree
+ * (~95 nodes × 12 elements + 153 paths). These leaves isolate that churn:
+ * memo() bails out every node/edge whose live props did not change, so a
+ * hover flips exactly two NodeViews and the strings whose dim state is real.
+ *
+ * All paints that never change (faction glow URL, locked flag, edge color /
+ * dash) are hoisted into NodeSpec / EdgeSpec at graph-build time; only the
+ * few genuinely live values arrive as props here.
+ * ---------------------------------------------------------------- */
+
+type NodeViewProps = {
+  n: NodeSpec;
+  i: number;
+  isDark: boolean;
+  pal: (typeof CANVAS)[keyof typeof CANVAS];
+  isSelected: boolean;
+  isHovered: boolean;
+  isSearchMatch: boolean;
+  nodeEls: { current: (SVGGElement | null)[] };
+  labelEls: { current: (SVGGElement | null)[] };
+  grabbingRef: { current: boolean };
+  didDragRef: { current: boolean };
+  onSelectNode: (index: number) => void;
+  onNodePointerDown: (index: number, e: ReactPointerEvent) => void;
+  onHoverChange: (id: string | null) => void;
+};
+
+/**
+ * One character node. The ROOT <g> is the element the rAF loop repositions
+ * through nodeEls (transform is DOM-owned, never a React prop), so this root
+ * also carries the interactive chrome — role, focus, hover and pointer
+ * handlers that previously lived on two redundant wrapper <g>s. Everything
+ * inside is laid out at (0, 0); the label <g> carries its own translate.
+ */
+const NodeView = memo(function NodeView({
+  n,
+  i,
+  isDark,
+  pal,
+  isSelected,
+  isHovered,
+  isSearchMatch,
+  nodeEls,
+  labelEls,
+  grabbingRef,
+  didDragRef,
+  onSelectNode,
+  onNodePointerDown,
+  onHoverChange,
+}: NodeViewProps) {
+  const isConan = n.c.id === "conan-edogawa";
+  const isLocked = n.locked;
+  const glowUrl = isLocked
+    ? "url(#dcph-glow-locked)"
+    : `url(#dcph-glow-${factionSlug(n.factionKey)})`;
+  const emphasised = isSelected || isHovered;
+
+  return (
+    <g
+      ref={(el) => {
+        nodeEls.current[i] = el;
+      }}
+      role="button"
+      tabIndex={0}
+      aria-label={`${n.c.name}, ${n.c.role}, ${n.degree} relationships`}
+      className="group cursor-pointer outline-none"
+      onPointerDown={(e) => onNodePointerDown(i, e)}
+      onClick={() => {
+        if (didDragRef.current) {
+          didDragRef.current = false;
+          return;
+        }
+        onSelectNode(i);
+      }}
+      onKeyDown={(e) => {
+        if (e.key === "Enter" || e.key === " ") {
+          e.preventDefault();
+          onSelectNode(i);
+        }
+      }}
+      onMouseEnter={() => {
+        if (!grabbingRef.current) onHoverChange(n.c.id);
+      }}
+      onMouseLeave={() => {
+        if (!grabbingRef.current) onHoverChange(null);
+      }}
+      onFocus={() => onHoverChange(n.c.id)}
+      onBlur={() => onHoverChange(null)}
+    >
+      {/* Ambient faction halo — always on, stronger when active */}
+      <circle
+        key="halo"
+        r={n.r * 2.6}
+        fill={glowUrl}
+        opacity={emphasised || isConan ? 1 : isSearchMatch ? 0.85 : 0.42}
+        style={NODE_FADE_STYLE}
+        pointerEvents="none"
+      />
+
+      {isConan && (
+        <circle
+          key="conan-ripple"
+          className="dcph-ripple"
+          r={n.r + 12}
+          fill="none"
+          stroke={n.theme.primary}
+          strokeWidth={2}
+          pointerEvents="none"
+        />
+      )}
+
+      {/* Breathing ring — pure opacity keyframes, zero layout overhead */}
+      <circle
+        key="breathe-ring"
+        className="dcph-breathe"
+        r={n.r + 3}
+        fill="none"
+        stroke={isLocked ? LOCKED_THEME.stroke : n.theme.border}
+        strokeWidth={1}
+        pointerEvents="none"
+        style={
+          {
+            "--dcph-dur": `${n.breatheDur}s`,
+            "--dcph-delay": `${n.breatheDelay}s`,
+          } as CSSProperties
+        }
+      />
+
+      {/* State ring — the hover + selection/search highlight merged into one
+          element. Selected/search nodes pin opacity via inline style (inline
+          beats the utility class); otherwise the ring fades in on CSS
+          :hover, so plain hover costs zero React re-renders of this node. */}
+      <circle
+        key="state-ring"
+        r={n.r + 7}
+        fill="none"
+        stroke={
+          isLocked
+            ? LOCKED_THEME.stroke
+            : isSelected
+              ? pal.strokeStrong
+              : n.theme.border
+        }
+        strokeWidth={2}
+        className="opacity-0 transition-opacity duration-200 group-hover:opacity-100"
+        style={isSelected || isSearchMatch ? { opacity: 1 } : undefined}
+        pointerEvents="none"
+      />
+
+      {/* Main node circle */}
+      <circle
+        key="node-body"
+        r={n.r}
+        fill={
+          isLocked
+            ? isDark
+              ? LOCKED_THEME.fill
+              : LOCKED_THEME.fillLight
+            : isSelected
+              ? n.theme.primary
+              : isDark
+                ? n.theme.darkFill
+                : n.theme.lightFill
+        }
+        stroke={
+          isLocked
+            ? LOCKED_THEME.stroke
+            : emphasised
+              ? pal.strokeStrong
+              : n.theme.border
+        }
+        strokeWidth={isConan ? 3.5 : isSelected ? 3 : 2}
+        strokeDasharray={isLocked ? LOCKED_THEME.dash : undefined}
+        opacity={isLocked ? 0.9 : 1}
+        className="transition-[fill,stroke] duration-200"
+      />
+
+      {/* Center core dot */}
+      <circle
+        key="node-core"
+        r={isConan ? 6 : n.r > 16 ? 4.5 : 3.5}
+        fill={
+          isLocked
+            ? LOCKED_THEME.stroke
+            : emphasised
+              ? pal.strokeStrong
+              : n.theme.primary
+        }
+        pointerEvents="none"
+      />
+
+      {/* Label — stable key and ref, never unmounted */}
+      <g
+        key="node-label"
+        ref={(el) => {
+          labelEls.current[i] = el;
+        }}
+        transform={`translate(0, ${n.r + 15})`}
+        pointerEvents="none"
+      >
+        <text
+          textAnchor="middle"
+          className={cn(
+            "select-none font-display tracking-tight",
+            isConan
+              ? "text-[14px] font-extrabold"
+              : n.r > 16
+                ? "text-[13px] font-bold"
+                : "text-[12px] font-semibold"
+          )}
+          style={{
+            fill: isLocked
+              ? LOCKED_THEME.label
+              : emphasised
+                ? pal.labelStrong
+                : pal.label,
+            paintOrder: "stroke",
+            stroke: pal.labelHalo,
+            strokeWidth: 3,
+            strokeLinejoin: "round",
+            vectorEffect: "non-scaling-stroke",
+          }}
+        >
+          {isLocked ? "???" : n.c.name.split("/")[0].trim()}
+        </text>
+      </g>
+    </g>
+  );
+});
+
+/**
+ * One relationship string. Static paint (color, locked dash, fill mode) is
+ * hoisted into EdgeSpec at graph-build time; only display/dim state arrives
+ * as live props. `d` is owned by the rAF loop — never a React prop.
+ */
+const EdgeView = memo(function EdgeView({
+  e,
+  i,
+  edgeEls,
+  hidden,
+  isTarget,
+  opacity,
+}: {
+  e: EdgeSpec;
+  i: number;
+  edgeEls: { current: (SVGPathElement | null)[] };
+  hidden: boolean;
+  isTarget: boolean;
+  opacity: number;
+}) {
+  return (
+    <path
+      ref={(el) => {
+        edgeEls.current[i] = el;
+      }}
+      fill="none"
+      stroke={e.color}
+      strokeWidth={isTarget ? STRING_WIDTH + 1.8 : STRING_WIDTH}
+      strokeLinecap="round"
+      strokeDasharray={e.dash}
+      opacity={opacity}
+      style={hidden ? EDGE_STYLE_HIDDEN : EDGE_STYLE}
+    />
+  );
+});
 
 export default function CharactersWeb({
   characters = CHARACTERS,
@@ -349,6 +642,8 @@ export default function CharactersWeb({
         factionKey,
         theme,
         degree: d,
+        // Hoisted at build time so the render loop never re-casts Character.
+        locked: Boolean((c as unknown as { locked?: boolean }).locked),
         // Periods land between ~12s and ~30s — slow enough to read as "alive",
         // never fast enough to look like a physics simulation.
         f1: 0.00021 + rand01(seed, 1) * 0.00028,
@@ -379,11 +674,24 @@ export default function CharactersWeb({
       const total = counts.get(key) ?? 1;
       const idx = used.get(key) ?? 0;
       used.set(key, idx + 1);
-      edges.push({ rel: r, s, t, off: idx - (total - 1) / 2 });
+      const lockedEdge = Boolean(
+        (r as unknown as { locked?: boolean }).locked
+      );
+      edges.push({
+        rel: r,
+        s,
+        t,
+        off: idx - (total - 1) / 2,
+        locked: lockedEdge,
+        color: lockedEdge
+          ? LOCKED_EDGE_COLOR
+          : getRelationshipColor(r.type, isDark),
+        dash: lockedEdge ? LOCKED_THEME.dash : undefined,
+      });
     }
 
     return { nodes, edges, indexById };
-  }, [characters, relationships]);
+  }, [characters, relationships, isDark]);
 
   /** Base (authored, drag-mutated) positions + per-frame drifted positions. */
   const geom = useMemo(() => {
@@ -658,7 +966,7 @@ export default function CharactersWeb({
   /* ── the single animation loop ────────────────────────────────── */
   useEffect(() => {
     let raf = 0;
-    const t0 = performance.now();
+    let t0 = performance.now();
     let last = t0;
     let lastLabelK = -1;
     let lastZoomLabel = -1;
@@ -687,6 +995,7 @@ export default function CharactersWeb({
     let frameCount = 0;
 
     const loop = (now: number) => {
+      if (parked) return;
       raf = requestAnimationFrame(loop);
       frameCount++;
       const dt = Math.min(50, now - last);
@@ -944,8 +1253,85 @@ export default function CharactersWeb({
       }
     };
 
+    /* ── idle / hidden-tab park ────────────────────────────────────
+       The loop animates drift forever at 60fps even while the user is just
+       reading the graph. After IDLE_PARK_MS with no interaction — and while
+       the tab is hidden — the loop is cancelled and the CSS keyframes are
+       paused via a `dcph-parked` class on the container, so the canvas goes
+       fully still and CPU drops to ~0. Any pointer/wheel/touch/key activity
+       (or returning to the tab) unparks instantly; nothing re-renders. */
+    let parked = false;
+    let idleTimer = 0;
+
+    const container = containerRef.current;
+
+    const tryPark = () => {
+      if (parked) return;
+      // Never park mid-gesture (node drag / pan inertia / pinch)…
+      if (dragNodeRef.current || pinchRef.current || panRef.current) return;
+      // …or while the camera is still gliding to its target.
+      const cam = camRef.current;
+      const tgt = targetRef.current;
+      if (
+        Math.abs(tgt.x - cam.x) > 0.05 ||
+        Math.abs(tgt.y - cam.y) > 0.05 ||
+        Math.abs(tgt.k - cam.k) > 0.0005
+      )
+        return;
+      parked = true;
+      container?.classList.add("dcph-parked");
+      cancelAnimationFrame(raf);
+    };
+
+    const unpark = () => {
+      if (!parked) return;
+      parked = false;
+      container?.classList.remove("dcph-parked");
+      // Re-baseline the clock so drift resumes from where it parked (a
+      // ≤DRIFT_AMP px phase step — invisible in practice).
+      t0 = performance.now();
+      last = t0;
+      raf = requestAnimationFrame(loop);
+    };
+
+    const poke = () => {
+      unpark();
+      window.clearTimeout(idleTimer);
+      idleTimer = window.setTimeout(tryPark, IDLE_PARK_MS);
+    };
+
+    const onVisibility = () => {
+      if (document.hidden) {
+        tryPark();
+      } else {
+        poke();
+      }
+    };
+
+    window.addEventListener("pointerdown", poke);
+    window.addEventListener("pointermove", poke);
+    window.addEventListener("pointerup", poke);
+    window.addEventListener("pointercancel", poke);
+    window.addEventListener("wheel", poke, { passive: true });
+    window.addEventListener("touchstart", poke, { passive: true });
+    window.addEventListener("keydown", poke);
+    document.addEventListener("visibilitychange", onVisibility);
+
+    idleTimer = window.setTimeout(tryPark, IDLE_PARK_MS);
     raf = requestAnimationFrame(loop);
-    return () => cancelAnimationFrame(raf);
+    return () => {
+      cancelAnimationFrame(raf);
+      window.clearTimeout(idleTimer);
+      window.removeEventListener("pointerdown", poke);
+      window.removeEventListener("pointermove", poke);
+      window.removeEventListener("pointerup", poke);
+      window.removeEventListener("pointercancel", poke);
+      window.removeEventListener("wheel", poke);
+      window.removeEventListener("touchstart", poke);
+      window.removeEventListener("keydown", poke);
+      document.removeEventListener("visibilitychange", onVisibility);
+      container?.classList.remove("dcph-parked");
+    };
   }, [nodes, edges, geom, particles]);
 
   /* ── pointer gestures: pan, node drag, pinch ─────────────────── */
@@ -1022,26 +1408,29 @@ export default function CharactersWeb({
     userAdjustedRef.current = true;
   };
 
-  const handleNodePointerDown = (index: number, e: ReactPointerEvent) => {
-    if (pointersRef.current.size > 1) return;
-    e.stopPropagation();
-    didDragRef.current = false;
-    panRef.current = null;
-    const cam = camRef.current;
-    const { sx, sy } = localPoint(e.clientX, e.clientY);
-    const k = cam.k || 1;
-    const wx = (sx - cam.x) / k;
-    const wy = (sy - cam.y) / k;
-    dragNodeRef.current = {
-      index,
-      cx: e.clientX,
-      cy: e.clientY,
-      offX: wx - geom.base[index * 2],
-      offY: wy - geom.base[index * 2 + 1],
-    };
-    isGrabbingRef.current = true;
-    if (svgRef.current) svgRef.current.style.cursor = "grabbing";
-  };
+  const handleNodePointerDown = useCallback(
+    (index: number, e: ReactPointerEvent) => {
+      if (pointersRef.current.size > 1) return;
+      e.stopPropagation();
+      didDragRef.current = false;
+      panRef.current = null;
+      const cam = camRef.current;
+      const { sx, sy } = localPoint(e.clientX, e.clientY);
+      const k = cam.k || 1;
+      const wx = (sx - cam.x) / k;
+      const wy = (sy - cam.y) / k;
+      dragNodeRef.current = {
+        index,
+        cx: e.clientX,
+        cy: e.clientY,
+        offX: wx - geom.base[index * 2],
+        offY: wy - geom.base[index * 2 + 1],
+      };
+      isGrabbingRef.current = true;
+      if (svgRef.current) svgRef.current.style.cursor = "grabbing";
+    },
+    [localPoint, geom]
+  );
 
   useEffect(() => {
     /* Coalesce window pointermove: browsers can fire several events per frame
@@ -1246,21 +1635,32 @@ export default function CharactersWeb({
   }, [zoomBy, fitToContent, centerOnConan]);
 
   /* ── selection ────────────────────────────────────────────────── */
-  const handleSelectNode = (index: number) => {
-    const n = nodes[index];
-    const wx = geom.curX[index] || geom.base[index * 2];
-    const wy = geom.curY[index] || geom.base[index * 2 + 1];
-    zoomToPoint(wx, wy, ZOOM_TO_NODE, true);
-    onSelectCharacter(n.c);
-  };
+  // Stable identities so memoized NodeViews never see a fresh function on
+  // unrelated parent re-renders (hover, search typing, resize commits).
+  const handleSelectNode = useCallback(
+    (index: number) => {
+      const n = nodes[index];
+      const wx = geom.curX[index] || geom.base[index * 2];
+      const wy = geom.curY[index] || geom.base[index * 2 + 1];
+      zoomToPoint(wx, wy, ZOOM_TO_NODE, true);
+      onSelectCharacter(n.c);
+    },
+    [nodes, geom, zoomToPoint, onSelectCharacter]
+  );
 
-  const handleNodeKeyDown =
-    (index: number) => (e: ReactKeyboardEvent) => {
-      if (e.key === "Enter" || e.key === " ") {
-        e.preventDefault();
-        handleSelectNode(index);
+  // Click variant: swallows the click that terminates a node drag. Drag
+  // detection lives in pointer-move handling (didDragRef), so a plain click
+  // that never moved still selects.
+  const selectNode = useCallback(
+    (index: number) => {
+      if (didDragRef.current) {
+        didDragRef.current = false;
+        return;
       }
-    };
+      handleSelectNode(index);
+    },
+    [handleSelectNode]
+  );
 
   /* ── theme-derived palette ────────────────────────────────────── */
   const pal = isDark ? CANVAS.dark : CANVAS.light;
@@ -1399,7 +1799,9 @@ export default function CharactersWeb({
         {/* World layer — transform written by the rAF loop, never by CSS */}
         <g ref={worldRef} style={{ transformOrigin: "0px 0px" }}>
           <g>
-            {/* Strings — `d` is owned by the loop; React owns only paint props */}
+            {/* Strings — `d` is owned by the rAF loop; React owns paint + state.
+                Memoized EdgeViews bail unless THIS edge's live state changed,
+                so hover/search/size churn reconciles only the affected paths. */}
             {edges.map((e, i) => {
               const hidden = Boolean(activeFilter && e.rel.type !== activeFilter);
               const isTarget =
@@ -1418,227 +1820,42 @@ export default function CharactersWeb({
                 : matchesSearch
                   ? pal.stringActive
                   : pal.stringIdle;
-              const isLockedEdge = Boolean(
-                (e.rel as unknown as { locked?: boolean }).locked,
-              );
-              const color = isLockedEdge
-                ? LOCKED_EDGE_COLOR
-                : getRelationshipColor(e.rel.type, isDark);
-
               return (
-                <path
+                <EdgeView
                   key={e.rel.id}
-                  ref={(el) => {
-                    edgeEls.current[i] = el;
-                  }}
-                  fill="none"
-                  stroke={color}
-                  strokeWidth={isTarget ? STRING_WIDTH + 1.8 : STRING_WIDTH}
-                  strokeLinecap="round"
-                  strokeDasharray={isLockedEdge ? LOCKED_THEME.dash : undefined}
-                  opacity={isLockedEdge ? 0.22 : opacity}
-                  style={{
-                    display: hidden ? "none" : undefined,
-                    transition: "opacity 180ms ease, stroke-width 180ms ease",
-                  }}
+                  e={e}
+                  i={i}
+                  edgeEls={edgeEls}
+                  hidden={hidden}
+                  isTarget={isTarget}
+                  opacity={e.locked ? 0.22 : opacity}
                 />
               );
             })}
 
-            {/* Nodes — outer <g> transform is owned by the loop */}
-            {nodes.map((n, i) => {
-              const isSelected = selectedCharacterId === n.c.id;
-              const isHovered = hoveredId === n.c.id;
-              const isSearchMatch = searchMatches.has(n.c.id);
-              const isConan = n.c.id === "conan-edogawa";
-              const isLocked = Boolean((n.c as unknown as { locked?: boolean }).locked);
-              const glowUrl = isLocked
-                ? `url(#dcph-glow-locked)`
-                : `url(#dcph-glow-${factionSlug(n.factionKey)})`;
-              const emphasised = isSelected || isHovered;
-              return (
-                <g
-                  key={n.c.id}
-                  ref={(el) => {
-                    nodeEls.current[i] = el;
-                  }}
-                >
-                  <g style={{ transformOrigin: "0px 0px" }}>
-                    <g
-                      role="button"
-                      tabIndex={0}
-                      aria-label={`${n.c.name}, ${n.c.role}, ${n.degree} relationships`}
-                      className="group cursor-pointer outline-none"
-                      onPointerDown={(e) => handleNodePointerDown(i, e)}
-                      onClick={() => {
-                        if (didDragRef.current) {
-                          didDragRef.current = false;
-                          return;
-                        }
-                        handleSelectNode(i);
-                      }}
-                      onKeyDown={handleNodeKeyDown(i)}
-                      onMouseEnter={() => {
-                        if (!isGrabbingRef.current) setHoveredId(n.c.id);
-                      }}
-                      onMouseLeave={() => {
-                        if (!isGrabbingRef.current) setHoveredId(null);
-                      }}
-                      onFocus={() => setHoveredId(n.c.id)}
-                      onBlur={() => setHoveredId(null)}
-                    >
-                      {/* Ambient faction halo — always on, stronger when active */}
-                      <circle
-                        key="halo"
-                        r={n.r * 2.6}
-                        fill={glowUrl}
-                        opacity={
-                          emphasised || isConan ? 1 : isSearchMatch ? 0.85 : 0.42
-                        }
-                        style={{ transition: "opacity 180ms ease" }}
-                        pointerEvents="none"
-                      />
-
-                      {isConan && (
-                        <circle
-                          key="conan-ripple"
-                          className="dcph-ripple"
-                          r={n.r + 12}
-                          fill="none"
-                          stroke={n.theme.primary}
-                          strokeWidth={2}
-                          pointerEvents="none"
-                        />
-                      )}
-
-                      {/* Breathing ring — pure opacity keyframes, zero layout overhead */}
-                      <circle
-                        key="breathe-ring"
-                        className="dcph-breathe"
-                        r={n.r + 3}
-                        fill="none"
-                        stroke={isLocked ? LOCKED_THEME.stroke : n.theme.border}
-                        strokeWidth={1}
-                        pointerEvents="none"
-                        style={
-                          {
-                            "--dcph-dur": `${n.breatheDur}s`,
-                            "--dcph-delay": `${n.breatheDelay}s`,
-                          } as CSSProperties
-                        }
-                      />
-
-                      {/* Selection / Search indicator ring - stable element in DOM */}
-                      <circle
-                        key="selection-ring"
-                        r={n.r + 7}
-                        fill="none"
-                        stroke={
-                          isLocked
-                            ? LOCKED_THEME.stroke
-                            : isSelected
-                              ? pal.strokeStrong
-                              : n.theme.border
-                        }
-                        strokeWidth={2}
-                        opacity={isSelected || isSearchMatch ? 1 : 0}
-                        style={{ transition: "opacity 180ms ease" }}
-                        pointerEvents="none"
-                      />
-
-                      {/* Hover highlight ring */}
-                      <circle
-                        key="hover-ring"
-                        r={n.r + 5}
-                        fill="none"
-                        stroke={isLocked ? LOCKED_THEME.stroke : n.theme.border}
-                        strokeWidth={1.5}
-                        className="opacity-0 transition-opacity duration-200 group-hover:opacity-100"
-                        pointerEvents="none"
-                      />
-
-                      {/* Main node circle */}
-                      <circle
-                        key="node-body"
-                        r={n.r}
-                        fill={
-                          isLocked
-                            ? isDark
-                              ? LOCKED_THEME.fill
-                              : LOCKED_THEME.fillLight
-                            : isSelected
-                              ? n.theme.primary
-                              : isDark
-                                ? n.theme.darkFill
-                                : n.theme.lightFill
-                        }
-                        stroke={
-                          isLocked
-                            ? LOCKED_THEME.stroke
-                            : emphasised
-                              ? pal.strokeStrong
-                              : n.theme.border
-                        }
-                        strokeWidth={isConan ? 3.5 : isSelected ? 3 : 2}
-                        strokeDasharray={isLocked ? LOCKED_THEME.dash : undefined}
-                        opacity={isLocked ? 0.9 : 1}
-                        className="transition-[fill,stroke] duration-200"
-                      />
-
-                      {/* Center core dot */}
-                      <circle
-                        key="node-core"
-                        r={isConan ? 6 : n.r > 16 ? 4.5 : 3.5}
-                        fill={
-                          isLocked
-                            ? LOCKED_THEME.stroke
-                            : emphasised
-                              ? pal.strokeStrong
-                              : n.theme.primary
-                        }
-                        pointerEvents="none"
-                      />
-
-                      {/* Label — stable key and ref, never unmounted */}
-                      <g
-                        key="node-label"
-                        ref={(el) => {
-                          labelEls.current[i] = el;
-                        }}
-                        transform={`translate(0, ${n.r + 15})`}
-                        pointerEvents="none"
-                      >
-                        <text
-                          textAnchor="middle"
-                          className={cn(
-                            "select-none font-display tracking-tight",
-                            isConan
-                              ? "text-[14px] font-extrabold"
-                              : n.r > 16
-                                ? "text-[13px] font-bold"
-                                : "text-[12px] font-semibold"
-                          )}
-                          style={{
-                            fill: isLocked
-                              ? LOCKED_THEME.label
-                              : emphasised
-                                ? pal.labelStrong
-                                : pal.label,
-                            paintOrder: "stroke",
-                            stroke: pal.labelHalo,
-                            strokeWidth: 3,
-                            strokeLinejoin: "round",
-                            vectorEffect: "non-scaling-stroke",
-                          }}
-                        >
-                          {isLocked ? "???" : n.c.name.split("/")[0].trim()}
-                        </text>
-                      </g>
-                    </g>
-                  </g>
-                </g>
-              );
-            })}
+            {/* Nodes — one <g> per node: the rAF loop repositions it via the
+                nodeEls ref; React paints structure + state. Memoized NodeViews
+                bail unless THIS node's visual state changed, so a hover or a
+                search match re-renders ~2 subtrees, not the whole graph. */}
+            {nodes.map((n, i) => (
+              <NodeView
+                key={n.c.id}
+                n={n}
+                i={i}
+                isDark={isDark}
+                pal={pal}
+                isSelected={selectedCharacterId === n.c.id}
+                isHovered={hoveredId === n.c.id}
+                isSearchMatch={searchMatches.has(n.c.id)}
+                nodeEls={nodeEls}
+                labelEls={labelEls}
+                grabbingRef={isGrabbingRef}
+                didDragRef={didDragRef}
+                onSelectNode={selectNode}
+                onNodePointerDown={handleNodePointerDown}
+                onHoverChange={setHoveredId}
+              />
+            ))}
           </g>
         </g>
       </svg>
@@ -1648,8 +1865,8 @@ export default function CharactersWeb({
       <div className="pointer-events-none absolute left-3 top-4 z-40 flex w-[16rem] flex-col gap-2 sm:left-4 sm:w-[18rem] md:top-5">
         <div
           className={cn(
-            "pointer-events-auto flex items-center gap-2 rounded-full border py-1.5 pl-3 pr-1.5 shadow-lift backdrop-blur-md transition-all duration-300",
-            "border-line bg-surface/90 text-ink",
+            "pointer-events-auto flex items-center gap-2 rounded-full border py-1.5 pl-3 pr-1.5 shadow-lift transition-all duration-300",
+            "border-line bg-surface text-ink",
             searchFocused && "border-accent/70 ring-2 ring-accent/40"
           )}
         >
@@ -1685,7 +1902,7 @@ export default function CharactersWeb({
         {topLeftSlot && <div className="pointer-events-auto">{topLeftSlot}</div>}
 
         {searchQuery && searchMatches.size > 0 && (
-          <div className="pointer-events-auto max-h-[46vh] overflow-y-auto rounded-xl border border-line bg-surface/95 p-2 text-ink shadow-lift backdrop-blur-md">
+          <div className="pointer-events-auto max-h-[46vh] overflow-y-auto rounded-xl border border-line bg-surface p-2 text-ink shadow-lift">
             {Array.from(searchMatches).map((id) => {
               const idx = indexById.get(id);
               if (idx === undefined) return null;
@@ -1720,8 +1937,8 @@ export default function CharactersWeb({
       {/* ── bottom-left dock ─────────────────────────────────────── */}
       <div
         className={cn(
-          "absolute z-30 flex items-center gap-1 rounded-full border p-1.5 shadow-lift backdrop-blur-md transition-all duration-300",
-          "border-line bg-surface/90",
+          "absolute z-30 flex items-center gap-1 rounded-full border p-1.5 shadow-lift transition-all duration-300",
+          "border-line bg-surface",
           selectedCharacterId && isMobile
             ? "bottom-[calc(48vh+12px)] left-3"
             : "bottom-6 left-4 sm:left-6"
@@ -1782,8 +1999,8 @@ export default function CharactersWeb({
       {/* ── ambient stat badge ───────────────────────────────────── */}
       <div
         className={cn(
-          "pointer-events-none absolute right-4 z-20 hidden items-center gap-1.5 rounded-full border px-3 py-1 font-mono text-[10px] uppercase tracking-wider shadow-card backdrop-blur-md sm:flex",
-          "border-line bg-surface/80 text-ink-faint",
+          "pointer-events-none absolute right-4 z-20 hidden items-center gap-1.5 rounded-full border px-3 py-1 font-mono text-[10px] uppercase tracking-wider shadow-card sm:flex",
+          "border-line bg-surface text-ink-faint",
           selectedCharacterId && !isMobile ? "bottom-[calc(1.5rem+2px)] right-[26rem]" : "bottom-6"
         )}
       >
