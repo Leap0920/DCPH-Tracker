@@ -64,6 +64,10 @@ logs/
 .agents
 .agents/
 
+# local agent/tool state (was accidentally committed; removed via history scrub)
+.freebuff/
+.workbuddy-ai/
+
 # curation backups
 /scripts/out/
 
