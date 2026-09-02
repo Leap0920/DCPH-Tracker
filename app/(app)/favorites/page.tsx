@@ -1,4 +1,5 @@
 import Link from "next/link"
+import Image from "next/image"
 import { redirect } from "next/navigation"
 import { createClient } from "@/utils/supabase/server"
 import { getUserFavorites, type FavoriteEntry } from "@/lib/queries/favorites"
@@ -30,9 +31,12 @@ function FavoriteCard({ entry }: { entry: FavoriteEntry }) {
 
       <div className="relative aspect-[3/2] bg-surface-muted overflow-hidden">
         {entry.image_url ? (
-          <img
+          <Image
             src={entry.image_url}
             alt={entry.title}
+            fill
+            sizes="(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 25vw"
+            loading="lazy"
             className="h-full w-full object-cover transition-transform group-hover:scale-105"
           />
         ) : (

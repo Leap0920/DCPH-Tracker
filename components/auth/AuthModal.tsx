@@ -1,6 +1,7 @@
 "use client"
 
 import { useState, useEffect } from "react"
+import Image from "next/image"
 import { useRouter, usePathname } from "next/navigation"
 import {
   Loader2,
@@ -304,10 +305,13 @@ export function AuthModal() {
       <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-md">
         <DialogHeader className="text-center">
           <div className="flex justify-center mb-3">
-            <img
+            <Image
               src="/img/logo_DCPH.png"
               alt="Detective Conan PH Logo"
-              className="h-12 w-auto object-contain"
+              width={48}
+              height={48}
+              priority
+              className="h-12 w-12 object-contain"
             />
           </div>
           <DialogTitle className="font-display text-xl font-bold tracking-tight text-ink">

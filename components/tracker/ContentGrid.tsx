@@ -1,6 +1,7 @@
 "use client"
 
 import { useState, useMemo, useEffect, useRef, useCallback } from "react"
+import Image from "next/image"
 import { motion, AnimatePresence } from "framer-motion"
 import {
   Search,
@@ -654,7 +655,6 @@ export function ContentGrid({
     onMarkAll(ids, "watched")
     setMarkInput("")
   }
-
   const presentTypes = new Set(sections.map((s) => s.type))
   const pillTypes = SECTION_ORDER.map((s) => s.type).filter((t) => presentTypes.has(t))
 
@@ -663,9 +663,12 @@ export function ContentGrid({
       {/* ── Hero Banner ── */}
       <div className="relative w-full h-64 sm:h-80 bg-surface-muted overflow-hidden rounded-t-lg border-b border-line/40">
         {/* Tracker Banner Image */}
-        <img
+        <Image
           src="/tracker-image.jpg"
           alt="Detective Conan Tracker Banner"
+          fill
+          priority
+          sizes="(max-width: 1280px) 100vw, 1280px"
           className="absolute inset-0 h-full w-full object-cover object-[center_10%]"
         />
         {/* Gradient overlay at bottom to ensure text readability on top of straight image */}
@@ -696,13 +699,14 @@ export function ContentGrid({
         </div>
       </div>
 
-      {/* ── Toolbar: search + view mode + status + type filters ── */}
+      {/* ── Sticky Toolbar ── */}
       <div className="sticky top-16 z-20 bg-surface/95 backdrop-blur border-b border-ink-dim/20 px-4 sm:px-6 py-3 space-y-3">
         <div className="relative">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-ink-faint" />
           <input
             type="text"
             placeholder="Search episodes, movies, specials..."
+            aria-label="Search episodes, movies, specials"
             value={search}
             onChange={(e) => {
               setSearch(e.target.value)
@@ -786,6 +790,7 @@ export function ContentGrid({
               min={1}
               max={maxEpisode}
               placeholder="EP no."
+              aria-label="Jump to episode number"
               value={jumpInput}
               onChange={(e) => setJumpInput(e.target.value)}
               onKeyDown={(e) => {
@@ -811,6 +816,7 @@ export function ContentGrid({
               min={1}
               max={maxEpisode}
               placeholder="EP no."
+              aria-label="Mark up to episode number"
               value={markInput}
               onChange={(e) => setMarkInput(e.target.value)}
               onKeyDown={(e) => {

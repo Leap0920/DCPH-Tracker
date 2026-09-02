@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react"
 import Link from "next/link"
+import Image from "next/image"
 import {
   ArrowLeft,
   Calendar,
@@ -278,9 +279,12 @@ export function ContentDetail({ entry, inModal }: { entry: ContentEntry; inModal
       <div className="overflow-hidden rounded-xl border border-line bg-surface shadow-card">
         <div className="relative aspect-video bg-surface-muted">
           {entry.image_url ? (
-            <img
+            <Image
               src={entry.image_url}
               alt={entry.title}
+              fill
+              sizes="(max-width: 1024px) 100vw, 1024px"
+              priority
               className="h-full w-full object-cover"
             />
           ) : (

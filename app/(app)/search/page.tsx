@@ -1,4 +1,5 @@
 import Link from "next/link"
+import Image from "next/image"
 import { ArrowRight, BookOpen, Users, Video } from "lucide-react"
 import { searchAll } from "@/lib/queries/search"
 import { SearchInput } from "@/components/search/SearchInput"
@@ -46,9 +47,12 @@ function EntryCard({
     >
       <div className="relative h-14 w-20 shrink-0 overflow-hidden rounded-md bg-surface-muted">
         {entry.image_url ? (
-          <img
+          <Image
             src={entry.image_url}
             alt={entry.title}
+            fill
+            sizes="80px"
+            loading="lazy"
             className="h-full w-full object-cover"
           />
         ) : (
@@ -100,9 +104,17 @@ function UserRow({
       href={`/profile/${user.username}`}
       className="flex items-center gap-3 rounded-lg border border-line bg-surface px-4 py-3 transition-colors hover:border-ink-faint/40 hover:bg-surface-muted"
     >
-      <div className="h-9 w-9 shrink-0 overflow-hidden rounded-full bg-surface-muted">
+      <div className="relative h-9 w-9 shrink-0 overflow-hidden rounded-full bg-surface-muted">
         {user.avatar_url ? (
-          <img src={user.avatar_url} alt={name} className="h-full w-full object-cover" />
+          <Image
+            src={user.avatar_url}
+            alt={name}
+            fill
+            sizes="36px"
+            loading="lazy"
+            unoptimized={user.avatar_url.startsWith("data:")}
+            className="h-full w-full object-cover"
+          />
         ) : (
           <div className="flex h-full items-center justify-center">
             <Users className="h-4 w-4 text-ink-faint" />

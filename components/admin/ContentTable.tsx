@@ -1,6 +1,7 @@
 "use client"
 
 import Link from "next/link"
+import Image from "next/image"
 import { useSearchParams } from "next/navigation"
 import { Pencil } from "lucide-react"
 import { CONTENT_TYPE_LABELS, type ContentType } from "@/lib/constants"
@@ -70,10 +71,16 @@ export function ContentTable({ entries }: { entries: ContentEntry[] }) {
           {entries.map((e) => (
             <tr key={e.id} className="transition-colors hover:bg-white/[0.03]">
               <td className="px-3 py-2">
-                <div className="flex h-10 w-16 items-center justify-center overflow-hidden rounded-md border border-line bg-surface">
+                <div className="relative flex h-10 w-16 items-center justify-center overflow-hidden rounded-md border border-line bg-surface">
                   {e.image_url ? (
-                    // eslint-disable-next-line @next/next/no-img-element
-                    <img src={e.image_url} alt="" className="h-full w-full object-cover" />
+                    <Image
+                      src={e.image_url}
+                      alt=""
+                      fill
+                      sizes="64px"
+                      loading="lazy"
+                      className="h-full w-full object-cover"
+                    />
                   ) : (
                     <span className="font-mono text-[9px] uppercase tracking-wider text-ink-faint">
                       none

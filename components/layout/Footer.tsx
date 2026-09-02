@@ -1,4 +1,5 @@
 import Link from "next/link"
+import Image from "next/image"
 import { Facebook, Instagram, Youtube, Twitter } from "lucide-react"
 
 const footerLinks = [
@@ -36,13 +37,16 @@ export function Footer() {
           {/* Brand */}
           <div>
             <Link href="/" className="group mb-4 flex items-center gap-2">
-              <img
+              <Image
                 src="/img/logo_DCPH.png"
                 alt="Detective Conan PH Logo"
-                className="h-8 w-auto object-contain transition-transform duration-300 group-hover:scale-105 group-hover:-rotate-3"
+                width={32}
+                height={32}
+                loading="lazy"
+                className="h-8 w-8 object-contain transition-transform duration-300 group-hover:scale-105 group-hover:-rotate-3"
               />
               <span className="font-display text-lg text-ink">
-                Detective Conan <span className="text-accent">PH</span>
+                Detective Conan <span className="text-accent dark:text-accent-bright">PH</span>
               </span>
             </Link>
             <p className="max-w-xs text-sm text-ink-dim">

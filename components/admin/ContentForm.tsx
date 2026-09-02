@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useRef, useState, useTransition } from "react"
 import { useRouter, useSearchParams } from "next/navigation"
 import Link from "next/link"
+import Image from "next/image"
 import {
   AlertTriangle,
   ArrowLeft,
@@ -517,10 +518,12 @@ export function ContentForm({
           <div className="flex items-start gap-4">
             <div className="relative h-32 w-24 shrink-0 overflow-hidden rounded-md border border-ink-dim/20 bg-surface flex flex-col items-center justify-center">
               {previewSrc && !imageLoadError ? (
-                // eslint-disable-next-line @next/next/no-img-element
-                <img
+                <Image
                   src={previewSrc}
                   alt="Cover preview"
+                  fill
+                  sizes="96px"
+                  unoptimized
                   onError={() => setImageLoadError(true)}
                   className="h-full w-full object-cover"
                 />
@@ -662,6 +665,7 @@ export function ContentForm({
                     ref={fileRef}
                     type="file"
                     name="cover_file"
+                    aria-label="Upload custom cover file"
                     accept="image/jpeg,image/png,image/webp,image/gif"
                     onChange={onFileChange}
                     className="hidden"

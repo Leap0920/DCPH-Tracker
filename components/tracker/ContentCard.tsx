@@ -2,6 +2,7 @@
 
 import { useState } from "react"
 import Link from "next/link"
+import Image from "next/image"
 import { EyeOff, Check, RefreshCw, Heart, Star } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { padNumber } from "@/lib/utils"
@@ -89,11 +90,12 @@ export function ContentCard({
       {/* Image area */}
       <div className="relative aspect-[3/2] bg-surface-muted overflow-hidden">
         {entry.image_url ? (
-          <img
+          <Image
             src={entry.image_url}
             alt={entry.title}
+            fill
+            sizes="(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 25vw"
             loading="lazy"
-            decoding="async"
             className="h-full w-full object-cover transition-transform group-hover:scale-105"
           />
         ) : (

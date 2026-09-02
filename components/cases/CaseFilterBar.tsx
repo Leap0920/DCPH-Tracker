@@ -177,6 +177,7 @@ export function CaseFilterBar({
               pushPatch({ q: event.target.value.trim() || null }, 350)
             }}
             placeholder="Search victim, case or location…"
+            aria-label="Search victim, case or location"
             className="h-9 w-full rounded-lg border border-line bg-surface-muted pl-9 pr-9 text-sm text-ink placeholder:text-ink-faint focus:border-accent focus:outline-none focus-visible:ring-1 focus-visible:ring-accent/30"
           />
           {search && (

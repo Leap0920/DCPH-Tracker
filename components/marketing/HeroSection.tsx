@@ -1,8 +1,9 @@
 "use client"
 
-import { motion, AnimatePresence, useScroll, useTransform, useSpring, useReducedMotion } from "framer-motion"
+import { motion, useScroll, useTransform, useSpring, useReducedMotion } from "framer-motion"
 import { ArrowRight, ChevronDown } from "lucide-react"
 import { useRouter } from "next/navigation"
+import Image from "next/image"
 import { Button } from "@/components/ui/button"
 import { useEffect, useState, useCallback, useRef, type ReactNode } from "react"
 import { createClient } from "@/utils/supabase/client"
@@ -21,10 +22,7 @@ type HeroSectionProps = {
 }
 
 export function HeroSection({ liveBadge }: HeroSectionProps) {
-  const [typedText, setTypedText] = useState("")
-  const [typingCompleted, setTypingCompleted] = useState(false)
   const reduce = useReducedMotion()
-  const fullText = "Your ultimate Detective Conan tracking platform"
 
   // Measure the promo video's true aspect ratio so it shows the full scene (no crop) while staying rounded
   const videoRef = useRef<HTMLVideoElement>(null)
@@ -36,61 +34,6 @@ export function HeroSection({ liveBadge }: HeroSectionProps) {
       videoRef.current.play().catch(() => { })
     }
   }, [])
-
-  // Typewriter effect with a quick initial delay
-  useEffect(() => {
-    let index = 0
-    let interval: NodeJS.Timeout | null = null
-    let timeout: NodeJS.Timeout | null = null
-
-    timeout = setTimeout(() => {
-      interval = setInterval(() => {
-        if (index < fullText.length) {
-          setTypedText(fullText.slice(0, index + 1))
-          index++
-        } else {
-          if (interval) clearInterval(interval)
-          // Delay a bit before revealing logo/title
-          setTimeout(() => {
-            setTypingCompleted(true)
-          }, 250)
-        }
-      }, 22) // typing speed: 22ms per character
-    }, 300) // 300ms initial delay
-
-    return () => {
-      if (interval) clearInterval(interval)
-      if (timeout) clearTimeout(timeout)
-    }
-  }, [])
-
-  // Render typed text with line break after "Conan".
-  // Colour comes from text-ink (flips with the theme via CSS variables) and
-  // .hero-text-shadow adds separation from the photo underneath.
-  const renderTypedText = (text: string) => {
-    const line1 = "Your ultimate Detective Conan"
-    const line2 = "tracking platform"
-    const lineBreakIndex = line1.length
-
-    const line1Chars = text.slice(0, Math.min(lineBreakIndex, text.length))
-    const line2Chars = text.length > lineBreakIndex ? text.slice(lineBreakIndex) : ""
-
-    return (
-      <>
-        <span className="hero-text-shadow text-2xl min-[421px]:text-3xl sm:text-5xl font-bold text-ink">
-          {line1Chars}
-        </span>
-        {line2Chars.length > 0 && (
-          <>
-            <br />
-            <span className="hero-text-shadow text-2xl min-[421px]:text-3xl sm:text-5xl font-bold text-ink">
-              {line2Chars}
-            </span>
-          </>
-        )}
-      </>
-    )
-  }
 
   const scrollRef = useRef<HTMLDivElement>(null)
   const { scrollYProgress } = useScroll({
@@ -134,15 +77,26 @@ export function HeroSection({ liveBadge }: HeroSectionProps) {
       {/* Hero Content Area — full-bleed image banner with left-aligned text */}
       <div className="relative min-h-[calc(100dvh-4rem)] w-full flex flex-col items-start justify-center px-6 sm:px-12 lg:px-24 text-left">
         {/*
-          Hero background image — theme-aware.
-          Both variants live in the DOM but are swapped by CSS on html.dark
-          (see app/globals.css). Because they are CSS background-images, the
-          hidden variant is never downloaded, and the right banner paints on the
-          first frame with no hydration flash.
+          Hero background image — theme-aware via Next.js Image with high priority
+          for immediate LCP discovery and zero layout shift.
         */}
-        <div className="absolute inset-0 z-0 bg-surface">
-          <div aria-hidden className="hero-media hero-media-light" />
-          <div aria-hidden className="hero-media hero-media-dark" />
+        <div className="absolute inset-0 z-0 bg-surface overflow-hidden pointer-events-none">
+          <Image
+            src="/hero-image-darkM.jpg"
+            alt="Detective Conan Banner"
+            fill
+            priority
+            sizes="100vw"
+            className="object-cover object-right sm:object-right-bottom dark:block hidden"
+          />
+          <Image
+            src="/hero-image.jpg"
+            alt="Detective Conan Banner"
+            fill
+            priority
+            sizes="100vw"
+            className="object-cover object-right sm:object-right-bottom dark:hidden block"
+          />
           {/* Left-to-right scrim so text stays readable over photo, per theme */}
           <div aria-hidden className="hero-scrim hero-scrim-light" />
           <div aria-hidden className="hero-scrim hero-scrim-dark" />
@@ -150,48 +104,44 @@ export function HeroSection({ liveBadge }: HeroSectionProps) {
 
         {/* Left-aligned content above the image */}
         <div className="relative z-10 flex flex-col items-start w-full max-w-3xl">
-          {/* Animated container for Logo and live-episode badge */}
-          <AnimatePresence>
-            {typingCompleted && (
-              <motion.div
-                initial={reduce ? false : { opacity: 0, y: -28, filter: "blur(6px)" }}
-                animate={{ opacity: 1, y: 0, filter: "blur(0px)" }}
-                transition={{ duration: 0.9, ease: EASE }}
-                className="flex flex-col items-start"
-              >
-                {/* Logo + live episode badge in the same row. The old
-                    "Detective Conan PH: Anime and Manga" heading was redundant
-                    with the navbar wordmark, so it is replaced by live status. */}
-                <div className="flex items-center gap-3 mb-6">
-                  <img
-                    src="/img/logo_DCPH.png"
-                    alt="Detective Conan PH Logo"
-                    className="h-10 w-auto object-contain drop-shadow-card hover:scale-105 transition-transform duration-300 pointer-events-none"
-                  />
-                  {liveBadge}
-                </div>
-              </motion.div>
-            )}
-          </AnimatePresence>
-
-          {/* Subtitle / Typewriter block */}
-          <div className="min-h-16 flex items-center justify-start mt-4 mb-10">
-            <p className="font-body text-ink max-w-5xl font-medium text-balance">
-              {renderTypedText(typedText)}
-              {/* Blinking typewriter cursor */}
-              <motion.span
-                animate={{ opacity: [1, 0] }}
-                transition={{ duration: 0.8, repeat: Infinity, repeatType: "reverse" }}
-                className="inline-block w-[3px] h-[1.1em] bg-ink ml-1.5 align-middle"
-              />
-            </p>
-          </div>
-
-          {/* CTA Buttons — always visible, not gated behind the typewriter */}
+          {/* Logo and live-episode badge */}
           <motion.div
-            initial={reduce ? false : { opacity: 0, y: 30 }}
+            initial={reduce ? false : { opacity: 0, y: -20 }}
             animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.7, delay: 0.3, ease: EASE }}
+            transition={{ duration: 0.6, ease: EASE }}
+            className="flex flex-col items-start"
+          >
+            <div className="flex items-center gap-3 mb-6">
+              <Image
+                src="/img/logo_DCPH.png"
+                alt="Detective Conan PH Logo"
+                width={40}
+                height={40}
+                priority
+                className="h-10 w-10 object-contain drop-shadow-card hover:scale-105 transition-transform duration-300 pointer-events-none"
+              />
+              {liveBadge}
+            </div>
+          </motion.div>
+
+          {/* Discoverable H1 heading rendered directly in initial HTML */}
+          <motion.div
+            initial={reduce ? false : { opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.7, ease: EASE }}
+            className="mt-2 mb-8"
+          >
+            <h1 className="hero-text-shadow font-display text-2xl min-[421px]:text-3xl sm:text-5xl font-bold text-ink leading-tight tracking-tight text-balance">
+              <span className="block">Your ultimate Detective Conan</span>
+              <span className="block">tracking platform</span>
+            </h1>
+          </motion.div>
+
+          {/* CTA Buttons — always visible */}
+          <motion.div
+            initial={reduce ? false : { opacity: 0, y: 24 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.7, delay: 0.15, ease: EASE }}
             className="flex flex-col sm:flex-row items-start gap-4"
           >
             <motion.div
@@ -216,29 +166,24 @@ export function HeroSection({ liveBadge }: HeroSectionProps) {
         </div>
 
         {/* Scroll indicator at the bottom of the banner */}
-        <AnimatePresence>
-          {typingCompleted && (
-            <motion.div
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 0.6 }}
-              exit={{ opacity: 0 }}
-              transition={{ delay: 0.6, duration: 0.8 }}
-              className="absolute bottom-8 left-1/2 -translate-x-1/2 cursor-pointer z-20"
-              onClick={scrollToContent}
-            >
-              <motion.div
-                animate={{ y: [0, 8, 0] }}
-                transition={{ duration: 2, repeat: Infinity, ease: "easeInOut" }}
-                className="flex flex-col items-center gap-2 hover:opacity-100 transition-opacity"
-              >
-                <span className="hero-text-shadow text-[10px] font-mono text-ink-dim">
-                  Scroll Down
-                </span>
-                <ChevronDown className="h-5 w-5 text-ink-dim" />
-              </motion.div>
-            </motion.div>
-          )}
-        </AnimatePresence>
+        <motion.div
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 0.6 }}
+          transition={{ delay: 0.3, duration: 0.8 }}
+          className="absolute bottom-8 left-1/2 -translate-x-1/2 cursor-pointer z-20"
+          onClick={scrollToContent}
+        >
+          <motion.div
+            animate={{ y: [0, 8, 0] }}
+            transition={{ duration: 2, repeat: Infinity, ease: "easeInOut" }}
+            className="flex flex-col items-center gap-2 hover:opacity-100 transition-opacity"
+          >
+            <span className="hero-text-shadow text-[10px] font-mono text-ink-dim">
+              Scroll Down
+            </span>
+            <ChevronDown className="h-5 w-5 text-ink-dim" />
+          </motion.div>
+        </motion.div>
       </div>
 
       {/* Hero media — scroll-driven video — borderless, maximized width */}
@@ -263,10 +208,14 @@ export function HeroSection({ liveBadge }: HeroSectionProps) {
             muted
             playsInline
             controls={false}
+            aria-label="Detective Conan PH Community Banner Video"
+            title="Detective Conan PH Community Banner"
             className="w-full h-full object-contain pointer-events-none rounded-2xl"
-          />
+          >
+            <track kind="captions" srcLang="en" label="No commentary" />
+          </video>
         </motion.div>
       </div>
     </section>
   )
-}
+}

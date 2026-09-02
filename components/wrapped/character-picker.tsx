@@ -1,6 +1,7 @@
 "use client"
 
 import { useMemo, useState } from "react"
+import Image from "next/image"
 import { Check, Search } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -46,10 +47,11 @@ function Thumb({
           : "border-white/10 hover:border-white/30"
       )}
     >
-      {/* eslint-disable-next-line @next/next/no-img-element */}
-      <img
+      <Image
         src={backgroundSrc(bg.file)}
         alt={bg.name}
+        fill
+        sizes="(max-width: 640px) 100px, 120px"
         loading="lazy"
         className="absolute inset-0 h-full w-full object-cover transition-transform duration-300 group-hover:scale-105"
       />
@@ -100,6 +102,7 @@ export function CharacterPicker({ value, onChange }: Props) {
                 value={query}
                 onChange={(e) => setQuery(e.target.value)}
                 placeholder="Search characters by name (e.g. Conan, Akai, Kid...)"
+                aria-label="Search characters by name"
                 className="h-10 border-white/15 bg-white/[0.04] pl-9 text-sm text-white placeholder:text-white/40 focus-visible:border-accent"
               />
             </div>

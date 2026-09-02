@@ -1,6 +1,7 @@
 "use client"
 
 import { useState } from "react"
+import Image from "next/image"
 import { Mail, ShieldAlert, ArrowLeft, Lock, Eye, EyeOff } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -127,10 +128,13 @@ export default function ForgotPasswordPage() {
       <Card className="w-full max-w-md bg-surface border border-line shadow-card rounded-2xl relative overflow-hidden">
         <CardHeader className="text-center pb-4 pt-6">
           <div className="flex justify-center mb-4">
-            <img
+            <Image
               src="/img/logo_DCPH.png"
               alt="Detective Conan PH Logo"
-              className="h-14 w-auto object-contain transition-transform duration-300 hover:scale-105"
+              width={56}
+              height={56}
+              priority
+              className="h-14 w-14 object-contain transition-transform duration-300 hover:scale-105"
             />
           </div>
           <CardTitle className="font-display text-2xl font-bold tracking-tight text-ink">
@@ -160,10 +164,13 @@ export default function ForgotPasswordPage() {
       
       <CardHeader className="text-center pb-4 pt-6">
         <div className="flex justify-center mb-4">
-          <img
+          <Image
             src="/img/logo_DCPH.png"
             alt="Detective Conan PH Logo"
-            className="h-14 w-auto object-contain transition-transform duration-300 hover:scale-105"
+            width={56}
+            height={56}
+            priority
+            className="h-14 w-14 object-contain transition-transform duration-300 hover:scale-105"
           />
         </div>
         <CardTitle className="font-display text-2xl font-bold tracking-tight text-ink">

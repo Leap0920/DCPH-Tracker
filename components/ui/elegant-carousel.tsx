@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useState, useEffect, useRef, useCallback } from 'react';
+import Image from 'next/image';
 import { ArrowLeft, ArrowRight, MapPin, Volume2, VolumeX, Play, Pause } from 'lucide-react';
 
 export interface SlideData {
@@ -351,13 +352,17 @@ export default function ElegantCarousel({ customSlides }: { customSlides?: Slide
                   muted={isMuted}
                   playsInline
                   preload="auto"
+                  aria-label={`Video highlight: ${currentSlide.title}`}
+                  title={currentSlide.title}
                   onPlay={() => setIsPlaying(true)}
                   onPause={() => setIsPlaying(false)}
                   onTimeUpdate={handleTimeUpdate}
                   onLoadedMetadata={handleTimeUpdate}
                   onEnded={handleVideoEnded}
                   className="h-full w-full object-cover min-h-[200px]"
-                />
+                >
+                  <track kind="captions" srcLang="en" label="No commentary" />
+                </video>
 
                 {/* Video Timeframe Seeker Bar & Audio Controls Overlay */}
                 <div className="absolute inset-x-0 bottom-0 z-20 bg-gradient-to-t from-black/85 via-black/40 to-transparent p-2.5 sm:p-4 flex flex-col gap-1.5 sm:gap-2">
@@ -369,6 +374,11 @@ export default function ElegantCarousel({ customSlides }: { customSlides?: Slide
                     step="0.1"
                     value={progress}
                     onChange={handleSeek}
+                    aria-label="Seek video progress"
+                    aria-valuemin={0}
+                    aria-valuemax={100}
+                    aria-valuenow={progress}
+                    aria-valuetext={`${Math.round(progress)}%`}
                     className="w-full h-1 sm:h-1.5 accent-accent bg-white/30 rounded-lg cursor-pointer appearance-none hover:h-2 transition-all"
                   />
 
@@ -403,11 +413,18 @@ export default function ElegantCarousel({ customSlides }: { customSlides?: Slide
                 </div>
               </div>
             ) : (
-              <img
-                src={currentSlide.imageUrl}
-                alt={currentSlide.title}
-                className="h-full w-full object-cover"
-              />
+              <div className="relative h-full w-full">
+                {currentSlide.imageUrl && (
+                  <Image
+                    src={currentSlide.imageUrl}
+                    alt={currentSlide.title}
+                    fill
+                    sizes="(max-width: 1024px) 100vw, 60vw"
+                    loading="lazy"
+                    className="h-full w-full object-cover"
+                  />
+                )}
+              </div>
             )}
           </div>
         </div>

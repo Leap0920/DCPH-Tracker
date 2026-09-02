@@ -1,6 +1,7 @@
 "use client"
 
 import Link from "next/link"
+import Image from "next/image"
 import { Play } from "lucide-react"
 import { cn, padNumber } from "@/lib/utils"
 import { CONTENT_TYPE_LABELS, type ContentType } from "@/lib/constants"
@@ -18,12 +19,12 @@ interface ContinueWatchingStripProps {
 
 /** Compact label shown on the card media area, e.g. "EP 123" / "MOVIE". */
 function entryLabel(type: ContentType, episodeNumber: number | null, movieNumber: number | null): string {
-  if (type === "movie") return "MOVIE"
-  if (type === "episode") return `EP ${padNumber(episodeNumber ?? 0)}`
-  return type.toUpperCase()
+  if (type === "episode" && episodeNumber !== null) return `EP ${padNumber(episodeNumber)}`
+  if (type === "movie" && movieNumber !== null) return `M ${movieNumber}`
+  return CONTENT_TYPE_LABELS[type] ?? type.toUpperCase()
 }
 
-function StripCard({ entry, nextUp = false }: { entry: NextUpEntry; nextUp?: boolean }) {
+function StripCard({ entry, nextUp = false }: { entry: ContinueWatchingEntry | NextUpEntry; nextUp?: boolean }) {
   const type = entry.type as ContentType
   const label = entryLabel(type, entry.episode_number, entry.movie_number)
 
@@ -37,9 +38,12 @@ function StripCard({ entry, nextUp = false }: { entry: NextUpEntry; nextUp?: boo
     >
       <div className="relative aspect-[3/2] bg-surface-muted overflow-hidden">
         {entry.image_url ? (
-          <img
+          <Image
             src={entry.image_url}
             alt={entry.title}
+            fill
+            sizes="160px"
+            loading="lazy"
             className="h-full w-full object-cover transition-transform group-hover:scale-105"
           />
         ) : (

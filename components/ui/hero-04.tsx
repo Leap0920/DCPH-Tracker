@@ -1,6 +1,7 @@
 'use client'
 
 import * as React from 'react'
+import Image from 'next/image'
 import { motion, useReducedMotion, type Variants } from 'framer-motion'
 import Balancer from 'react-wrap-balancer'
 
@@ -109,10 +110,12 @@ export function Hero04({
       aria-hidden
       className="pointer-events-none absolute inset-0 z-0 aspect-[2/3] mask-radial-[75%_100%] mask-radial-from-45% mask-radial-to-75% mask-radial-at-top opacity-75 blur-xl md:aspect-square lg:aspect-video dark:opacity-5"
     >
-      {/* eslint-disable-next-line @next/next/no-img-element */}
-      <img
+      <Image
         src={washImage}
         alt=""
+        fill
+        sizes="100vw"
+        loading="lazy"
         className="h-full w-full object-cover object-top"
       />
     </div>
@@ -180,7 +183,7 @@ export function Hero04({
           active={animate}
           className={cn('flex flex-col items-start', vs.header)}
         >
-          <span className="inline-flex items-center gap-1.5 rounded-full border border-accent/20 bg-accent-soft px-3.5 py-1 font-mono text-xs font-semibold uppercase tracking-widest text-accent mb-2">
+          <span className="inline-flex items-center gap-1.5 rounded-full border border-accent/20 bg-accent-soft px-3.5 py-1 font-mono text-xs font-semibold uppercase tracking-widest text-accent dark:text-accent-bright mb-2">
             Annual Block Screenings
           </span>
           {titleElement}

@@ -2,6 +2,7 @@
 
 import { useState } from "react"
 import Link from "next/link"
+import Image from "next/image"
 import {
   Eye,
   RefreshCw,
@@ -113,9 +114,12 @@ export function AnalyticsDashboard({ analytics }: AnalyticsDashboardProps) {
       {/* Hero Banner with Custom Background Image */}
       <div className="relative min-h-[220px] overflow-hidden rounded-2xl border border-line shadow-lift">
         {/* Banner background image */}
-        <img
+        <Image
           src="/analytics-banner.jpg"
           alt="Analytics Banner"
+          fill
+          priority
+          sizes="100vw"
           className="absolute inset-0 h-full w-full object-cover object-center"
         />
         {/* Dark overlay for contrast */}
@@ -488,6 +492,7 @@ export function AnalyticsDashboard({ analytics }: AnalyticsDashboardProps) {
               <input
                 type="text"
                 placeholder="Search story arcs..."
+                aria-label="Search story arcs"
                 value={arcFilter}
                 onChange={(e) => setArcFilter(e.target.value)}
                 className="w-full rounded-lg border border-line bg-surface py-2 pl-9 pr-4 text-sm text-ink placeholder:text-ink-faint focus:border-accent focus:outline-none"

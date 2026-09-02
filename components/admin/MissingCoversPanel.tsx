@@ -102,6 +102,7 @@ export function MissingCoversPanel({ entries }: { entries: ContentEntry[] }) {
                     value={currentUrlInput}
                     onChange={(e) => setUrlInputs({ ...urlInputs, [item.id]: e.target.value })}
                     placeholder="Paste image URL…"
+                    aria-label={`Image URL for ${item.title}`}
                     disabled={isUpdating}
                     className="h-8 w-full rounded-md border border-line bg-surface pl-7 pr-2 text-xs text-ink placeholder:text-ink-faint focus:border-accent focus:outline-none focus-visible:ring-1 focus-visible:ring-accent/30 disabled:opacity-50"
                   />
@@ -123,6 +124,7 @@ export function MissingCoversPanel({ entries }: { entries: ContentEntry[] }) {
                   <input
                     type="file"
                     accept="image/*"
+                    aria-label={`Upload cover image for ${item.title}`}
                     disabled={isUpdating}
                     onChange={(e) => {
                       const file = e.target.files?.[0]

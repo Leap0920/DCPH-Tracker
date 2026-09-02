@@ -359,6 +359,7 @@ export function RankingsBoard({
               setVisibleCount(25)
             }}
             placeholder="Search detective username..."
+            aria-label="Search detective username"
             className="w-full rounded-xl border border-ink-dim/20 bg-surface pl-9 pr-4 py-2 text-xs text-ink outline-none transition-all placeholder:text-ink-faint focus:border-ink-dim/40 h-9"
           />
         </div>

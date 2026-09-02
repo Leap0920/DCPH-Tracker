@@ -2,6 +2,7 @@
 
 import { useState, useTransition } from "react"
 import { useRouter } from "next/navigation"
+import Image from "next/image"
 import {
   Check,
   X,
@@ -211,6 +212,7 @@ export function SyncApprovalQueue({ items }: { items: StagedRow[] }) {
                 setCurrentPage(1)
               }}
               placeholder="Search pending titles, ep #, or slug..."
+              aria-label="Search pending titles, episode number, or slug"
               className="w-full h-9 rounded-md border border-line bg-surface pl-9 pr-3 text-xs text-ink placeholder:text-ink-faint focus:outline-none focus-visible:ring-1 focus-visible:ring-accent/60"
             />
             <Search className="absolute left-3 top-2.5 h-4 w-4 text-ink-faint" />
@@ -224,6 +226,7 @@ export function SyncApprovalQueue({ items }: { items: StagedRow[] }) {
                 setSortOrder(e.target.value as SortOption)
                 setCurrentPage(1)
               }}
+              aria-label="Sort pending items"
               className="w-full h-9 rounded-md border border-line bg-surface pl-8 pr-3 text-xs font-mono text-ink focus:outline-none focus-visible:ring-1 focus-visible:ring-accent/60"
             >
               <option value="newest">Sort: Newest to Oldest</option>
@@ -242,6 +245,7 @@ export function SyncApprovalQueue({ items }: { items: StagedRow[] }) {
                 setTypeFilter(e.target.value)
                 setCurrentPage(1)
               }}
+              aria-label="Filter by content type"
               className="w-full h-9 rounded-md border border-line bg-surface pl-8 pr-3 text-xs font-mono text-ink focus:outline-none focus-visible:ring-1 focus-visible:ring-accent/60"
             >
               <option value="all">Filter: All Types</option>
@@ -285,6 +289,7 @@ export function SyncApprovalQueue({ items }: { items: StagedRow[] }) {
                   setPageSize(Number(e.target.value))
                   setCurrentPage(1)
                 }}
+                aria-label="Items per page"
                 className="h-7 rounded-md border border-line bg-surface px-2 text-xs font-mono tabular-nums text-ink focus:outline-none focus-visible:ring-1 focus-visible:ring-accent/60"
               >
                 <option value={12}>12</option>
@@ -366,11 +371,16 @@ export function SyncApprovalQueue({ items }: { items: StagedRow[] }) {
 
                   <div className="flex gap-3 items-start mb-3">
                     {item.image_url ? (
-                      <img
-                        src={item.image_url}
-                        alt={item.title}
-                        className="h-14 w-10 rounded-sm object-cover border border-line shrink-0"
-                      />
+                      <div className="relative h-14 w-10 shrink-0 overflow-hidden rounded-sm border border-line">
+                        <Image
+                          src={item.image_url}
+                          alt={item.title}
+                          fill
+                          sizes="40px"
+                          loading="lazy"
+                          className="h-full w-full object-cover"
+                        />
+                      </div>
                     ) : (
                       <div className="h-14 w-10 rounded-sm border border-line bg-surface flex items-center justify-center font-mono text-[9px] uppercase tracking-wider text-ink-faint shrink-0">
                         No image

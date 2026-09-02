@@ -79,7 +79,7 @@ export function SectionHeading({
     >
       <motion.span
         variants={eyebrowV}
-        className="group inline-flex items-center gap-2 rounded-full border border-accent/20 bg-accent-soft px-3.5 py-1 font-mono text-xs font-semibold uppercase tracking-widest text-accent"
+        className="group inline-flex items-center gap-2 rounded-full border border-accent/20 bg-accent-soft px-3.5 py-1 font-mono text-xs font-semibold uppercase tracking-widest text-accent dark:text-accent-bright"
       >
         <span
           aria-hidden

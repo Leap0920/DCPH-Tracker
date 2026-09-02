@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useRef } from "react";
+import Image from "next/image";
 import { motion, MotionConfig, type Variants } from "framer-motion";
 import { X } from "lucide-react";
 import { RELATIONSHIP_META, getCharacterById, getRelationshipById, getCharacterImage } from "@/lib/characters-guide";
@@ -179,9 +180,12 @@ export function CharacterDetailPanel({
           {/* Character portrait */}
           {getCharacterImage(character.id) && (
             <div className="flex justify-center">
-              <img
+              <Image
                 src={getCharacterImage(character.id)!}
                 alt={character.name}
+                width={160}
+                height={160}
+                loading="lazy"
                 className="h-32 w-32 rounded-xl border border-line object-cover shadow-card sm:h-40 sm:w-40"
               />
             </div>

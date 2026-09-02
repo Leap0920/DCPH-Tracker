@@ -1,6 +1,7 @@
 "use client"
 
 import Link from "next/link"
+import Image from "next/image"
 import { usePathname, useRouter } from "next/navigation"
 import { useState, useEffect, useRef } from "react"
 import { motion } from "framer-motion"
@@ -229,10 +230,13 @@ export function Navbar() {
       <nav className="mx-auto flex h-16 max-w-7xl items-center justify-between px-6">
         {/* Logo */}
         <Link href="/" className="flex items-center gap-2 group shrink-0">
-          <img
+          <Image
             src="/img/logo_DCPH.png"
             alt="Detective Conan PH Logo"
-            className="h-8 w-auto object-contain transition-transform duration-300 group-hover:scale-105 group-hover:-rotate-3"
+            width={32}
+            height={32}
+            priority
+            className="h-8 w-8 object-contain transition-transform duration-300 group-hover:scale-105 group-hover:-rotate-3"
           />
           <span className="font-display text-lg text-ink hidden sm:block">
             Detective Conan <span className="text-ink-dim transition-colors duration-300 group-hover:text-accent-bright">PH</span>
@@ -368,9 +372,12 @@ export function Navbar() {
                       type="button"
                       className="group hidden md:flex items-center gap-2 pl-1.5 pr-2.5 py-1 rounded-full border border-line bg-surface-muted hover:border-accent/60 transition-all outline-none"
                     >
-                      <img
+                      <Image
                         src={profile?.avatar_url || avatarUrl(profile?.display_name || user.email || "Detective")}
                         alt={profile?.display_name || "Profile"}
+                        width={24}
+                        height={24}
+                        unoptimized={Boolean(profile?.avatar_url && profile.avatar_url.startsWith("data:"))}
                         className="h-6 w-6 rounded-full object-cover border border-line"
                       />
                       <span className="font-display text-xs text-ink font-medium max-w-[110px] truncate">

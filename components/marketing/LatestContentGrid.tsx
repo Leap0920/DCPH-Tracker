@@ -1,5 +1,6 @@
 "use client"
 
+import Image from "next/image"
 import { Tv, Play, FileText, Sparkles, Calendar, Film, Video } from "lucide-react"
 import {
   CONTENT_TYPE_LABELS,
@@ -70,9 +71,12 @@ export function LatestContentGrid({ entries }: { entries: LatestEntry[] }) {
                 href={`/tracker?type=${entry.type}`}
                 cta="Watch episode"
                 background={
-                  <img
+                  <Image
                     src={imgPath}
                     alt={entry.title}
+                    fill
+                    sizes="(max-width: 640px) 50vw, (max-width: 1024px) 33vw, 25vw"
+                    loading="lazy"
                     className="h-full w-full object-cover transition-transform duration-700 ease-out group-hover:scale-105"
                   />
                 }

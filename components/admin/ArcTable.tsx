@@ -2,6 +2,7 @@
 
 import { useState } from "react"
 import { useRouter } from "next/navigation"
+import Image from "next/image"
 import { BookOpen, Trash2, Loader2 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { ArcFormModal } from "./ArcFormModal"
@@ -40,21 +41,14 @@ export function ArcTable({ arcs }: { arcs: ArcRow[] }) {
 
   return (
     <div className="overflow-x-auto rounded-md border border-line bg-surface">
-      <table className="w-full text-left text-sm">
+      <table className="w-full text-sm">
         <thead>
-          <tr className="border-b border-line">
-            <th scope="col" className={thCls}>
-              Arc Title
-            </th>
-            <th scope="col" className={thCls}>
-              Episode Range
-            </th>
-            <th scope="col" className={thCls}>
-              Description
-            </th>
-            <th scope="col" className={`${thCls} text-right`}>
-              Actions
-            </th>
+          <tr className="border-b border-line bg-white/[0.02] text-left">
+            <th className={thCls}>Arc</th>
+            <th className={thCls}>Range</th>
+            <th className={thCls}>Episodes</th>
+            <th className={thCls}>Description</th>
+            <th className={`${thCls} text-right`}>Actions</th>
           </tr>
         </thead>
         <tbody className="divide-y divide-line">
@@ -66,10 +60,12 @@ export function ArcTable({ arcs }: { arcs: ArcRow[] }) {
                 <td className="px-4 py-2">
                   <div className="flex items-center gap-3">
                     {arc.image_url ? (
-                      // eslint-disable-next-line @next/next/no-img-element
-                      <img
+                      <Image
                         src={arc.image_url}
                         alt=""
+                        width={40}
+                        height={40}
+                        loading="lazy"
                         className="h-10 w-10 shrink-0 rounded-md border border-line object-cover"
                       />
                     ) : (

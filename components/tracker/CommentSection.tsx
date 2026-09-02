@@ -386,6 +386,7 @@ export function CommentSection({ contentId }: { contentId: string }) {
                 }}
                 onKeyDown={handleKeyDown}
                 placeholder="Share your thoughts…"
+                aria-label="Share your thoughts on this episode"
                 className="max-h-40 min-h-[40px] flex-1 resize-none rounded-lg border border-ink-dim/20 bg-surface px-3 py-2 text-sm text-ink placeholder:text-ink-faint focus-visible:border-accent focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-accent"
               />
               <Button

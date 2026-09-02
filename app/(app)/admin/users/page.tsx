@@ -124,6 +124,7 @@ export default async function AdminUsersPage({
             name="q"
             defaultValue={q}
             placeholder="Search username or display name…"
+            aria-label="Search username or display name"
             className="h-8 w-full rounded-md border border-line bg-surface pl-8 pr-2.5 text-xs text-ink placeholder:text-ink-faint focus:border-accent focus:outline-none focus-visible:ring-1 focus-visible:ring-accent/30"
           />
         </form>

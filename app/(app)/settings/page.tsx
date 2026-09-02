@@ -415,6 +415,7 @@ export default function SettingsPage() {
                   ref={fileInputRef}
                   type="file"
                   accept="image/*"
+                  aria-label="Upload profile avatar"
                   className="hidden"
                   onChange={onFileChange}
                 />

@@ -1,6 +1,7 @@
 "use client"
 
 import { forwardRef } from "react"
+import Image from "next/image"
 import { backgroundSrc, type WrappedBackground } from "@/lib/wrapped/characters"
 import { CARD_HEIGHT, CARD_WIDTH } from "@/lib/wrapped/export"
 import type { WrappedStats } from "@/lib/queries/wrapped"
@@ -109,11 +110,14 @@ export const StatsCard = forwardRef<HTMLDivElement, StatsCardProps>(
         className="relative overflow-hidden rounded-[40px]"
       >
         {/* background art */}
-        {/* eslint-disable-next-line @next/next/no-img-element */}
-        <img
+        <Image
           src={backgroundSrc(background.file)}
           alt=""
+          width={CARD_WIDTH}
+          height={CARD_HEIGHT}
+          unoptimized
           crossOrigin="anonymous"
+          priority
           style={{ objectPosition: background.focus ?? "50% 25%" }}
           className="absolute inset-0 h-full w-full object-cover opacity-[0.85] saturate-[0.95] contrast-[1.06]"
         />
@@ -127,10 +131,12 @@ export const StatsCard = forwardRef<HTMLDivElement, StatsCardProps>(
             <div className="flex items-center gap-[24px]">
               <div className="h-[104px] w-[104px] overflow-hidden rounded-full ring-1 ring-white/20 shadow-md">
                 {avatarUrl ? (
-                  // eslint-disable-next-line @next/next/no-img-element
-                  <img
+                  <Image
                     src={avatarUrl}
-                    alt=""
+                    alt={displayName}
+                    width={104}
+                    height={104}
+                    unoptimized
                     crossOrigin="anonymous"
                     className="h-full w-full object-cover"
                   />

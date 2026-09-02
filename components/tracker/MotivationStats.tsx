@@ -321,6 +321,7 @@ export function MotivationStats({ entries, userStatuses, userName }: MotivationS
                   type="number"
                   min={1}
                   max={50}
+                  aria-label="Episodes per day"
                   value={ratePerDay}
                   onChange={(e) => handleRateChange(e.target.value)}
                   className="w-14 h-7 rounded-md border border-ink-dim/20 bg-surface-muted px-2 text-center text-xs text-ink font-mono focus:outline-none focus:ring-2 focus:ring-accent/20 focus:border-accent"

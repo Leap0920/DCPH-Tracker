@@ -616,6 +616,19 @@ export default function CharactersWeb({
   useIsoLayoutEffect(() => {
     const el = containerRef.current;
     if (!el) return;
+    /* Size commits are debounced: a window drag fires ResizeObserver on every
+       tick, and each setSize re-renders the whole SVG (~250 nodes × ~8 elements).
+       sizeRef is updated immediately so the rAF loop and fit math stay live; the
+       React state commits at most once per frame PLUS once ~120ms after the last
+       tick, so a resize burst costs ~2 renders instead of one per tick. */
+    let sizeRaf = 0;
+    let sizeTimer = 0;
+    const commitSize = () => {
+      sizeRaf = 0;
+      const { w: curW, h: curH } = sizeRef.current;
+      setSize((prev) => (prev.w === curW && prev.h === curH ? prev : { w: curW, h: curH }));
+    };
+
     const ro = new ResizeObserver((entries) => {
       const cr = entries[0]?.contentRect;
       if (!cr || cr.width < 1 || cr.height < 1) return;
@@ -623,7 +636,9 @@ export default function CharactersWeb({
       const h = Math.round(cr.height);
       if (w === sizeRef.current.w && h === sizeRef.current.h) return;
       sizeRef.current = { w, h };
-      setSize({ w, h });
+      if (!sizeRaf) sizeRaf = requestAnimationFrame(commitSize);
+      if (sizeTimer) window.clearTimeout(sizeTimer);
+      sizeTimer = window.setTimeout(commitSize, 120);
       if (!didFitRef.current) {
         didFitRef.current = true;
         fitToContent(true);
@@ -633,7 +648,11 @@ export default function CharactersWeb({
       }
     });
     ro.observe(el);
-    return () => ro.disconnect();
+    return () => {
+      ro.disconnect();
+      if (sizeRaf) cancelAnimationFrame(sizeRaf);
+      if (sizeTimer) window.clearTimeout(sizeTimer);
+    };
   }, [fitToContent]);
 
   /* ── the single animation loop ────────────────────────────────── */
@@ -835,26 +854,49 @@ export default function CharactersWeb({
         }
       }
 
-      /* 3 — strings follow the same drifted coordinates */
-      for (let i = 0; i < E; i++) {
-        const el = edgeEls.current[i];
-        if (!el || el.style.display === "none") continue;
-        const e = edges[i];
-        const sx = curX[e.s];
-        const sy = curY[e.s];
-        const tx = curX[e.t];
-        const ty = curY[e.t];
-        if (
-          Math.abs(sx - lastEdgeSX[i]) > 0.04 ||
-          Math.abs(sy - lastEdgeSY[i]) > 0.04 ||
-          Math.abs(tx - lastEdgeTX[i]) > 0.04 ||
-          Math.abs(ty - lastEdgeTY[i]) > 0.04
-        ) {
-          lastEdgeSX[i] = sx;
-          lastEdgeSY[i] = sy;
-          lastEdgeTX[i] = tx;
-          lastEdgeTY[i] = ty;
-          el.setAttribute("d", quadPath(sx, sy, tx, ty, e.off));
+      /* 3 — strings follow the same drifted coordinates.
+         Update cadence: edge `d` strings are recomputed at HALF cadence when the
+         graph is idle and at FULL cadence only while a node is being dragged.
+         Drift is sub-pixel per frame (≤3.5px over 12–30s periods) and pan/zoom
+         only rewrites the world <g> transform — world-space endpoints never move
+         from the camera — so 30fps path updates are visually identical to 60fps.
+         Edges whose endpoints are both off-screen are skipped entirely; their `d`
+         is recomputed when the camera brings them back into view. */
+      const edgeEveryFrame = dragIdx !== -1;
+      if (edgeEveryFrame || frameCount % 2 === 0) {
+        const { w: vwPx, h: vhPx } = sizeRef.current;
+        const cull = vwPx > 0 && vhPx > 0 && cam.k > 0;
+        const cullMargin = COLLIDE_MAX_OFFSET + 64;
+        const minWX = cull ? 0 - cam.x / cam.k - cullMargin : -Infinity;
+        const minWY = cull ? 0 - cam.y / cam.k - cullMargin : -Infinity;
+        const maxWX = cull ? (vwPx - cam.x) / cam.k + cullMargin : Infinity;
+        const maxWY = cull ? (vhPx - cam.y) / cam.k + cullMargin : Infinity;
+
+        for (let i = 0; i < E; i++) {
+          const el = edgeEls.current[i];
+          if (!el || el.style.display === "none") continue;
+          const e = edges[i];
+          const sx = curX[e.s];
+          const sy = curY[e.s];
+          const tx = curX[e.t];
+          const ty = curY[e.t];
+          if (cull) {
+            const sIn = sx >= minWX && sx <= maxWX && sy >= minWY && sy <= maxWY;
+            const tIn = tx >= minWX && tx <= maxWX && ty >= minWY && ty <= maxWY;
+            if (!sIn && !tIn) continue;
+          }
+          if (
+            Math.abs(sx - lastEdgeSX[i]) > 0.04 ||
+            Math.abs(sy - lastEdgeSY[i]) > 0.04 ||
+            Math.abs(tx - lastEdgeTX[i]) > 0.04 ||
+            Math.abs(ty - lastEdgeTY[i]) > 0.04
+          ) {
+            lastEdgeSX[i] = sx;
+            lastEdgeSY[i] = sy;
+            lastEdgeTX[i] = tx;
+            lastEdgeTY[i] = ty;
+            el.setAttribute("d", quadPath(sx, sy, tx, ty, e.off));
+          }
         }
       }
 
@@ -1002,9 +1044,16 @@ export default function CharactersWeb({
   };
 
   useEffect(() => {
-    const onMove = (e: PointerEvent) => {
+    /* Coalesce window pointermove: browsers can fire several events per frame
+       (240Hz mice, touch). Each one used to rewrite camRef/targetRef — wasted
+       work, since the rAF loop can only apply one camera state per frame. Events
+       now only record the latest pointer position; the pinch / drag / pan math
+       runs at most once per animation frame. */
+    let moveRaf = 0;
+    let latestMove: PointerEvent | null = null;
+
+    const applyPointerMove = (e: PointerEvent) => {
       const pts = pointersRef.current;
-      if (pts.has(e.pointerId)) pts.set(e.pointerId, { x: e.clientX, y: e.clientY });
 
       // Pinch zoom — anchored on the pinch midpoint, applied directly for 1:1 feel.
       const pinch = pinchRef.current;
@@ -1072,9 +1121,29 @@ export default function CharactersWeb({
       }
     };
 
+    const onMove = (e: PointerEvent) => {
+      const pts = pointersRef.current;
+      if (pts.has(e.pointerId)) pts.set(e.pointerId, { x: e.clientX, y: e.clientY });
+      latestMove = e;
+      if (moveRaf) return;
+      moveRaf = requestAnimationFrame(() => {
+        moveRaf = 0;
+        const evt = latestMove;
+        latestMove = null;
+        if (evt) applyPointerMove(evt);
+      });
+    };
+
     const onUp = (e: PointerEvent) => {
       pointersRef.current.delete(e.pointerId);
-      if (pointersRef.current.size === 0) rectRef.current = null;
+      if (pointersRef.current.size === 0) {
+        rectRef.current = null;
+        if (moveRaf) {
+          cancelAnimationFrame(moveRaf);
+          moveRaf = 0;
+          latestMove = null;
+        }
+      }
       if (pointersRef.current.size >= 2) {
         beginPinch();
       } else {
@@ -1107,6 +1176,11 @@ export default function CharactersWeb({
       dragNodeRef.current = null;
       isGrabbingRef.current = false;
       if (svgRef.current) svgRef.current.style.cursor = "";
+      if (moveRaf) {
+        cancelAnimationFrame(moveRaf);
+        moveRaf = 0;
+        latestMove = null;
+      }
     };
 
     window.addEventListener("pointermove", onMove);
@@ -1114,6 +1188,11 @@ export default function CharactersWeb({
     window.addEventListener("pointercancel", onUp);
     window.addEventListener("blur", onBlur);
     return () => {
+      if (moveRaf) {
+        cancelAnimationFrame(moveRaf);
+        moveRaf = 0;
+        latestMove = null;
+      }
       window.removeEventListener("pointermove", onMove);
       window.removeEventListener("pointerup", onUp);
       window.removeEventListener("pointercancel", onUp);

@@ -47,6 +47,7 @@ export function RoleSelect({
         value={value}
         onChange={onChange}
         disabled={pending || locked}
+        aria-label="User role"
         title={locked ? (isProtected ? "System owner — protected account" : "You can't change your own role") : undefined}
         className="h-8 rounded-md border border-ink-dim/20 bg-surface px-2 text-xs text-ink focus:outline-none focus:ring-2 focus:ring-accent/20 disabled:opacity-60"
       >
