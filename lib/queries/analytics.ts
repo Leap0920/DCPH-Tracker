@@ -159,15 +159,18 @@ interface ArcRow {
   end_episode: number | null
 }
 
-/**
- * All self-analytics for a user, computed from their watch_status rows.
- */
-export async function getSelfAnalytics(userId: string): Promise<SelfAnalytics> {
-  const supabase = await createClient()
+/** The server client is created per-request, so derive its type rather than naming it. */
+type ServerClient = Awaited<ReturnType<typeof createClient>>
 
-  // 1. User's watch status rows.
-  // A completionist has >1,000 rows, so this must page the same way the
-  // leaderboard does — an unpaginated read silently truncated the stats.
+/**
+ * All of a user's watch_status rows, paged. A completionist has >1,000 rows,
+ * so this must page the same way the leaderboard does — an unpaginated read
+ * silently truncated the stats.
+ */
+async function fetchWatchStatusRows(
+  supabase: ServerClient,
+  userId: string
+): Promise<WatchStatusRow[]> {
   const rows: WatchStatusRow[] = []
   for (let from = 0; ; from += PAGE_SIZE) {
     const { data: chunk, error } = await supabase
@@ -182,8 +185,14 @@ export async function getSelfAnalytics(userId: string): Promise<SelfAnalytics> {
     rows.push(...(chunk as WatchStatusRow[]))
     if (chunk.length < PAGE_SIZE) break
   }
+  return rows
+}
 
-  // 2. Total catalog count & content type breakdown in DB
+/**
+ * The whole catalog's id/type/slug/episode-number rows, paged. Used to derive
+ * totals and type breakdowns in JS — see getSelfAnalytics below.
+ */
+async function fetchCatalogRows(supabase: ServerClient): Promise<CatalogRow[]> {
   const catalogEntries: CatalogRow[] = []
   for (let offset = 0; ; offset += PAGE_SIZE) {
     const { data: page, error: pageError } = await supabase
@@ -195,6 +204,27 @@ export async function getSelfAnalytics(userId: string): Promise<SelfAnalytics> {
     catalogEntries.push(...(page as CatalogRow[]))
     if (page.length < PAGE_SIZE) break
   }
+  return catalogEntries
+}
+
+/**
+ * All self-analytics for a user, computed from their watch_status rows.
+ */
+export async function getSelfAnalytics(userId: string): Promise<SelfAnalytics> {
+  const supabase = await createClient()
+
+  // The three top-level reads are independent — run them concurrently so the
+  // /analytics view costs max(read) of round-trips instead of the serial sum.
+  const [rows, catalogEntries, arcsResult] = await Promise.all([
+    fetchWatchStatusRows(supabase, userId),
+    fetchCatalogRows(supabase),
+    supabase
+      .from("arcs")
+      .select("id, slug, title, description, start_episode, end_episode")
+      .order("start_episode", { ascending: true }),
+  ])
+
+  if (arcsResult.error) throw arcsResult.error
 
   // Non-mainline movies (Lupin III crossover, TV specials, manner short) live in
   // the catalog but do not count toward the mainline movie totals (29 films).
@@ -228,15 +258,7 @@ export async function getSelfAnalytics(userId: string): Promise<SelfAnalytics> {
     catalogTypeCounts.set("movie", MAINLINE_MOVIES.length)
   }
 
-  // 3. Story Arcs list
-  const { data: arcsList, error: arcsError } = await supabase
-    .from("arcs")
-    .select("id, slug, title, description, start_episode, end_episode")
-    .order("start_episode", { ascending: true })
-
-  if (arcsError) throw arcsError
-
-  const arcs = (arcsList ?? []) as ArcRow[]
+  const arcs = (arcsResult.data ?? []) as ArcRow[]
 
   // content_entries.arc_id is populated on only a handful of rows, so arc
   // membership is resolved by episode-number range — same rule as /arcs.

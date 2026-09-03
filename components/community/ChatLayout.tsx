@@ -2,10 +2,34 @@
 
 import Link from "next/link"
 import { useState } from "react"
+import dynamic from "next/dynamic"
 import { MessagesSquare, X } from "lucide-react"
 import { cn } from "@/lib/utils"
 import type { Database } from "@/types/database.types"
-import { ChatWindow } from "@/components/community/ChatWindow"
+
+/**
+ * The message window (931 lines + realtime client) mounts in its own chunk
+ * after first paint, keeping the room shell (sidebar + header) instant.
+ */
+const ChatWindow = dynamic(
+  () => import("@/components/community/ChatWindow").then((m) => m.ChatWindow),
+  {
+    ssr: false,
+    loading: () => (
+      <div className="flex flex-1 flex-col" aria-busy="true">
+        <div className="flex items-center gap-3 border-b border-ink-dim/20 px-5 py-4">
+          <div className="h-4 w-40 rounded bg-surface-muted animate-pulse" />
+        </div>
+        <div className="flex-1 space-y-4 p-5">
+          <div className="ml-auto h-10 w-2/3 max-w-sm rounded-2xl bg-surface-muted animate-pulse" />
+          <div className="h-10 w-2/3 max-w-sm rounded-2xl bg-surface-muted animate-pulse" />
+          <div className="ml-auto h-10 w-1/2 max-w-xs rounded-2xl bg-surface-muted animate-pulse" />
+        </div>
+        <div className="m-5 h-11 rounded-lg bg-surface-muted animate-pulse" />
+      </div>
+    ),
+  }
+)
 
 type ChatRoom = Database["public"]["Tables"]["chat_rooms"]["Row"]
 

@@ -39,13 +39,43 @@ import {
   fetchAdjacentEntries,
   fetchContentRating,
 } from "@/lib/queries/client/episode"
-import { CommentSection } from "@/components/tracker/CommentSection"
-import { EpisodeWikiDetails } from "@/components/tracker/EpisodeWikiDetails"
+import dynamic from "next/dynamic"
 import type { Database } from "@/types/database.types"
 
 type ContentEntry = Database["public"]["Tables"]["content_entries"]["Row"] & {
   arcs: Database["public"]["Tables"]["arcs"]["Row"] | null
 }
+
+/**
+ * Below-the-fold extras load in their own chunks (ssr:false): the wiki panel
+ * and the whole comments tree are fetched/hydrated only after the hero block
+ * is interactive, so a case-file page's first paint no longer pays for them.
+ */
+const EpisodeWikiDetails = dynamic(
+  () =>
+    import("@/components/tracker/EpisodeWikiDetails").then(
+      (m) => m.EpisodeWikiDetails
+    ),
+  {
+    ssr: false,
+    loading: () => <Skeleton className="mt-6 h-40 w-full" />,
+  }
+)
+
+const CommentSection = dynamic(
+  () =>
+    import("@/components/tracker/CommentSection").then((m) => m.CommentSection),
+  {
+    ssr: false,
+    loading: () => (
+      <div className="mt-6 space-y-3" aria-busy="true">
+        <Skeleton className="h-5 w-40" />
+        <Skeleton className="h-24 w-full" />
+        <Skeleton className="h-10 w-full" />
+      </div>
+    ),
+  }
+)
 
 /** Read-only half-star row (full / half / empty) for the community average. */
 function StarRow({ halfStars }: { halfStars: number }) {

@@ -4,6 +4,7 @@ import { type NextRequest, NextResponse } from "next/server"
 import type { Database } from "@/types/database.types"
 import { SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY } from "@/lib/env"
 import { applySecurityHeaders, copyCookies } from "@/lib/security-headers"
+import { REQUEST_TIMEOUT_MS, withTimeout } from "@/lib/request-timeout"
 
 const PROTECTED_PATHS = [
   "/tracker",
@@ -119,33 +120,60 @@ export async function updateSession(
   const finalize = (response: NextResponse) =>
     applySecurityHeaders(response, security.csp)
 
-  // IMPORTANT: no logic between createServerClient and getUser.
-  const {
-    data: { user },
-  } = await supabase.auth.getUser()
-
   const { pathname } = request.nextUrl
 
-  // API routes authenticate themselves; skip the profile round trips but
-  // still return the refreshed-session response above.
-  if (pathname.startsWith("/api/")) {
+  const isProtected = PROTECTED_PATHS.some((path) => pathname.startsWith(path))
+  const isApiRoute = pathname.startsWith("/api/")
+
+  // Public pages never pay for auth: skip getUser entirely so a slow DB
+  // cannot slow the homepage. Session refresh happens on protected/API.
+  if (!isProtected && !isApiRoute) {
     return finalize(supabaseResponse)
   }
 
-  const isProtected = PROTECTED_PATHS.some((path) => pathname.startsWith(path))
+  // Bounded auth: a slow DB fails open for API (they auth themselves) and
+  // fails closed for protected pages (null user redirects to sign-in below).
+  // IMPORTANT: no logic between createServerClient and getUser besides the
+  // synchronous path checks above.
+  let user: Awaited<ReturnType<typeof supabase.auth.getUser>>["data"]["user"] =
+    null
+  try {
+    const { data } = await withTimeout(
+      supabase.auth.getUser(),
+      REQUEST_TIMEOUT_MS
+    )
+    user = data.user
+  } catch {
+    user = null
+  }
 
-  if (isProtected && !user) {
+  // API routes authenticate themselves; skip the profile round trips but
+  // still return the refreshed-session response above.
+  if (isApiRoute) {
+    return finalize(supabaseResponse)
+  }
+
+  if (!user) {
     return redirectTo("/", { auth: "signin" })
   }
 
-  if (isProtected && user) {
+  if (user) {
     // Single query: status AND role. Previously /admin queried profiles twice.
     // maybeSingle() so a missing row is `null` rather than an error.
-    const { data: profile, error: profileError } = await supabase
-      .from("profiles")
-      .select("status, role")
-      .eq("user_id", user.id)
-      .maybeSingle()
+    // Bounded so a slow DB cannot hang protected navigations.
+    let profile: { status: string | null; role: string | null } | null = null
+    let profileError: unknown = null
+    try {
+      const result = await withTimeout(
+        supabase.from("profiles").select("status, role").eq("user_id", user.id).maybeSingle(),
+        REQUEST_TIMEOUT_MS
+      )
+      profile = result.data as { status: string | null; role: string | null } | null
+      profileError = result.error
+    } catch (error) {
+      profile = null
+      profileError = error
+    }
 
     // Fail-open if the status column hasn't been migrated yet. Once the
     // migration has shipped, consider treating an error as a hard failure —

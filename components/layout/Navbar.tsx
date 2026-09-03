@@ -4,7 +4,6 @@ import Link from "next/link"
 import Image from "next/image"
 import { usePathname, useRouter } from "next/navigation"
 import { useState, useEffect, useRef } from "react"
-import { motion } from "framer-motion"
 import {
   Menu,
   X,
@@ -54,14 +53,15 @@ const iconMap: Record<string, React.ElementType> = {
   FileText,
 }
 
-/** Shared sliding indicator under the active desktop nav item. */
+/**
+ * Active-nav indicator. CSS transition only (no framer-motion): exactly one
+ * underline exists at a time (underlineKey is a single value), so the
+ * shared-layout "slide" is approximated by mounting under the active item.
+ * This keeps framer-motion (~110kB) out of the Navbar chunk entirely.
+ */
 function NavUnderline() {
   return (
-    <motion.span
-      layoutId="dcph-nav-underline"
-      className="absolute inset-x-2 -bottom-[1px] h-[2px] rounded-full bg-accent"
-      transition={{ type: "spring", stiffness: 420, damping: 34 }}
-    />
+    <span className="absolute inset-x-2 -bottom-[1px] h-[2px] rounded-full bg-accent" />
   )
 }
 
@@ -467,12 +467,7 @@ export function Navbar() {
 
       {/* Mobile nav */}
       {mobileOpen && (
-        <motion.div
-          initial={{ opacity: 0, y: -8 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.25, ease: [0.16, 1, 0.3, 1] }}
-          className="md:hidden border-t border-line bg-surface/95 backdrop-blur-md max-h-[calc(100vh-4rem)] overflow-y-auto"
-        >
+        <div className="md:hidden border-t border-line bg-surface/95 backdrop-blur-md max-h-[calc(100vh-4rem)] overflow-y-auto">
           <div className="flex flex-col px-6 py-4 gap-4">
             {/* Section: Main */}
             <div>
@@ -612,7 +607,7 @@ export function Navbar() {
               )}
             </div>
           </div>
-        </motion.div>
+        </div>
       )}
     </header>
   )

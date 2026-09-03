@@ -1,6 +1,6 @@
 ﻿import { notFound } from "next/navigation"
 import { createClient } from "@/utils/supabase/server"
-import { ContentForm } from "@/components/admin/ContentForm"
+import { ContentFormLoader } from "@/components/admin/ContentFormLoader"
 import { updateContentEntry } from "@/lib/actions/admin-content"
 
 export const dynamic = "force-dynamic"
@@ -30,7 +30,7 @@ export default async function EditContentPage({
       <h2 className="font-display text-sm tracking-tight text-ink-dim mb-5">
         Edit content entry
       </h2>
-      <ContentForm entry={entry} action={action} />
+      <ContentFormLoader entry={entry} action={action} />
     </div>
   )
 }

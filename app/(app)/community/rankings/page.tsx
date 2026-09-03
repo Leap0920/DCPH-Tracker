@@ -3,7 +3,7 @@ import { Trophy, LogIn, ArrowRight } from "lucide-react"
 import { createClient } from "@/utils/supabase/server"
 import { getRankings, getUserGlobalRank } from "@/lib/queries/leaderboard"
 import { getDetectiveRank } from "@/lib/ranks"
-import { RankingsBoard } from "@/components/community/RankingsBoard"
+import { RankingsBoardLoader } from "@/components/community/RankingsBoardLoader"
 import { Button } from "@/components/ui/button"
 import { AuthModalButton } from "@/components/auth/AuthModalButton"
 
@@ -17,21 +17,36 @@ export const metadata = {
 
 export default async function RankingsPage() {
   const supabase = await createClient()
-  const { data: { user } } = await supabase.auth.getUser()
+
+  // Auth and the leaderboard read are independent — run them concurrently so
+  // the page costs max(read) of round-trips, not the serial sum.
+  const [authResult, rankings] = await Promise.all([
+    supabase.auth.getUser(),
+    getRankings(100),
+  ])
+  const user = authResult.data.user
   const currentUserId = user?.id ?? null
 
-  let rankings = await getRankings(100)
   let you = null
   if (currentUserId) {
     you = rankings.find((r) => r.user_id === currentUserId) ?? null
   }
-  // Keep the "You" row in the list even if it ranks beyond the limit
+  // Keep the "You" row in the list even if it ranks beyond the limit. The two
+  // reads below depend only on the user id, so fetch them concurrently.
   if (currentUserId && !you) {
-    const { data: watched } = await supabase
-      .from("watch_status")
-      .select("user_id, status, watch_count, content_entries(runtime_minutes, type)")
-      .in("status", ["watched", "rewatched"])
-      .eq("user_id", currentUserId)
+    const [watchResult, profileResult] = await Promise.all([
+      supabase
+        .from("watch_status")
+        .select("user_id, status, watch_count, content_entries(runtime_minutes, type)")
+        .in("status", ["watched", "rewatched"])
+        .eq("user_id", currentUserId),
+      supabase
+        .from("profiles")
+        .select("username, display_name, avatar_url")
+        .eq("user_id", currentUserId)
+        .single(),
+    ])
+    const watched = watchResult.data
     if (watched && watched.length > 0) {
       const count = watched.length
       const rewatched = watched.filter((w) => w.status === "rewatched").length
@@ -44,11 +59,7 @@ export default async function RankingsPage() {
       const movieCount = watched.filter(
         (w) => (w.content_entries as { type: string | null } | null)?.type === "movie"
       ).length
-      const { data: profile } = await supabase
-        .from("profiles")
-        .select("username, display_name, avatar_url")
-        .eq("user_id", currentUserId)
-        .single()
+      const profile = profileResult.data
       if (profile) {
         const globalRank = await getUserGlobalRank(currentUserId, count, minutes)
         const detectiveRank = getDetectiveRank(count)
@@ -211,7 +222,7 @@ export default async function RankingsPage() {
         </div>
 
         <div className="mt-6 sm:mt-8">
-          <RankingsBoard rankings={rankings} currentUserId={currentUserId} you={you} />
+          <RankingsBoardLoader rankings={rankings} currentUserId={currentUserId} you={you} />
         </div>
       </div>
     </div>
