@@ -126,10 +126,13 @@ export const StatsCard = forwardRef<HTMLDivElement, StatsCardProps>(
 
         {/* content */}
         <div className="relative flex h-full flex-col px-[72px] py-[68px]">
-          {/* header */}
+          {/* header — the left block is allowed to compress (min-w-0 + a
+              wrapping badge) so the DCPH/WRAPPED mark on the right can
+              never be pushed past the card edge, even with the longest
+              rank titles or fallback fonts on slow phones. */}
           <div className="flex items-start justify-between">
-            <div className="flex items-center gap-[24px]">
-              <div className="h-[104px] w-[104px] overflow-hidden rounded-full ring-1 ring-white/20 shadow-md">
+            <div className="flex min-w-0 items-center gap-[24px]">
+              <div className="h-[104px] w-[104px] shrink-0 overflow-hidden rounded-full ring-1 ring-white/20 shadow-md">
                 {avatarUrl ? (
                   <Image
                     src={avatarUrl}
@@ -146,16 +149,16 @@ export const StatsCard = forwardRef<HTMLDivElement, StatsCardProps>(
                   </div>
                 )}
               </div>
-              <div className="flex flex-col gap-[6px]">
-                <div className="font-display text-[46px] font-semibold leading-none tracking-[-0.02em] text-white [text-shadow:0_2px_12px_rgba(0,0,0,0.9)]">
+              <div className="flex min-w-0 flex-col gap-[6px]">
+                <div className="truncate font-display text-[46px] font-semibold leading-none tracking-[-0.02em] text-white [text-shadow:0_2px_12px_rgba(0,0,0,0.9)]">
                   {displayName}
                 </div>
-                <div className="flex items-center gap-[14px]">
+                <div className="flex flex-wrap items-center gap-x-[14px] gap-y-[8px]">
                   <span className="font-mono text-[26px] leading-none text-white/70 [text-shadow:0_2px_8px_rgba(0,0,0,0.85)]">
                     @{username}
                   </span>
                   {stats.rankTitle ? (
-                    <span className="rounded-full border border-white/20 bg-black/40 px-[14px] py-[3px] font-mono text-[16px] font-medium text-white/90 shadow-sm backdrop-blur-sm">
+                    <span className="whitespace-nowrap rounded-full border border-white/20 bg-black/40 px-[14px] py-[3px] font-mono text-[16px] font-medium text-white/90 shadow-sm backdrop-blur-sm">
                       {stats.rankTitle}
                     </span>
                   ) : null}
@@ -163,7 +166,7 @@ export const StatsCard = forwardRef<HTMLDivElement, StatsCardProps>(
               </div>
             </div>
 
-            <div className="flex flex-col items-end gap-[8px] [text-shadow:0_2px_10px_rgba(0,0,0,0.9)]">
+            <div className="flex shrink-0 flex-col items-end gap-[8px] [text-shadow:0_2px_10px_rgba(0,0,0,0.9)]">
               <div className="font-display text-[30px] font-bold leading-none tracking-[-0.01em] text-white">
                 DCPH
               </div>

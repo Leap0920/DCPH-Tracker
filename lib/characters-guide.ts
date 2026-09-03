@@ -129,7 +129,7 @@ const CHARACTER_IMAGES: Record<string, string> = {
   "shoji-terabayashi": "Shoji Terabayashi.jpg",
   "kyohei-nishimura": "Kyohei Nishimura.jpg",
   "iori-muga": "Iori Muga.jpg",
-  "ryusuke-higo": "?Ryusuke Higo.jpg",
+  "ryusuke-higo": "Ryusuke Higo.jpg",
   "hideo-akagi": "Hideo Akagi.jpg",
   "enomoto-azusa": "Enomoto Azusa.jpg",
   "ooka-momoji": "Ooka Mimoji.jpg",

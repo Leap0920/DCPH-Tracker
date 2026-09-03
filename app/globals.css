@@ -251,20 +251,11 @@
     animation: dcph-ripple 2.8s cubic-bezier(0.16, 1, 0.3, 1) infinite;
   }
 
-  .dcph-aura-a {
-    animation: dcph-aura-a 26s ease-in-out infinite;
-  }
-  .dcph-aura-b {
-    animation: dcph-aura-b 34s ease-in-out infinite;
-  }
-
   /* Graph idle park: while the rAF loop is suspended (idle or hidden tab)
      the canvas should be FULLY still — pause every keyframe that animates
-     it, or the 95 breathing rings + auras would keep the compositor busy. */
+     it, or the 95 breathing rings would keep the compositor busy. */
   .dcph-parked .dcph-breathe,
-  .dcph-parked .dcph-ripple,
-  .dcph-parked .dcph-aura-a,
-  .dcph-parked .dcph-aura-b {
+  .dcph-parked .dcph-ripple {
     animation-play-state: paused;
   }
 
@@ -352,25 +343,6 @@
   }
 }
 
-@keyframes dcph-aura-a {
-  0%,
-  100% {
-    opacity: 0.75;
-  }
-  50% {
-    opacity: 1;
-  }
-}
-
-@keyframes dcph-aura-b {
-  0%,
-  100% {
-    opacity: 1;
-  }
-  50% {
-    opacity: 0.75;
-  }
-}
 
 @keyframes dcph-sweep {
   from {

@@ -20,6 +20,13 @@ describe("characters graph theme & geometry", () => {
     expect(clamp(15, 0, 10)).toBe(10)
   })
 
+  it("ensures all characters have defined x and y coordinates", () => {
+    for (const c of CHARACTERS) {
+      expect(c.x).toBeTypeOf("number")
+      expect(c.y).toBeTypeOf("number")
+    }
+  })
+
   it("resolves valid faction themes for all characters", () => {
     for (const c of CHARACTERS) {
       const { key, theme } = resolveFaction(c.affiliation)

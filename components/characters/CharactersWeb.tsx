@@ -60,12 +60,10 @@ import {
   type RelationshipType,
 } from "@/lib/characters-guide";
 import {
-  FACTION_KEYS,
   FACTION_THEMES,
   LOCKED_EDGE_COLOR,
   LOCKED_THEME,
   clamp,
-  factionSlug,
   getNodeRadius,
   getRelationshipColor,
   hash32,
@@ -100,7 +98,7 @@ export function useMediaQuery(query: string): boolean {
 const MAX_ZOOM = 4;
 const ZOOM_STEP = 1.35;
 const ZOOM_TO_NODE = 1.9;
-const FIT_MIN_K = 0.25;
+const FIT_MIN_K = 0.6;
 const FIT_MAX_K = 1.6;
 
 /** Camera smoothing time constant (ms). Lower = snappier. */
@@ -139,7 +137,6 @@ const EDGE_STYLE_HIDDEN: CSSProperties = {
   transition: "opacity 180ms ease, stroke-width 180ms ease",
   display: "none",
 };
-const NODE_FADE_STYLE: CSSProperties = { transition: "opacity 180ms ease" };
 
 /* ── canvas palette (mirrors the CSS tokens; see header note) ────── */
 const CANVAS = {
@@ -152,13 +149,7 @@ const CANVAS = {
     labelHalo: "#000000",                 // --page
     strokeStrong: "#FFFFFF",
     particle: "#A1A1A1",                  // --ink-dim
-    auraNeutral: "#EDEDED",
-    auraNeutralOpacity: 0.06,
-    auraAccent: "#C8102E",                // --accent
-    auraAccentOpacity: 0.16,
     dotRadius: 1.1,
-    glowInner: 0.5,
-    glowMid: 0.2,
     stringActive: 0.75,
     stringIdle: 0.26,
   },
@@ -171,13 +162,7 @@ const CANVAS = {
     labelHalo: "#FFFFFF",
     strokeStrong: "#171717",
     particle: "#64748B",
-    auraNeutral: "#94A3B8",
-    auraNeutralOpacity: 0.13,
-    auraAccent: "#B30C25",
-    auraAccentOpacity: 0.1,
     dotRadius: 1.3,
-    glowInner: 0.34,
-    glowMid: 0.13,
     stringActive: 0.62,
     stringIdle: 0.18,
   },
@@ -231,8 +216,9 @@ function usableRect(
 }
 
 function labelOpacityFor(k: number, tier: 0 | 1 | 2): number {
-  const start = tier === 0 ? 0.3 : tier === 1 ? 0.46 : 0.62;
-  return clamp((k - start) / 0.22, 0, 1);
+  if (tier === 0) return 1;
+  if (tier === 1) return clamp(k / 0.55, 0.75, 1);
+  return clamp((k - 0.35) / 0.25, 0, 1);
 }
 
 /* ── per-node / per-edge specs ────────────────────────────────────── */
@@ -350,10 +336,6 @@ const NodeView = memo(function NodeView({
   onHoverChange,
 }: NodeViewProps) {
   const isConan = n.c.id === "conan-edogawa";
-  const isLocked = n.locked;
-  const glowUrl = isLocked
-    ? "url(#dcph-glow-locked)"
-    : `url(#dcph-glow-${factionSlug(n.factionKey)})`;
   const emphasised = isSelected || isHovered;
 
   return (
@@ -388,16 +370,6 @@ const NodeView = memo(function NodeView({
       onFocus={() => onHoverChange(n.c.id)}
       onBlur={() => onHoverChange(null)}
     >
-      {/* Ambient faction halo — always on, stronger when active */}
-      <circle
-        key="halo"
-        r={n.r * 2.6}
-        fill={glowUrl}
-        opacity={emphasised || isConan ? 1 : isSearchMatch ? 0.85 : 0.42}
-        style={NODE_FADE_STYLE}
-        pointerEvents="none"
-      />
-
       {isConan && (
         <circle
           key="conan-ripple"
@@ -416,7 +388,7 @@ const NodeView = memo(function NodeView({
         className="dcph-breathe"
         r={n.r + 3}
         fill="none"
-        stroke={isLocked ? LOCKED_THEME.stroke : n.theme.border}
+        stroke={n.theme.border}
         strokeWidth={1}
         pointerEvents="none"
         style={
@@ -435,13 +407,7 @@ const NodeView = memo(function NodeView({
         key="state-ring"
         r={n.r + 7}
         fill="none"
-        stroke={
-          isLocked
-            ? LOCKED_THEME.stroke
-            : isSelected
-              ? pal.strokeStrong
-              : n.theme.border
-        }
+        stroke={isSelected ? pal.strokeStrong : n.theme.border}
         strokeWidth={2}
         className="opacity-0 transition-opacity duration-200 group-hover:opacity-100"
         style={isSelected || isSearchMatch ? { opacity: 1 } : undefined}
@@ -453,26 +419,15 @@ const NodeView = memo(function NodeView({
         key="node-body"
         r={n.r}
         fill={
-          isLocked
-            ? isDark
-              ? LOCKED_THEME.fill
-              : LOCKED_THEME.fillLight
-            : isSelected
-              ? n.theme.primary
-              : isDark
-                ? n.theme.darkFill
-                : n.theme.lightFill
+          isSelected
+            ? n.theme.primary
+            : isDark
+              ? n.theme.darkFill
+              : n.theme.lightFill
         }
-        stroke={
-          isLocked
-            ? LOCKED_THEME.stroke
-            : emphasised
-              ? pal.strokeStrong
-              : n.theme.border
-        }
+        stroke={emphasised ? pal.strokeStrong : n.theme.border}
         strokeWidth={isConan ? 3.5 : isSelected ? 3 : 2}
-        strokeDasharray={isLocked ? LOCKED_THEME.dash : undefined}
-        opacity={isLocked ? 0.9 : 1}
+        opacity={1}
         className="transition-[fill,stroke] duration-200"
       />
 
@@ -480,13 +435,7 @@ const NodeView = memo(function NodeView({
       <circle
         key="node-core"
         r={isConan ? 6 : n.r > 16 ? 4.5 : 3.5}
-        fill={
-          isLocked
-            ? LOCKED_THEME.stroke
-            : emphasised
-              ? pal.strokeStrong
-              : n.theme.primary
-        }
+        fill={emphasised ? pal.strokeStrong : n.theme.primary}
         pointerEvents="none"
       />
 
@@ -510,11 +459,7 @@ const NodeView = memo(function NodeView({
                 : "text-[12px] font-semibold"
           )}
           style={{
-            fill: isLocked
-              ? LOCKED_THEME.label
-              : emphasised
-                ? pal.labelStrong
-                : pal.label,
+            fill: emphasised ? pal.labelStrong : pal.label,
             paintOrder: "stroke",
             stroke: pal.labelHalo,
             strokeWidth: 3,
@@ -522,7 +467,7 @@ const NodeView = memo(function NodeView({
             vectorEffect: "non-scaling-stroke",
           }}
         >
-          {isLocked ? "???" : n.c.name.split("/")[0].trim()}
+          {n.c.name.split("/")[0].trim()}
         </text>
       </g>
     </g>
@@ -642,8 +587,7 @@ export default function CharactersWeb({
         factionKey,
         theme,
         degree: d,
-        // Hoisted at build time so the render loop never re-casts Character.
-        locked: Boolean((c as unknown as { locked?: boolean }).locked),
+        locked: false,
         // Periods land between ~12s and ~30s — slow enough to read as "alive",
         // never fast enough to look like a physics simulation.
         f1: 0.00021 + rand01(seed, 1) * 0.00028,
@@ -674,19 +618,14 @@ export default function CharactersWeb({
       const total = counts.get(key) ?? 1;
       const idx = used.get(key) ?? 0;
       used.set(key, idx + 1);
-      const lockedEdge = Boolean(
-        (r as unknown as { locked?: boolean }).locked
-      );
       edges.push({
         rel: r,
         s,
         t,
         off: idx - (total - 1) / 2,
-        locked: lockedEdge,
-        color: lockedEdge
-          ? LOCKED_EDGE_COLOR
-          : getRelationshipColor(r.type, isDark),
-        dash: lockedEdge ? LOCKED_THEME.dash : undefined,
+        locked: false,
+        color: getRelationshipColor(r.type, isDark),
+        dash: undefined,
       });
     }
 
@@ -767,8 +706,6 @@ export default function CharactersWeb({
     if (!searchLower) return new Set<string>();
     const set = new Set<string>();
     for (const c of characters) {
-      const isLocked = Boolean((c as unknown as { locked?: boolean }).locked);
-      if (isLocked) continue;
       if (
         c.name.toLowerCase().includes(searchLower) ||
         c.role.toLowerCase().includes(searchLower) ||
@@ -817,12 +754,13 @@ export default function CharactersWeb({
       const { w, h } = sizeRef.current;
       if (!w || !h) return;
       const vp = usableRect(w, h, isMobileRef.current, panelOpenRef.current);
+      const minFit = isMobileRef.current ? 0.75 : 0.6;
       const k = clamp(
         Math.min(vp.w / bbox.w, vp.h / bbox.h),
-        FIT_MIN_K,
+        minFit,
         FIT_MAX_K
       );
-      minZoomRef.current = Math.min(0.2, k * 0.6);
+      minZoomRef.current = FIT_MIN_K;
       const next = {
         k,
         x: vp.x + (vp.w - bbox.w * k) / 2 - bbox.minX * k,
@@ -836,7 +774,13 @@ export default function CharactersWeb({
   );
 
   const zoomToPoint = useCallback(
-    (wx: number, wy: number, k = ZOOM_TO_NODE, panelOpen?: boolean) => {
+    (
+      wx: number,
+      wy: number,
+      k = ZOOM_TO_NODE,
+      panelOpen?: boolean,
+      instant = false
+    ) => {
       const { w, h } = sizeRef.current;
       if (!w || !h) return;
       const vp = usableRect(
@@ -846,13 +790,14 @@ export default function CharactersWeb({
         panelOpen ?? panelOpenRef.current
       );
       const kk = clamp(k, minZoomRef.current, MAX_ZOOM);
-      targetRef.current = {
+      const next = {
         k: kk,
         x: vp.x + vp.w / 2 - wx * kk,
         y: vp.y + vp.h / 2 - wy * kk,
       };
-      if (reduceRef.current) camRef.current = { ...targetRef.current };
-      userAdjustedRef.current = true;
+      targetRef.current = next;
+      if (instant || reduceRef.current) camRef.current = { ...next };
+      userAdjustedRef.current = !instant;
     },
     []
   );
@@ -875,16 +820,23 @@ export default function CharactersWeb({
     userAdjustedRef.current = true;
   }, []);
 
-  const centerOnConan = useCallback(() => {
-    const i = indexById.get("conan-edogawa");
-    if (i === undefined) {
-      fitToContent();
-      return;
-    }
-    const wx = geom.curX[i] || geom.base[i * 2];
-    const wy = geom.curY[i] || geom.base[i * 2 + 1];
-    zoomToPoint(wx, wy, 1.35);
-  }, [indexById, geom, zoomToPoint, fitToContent]);
+  const centerOnConan = useCallback(
+    (instant = false) => {
+      const i = indexById.get("conan-edogawa");
+      if (i === undefined) {
+        fitToContent(instant);
+        return;
+      }
+      const wx = geom.curX[i] || geom.base[i * 2];
+      const wy = geom.curY[i] || geom.base[i * 2 + 1];
+      const k = isMobileRef.current ? 1.05 : 1.35;
+      zoomToPoint(wx, wy, k, undefined, instant);
+      if (instant) {
+        userAdjustedRef.current = false;
+      }
+    },
+    [indexById, geom, zoomToPoint, fitToContent]
+  );
 
   /* ── synchronous node / edge / label layout setup ─────────────── */
   useIsoLayoutEffect(() => {
@@ -949,10 +901,10 @@ export default function CharactersWeb({
       sizeTimer = window.setTimeout(commitSize, 120);
       if (!didFitRef.current) {
         didFitRef.current = true;
-        fitToContent(true);
+        centerOnConan(true);
         setReady(true);
       } else if (!userAdjustedRef.current) {
-        fitToContent();
+        centerOnConan();
       }
     });
     ro.observe(el);
@@ -961,7 +913,7 @@ export default function CharactersWeb({
       if (sizeRaf) cancelAnimationFrame(sizeRaf);
       if (sizeTimer) window.clearTimeout(sizeTimer);
     };
-  }, [fitToContent]);
+  }, [centerOnConan]);
 
   /* ── the single animation loop ────────────────────────────────── */
   useEffect(() => {
@@ -1627,12 +1579,11 @@ export default function CharactersWeb({
         return;
       if (e.key === "+" || e.key === "=") zoomBy(ZOOM_STEP);
       else if (e.key === "-" || e.key === "_") zoomBy(1 / ZOOM_STEP);
-      else if (e.key === "0") fitToContent();
-      else if (e.key.toLowerCase() === "c") centerOnConan();
+      else if (e.key === "0" || e.key.toLowerCase() === "c") centerOnConan();
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [zoomBy, fitToContent, centerOnConan]);
+  }, [zoomBy, centerOnConan]);
 
   /* ── selection ────────────────────────────────────────────────── */
   // Stable identities so memoized NodeViews never see a fresh function on
@@ -1712,75 +1663,13 @@ export default function CharactersWeb({
             <stop offset="100%" stopColor={pal.bg1} />
           </radialGradient>
 
-          {/* Aura A: a neutral light bloom (was cyan — the only cyan in the
-              app, and it read as a leftover next to the crimson accent). */}
-          <radialGradient id="dcph-aura-a" cx="50%" cy="50%" r="50%">
-            <stop
-              offset="0%"
-              stopColor={pal.auraNeutral}
-              stopOpacity={pal.auraNeutralOpacity}
-            />
-            <stop offset="100%" stopColor={pal.auraNeutral} stopOpacity="0" />
-          </radialGradient>
-          {/* Aura B: the single accent bloom. */}
-          <radialGradient id="dcph-aura-b" cx="50%" cy="50%" r="50%">
-            <stop
-              offset="0%"
-              stopColor={pal.auraAccent}
-              stopOpacity={pal.auraAccentOpacity}
-            />
-            <stop offset="100%" stopColor={pal.auraAccent} stopOpacity="0" />
-          </radialGradient>
-
           <pattern id="dcph-dots" width="26" height="26" patternUnits="userSpaceOnUse">
             <circle cx="13" cy="13" r={pal.dotRadius} fill={pal.dot} />
           </pattern>
-
-          {/* One soft-glow gradient per faction — gives every node a real
-              neon halo with zero SVG filters (filters at 62x kill the frame). */}
-          {FACTION_KEYS.map((key) => {
-            const t = FACTION_THEMES[key];
-            return (
-              <radialGradient
-                key={key}
-                id={`dcph-glow-${factionSlug(key)}`}
-                cx="50%"
-                cy="50%"
-                r="50%"
-              >
-                <stop offset="0%" stopColor={t.primary} stopOpacity={pal.glowInner} />
-                <stop offset="55%" stopColor={t.primary} stopOpacity={pal.glowMid} />
-                <stop offset="100%" stopColor={t.primary} stopOpacity="0" />
-              </radialGradient>
-            );
-          })}
-          <radialGradient id="dcph-glow-locked" cx="50%" cy="50%" r="50%">
-            <stop offset="0%" stopColor={LOCKED_THEME.glow} stopOpacity={pal.glowInner} />
-            <stop offset="55%" stopColor={LOCKED_THEME.glow} stopOpacity={pal.glowMid} />
-            <stop offset="100%" stopColor={LOCKED_THEME.glow} stopOpacity="0" />
-          </radialGradient>
         </defs>
 
-        {/* Background stack: vignette → drifting auras → dot matrix → motes */}
+        {/* Background stack: crisp clean dark vignette → dot matrix */}
         <rect width={vw} height={vh} fill="url(#dcph-bg)" />
-        <g>
-          <ellipse
-            className="dcph-aura-a"
-            cx={vw * 0.32}
-            cy={vh * 0.3}
-            rx={vw * 0.42}
-            ry={vh * 0.4}
-            fill="url(#dcph-aura-a)"
-          />
-          <ellipse
-            className="dcph-aura-b"
-            cx={vw * 0.74}
-            cy={vh * 0.68}
-            rx={vw * 0.38}
-            ry={vh * 0.36}
-            fill="url(#dcph-aura-b)"
-          />
-        </g>
         <rect width={vw} height={vh} fill="url(#dcph-dots)" />
 
         <g aria-hidden pointerEvents="none" className="pointer-events-none">
@@ -1828,7 +1717,7 @@ export default function CharactersWeb({
                   edgeEls={edgeEls}
                   hidden={hidden}
                   isTarget={isTarget}
-                  opacity={e.locked ? 0.22 : opacity}
+                  opacity={opacity}
                 />
               );
             })}
@@ -1949,7 +1838,7 @@ export default function CharactersWeb({
             plain --accent is too dark to read as small text on near-black. */}
         <button
           type="button"
-          onClick={centerOnConan}
+          onClick={() => centerOnConan()}
           aria-label="Center on Conan Edogawa"
           title="Center on Conan Edogawa (C)"
           className="flex items-center gap-1 rounded-full bg-accent/10 px-3 py-1.5 font-display text-xs font-medium text-accent-bright transition-colors hover:bg-accent/20"
@@ -1987,9 +1876,9 @@ export default function CharactersWeb({
         </button>
         <button
           type="button"
-          onClick={() => fitToContent()}
-          aria-label="Fit graph to view"
-          title="Fit graph to view (0)"
+          onClick={() => centerOnConan()}
+          aria-label="Reset view to Conan"
+          title="Reset view (0 / C)"
           className="flex h-8 w-8 items-center justify-center rounded-full text-ink-dim transition-colors hover:bg-surface-muted hover:text-ink"
         >
           <RotateCcw className="h-4 w-4" />
