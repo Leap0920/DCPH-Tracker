@@ -130,7 +130,13 @@ export function hasReached(
   if (debut.episode != null) {
     if (mode === "strict") {
       if (progress.episodes.has(debut.episode)) return true
-    } else if (progress.highestEpisode >= debut.episode) {
+    } else if (
+      // The pilot is the series' entry point: a signed-in viewer who has not
+      // ticked anything yet still sees the episode-1 cast — silhouetting Conan
+      // for a brand-new account reads as a bug, not as care.
+      debut.episode <= 1 ||
+      progress.highestEpisode >= debut.episode
+    ) {
       return true
     }
   }

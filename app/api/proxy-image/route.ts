@@ -11,6 +11,9 @@ const ALLOWED_HOSTS = new Set<string>([
 
 const MAX_BYTES = 5 * 1024 * 1024
 
+// A stalled upstream must 504 quickly, not pin an edge function for minutes.
+const UPSTREAM_TIMEOUT_MS = 10_000
+
 export async function GET(request: Request) {
   const raw = new URL(request.url).searchParams.get("url")
   if (!raw) return new NextResponse("Missing url", { status: 400 })
@@ -26,7 +29,10 @@ export async function GET(request: Request) {
     return new NextResponse("Host not allowed", { status: 403 })
   }
 
-  const upstream = await fetch(target, { cache: "force-cache" })
+  const upstream = await fetch(target, {
+    cache: "force-cache",
+    signal: AbortSignal.timeout(UPSTREAM_TIMEOUT_MS),
+  })
   if (!upstream.ok) return new NextResponse("Upstream error", { status: 502 })
 
   const contentType = upstream.headers.get("content-type") ?? ""

@@ -20,8 +20,8 @@
 */
 
 import { useMemo, useState } from "react"
+import dynamic from "next/dynamic"
 import { AnimatePresence, motion } from "framer-motion"
-import CharactersWeb from "@/components/characters/CharactersWeb"
 import {
   CharacterDetailPanel,
   RelationshipLegend,
@@ -57,6 +57,23 @@ export interface CharactersExplorerProps {
 }
 
 const EASE = [0.16, 1, 0.3, 1] as const
+
+/**
+ * The graph (2011 lines + its own framer-motion pull) renders in its own
+ * chunk after mount — the /characters shell paints first, then the canvas
+ * mounts. The graph is pure client-side rendering anyway (canvas/SVG).
+ */
+const CharactersWeb = dynamic(
+  () => import("@/components/characters/CharactersWeb"),
+  {
+    ssr: false,
+    loading: () => (
+      <div className="flex h-full w-full items-center justify-center bg-page" aria-busy="true">
+        <div className="h-8 w-8 animate-spin rounded-full border-2 border-ink-faint border-t-accent" />
+      </div>
+    ),
+  }
+)
 
 export default function CharactersExplorer({
   characters,

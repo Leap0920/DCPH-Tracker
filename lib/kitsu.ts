@@ -24,6 +24,9 @@ const EPISODE_PAGE_SIZE = 20
 // Safe under Kitsu's ~60 req/min limit (leaves headroom for retries).
 const RATE_LIMIT_DELAY_MS = 1100
 
+// Abort a request that stalls past this budget — syncs must fail fast, not hang.
+const FETCH_TIMEOUT_MS = 10_000
+
 let lastRequestTime = 0
 
 async function rateLimitedFetch<T>(url: string): Promise<T> {
@@ -34,14 +37,14 @@ async function rateLimitedFetch<T>(url: string): Promise<T> {
   }
   lastRequestTime = Date.now()
 
-  const response = await fetch(url)
+  const response = await fetch(url, { signal: AbortSignal.timeout(FETCH_TIMEOUT_MS) })
 
   if (response.status === 429) {
     const retryAfter = response.headers.get("retry-after")
     const waitMs = retryAfter ? parseInt(retryAfter, 10) * 1000 : 5000
     await new Promise((resolve) => setTimeout(resolve, waitMs))
     lastRequestTime = Date.now()
-    const retryResponse = await fetch(url)
+    const retryResponse = await fetch(url, { signal: AbortSignal.timeout(FETCH_TIMEOUT_MS) })
     if (!retryResponse.ok) {
       throw new Error(`Kitsu API error: ${retryResponse.status}`)
     }

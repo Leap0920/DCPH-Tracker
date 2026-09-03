@@ -379,7 +379,44 @@ export default async function CasesPage({
 
   const supabase = await createClient()
 
-  const { rows: facetRows, total: facetTotal, error: facetError } = await fetchFacetRows(supabase)
+  // Facet tallies and the page rows are independent reads of the same view —
+  // run them concurrently so /cases costs max(read), not the serial sum (each
+  // side is itself a multi-window paged pull on a big view).
+  const [facetResult, pageResult] = await Promise.all([
+    fetchFacetRows(supabase),
+    (async () => {
+      let query = supabase.from(CASES_VIEW).select(CASE_COLUMNS, { count: "exact" })
+
+      // Filters first, then ordering, then .range() strictly last.
+      if (contentType) query = query.eq("entry_type", contentType)
+      if (typeSlug) query = query.eq("crime_slug", typeSlug)
+      if (causeSlug) query = query.eq("cause_slug", causeSlug)
+      // linkFilter: "tracker" = has crime data, "wiki" = no crime data (wiki-only)
+      // With the new view, entry_id is always set, so filter by crime_slug presence
+      if (linkFilter === "tracker") query = query.not("crime_slug", "is", null)
+      if (linkFilter === "wiki") query = query.is("crime_slug", null)
+      if (q) query = query.or(`victim.ilike.%${q}%,page_title.ilike.%${q}%,location.ilike.%${q}%,entry_title.ilike.%${q}%`)
+
+      // entry_release_order is a real view column precisely so this is a plain
+      // top-level order — ordering by an embedded column is a silent no-op.
+      // NULLs (cases with no local entry) trail on ASC.
+      if (sort === "type") query = query.order("crime_slug", { ascending: true })
+      if (sort === "release" || sort === "type") {
+        // Sort by episode number first (episodes), then release order (movies/specials)
+        query = query
+          .order("entry_episode_number", { ascending: true, nullsFirst: false })
+          .order("entry_release_order", { ascending: true, nullsFirst: false })
+      }
+      query = query
+        .order("page_title", { ascending: sort !== "za" })
+        .order("case_index", { ascending: true })
+        .range(from, from + PAGE_SIZE - 1)
+
+      return query
+    })(),
+  ])
+
+  const { rows: facetRows, total: facetTotal, error: facetError } = facetResult
 
   // The migration is applied by hand, so an unmigrated database is a real
   // state to render rather than a crash.
@@ -418,34 +455,7 @@ export default async function CasesPage({
 
   const trackerLinked = [...typeCounts.values()].reduce((sum, n) => sum + n, 0)
 
-  let query = supabase.from(CASES_VIEW).select(CASE_COLUMNS, { count: "exact" })
-
-  // Filters first, then ordering, then .range() strictly last.
-  if (contentType) query = query.eq("entry_type", contentType)
-  if (typeSlug) query = query.eq("crime_slug", typeSlug)
-  if (causeSlug) query = query.eq("cause_slug", causeSlug)
-  // linkFilter: "tracker" = has crime data, "wiki" = no crime data (wiki-only)
-  // With the new view, entry_id is always set, so filter by crime_slug presence
-  if (linkFilter === "tracker") query = query.not("crime_slug", "is", null)
-  if (linkFilter === "wiki") query = query.is("crime_slug", null)
-  if (q) query = query.or(`victim.ilike.%${q}%,page_title.ilike.%${q}%,location.ilike.%${q}%,entry_title.ilike.%${q}%`)
-
-  // entry_release_order is a real view column precisely so this is a plain
-  // top-level order — ordering by an embedded column is a silent no-op.
-  // NULLs (cases with no local entry) trail on ASC.
-  if (sort === "type") query = query.order("crime_slug", { ascending: true })
-  if (sort === "release" || sort === "type") {
-    // Sort by episode number first (episodes), then release order (movies/specials)
-    query = query
-      .order("entry_episode_number", { ascending: true, nullsFirst: false })
-      .order("entry_release_order", { ascending: true, nullsFirst: false })
-  }
-  query = query
-    .order("page_title", { ascending: sort !== "za" })
-    .order("case_index", { ascending: true })
-    .range(from, from + PAGE_SIZE - 1)
-
-  const { data: caseData, count } = await query
+  const { data: caseData, count } = pageResult
   const cases = (caseData ?? []) as CaseRow[]
   const total = count ?? 0
   const totalPages = Math.max(1, Math.ceil(total / PAGE_SIZE))

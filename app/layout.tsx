@@ -3,9 +3,9 @@ import { headers } from "next/headers";
 import { Inter, JetBrains_Mono, Plus_Jakarta_Sans } from "next/font/google";
 import { Providers } from "@/components/providers";
 import { ThemeProvider } from "@/components/theme-provider";
-import { AuthModal } from "@/components/auth/AuthModal";
+import { AuthModalLoader } from "@/components/auth/AuthModalLoader";
 import { ServiceWorkerRegister } from "@/components/service-worker-register";
-import { ChatWidget } from "@/components/chat/ChatWidget";
+import { ChatWidgetLoader } from "@/components/chat/ChatWidgetLoader";
 import "./globals.css";
 
 const plusJakartaSans = Plus_Jakarta_Sans({
@@ -132,9 +132,9 @@ export default async function RootLayout({
         <ThemeProvider>
           <Providers>
             {children}
-            <AuthModal />
+            <AuthModalLoader />
             <ServiceWorkerRegister />
-            <ChatWidget />
+            <ChatWidgetLoader />
           </Providers>
         </ThemeProvider>
       </body>

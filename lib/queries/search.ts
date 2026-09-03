@@ -54,30 +54,38 @@ export async function searchAll(q: string): Promise<SearchResults> {
 
   const pattern = `%${escapeLike(query)}%`
 
-  const { data: entries, error: entriesError } = await supabase
-    .from("content_entries")
-    .select("slug, title, type, image_url")
-    .or(`title.ilike.${pattern},synopsis.ilike.${pattern}`)
-    .order("canon_order", { ascending: true })
-    .limit(SEARCH_LIMIT)
+  // The three searches share only the pattern — run them concurrently so a
+  // keystroke costs one round-trip latency, not three.
+  const [entriesResult, arcsResult, viewQuery] = await Promise.all([
+    supabase
+      .from("content_entries")
+      .select("slug, title, type, image_url")
+      .or(`title.ilike.${pattern},synopsis.ilike.${pattern}`)
+      .order("canon_order", { ascending: true })
+      .limit(SEARCH_LIMIT),
+    supabase
+      .from("arcs")
+      .select("slug, title")
+      .or(`title.ilike.${pattern},description.ilike.${pattern}`)
+      .order("title", { ascending: true })
+      .limit(SEARCH_LIMIT),
+    supabase
+      .from("public_profiles")
+      .select(PUBLIC_PROFILE_COLUMNS)
+      .or(`username.ilike.${pattern},display_name.ilike.${pattern}`)
+      .limit(SEARCH_LIMIT),
+  ])
+
+  const { data: entries, error: entriesError } = entriesResult
   if (entriesError) throw entriesError
 
-  const { data: arcs, error: arcsError } = await supabase
-    .from("arcs")
-    .select("slug, title")
-    .or(`title.ilike.${pattern},description.ilike.${pattern}`)
-    .order("title", { ascending: true })
-    .limit(SEARCH_LIMIT)
+  const { data: arcs, error: arcsError } = arcsResult
   if (arcsError) throw arcsError
-
-  const viewQuery = await supabase
-    .from("public_profiles")
-    .select(PUBLIC_PROFILE_COLUMNS)
-    .or(`username.ilike.${pattern},display_name.ilike.${pattern}`)
-    .limit(SEARCH_LIMIT)
 
   let profiles: SearchUser[]
   if (viewQuery.error) {
+    // Fallback: the public_profiles view is missing (migration not applied yet).
+    // Only fires on an error, so it runs after the parallel batch above.
     const baseQuery = await supabase
       .from("profiles")
       .select(PUBLIC_PROFILE_COLUMNS)

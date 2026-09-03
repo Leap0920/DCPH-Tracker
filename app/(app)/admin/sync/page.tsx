@@ -1,7 +1,7 @@
 import { createClient } from "@/utils/supabase/server"
 import { requireAdmin } from "@/lib/auth/admin"
 import { SyncPanel } from "@/components/admin/SyncPanel"
-import { SyncApprovalQueue } from "@/components/admin/SyncApprovalQueue"
+import { SyncApprovalQueueLoader } from "@/components/admin/SyncApprovalQueueLoader"
 
 export const dynamic = "force-dynamic"
 
@@ -30,7 +30,7 @@ export default async function AdminSyncPage() {
         </p>
       </div>
 
-      <SyncApprovalQueue items={stagedItems} />
+      <SyncApprovalQueueLoader items={stagedItems} />
 
       <div className="space-y-3 border-t border-line pt-6">
         <h2 className="font-mono text-[10px] uppercase tracking-[0.12em] text-ink-faint">

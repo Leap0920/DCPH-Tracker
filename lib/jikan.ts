@@ -17,6 +17,9 @@ export const DETECTIVE_CONAN_MAL_ID = 235
 // Rate limiting: wait 400ms between requests (safe under 3 req/s limit)
 const RATE_LIMIT_DELAY_MS = 400
 
+// Abort a request that stalls past this budget — syncs must fail fast, not hang.
+const FETCH_TIMEOUT_MS = 10_000
+
 let lastRequestTime = 0
 
 async function rateLimitedFetch<T>(url: string): Promise<T> {
@@ -29,13 +32,13 @@ async function rateLimitedFetch<T>(url: string): Promise<T> {
   }
   lastRequestTime = Date.now()
 
-  const response = await fetch(url)
+  const response = await fetch(url, { signal: AbortSignal.timeout(FETCH_TIMEOUT_MS) })
 
   if (response.status === 429) {
     // Rate limited — wait 1 second and retry once
     await new Promise((resolve) => setTimeout(resolve, 1000))
     lastRequestTime = Date.now()
-    const retryResponse = await fetch(url)
+    const retryResponse = await fetch(url, { signal: AbortSignal.timeout(FETCH_TIMEOUT_MS) })
     if (!retryResponse.ok) {
       throw new Error(`Jikan API error: ${retryResponse.status}`)
     }

@@ -1,10 +1,10 @@
 "use client"
 
 import { useState, useEffect, useRef, Suspense, useCallback } from "react"
+import dynamic from "next/dynamic"
 import { useRouter, useSearchParams } from "next/navigation"
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query"
 import { ContentGrid, type StatusFilter } from "@/components/tracker/ContentGrid"
-import { ContentDetail } from "@/components/tracker/ContentDetail"
 import { MotivationStats } from "@/components/tracker/MotivationStats"
 import { fetchContentEntries } from "@/lib/queries/client/content"
 import { Button } from "@/components/ui/button"
@@ -34,6 +34,26 @@ import {
 const VALID_TYPES = new Set<string>([CONTENT_TYPES.EPISODE, CONTENT_TYPES.MOVIE, CONTENT_TYPES.SPECIAL, CONTENT_TYPES.OVA, CONTENT_TYPES.LIVE_ACTION, CONTENT_TYPES.MAGIC_KAITO, CONTENT_TYPES.HANZAWA, CONTENT_TYPES.ZERO_TEA_TIME, CONTENT_TYPES.YAIBA])
 const VALID_STATUS = new Set<string>([WATCH_STATUSES.UNWATCHED, WATCH_STATUSES.WATCHED, WATCH_STATUSES.REWATCHED])
 const VALID_MODES = new Set<string>([VIEW_MODES.YEAR, VIEW_MODES.CHRONOLOGICAL, VIEW_MODES.CANON, VIEW_MODES.ORDER])
+
+/**
+ * The case-file drawer opens on demand, so its (large) content tree loads in
+ * its own chunk only when a row is selected — the tracker grid's first load no
+ * longer carries ContentDetail + the comment/wiki stack.
+ */
+const ContentDetail = dynamic(
+  () =>
+    import("@/components/tracker/ContentDetail").then((m) => m.ContentDetail),
+  {
+    ssr: false,
+    loading: () => (
+      <div className="space-y-3" aria-busy="true">
+        <div className="aspect-video w-full rounded-lg bg-surface-muted animate-pulse" />
+        <div className="h-4 w-1/2 rounded bg-surface-muted animate-pulse" />
+        <div className="h-24 rounded-lg bg-surface-muted animate-pulse" />
+      </div>
+    ),
+  }
+)
 /** localStorage key for the last view mode the user picked on /tracker. */
 const VIEW_MODE_STORAGE_KEY = "dcph.tracker.viewMode"
 

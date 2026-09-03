@@ -14,6 +14,10 @@
 
 const ANILIST_URL = "https://graphql.anilist.co"
 
+// Abort a request that stalls past this budget — the airing poll must fail
+// fast so the scheduler can move on instead of wedging on a hung connection.
+const FETCH_TIMEOUT_MS = 8_000
+
 /** Detective Conan MAL id — maps to AniList Media via `idMal`. */
 export const DETECTIVE_CONAN_MAL_ID = 235
 
@@ -57,6 +61,7 @@ export async function getNextAiringEpisode(
       query: NEXT_AIRING_QUERY,
       variables: { idMal: malId },
     }),
+    signal: AbortSignal.timeout(FETCH_TIMEOUT_MS),
   })
 
   if (!response.ok) {

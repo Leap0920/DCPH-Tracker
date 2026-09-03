@@ -1,7 +1,7 @@
 import { redirect } from "next/navigation"
 import { createClient } from "@/utils/supabase/server"
 import { getSelfAnalytics } from "@/lib/queries/analytics"
-import { AnalyticsDashboard } from "@/components/analytics/AnalyticsDashboard"
+import { AnalyticsDashboardLoader } from "@/components/analytics/AnalyticsDashboardLoader"
 
 export const metadata = {
   title: "Self Analytics · Detective Conan PH",
@@ -23,7 +23,7 @@ export default async function AnalyticsPage() {
   return (
     <div className="min-h-screen px-4 py-8 sm:px-6 sm:py-10">
       <div className="mx-auto max-w-6xl">
-        <AnalyticsDashboard analytics={analytics} />
+        <AnalyticsDashboardLoader analytics={analytics} />
       </div>
     </div>
   )
