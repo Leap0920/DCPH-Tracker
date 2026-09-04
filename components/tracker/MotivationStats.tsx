@@ -1,7 +1,6 @@
 "use client"
 
 import { useMemo, useState } from "react"
-import { motion } from "framer-motion"
 import {
   BookOpen,
   Film,
@@ -202,19 +201,17 @@ export function MotivationStats({ entries, userStatuses, userName }: MotivationS
         </h3>
         <div className="grid grid-cols-2 gap-3">
           {seriesTiles.map((tile, i) => (
-            <motion.div
+            <div
               key={tile.label}
-              initial={{ opacity: 0, y: 12 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ duration: 0.35, delay: 0.1 + i * 0.08 }}
-              className="text-center p-3 bg-surface-muted rounded-lg"
+              className="text-center p-3 bg-surface-muted rounded-lg animate-dcph-rise"
+              style={{ animationDelay: `${100 + i * 80}ms` }}
             >
               <tile.icon className="h-4 w-4 text-accent mx-auto mb-1" />
               <div className="font-display text-lg text-ink leading-tight">{tile.value}</div>
               <div className="font-mono text-[9px] text-ink-faint">
                 {tile.label}
               </div>
-            </motion.div>
+            </div>
           ))}
         </div>
         <p className="mt-4 text-[11px] text-ink-dim leading-relaxed">
@@ -247,11 +244,9 @@ export function MotivationStats({ entries, userStatuses, userName }: MotivationS
                   <span>{personal.remaining} remaining</span>
                 </div>
                 <div className="h-2 bg-surface-muted rounded-full overflow-hidden">
-                  <motion.div
-                    className="h-full bg-accent rounded-full"
-                    initial={{ width: 0 }}
-                    animate={{ width: `${personal.percent}%` }}
-                    transition={{ duration: 0.8, ease: "easeOut" }}
+                  <div
+                    className="h-full bg-accent rounded-full transition-[width] duration-[800ms] ease-out"
+                    style={{ width: `${personal.percent}%` }}
                   />
                 </div>
                 <div className="font-mono text-[10px] text-ink-dim">
@@ -274,11 +269,9 @@ export function MotivationStats({ entries, userStatuses, userName }: MotivationS
                         </span>
                       </div>
                       <div className="h-1 bg-surface-muted rounded-full overflow-hidden">
-                        <motion.div
-                          className="h-full bg-ink rounded-full"
-                          initial={{ width: 0 }}
-                          animate={{ width: `${stat.total > 0 ? (stat.watched / stat.total) * 100 : 0}%` }}
-                          transition={{ duration: 0.5, ease: "easeOut", delay: 0.2 + i * 0.06 }}
+                        <div
+                          className="h-full bg-ink rounded-full transition-[width] duration-[500ms] ease-out"
+                          style={{ width: `${stat.total > 0 ? (stat.watched / stat.total) * 100 : 0}%` }}
                         />
                       </div>
                     </div>

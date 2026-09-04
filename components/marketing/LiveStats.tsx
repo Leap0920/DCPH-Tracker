@@ -1,7 +1,6 @@
 "use client"
 
 import { useEffect, useRef, useState } from "react"
-import { useReducedMotion } from "framer-motion"
 import { createClient } from "@/utils/supabase/client"
 import {
   heartbeatAndGetStats,
@@ -23,7 +22,11 @@ const POLL_INTERVAL_MS = 60_000
 export function LiveStats() {
   const [stats, setStats] = useState<SiteStats>({ totalVisits: null, activeNow: null, trackedEpisodes: null })
   const mountedRef = useRef(false)
-  const reduce = useReducedMotion()
+  const [reduce, setReduce] = useState(false)
+
+  useEffect(() => {
+    setReduce(window.matchMedia("(prefers-reduced-motion: reduce)").matches)
+  }, [])
 
   useEffect(() => {
     if (mountedRef.current) return
