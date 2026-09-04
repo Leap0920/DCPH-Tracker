@@ -4,7 +4,7 @@ import { useState, useEffect, useRef, Suspense, useCallback } from "react"
 import dynamic from "next/dynamic"
 import { useRouter, useSearchParams } from "next/navigation"
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query"
-import { ContentGrid, type StatusFilter } from "@/components/tracker/ContentGrid"
+import type { StatusFilter } from "@/components/tracker/ContentGrid"
 import { MotivationStats } from "@/components/tracker/MotivationStats"
 import { fetchContentEntries } from "@/lib/queries/client/content"
 import { Button } from "@/components/ui/button"
@@ -34,6 +34,17 @@ import {
 const VALID_TYPES = new Set<string>([CONTENT_TYPES.EPISODE, CONTENT_TYPES.MOVIE, CONTENT_TYPES.SPECIAL, CONTENT_TYPES.OVA, CONTENT_TYPES.LIVE_ACTION, CONTENT_TYPES.MAGIC_KAITO, CONTENT_TYPES.HANZAWA, CONTENT_TYPES.ZERO_TEA_TIME, CONTENT_TYPES.YAIBA])
 const VALID_STATUS = new Set<string>([WATCH_STATUSES.UNWATCHED, WATCH_STATUSES.WATCHED, WATCH_STATUSES.REWATCHED])
 const VALID_MODES = new Set<string>([VIEW_MODES.YEAR, VIEW_MODES.CHRONOLOGICAL, VIEW_MODES.CANON, VIEW_MODES.ORDER])
+
+/**
+ * ContentGrid is the single largest client component (1240+ lines). Lazy-loading
+ * it shrinks the initial tracker bundle — the grid only mounts after the shell
+ * (stats + toolbar) has painted.
+ */
+const ContentGrid = dynamic(
+  () =>
+    import("@/components/tracker/ContentGrid").then((m) => m.ContentGrid),
+  { ssr: false }
+)
 
 /**
  * The case-file drawer opens on demand, so its (large) content tree loads in
