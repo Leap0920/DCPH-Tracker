@@ -2,7 +2,6 @@
 
 import { useState, useMemo, useEffect, useRef, useCallback } from "react"
 import Image from "next/image"
-import { motion, AnimatePresence } from "framer-motion"
 import {
   Search,
   Check,
@@ -687,11 +686,9 @@ export function ContentGrid({
           </div>
           <div className="flex items-center gap-2.5 max-w-md">
             <div className="flex-1 h-2 bg-black/40 backdrop-blur-xs rounded-full overflow-hidden border border-white/20">
-              <motion.div
-                className="h-full bg-accent rounded-full"
-                initial={{ width: 0 }}
-                animate={{ width: `${overallPercent}%` }}
-                transition={{ duration: 0.8, ease: "easeOut" }}
+              <div
+                className="h-full bg-accent rounded-full transition-[width] duration-[800ms] ease-out"
+                style={{ width: `${overallPercent}%` }}
               />
             </div>
             <span className="font-mono text-xs text-white font-bold drop-shadow">{overallPercent}%</span>
@@ -1189,11 +1186,9 @@ function Section({
           {showProgress && (
             <div className="mt-2 flex items-center gap-3 max-w-xs">
               <div className="flex-1 h-1.5 bg-surface-muted rounded-full overflow-hidden">
-                <motion.div
-                  className={cn("h-full rounded-full", progressColor)}
-                  initial={{ width: 0 }}
-                  animate={{ width: `${progressPercent}%` }}
-                  transition={{ duration: 0.6, ease: "easeOut" }}
+                <div
+                  className={cn("h-full rounded-full transition-[width] duration-[600ms] ease-out", progressColor)}
+                  style={{ width: `${progressPercent}%` }}
                 />
               </div>
               <span className="font-mono text-[10px] text-ink-dim shrink-0 tabular-nums">
@@ -1213,19 +1208,16 @@ function Section({
         />
       </div>
 
-      <AnimatePresence initial={false}>
-        {isOpen && (
-          <motion.div
-            initial={{ height: 0, opacity: 0 }}
-            animate={{ height: "auto", opacity: 1 }}
-            exit={{ height: 0, opacity: 0 }}
-            transition={{ duration: 0.25, ease: "easeInOut" }}
-            className="overflow-hidden"
-          >
-            <div className="px-4 sm:px-6 pb-6">{children}</div>
-          </motion.div>
+      <div
+        className={cn(
+          "grid transition-[grid-template-rows] duration-[250ms] ease-in-out",
+          isOpen ? "grid-rows-[1fr]" : "grid-rows-[0fr]"
         )}
-      </AnimatePresence>
+      >
+        <div className="overflow-hidden">
+          <div className="px-4 sm:px-6 pb-6">{children}</div>
+        </div>
+      </div>
     </section>
   )
 }

@@ -107,15 +107,29 @@ const CAM_TAU = 85;
 const PAN_INERTIA_MS = 140;
 
 const DRIFT_AMP = 3.5;
+
+/* ── low-end device detection ──────────────────────────────────
+ * Heuristic: navigator.deviceMemory (Chrome, ≤2 GB) or
+ * navigator.hardwareConcurrency (≤2 cores). Drives collision
+ * passes, particle count, and frame budget so the graph stays
+ * usable on budget phones. */
+const isLowEndDevice = (() => {
+  if (typeof navigator === "undefined") return false;
+  const n = navigator as any;
+  if (n.deviceMemory !== undefined && n.deviceMemory <= 2) return true;
+  if (n.hardwareConcurrency !== undefined && n.hardwareConcurrency <= 2) return true;
+  return false;
+})();
+
 /* ── anti-collision ───────────────────────────────────────────────
  * Circles push each other apart when their radii overlap. The push is
  * stored as a persistent per-node offset that decays back toward the
  * node's home position, so a collision reads as an impact-and-settle
  * rather than a snap. Offsets never touch `base` — drag / fit /
- * zoomToConan keep reading the untouched seeded layout.
+ * zoomToConan keep reading the untouched authored layout.
  * ---------------------------------------------------------------- */
 const COLLIDE_PAD = 2;          // world px of breathing room beyond r_i + r_j — tight packing per user request
-const COLLIDE_ITERS = 4;        // Gauss-Seidel relaxation passes per frame
+const COLLIDE_ITERS = isLowEndDevice ? 2 : 4;  // Gauss-Seidel relaxation passes per frame
 const COLLIDE_STIFF = 0.8;      // fraction of each overlap resolved per pass — snappier settle
 const COLLIDE_MAX_OFFSET = 16;  // hard cap on displacement from home (world px) — keep close to authored layout
 const COLLIDE_RELAX_TAU = 260;  // ms; how fast a pushed circle drifts back home
@@ -123,9 +137,11 @@ const BASE_BOW = 6;
 const PARALLEL_GAP = 22;
 const STRING_WIDTH = 2;
 const DIM_OPACITY = 0.1;
-const PARTICLE_COUNT = 30;
+const PARTICLE_COUNT = isLowEndDevice ? 8 : 30;
 /** Idle seconds before the animation loop parks (drift + CSS keyframes stop). */
-const IDLE_PARK_MS = 4000;
+const IDLE_PARK_MS = isLowEndDevice ? 2000 : 4000;
+/** Minimum ms between frames. Set >16 on low-end to target ~30 fps. */
+const FRAME_BUDGET_MS = isLowEndDevice ? 32 : 0;
 
 /* ── stable style objects ──────────────────────────────────────
  * Module-scope so re-rendered edges/nodes never hand React a fresh object
@@ -949,6 +965,9 @@ export default function CharactersWeb({
     const loop = (now: number) => {
       if (parked) return;
       raf = requestAnimationFrame(loop);
+      // Frame rate limiter: on low-end devices, skip frames that arrive
+      // before the budget elapses so we target ~30 fps instead of 60.
+      if (FRAME_BUDGET_MS > 0 && now - last < FRAME_BUDGET_MS) return;
       frameCount++;
       const dt = Math.min(50, now - last);
       last = now;
@@ -1095,10 +1114,30 @@ export default function CharactersWeb({
         }
       }
 
-      /* 2d — commit the corrected positions to the DOM */
+      /* 2d — commit the corrected positions to the DOM.
+         Node viewport culling: off-screen nodes skip the DOM write but
+         also skip updating lastNodeRender{X,Y}, so when they scroll back
+         into view the threshold check triggers and snaps them into place. */
+      const { w: vpW, h: vpH } = sizeRef.current;
+      const nodeCullMargin = COLLIDE_MAX_OFFSET + 48;
+      const nMinWX = vpW > 0 && cam.k > 0 ? -cam.x / cam.k - nodeCullMargin : -Infinity;
+      const nMinWY = vpH > 0 && cam.k > 0 ? -cam.y / cam.k - nodeCullMargin : -Infinity;
+      const nMaxWX = vpW > 0 && cam.k > 0 ? (vpW - cam.x) / cam.k + nodeCullMargin : Infinity;
+      const nMaxWY = vpH > 0 && cam.k > 0 ? (vpH - cam.y) / cam.k + nodeCullMargin : Infinity;
+
       for (let i = 0; i < N; i++) {
         const x = curX[i];
         const y = curY[i];
+        // Viewport cull: skip DOM write for nodes well outside the visible area.
+        // Do NOT update lastNodeRender so they re-commit when scrolled back in.
+        if (
+          vpW > 0 &&
+          vpH > 0 &&
+          cam.k > 0 &&
+          (x < nMinWX || x > nMaxWX || y < nMinWY || y > nMaxWY)
+        ) {
+          continue;
+        }
         if (
           Math.abs(x - lastNodeRenderX[i]) > 0.04 ||
           Math.abs(y - lastNodeRenderY[i]) > 0.04
@@ -1174,8 +1213,10 @@ export default function CharactersWeb({
         }
       }
 
-      /* 5 — ambient particles (screen space, behind the world — throttled to every 2nd frame) */
-      if (!reduceRef.current && frameCount % 2 === 0) {
+      /* 5 — ambient particles (screen space, behind the world — throttled to every 2nd frame,
+         every 4th on low-end to further reduce DOM writes) */
+      const particleCadence = isLowEndDevice ? 4 : 2;
+      if (!reduceRef.current && frameCount % particleCadence === 0) {
         const { w, h } = sizeRef.current;
         if (w && h) {
           for (let i = 0; i < particles.length; i++) {
