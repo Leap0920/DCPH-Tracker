@@ -5,7 +5,7 @@
 -- titles like "Roller Coaster Murder Case". The previous migration set
 -- dcw_title = 'Episode ' || episode_number which broke crime sync matching.
 --
--- Run manually in the Supabase Dashboard SQL Editor. Idempotent.
+-- Run manually in the Supabase Dashboard SQL Editor. Idempotent. wewe
 -- ============================================================================
 
 -- Clear the incorrect "Episode N" dcw_title values for episodes.
