@@ -25,25 +25,63 @@ function loadEnvLocal(): Record<string, string> {
   return env
 }
 
+// Both projects resolve modules the same way, so the resolver is declared once.
+const alias = [
+  // Mirrors tsconfig paths: "@/*" -> "./*"
+  // Regex `find` keeps Windows paths clean (no "C:\repo\" + "/lib/x").
+  { find: /^@\//, replacement: projectRoot },
+  // Next.js aliases "server-only" at bundle time; vitest (plain node)
+  // cannot resolve the package, so point it at a no-op stub.
+  {
+    find: /^server-only$/,
+    replacement: path.join(projectRoot, "vitest.server-only-stub.ts"),
+  },
+]
+
 export default defineConfig({
-  resolve: {
-    // Mirrors tsconfig paths: "@/*" -> "./*"
-    // Regex `find` keeps Windows paths clean (no "C:\repo\" + "/lib/x").
-    alias: [
-      { find: /^@\//, replacement: projectRoot },
-      // Next.js aliases "server-only" at bundle time; vitest (plain node)
-      // cannot resolve the package, so point it at a no-op stub.
+  test: {
+    // Two projects, one suite (plan 5, D4). The node project is the suite as it
+    // was before the split and must not change behaviour: same environment, same
+    // globals, same env. The jsdom project exists only for component tests,
+    // which need a DOM and a JSX transform vitest does not get for free.
+    projects: [
       {
-        find: /^server-only$/,
-        replacement: path.join(projectRoot, "vitest.server-only-stub.ts"),
+        resolve: { alias },
+        test: {
+          name: "node",
+          environment: "node",
+          globals: false,
+          include: ["**/*.test.ts"],
+          exclude: [
+            "**/node_modules/**",
+            "**/.next/**",
+            "**/dist/**",
+            "**/coverage/**",
+            // `components/**` belongs to the jsdom project. A `.test.ts` there
+            // would otherwise match both includes and run in both projects.
+            "components/**",
+          ],
+          env: loadEnvLocal(),
+        },
+      },
+      {
+        // tsconfig's `"jsx": "preserve"` is right for Next's compiler and wrong
+        // for esbuild, which would hand the `.tsx` source through untransformed.
+        // The automatic runtime is the lightest fix; no React plugin needed.
+        esbuild: { jsx: "automatic" },
+        resolve: { alias },
+        test: {
+          name: "dom",
+          environment: "jsdom",
+          globals: false,
+          include: ["components/**/*.test.{ts,tsx}"],
+          exclude: ["**/node_modules/**", "**/.next/**", "**/dist/**", "**/coverage/**"],
+          setupFiles: ["./vitest.setup.dom.ts"],
+          // Deliberately no `env: loadEnvLocal()`: a component test must not
+          // read a secret or reach a socket, and leaving .env.local out makes a
+          // component that transitively imports lib/env fail loudly instead.
+        },
       },
     ],
-  },
-  test: {
-    environment: "node",
-    globals: false,
-    include: ["**/*.test.ts"],
-    exclude: ["**/node_modules/**", "**/.next/**", "**/dist/**", "**/coverage/**"],
-    env: loadEnvLocal(),
   },
 })

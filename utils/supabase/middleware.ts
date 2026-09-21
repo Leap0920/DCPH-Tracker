@@ -3,7 +3,7 @@ import { createServerClient } from "@supabase/ssr"
 import { type NextRequest, NextResponse } from "next/server"
 import type { Database } from "@/types/database.types"
 import { SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY } from "@/lib/env"
-import { applySecurityHeaders, copyCookies } from "@/lib/security-headers"
+import { applySecurityHeaders, copyCookies, isHttpsRequest } from "@/lib/security-headers"
 import { REQUEST_TIMEOUT_MS, withTimeout } from "@/lib/request-timeout"
 
 const PROTECTED_PATHS = [
@@ -114,11 +114,11 @@ export async function updateSession(
     const response = NextResponse.redirect(url)
     copyCookies(supabaseResponse, response)
     response.headers.set("Cache-Control", "private, no-store")
-    return applySecurityHeaders(response, security.csp)
+    return applySecurityHeaders(response, security.csp, isHttpsRequest(request))
   }
 
   const finalize = (response: NextResponse) =>
-    applySecurityHeaders(response, security.csp)
+    applySecurityHeaders(response, security.csp, isHttpsRequest(request))
 
   const { pathname } = request.nextUrl
 

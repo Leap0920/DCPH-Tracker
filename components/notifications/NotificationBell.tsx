@@ -21,6 +21,14 @@ interface NotificationsPayload {
 }
 
 const POLL_INTERVAL_MS = 45_000
+/**
+ * Backoff state for 429 / server errors. The endpoint rate-limits per user;
+ * hammering it from a setInterval only burns battery and deepens the throttle.
+ * After a non-OK response we wait pollInterval * attempts (capped at 4),
+ * and while the tab is hidden polling stops entirely (visibility refetch
+ * catches up on return).
+ */
+const MAX_BACKOFF_ATTEMPTS = 4
 
 function formatRelative(iso: string): string {
   const then = new Date(iso).getTime()
@@ -56,27 +64,66 @@ export function NotificationBell({
   const [items, setItems] = useState<NotificationItem[]>([])
   const [unreadCount, setUnreadCount] = useState(0)
   const containerRef = useRef<HTMLDivElement>(null)
+  const failureCountRef = useRef(0)
+  const backoffUntilRef = useRef(0)
 
   const fetchData = useCallback(async () => {
     try {
       const res = await fetch("/api/notifications", { cache: "no-store" })
-      if (!res.ok) return // 401 logged-out / 500 pre-migration → keep previous state
+      if (!res.ok) {
+        // 401 logged-out → keep state, reset backoff (cheap, expected).
+        if (res.status === 401) {
+          failureCountRef.current = 0
+          return
+        }
+        // 429 / 5xx → back off. Honor Retry-After when the server sends it.
+        failureCountRef.current = Math.min(
+          failureCountRef.current + 1,
+          MAX_BACKOFF_ATTEMPTS
+        )
+        const retryAfter = Number(res.headers.get("Retry-After"))
+        const waitMs =
+          Number.isFinite(retryAfter) && retryAfter > 0
+            ? Math.min(retryAfter * 1000, POLL_INTERVAL_MS * MAX_BACKOFF_ATTEMPTS)
+            : POLL_INTERVAL_MS * failureCountRef.current
+        const until = Date.now() + waitMs
+        backoffUntilRef.current = Math.max(backoffUntilRef.current, until)
+        return
+      }
+      failureCountRef.current = 0
       const json = (await res.json()) as { data?: NotificationsPayload } | null
       const data = json?.data
       if (!data) return
       setItems(data.items)
       setUnreadCount(data.unreadCount)
     } catch {
-      // Silently keep the previous state (badge ≥ 0, no crash).
+      // Network failure → back off like a server error.
+      failureCountRef.current = Math.min(
+        failureCountRef.current + 1,
+        MAX_BACKOFF_ATTEMPTS
+      )
+      backoffUntilRef.current =
+        Date.now() + POLL_INTERVAL_MS * failureCountRef.current
     }
   }, [])
 
-  // Initial fetch + 45s polling + refetch on tab visibility.
+  // Initial fetch + 45s polling + refetch on tab visibility. The interval
+  // skips ticks while backing off or while the tab is hidden.
   useEffect(() => {
-    fetchData()
-    const id = setInterval(fetchData, POLL_INTERVAL_MS)
+    const tick = () => {
+      if (document.visibilityState !== "visible") return
+      if (Date.now() < backoffUntilRef.current) return
+      fetchData()
+    }
+    tick()
+    const id = setInterval(tick, POLL_INTERVAL_MS)
     const onVisibility = () => {
-      if (document.visibilityState === "visible") fetchData()
+      if (
+        document.visibilityState === "visible" &&
+        Date.now() >= backoffUntilRef.current
+      ) {
+        fetchData()
+      }
     }
     document.addEventListener("visibilitychange", onVisibility)
     return () => {

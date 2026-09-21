@@ -8,6 +8,7 @@ import {
   Image as ImageIcon,
   BookOpen,
   RefreshCw,
+  Bot,
   Users,
   ArrowLeft,
 } from "lucide-react"
@@ -19,6 +20,7 @@ const ADMIN_NAV = [
   { href: "/admin/content/covers", label: "Missing Covers", icon: ImageIcon },
   { href: "/admin/arcs", label: "Story Arcs", icon: BookOpen },
   { href: "/admin/sync", label: "Sync", icon: RefreshCw },
+  { href: "/admin/ai", label: "AI Log", icon: Bot },
   { href: "/admin/users", label: "Users", icon: Users },
 ]
 

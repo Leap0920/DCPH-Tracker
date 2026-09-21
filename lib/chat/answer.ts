@@ -1,9 +1,13 @@
 /**
- * Post-processing for DCPH Bot completions.
+ * Reasoning and non-answer text filtering.
  *
- * Pure and dependency-free so it can be unit-tested: every bug in this file
- * has previously shown up as the model's private reasoning being displayed to
- * the user as if it were an answer.
+ * STATUS: the streaming `ThinkingFilter` is no longer used by
+ * app/api/ai-chat/route.ts — the model gateway parses a provider's reasoning
+ * channel separately (lib/ai/sse.ts, surfaced as `onReasoning`) and the route
+ * does not subscribe to it, so reasoning is never stitched into an answer. The
+ * pure helpers below are still covered by lib/__tests__/chat-answer.test.ts and
+ * remain for providers that deliver reasoning inline. Removing them is part of
+ * the retrieval/prompt rewrite.
  */
 
 /** Lines that are the model talking to itself, not answering the user. */

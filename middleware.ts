@@ -1,11 +1,12 @@
 import { type NextRequest } from "next/server"
 import { updateSession } from "@/utils/supabase/middleware"
-import { buildCsp } from "@/lib/security-headers"
+import { buildCsp, isHttpsRequest } from "@/lib/security-headers"
 
 export async function middleware(request: NextRequest) {
   // Per-request nonce. crypto.randomUUID is available in the Edge runtime.
   const nonce = crypto.randomUUID().replace(/-/g, "")
-  return await updateSession(request, { nonce, csp: buildCsp(nonce) })
+  const https = isHttpsRequest(request)
+  return await updateSession(request, { nonce, csp: buildCsp(nonce, https) })
 }
 
 export const config = {

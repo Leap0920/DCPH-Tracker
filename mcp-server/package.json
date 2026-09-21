@@ -1,0 +1,16 @@
+{
+  "name": "dcph-mcp-server",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "description": "Local stdio MCP server for operating the DCPH-Tracker dev server (status, start/stop, health, perf, build, logs).",
+  "engines": {
+    "node": ">=18"
+  },
+  "scripts": {
+    "start": "node index.js"
+  },
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "latest"
+  }
+}

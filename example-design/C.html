@@ -1,0 +1,409 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+<title>Variant C — Signal · Red Strings</title>
+<script>
+/* Dev probe: collects script errors, unhandled rejections and failed
+   resource loads (fonts, portraits) so a headless pass can read them. */
+window.__errs = [];
+window.addEventListener("error", function (e) {
+  var t = e.target;
+  if (t && t !== window && (t.tagName === "IMG" || t.tagName === "SCRIPT" || t.tagName === "LINK")) {
+    window.__errs.push("resource " + t.tagName + " " + (t.currentSrc || t.src || t.href));
+  } else {
+    window.__errs.push("error " + (e.message || "") + " @" + (e.filename || "") + ":" + (e.lineno || 0));
+  }
+}, true);
+window.addEventListener("unhandledrejection", function (e) {
+  window.__errs.push("rejection " + String((e.reason && e.reason.stack) || e.reason));
+});
+/* console.error/warn too: a theme callback that throws inside the frame loop
+   is caught by the engine and reported through console.error, which never
+   reaches window.onerror. Without this the page looks blank and silent. */
+["error", "warn"].forEach(function (k) {
+  var orig = console[k];
+  console[k] = function () {
+    window.__errs.push(k + ": " + Array.prototype.map.call(arguments, function (a) {
+      return (a && a.stack) || String(a);
+    }).join(" "));
+    return orig.apply(console, arguments);
+  };
+});
+</script>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Archivo+Narrow:wght@400;500;600;700&family=IBM+Plex+Mono:wght@300;400;500;600&display=swap" rel="stylesheet" />
+<link rel="stylesheet" href="lib/base.css" />
+<style>
+/* ══ VARIANT C — SIGNAL ══════════════════════════════════════════════
+   A cold-war signals-intelligence intercept console. Not paper: glass.
+   Near-black cool ground, one phosphor green, amber readouts, and a single
+   reserved threat red. The room is dark; the instrument glow is the only
+   light. Type is carried by geometry, faction by the pip and the band,
+   and every panel is an instrument rather than a card.
+   ══════════════════════════════════════════════════════════════════ */
+:root{
+  --ground:#05070A;
+  --phos:#7BE0B0;
+  --phos-hi:#D2FAE9;
+  --phos-dim:#4E8F74;
+  --phos-deep:#16352C;
+  --amber:#FFB020;
+  --threat:#FF2D3F;
+  --ink:#9CC4B4;
+  --glass:rgba(6,16,14,.92);
+  --line:rgba(123,224,176,.28);
+  --line-soft:rgba(123,224,176,.14);
+  --mono:'IBM Plex Mono',ui-monospace,SFMono-Regular,Menlo,monospace;
+  --cond:'Archivo Narrow','Oswald','Arial Narrow',sans-serif;
+}
+body{
+  background:var(--ground);
+  color:var(--ink);
+  font-family:var(--mono);
+  font-size:12px;
+  -webkit-font-smoothing:antialiased;
+}
+::selection{ background:rgba(123,224,176,.3); color:#03110D; }
+
+/* ── material: dark room, cold glass, one weak source upper-left ──── */
+.bg{
+  background-color:var(--ground);
+  background-image:
+    radial-gradient(56% 46% at 26% 16%, rgba(58,150,126,.16), rgba(58,150,126,0) 70%),
+    radial-gradient(44% 38% at 82% 86%, rgba(38,116,148,.10), rgba(38,116,148,0) 74%),
+    radial-gradient(26% 22% at 12% 78%, rgba(20,60,52,.5), rgba(20,60,52,0) 74%),
+    linear-gradient(166deg,#08110F 0%,#060B0D 46%,#04070A 100%);
+}
+/* world-anchored grain + a sector grid that slides under a fixed tube */
+.tile{ background-image:var(--noise); background-repeat:repeat; opacity:.55; }
+.tile>i{
+  position:absolute; inset:0;
+  background-image:
+    repeating-linear-gradient(to right, rgba(123,224,176,.07) 0 1px, transparent 1px 64px),
+    repeating-linear-gradient(to bottom, rgba(123,224,176,.07) 0 1px, transparent 1px 64px),
+    repeating-linear-gradient(to right, rgba(123,224,176,.026) 0 1px, transparent 1px 16px),
+    repeating-linear-gradient(to bottom, rgba(123,224,176,.026) 0 1px, transparent 1px 16px);
+}
+/* the tube itself: refresh structure, one diagonal reflection, falloff */
+.veil{
+  background:
+    repeating-linear-gradient(180deg, rgba(0,0,0,.20) 0 1px, rgba(255,255,255,0) 1px 3px),
+    linear-gradient(114deg, rgba(198,255,236,0) 32%, rgba(198,255,236,.045) 43%, rgba(198,255,236,.012) 52%, rgba(198,255,236,0) 63%),
+    radial-gradient(126% 114% at 46% 44%, rgba(0,0,0,0) 44%, rgba(0,0,0,.40) 78%, rgba(0,0,0,.76) 100%),
+    radial-gradient(58% 48% at 24% 14%, rgba(123,224,176,.06), rgba(123,224,176,0) 70%);
+}
+
+/* ── boot ─────────────────────────────────────────────────────────── */
+.boot{
+  position:fixed; inset:0; z-index:20; pointer-events:none;
+  display:flex; align-items:center; justify-content:center;
+  animation:bootOut 1.75s ease-out forwards;
+}
+.boot__in{ text-align:center; font-size:11px; letter-spacing:.22em; text-transform:uppercase; color:var(--phos); line-height:2.2; text-shadow:0 0 14px rgba(123,224,176,.55); }
+.boot__in b{ display:block; margin-bottom:6px; font-family:var(--cond); font-weight:600; font-size:24px; letter-spacing:.26em; color:var(--phos-hi); text-shadow:0 0 20px rgba(123,224,176,.6); }
+.boot__in i{ font-style:normal; color:var(--phos-dim); }
+.boot__in em{ font-style:normal; color:var(--amber); }
+@keyframes bootOut{ 0%{opacity:1} 40%{opacity:1} 100%{opacity:0; visibility:hidden} }
+
+/* ── relay header ─────────────────────────────────────────────────── */
+.slot-title{ left:22px; top:18px; }
+.brand{
+  position:relative; padding:11px 14px 10px; min-width:302px;
+  background:linear-gradient(180deg, rgba(9,22,19,.90), rgba(4,10,9,.87));
+  border:1px solid var(--line);
+  box-shadow:0 20px 44px -20px rgba(0,0,0,.95), inset 0 1px 0 rgba(198,255,236,.06);
+}
+.brand::before,.brand::after{ content:''; position:absolute; width:13px; height:13px; border:1px solid var(--phos); opacity:.55; }
+.brand::before{ left:-1px; top:-1px; border-right:0; border-bottom:0; }
+.brand::after{ right:-1px; bottom:-1px; border-left:0; border-top:0; }
+.brand__bar{
+  display:flex; align-items:center; justify-content:space-between; gap:14px;
+  padding-bottom:7px; margin-bottom:8px; border-bottom:1px dashed rgba(123,224,176,.22);
+  font-size:9.5px; letter-spacing:.2em; text-transform:uppercase; color:var(--phos-dim);
+}
+.brand__live{ display:inline-flex; align-items:center; gap:5px; color:var(--phos); letter-spacing:.16em; }
+.brand__live i{ width:6px; height:6px; background:var(--phos); box-shadow:0 0 8px var(--phos); animation:blip 2.6s steps(1,end) infinite; }
+@keyframes blip{ 0%,68%{opacity:1} 69%,100%{opacity:.2} }
+.brand__title{
+  margin:0; font-family:var(--cond); font-weight:700; font-size:26px; line-height:.98;
+  letter-spacing:.035em; text-transform:uppercase; color:#E2FFF2;
+  text-shadow:0 0 16px rgba(123,224,176,.35);
+}
+.brand__title span{ color:var(--phos-dim); }
+.brand__tele{
+  display:flex; flex-wrap:wrap; gap:3px 14px; margin-top:9px;
+  font-size:9.5px; letter-spacing:.14em; text-transform:uppercase; color:#5F8E7C;
+  font-variant-numeric:tabular-nums;
+}
+.brand__tele b{ color:var(--amber); font-weight:500; }
+
+/* ── channel key: a rack of channel indicators, not a tall panel ────
+   Eight channels in four columns keeps the open key 90px tall, which is
+   what stops it colliding with the intercept file when a subject is up. */
+.slot-legend{ right:22px; top:18px; display:flex; justify-content:flex-end; }
+.legend-wrap{ position:relative; }
+.legend-wrap .legend{ display:none; }
+.legend-wrap.is-open .legend{ display:block; }
+.legend-wrap.is-open .legend__tab{ display:none; }
+.legend__tab{
+  display:flex; align-items:center; gap:9px; padding:8px 11px; cursor:pointer;
+  background:linear-gradient(180deg, rgba(9,22,19,.92), rgba(4,10,9,.9));
+  border:1px solid var(--line); color:var(--phos); font:inherit;
+  box-shadow:0 18px 38px -18px rgba(0,0,0,.95);
+}
+.legend__tab:hover{ background:linear-gradient(180deg, rgba(13,30,26,.95), rgba(6,14,12,.92)); }
+.legend__tab-label{ font-size:9.5px; letter-spacing:.2em; text-transform:uppercase; white-space:nowrap; }
+.legend__tab-dots{ display:flex; gap:3px; }
+.legend__tab-ch{ display:flex; align-items:center; opacity:.85; }
+.legend__tab-hint{ font-size:9px; letter-spacing:.14em; text-transform:uppercase; color:var(--phos-dim); white-space:nowrap; }
+.legend{
+  position:relative; width:632px; padding:9px 11px 8px;
+  background:linear-gradient(180deg, rgba(8,20,18,.95), rgba(3,9,8,.95));
+  border:1px solid var(--line);
+  box-shadow:0 26px 50px -22px rgba(0,0,0,.95), inset 0 1px 0 rgba(198,255,236,.05);
+}
+.legend__head{
+  display:flex; align-items:baseline; justify-content:space-between; gap:14px;
+  margin:0 3px 7px; padding-bottom:6px; border-bottom:1px dashed rgba(123,224,176,.2);
+}
+.legend__head span{ font-size:10px; letter-spacing:.2em; text-transform:uppercase; color:#E2FFF2; white-space:nowrap; }
+.legend__head em{ font-style:normal; font-size:9px; letter-spacing:.08em; color:var(--phos-dim); white-space:nowrap; }
+.legend__list{ counter-reset:sig; display:grid; grid-template-columns:repeat(4,1fr); gap:0 10px; }
+.legend__item{ padding:3px 4px; gap:7px; color:#A9D6C4; font-size:10.5px; }
+.legend__item:hover{ background:rgba(123,224,176,.07); }
+.legend__item.is-active{ background:rgba(123,224,176,.12); box-shadow:inset 0 0 0 1px rgba(123,224,176,.45); color:#E7FFF5; }
+.legend__swatch svg{ width:24px; height:8px; }
+.legend__label{ font-size:9px; letter-spacing:.07em; text-transform:uppercase; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+.legend__label::before{
+  counter-increment:sig; content:counter(sig,decimal-leading-zero) " ";
+  color:var(--phos-dim); letter-spacing:.04em;
+}
+.legend__item.is-active .legend__label::before{ color:var(--phos); }
+.legend__count{ font-size:9px; color:var(--amber); opacity:1; margin-left:auto; }
+.legend__clear{
+  margin-top:6px; padding-top:7px; border-top:1px dashed rgba(123,224,176,.2);
+  font-size:9px; letter-spacing:.18em; text-transform:uppercase; color:var(--threat);
+}
+
+/* ── intercept query ──────────────────────────────────────────────── */
+.slot-search{ left:22px; bottom:24px; width:314px; }
+.search__head{ margin:0 0 6px 2px; font-size:9.5px; letter-spacing:.2em; text-transform:uppercase; color:var(--phos-dim); }
+.search{
+  display:flex; align-items:center; gap:8px; padding:9px 11px;
+  background:rgba(5,14,12,.93); border:1px solid var(--line);
+  box-shadow:0 16px 34px -16px rgba(0,0,0,.95);
+}
+.search::before{ content:'>'; color:var(--phos); font-size:12.5px; line-height:1; }
+.search__input{ font-family:var(--mono); font-size:12px; letter-spacing:.05em; color:#E2FFF2; caret-color:var(--phos); }
+.search__input::placeholder{ color:#3F6B5C; text-transform:uppercase; letter-spacing:.12em; font-size:10.5px; }
+.search__input::-webkit-search-cancel-button{ -webkit-appearance:none; }
+.search__results{
+  counter-reset:hit; margin-top:6px; background:rgba(4,12,10,.95);
+  border:1px solid var(--line-soft); box-shadow:0 20px 40px -18px rgba(0,0,0,.95);
+}
+.search__hit{ padding:6px 9px; gap:8px; font-size:10.5px; border-bottom:1px dashed rgba(123,224,176,.12); }
+.search__hit:last-child{ border-bottom:0; }
+.search__hit:hover{ background:rgba(123,224,176,.09); }
+.search__hit::before{
+  counter-increment:hit; content:counter(hit,decimal-leading-zero);
+  font-size:9px; color:var(--phos-dim); letter-spacing:.06em;
+}
+.search__dot{ width:5px; height:11px; border-radius:0; box-shadow:0 0 7px rgba(123,224,176,.45); }
+.search__name{ text-transform:uppercase; letter-spacing:.06em; color:#E2FFF2; font-size:10.5px; }
+.search__role{ font-size:9.5px; letter-spacing:.03em; color:#5F8E7C; }
+.search__none{ padding:8px 9px; font-size:10px; letter-spacing:.1em; text-transform:uppercase; color:#5F8E7C; }
+
+/* ── console controls ─────────────────────────────────────────────── */
+.slot-tools{ right:22px; bottom:24px; }
+.tools{
+  display:flex; align-items:center; gap:4px; padding:4px;
+  background:rgba(5,14,12,.92); border:1px solid var(--line);
+  box-shadow:0 16px 34px -16px rgba(0,0,0,.95);
+}
+.tools__btn{
+  min-width:30px; height:30px; border:1px solid var(--line-soft); color:var(--phos);
+  font-family:var(--mono); font-size:14px; line-height:1;
+  transition:background 120ms, color 120ms, border-color 120ms;
+}
+.tools__btn:hover{ background:rgba(123,224,176,.12); border-color:var(--line); color:#E2FFF2; }
+.tools__btn:active{ background:rgba(123,224,176,.24); }
+.tools__btn--wide{ width:auto; padding:0 12px; font-size:9.5px; letter-spacing:.18em; text-transform:uppercase; }
+.tools__k{ min-width:3.6rem; font-size:10.5px; letter-spacing:.06em; color:var(--amber); }
+
+/* ── telemetry ────────────────────────────────────────────────────── */
+.slot-hud{ left:50%; bottom:26px; transform:translateX(-50%); }
+.hud{
+  gap:0; align-items:stretch; padding:0;
+  background:rgba(5,14,12,.9); border:1px solid var(--line-soft);
+  box-shadow:0 16px 34px -18px rgba(0,0,0,.95);
+}
+.hud__cell{ display:flex; flex-direction:column; align-items:center; gap:1px; padding:6px 16px; }
+.hud__cell i{ font-style:normal; font-size:8.5px; letter-spacing:.2em; text-transform:uppercase; color:#5F8E7C; }
+.hud__cell b{ font-size:12px; font-weight:500; color:var(--amber); letter-spacing:.04em; }
+.hud__sep{ width:1px; background:rgba(123,224,176,.18); }
+
+/* ── subject intercept file ───────────────────────────────────────── */
+.dossier{ right:22px; top:104px; bottom:22px; width:406px; transform:translateX(28px); }
+.dossier.is-open{ transform:translateX(0); }
+.file{
+  position:relative; display:flex; flex-direction:column; height:100%; overflow:hidden;
+  padding:16px 18px 0; color:var(--ink);
+  background:linear-gradient(180deg, rgba(8,20,18,.96), rgba(3,9,8,.97));
+  border:1px solid var(--line);
+  box-shadow:0 30px 60px -24px rgba(0,0,0,.95), inset 0 1px 0 rgba(198,255,236,.06);
+}
+.file::before{
+  content:''; position:absolute; left:0; right:0; top:0; height:2px;
+  background:linear-gradient(90deg, rgba(123,224,176,.1), rgba(123,224,176,.85) 22%, rgba(123,224,176,.15) 46%, rgba(123,224,176,.7) 74%, rgba(123,224,176,.1));
+}
+.file__scan{
+  position:absolute; left:0; right:0; top:2px; height:1px; pointer-events:none;
+  background:linear-gradient(90deg, rgba(123,224,176,0), rgba(123,224,176,.5), rgba(123,224,176,0));
+  animation:scan 5.5s linear infinite;
+}
+@keyframes scan{ 0%{ transform:translateY(0); opacity:0 } 8%{opacity:.9} 60%{ transform:translateY(520px); opacity:0 } 100%{ transform:translateY(520px); opacity:0 } }
+.dossier__close{
+  position:absolute; right:12px; top:12px; width:24px; height:24px; font-size:11px;
+  color:var(--phos-dim); border:1px solid var(--line-soft); line-height:1;
+}
+.dossier__close:hover{ color:#E2FFF2; background:rgba(123,224,176,.12); }
+.file__hd{ flex:none; }
+.file__bar{
+  display:flex; align-items:center; justify-content:space-between; gap:10px;
+  padding-bottom:7px; margin-bottom:10px; border-bottom:1px dashed rgba(123,224,176,.2);
+  font-size:9.5px; letter-spacing:.18em; text-transform:uppercase; color:var(--phos-dim);
+}
+.file__live{ display:inline-flex; align-items:center; gap:5px; color:var(--phos); letter-spacing:.14em; }
+.file__live i{ width:5px; height:5px; background:var(--phos); box-shadow:0 0 7px var(--phos); }
+.file__name{
+  margin:0 0 5px; font-family:var(--cond); font-weight:700; font-size:30px; line-height:.96;
+  letter-spacing:.03em; text-transform:uppercase; color:#E2FFF2;
+  text-shadow:0 0 18px rgba(123,224,176,.3);
+}
+.file__aka{ margin:0 0 8px; font-size:10.5px; letter-spacing:.1em; text-transform:uppercase; color:var(--amber); }
+.file__fac{ display:flex; align-items:center; gap:8px; font-size:9.5px; letter-spacing:.16em; text-transform:uppercase; color:#A9D6C4; }
+.file__fac i{ width:3px; height:13px; flex:none; }
+.file__fac b{ margin-left:auto; color:var(--phos); font-weight:500; letter-spacing:.14em; }
+.file__role{ margin:11px 0 0; font-size:11.5px; line-height:1.6; color:#8FB9A9; }
+.file__brief{ margin-top:14px; padding:10px 12px; background:rgba(123,224,176,.045); border-left:2px solid rgba(123,224,176,.4); }
+.file__lbl{ display:block; margin-bottom:5px; font-size:8.5px; letter-spacing:.22em; text-transform:uppercase; color:var(--phos-dim); }
+.file__brief p{ margin:0; font-size:12px; line-height:1.72; color:#C4E8D9; }
+.file__meta{ display:flex; gap:16px; margin-top:12px; font-size:9.5px; letter-spacing:.12em; color:#8FB9A9; font-variant-numeric:tabular-nums; }
+.file__meta i{ font-style:normal; margin-right:6px; color:var(--phos-dim); text-transform:uppercase; letter-spacing:.18em; }
+.file__rule{
+  display:flex; align-items:center; gap:10px; margin:16px 0 2px;
+  font-size:9.5px; letter-spacing:.2em; text-transform:uppercase; color:var(--phos-dim);
+}
+.file__rule::after{ content:''; flex:1; height:1px; background:rgba(123,224,176,.2); order:2; }
+.file__rule em{ order:3; font-style:normal; color:var(--amber); letter-spacing:.14em; }
+.file__threads{ list-style:none; margin:0; padding:0 0 20px; overflow-y:auto; overscroll-behavior:contain; flex:1; }
+.file__threads::-webkit-scrollbar{ width:6px; }
+.file__threads::-webkit-scrollbar-track{ background:rgba(123,224,176,.05); }
+.file__threads::-webkit-scrollbar-thumb{ background:rgba(123,224,176,.28); }
+.thread{
+  display:flex; align-items:flex-start; gap:9px; width:100%; padding:9px 6px;
+  border:0; border-bottom:1px dashed rgba(123,224,176,.13); background:none; color:inherit;
+  font:inherit; text-align:left; cursor:pointer;
+}
+.thread:hover{ background:rgba(123,224,176,.07); }
+.thread__no{ flex:none; padding-top:1px; font-size:9px; letter-spacing:.08em; color:var(--phos-dim); font-variant-numeric:tabular-nums; }
+.thread:hover .thread__no{ color:var(--phos); }
+.thread__swatch{ flex:none; padding-top:1px; width:34px; }
+.thread__swatch svg{ display:block; }
+.thread__body{ display:flex; flex-direction:column; gap:3px; min-width:0; flex:1; }
+.thread__top{ display:flex; align-items:baseline; gap:8px; min-width:0; }
+.thread__type{ flex:none; font-size:8.5px; letter-spacing:.2em; text-transform:uppercase; color:var(--phos-dim); }
+.thread__name{ font-size:11.5px; letter-spacing:.03em; color:#E2FFF2; text-transform:uppercase; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+.thread__detail{ font-size:11px; line-height:1.6; color:#7FA997; }
+.thread__dir{ flex:none; padding-top:2px; font-size:11px; color:var(--phos-dim); }
+.thread:hover .thread__dir{ color:var(--phos); }
+/* the one channel that gets the reserved red, here too */
+.thread--adversary{ border-left:2px solid rgba(255,45,63,.55); padding-left:5px; }
+.thread--adversary .thread__type{ color:var(--threat); }
+.thread--adversary .thread__dir{ color:rgba(255,45,63,.6); }
+
+@media (max-width:900px){
+  .slot-legend{ display:none; }
+  .slot-hud{ display:none; }
+  .dossier{ left:12px; right:12px; top:auto; bottom:12px; width:auto; height:68vh; transform:translateY(28px); }
+  .dossier.is-open{ transform:translateY(0); }
+  .slot-search{ left:14px; right:14px; bottom:16px; width:auto; }
+  .brand{ min-width:0; padding:9px 11px 8px; }
+  .brand__title{ font-size:20px; }
+  .brand__tele{ gap:2px 10px; }
+  .file__name{ font-size:24px; }
+}
+@media (prefers-reduced-motion: reduce){
+  .boot{ display:none; }
+  .file__scan{ display:none; }
+  .brand__live i{ animation:none; }
+}
+</style>
+</head>
+<body>
+<div class="boot" aria-hidden="true">
+  <div class="boot__in">
+    <b>Sigint // Relay 07</b>
+    <i>acquiring take</i> &nbsp;·&nbsp; <i>lock</i> <em>ok</em><br />
+    <i>95 subjects · 153 channels · 94 sensor feeds</i>
+  </div>
+</div>
+
+<div class="stage" id="stage">
+  <div class="bg" aria-hidden="true"></div>
+  <div class="tile" id="tile" aria-hidden="true"><i></i></div>
+  <canvas class="canvas" id="canvas" aria-label="Detective Conan relationship graph — signals intercept console"></canvas>
+  <div class="veil" aria-hidden="true"></div>
+
+  <div class="chrome">
+    <div class="slot-title" id="slot-title"></div>
+    <div class="slot-legend" id="slot-legend"></div>
+    <div class="slot-search" id="slot-search"></div>
+    <div class="slot-tools" id="slot-tools"></div>
+    <div class="slot-hud" id="slot-hud"></div>
+  </div>
+
+  <aside class="dossier" id="dossier" aria-hidden="true" aria-label="Subject intercept file"></aside>
+  <ul class="a11y" id="a11y" aria-label="Character list"></ul>
+</div>
+
+<script src="lib/data.js"></script>
+<script src="lib/engine.js"></script>
+<script src="lib/theme-c.js"></script>
+<script>
+(function () {
+  window.__app = DCPHEngine.create({
+    theme: window.DCPH_THEME_C,
+    root: document.getElementById('stage'),
+    canvas: document.getElementById('canvas'),
+    bg: document.getElementById('tile'),
+    dossier: document.getElementById('dossier'),
+    a11y: document.getElementById('a11y'),
+    slots: {
+      title: document.getElementById('slot-title'),
+      legend: document.getElementById('slot-legend'),
+      tools: document.getElementById('slot-tools'),
+      search: document.getElementById('slot-search'),
+      hud: document.getElementById('slot-hud')
+    }
+  });
+
+  /* The relay clock. One DOM write a second, never inside the frame loop. */
+  function tick() {
+    var el = document.getElementById('clock');
+    if (!el) return;
+    var d = new Date();
+    el.textContent =
+      (d.getUTCHours() < 10 ? '0' : '') + d.getUTCHours() + ':' +
+      (d.getUTCMinutes() < 10 ? '0' : '') + d.getUTCMinutes() + ':' +
+      (d.getUTCSeconds() < 10 ? '0' : '') + d.getUTCSeconds() + 'Z';
+  }
+  tick();
+  setInterval(tick, 1000);
+})();
+</script>
+</body>
+</html>

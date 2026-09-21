@@ -12,6 +12,14 @@
     {
       "path": "/api/sync?mode=seed",
       "schedule": "0 3 * * 1"
+    },
+    {
+      "path": "/api/admin/ai-retention?dry_run=false",
+      "schedule": "17 4 * * *"
+    },
+    {
+      "path": "/api/admin/ingest-corpus",
+      "schedule": "41 5 * * 0"
     }
   ]
 }

@@ -43,7 +43,11 @@ const DialogContent = React.forwardRef<
       {...props}
     >
       {children}
-      <DialogPrimitive.Close className="absolute right-4 top-4 rounded-md opacity-70 transition-opacity hover:opacity-100 focus:outline-none focus:ring-2 focus:ring-accent">
+      {/* A 16 px glyph with no padding is a 16 px hit area, under the 24 px
+          minimum of WCAG 2.2 SC 2.5.8. `p-1` grows the box to 24 px, and the
+          offsets drop to `3` so the padding puts the glyph back on the same
+          16 px inset it has today — the box grows outward around it. */}
+      <DialogPrimitive.Close className="absolute right-3 top-3 rounded-md p-1 opacity-70 transition-opacity hover:opacity-100 focus:outline-none focus:ring-2 focus:ring-accent">
         <X className="h-4 w-4 text-ink-faint" />
         <span className="sr-only">Close</span>
       </DialogPrimitive.Close>

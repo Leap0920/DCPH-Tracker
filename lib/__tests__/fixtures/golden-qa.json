@@ -1,0 +1,313 @@
+[
+  {
+    "q": "Who is Ai Haibara?",
+    "expected": ["character:ai-haibara"],
+    "note": "character:ai-haibara is the curated entry titled \"Ai Haibara / Shiho Miyano\"."
+  },
+  {
+    "q": "Who is Kogoro Mouri?",
+    "expected": ["character:kogoro-mouri"],
+    "note": "character:kogoro-mouri is the curated entry titled \"Kogoro Mouri\"."
+  },
+  {
+    "q": "Who is Heiji Hattori?",
+    "expected": ["character:heiji-hattori"],
+    "note": "character:heiji-hattori is the curated entry titled \"Heiji Hattori\"."
+  },
+  {
+    "q": "Who is Professor Agasa?",
+    "expected": ["character:professor-agasa"],
+    "note": "character:professor-agasa is the curated entry titled \"Professor Hiroshi Agasa\"."
+  },
+  {
+    "q": "Who is Shuichi Akai?",
+    "expected": ["character:shuichi-akai"],
+    "note": "character:shuichi-akai is the curated entry titled \"Shuichi Akai\"."
+  },
+  {
+    "q": "Who is Vermouth?",
+    "expected": ["character:vermouth"],
+    "note": "character:vermouth is the curated entry titled \"Vermouth / Chris Vineyard\"."
+  },
+  {
+    "q": "Who is Officer Sato?",
+    "expected": ["character:officer-sato"],
+    "note": "character:officer-sato is the curated entry titled \"Officer Miwako Sato\"."
+  },
+  {
+    "q": "Who is Sonoko Suzuki?",
+    "expected": ["character:sonoko-suzuki"],
+    "note": "character:sonoko-suzuki is the curated entry titled \"Sonoko Suzuki\"."
+  },
+  {
+    "q": "Who is Kaitou Kid?",
+    "expected": ["character:kaitou-kid"],
+    "note": "character:kaitou-kid is the curated entry titled \"Kaitou Kid / Kaito Kuroba\"."
+  },
+  {
+    "q": "Tell me about Sherry",
+    "expected": ["character:ai-haibara"],
+    "needsLore": true,
+    "note": "Sherry is an alias of character:ai-haibara (aliases: Shiho Miyano, Sherry)."
+  },
+  {
+    "q": "Who is Shinichi Kudo?",
+    "expected": ["character:conan-edogawa"],
+    "note": "Shinichi Kudo is an alias of character:conan-edogawa (title \"Conan Edogawa / Shinichi Kudo\")."
+  },
+  {
+    "q": "Who is Rena Mizunashi?",
+    "expected": ["character:kir"],
+    "note": "character:kir is the curated entry titled \"Kir / Rena Mizunashi\"."
+  },
+  {
+    "q": "Who is Scotch?",
+    "expected": ["character:hiromitsu-morofushi"],
+    "note": "character:hiromitsu-morofushi is the curated entry titled \"Hiromitsu Morofushi / Scotch\"."
+  },
+  {
+    "q": "Who is Bourbon?",
+    "expected": ["character:tooru-amuro"],
+    "note": "character:tooru-amuro is the curated entry titled \"Tooru Amuro / Bourbon\"."
+  },
+  {
+    "q": "What is the relationship between Conan and Ran?",
+    "expected": ["relationship:conan-ran-romance", "relationship:conan-ran-friendship"],
+    "note": "Both curated edges exist; relationship:conan-ran-romance is listed first."
+  },
+  {
+    "q": "What is the relationship between Kogoro and Eri?",
+    "expected": ["relationship:kogoro-eri-romance"],
+    "note": "relationship:kogoro-eri-romance is titled \"Kogoro Mouri and Eri Kisaki\"."
+  },
+  {
+    "q": "What is the relationship between Heiji and Kazuha?",
+    "expected": ["relationship:heiji-kazuha-romance", "relationship:heiji-kazuha-friendship"],
+    "note": "Both curated edges exist; the romance is the one the questions targets."
+  },
+  {
+    "q": "What is the relationship between Sato and Takagi?",
+    "expected": ["relationship:sato-takagi-romance", "relationship:sato-takagi-colleague"],
+    "note": "Both curated edges exist; the romance is the one the question targets."
+  },
+  {
+    "q": "What is the relationship between Akai and Akemi?",
+    "expected": ["relationship:akai-akemi-romance"],
+    "note": "relationship:akai-akemi-romance is titled \"Shuichi Akai and Akemi Miyano\"."
+  },
+  {
+    "q": "What is the relationship between Yusaku and Yukiko?",
+    "expected": ["relationship:yusaku-yukiko-romance", "relationship:yusaku-yukiko-family"],
+    "note": "Both curated edges exist for the married couple."
+  },
+  {
+    "q": "What is the relationship between Sonoko and Makoto?",
+    "expected": ["relationship:sonoko-kyogoku-romance", "relationship:sonoko-kyogoku-friendship"],
+    "note": "Both curated edges exist; the romance is the one the question targets."
+  },
+  {
+    "q": "What is the relationship between Agasa and Haibara?",
+    "expected": ["relationship:agasa-haibara-friendship"],
+    "note": "relationship:agasa-haibara-friendship is titled \"Professor Hiroshi Agasa and Ai Haibara / Shiho Miyano\"."
+  },
+  {
+    "q": "What happens in the Vermouth arc?",
+    "expected": ["arc:vermouth-arc"],
+    "needsLore": true,
+    "note": "arc:vermouth-arc spans episodes 179-345 in STORY_ARCS."
+  },
+  {
+    "q": "What happens in the Sherry arc?",
+    "expected": ["arc:sherry-arc"],
+    "needsLore": true,
+    "note": "arc:sherry-arc spans episodes 129-178 and covers Haibara's introduction."
+  },
+  {
+    "q": "What happens in the Bourbon arc?",
+    "expected": ["arc:bourbon-arc"],
+    "needsLore": true,
+    "note": "arc:bourbon-arc spans episodes 509-783."
+  },
+  {
+    "q": "What happens in the Kir arc?",
+    "expected": ["arc:kir-arc"],
+    "needsLore": true,
+    "note": "arc:kir-arc spans episodes 425-508."
+  },
+  {
+    "q": "What happens in the Rum arc?",
+    "expected": ["arc:rum-arc"],
+    "needsLore": true,
+    "note": "arc:rum-arc is the ongoing arc from episode 784."
+  },
+  {
+    "q": "Which arc covers episodes 179 to 345?",
+    "expected": ["arc:vermouth-arc"],
+    "needsLore": true,
+    "note": "179-345 is exactly the range of arc:vermouth-arc."
+  },
+  {
+    "q": "Which arc is episodes 129 to 178?",
+    "expected": ["arc:sherry-arc"],
+    "needsLore": true,
+    "note": "129-178 is exactly the range of arc:sherry-arc."
+  },
+  {
+    "q": "What is the FBI versus the Black Organization thread?",
+    "expected": ["thread:fbi-vs-bo"],
+    "needsLore": true,
+    "note": "thread:fbi-vs-bo is the curated thread titled \"FBI vs. the Organization\"."
+  },
+  {
+    "q": "Tell me about the Kaitou Kid thread",
+    "expected": ["thread:kaitou-kid"],
+    "needsLore": true,
+    "note": "thread:kaitou-kid is the curated thread titled \"Kaitou Kid\"."
+  },
+  {
+    "q": "What is the Shinichi and Ran storyline?",
+    "expected": ["thread:shinichi-and-ran"],
+    "needsLore": true,
+    "note": "thread:shinichi-and-ran is the curated thread titled \"Shinichi & Ran\"."
+  },
+  {
+    "q": "Which episodes are filler?",
+    "expected": ["guide:canon"],
+    "note": "guide:canon is titled \"Canon, filler and anime-original episodes\"."
+  },
+  {
+    "q": "Is episode 6 filler?",
+    "expected": ["guide:canon"],
+    "note": "Filler classification is explained by guide:canon, the only document mentioning filler."
+  },
+  {
+    "q": "Which movie is Sunflowers of Inferno?",
+    "expected": ["movie:19"],
+    "note": "movie:19 is titled \"Sunflowers of Inferno\"."
+  },
+  {
+    "q": "Which movie is The Time-Bombed Skyscraper?",
+    "expected": ["movie:1"],
+    "note": "movie:1 is titled \"The Time-Bombed Skyscraper\"."
+  },
+  {
+    "q": "Which movie is The Raven Chaser?",
+    "expected": ["movie:13"],
+    "note": "movie:13 is titled \"The Raven Chaser\"."
+  },
+  {
+    "q": "Tell me about movie 26",
+    "expected": ["movie:26"],
+    "note": "movie:26 is \"Black Iron Submarine\"; movieNumber 26 makes the number exact."
+  },
+  {
+    "q": "Which movie is The Bride of Halloween?",
+    "expected": ["movie:25"],
+    "note": "movie:25 is titled \"The Bride of Halloween\"."
+  },
+  {
+    "q": "Which movie is The Crimson Love Letter?",
+    "expected": ["movie:21"],
+    "note": "movie:21 is titled \"The Crimson Love Letter\"."
+  },
+  {
+    "q": "What does the voice-changing bowtie do?",
+    "expected": ["gadget:1"],
+    "note": "gadget:1 is the Voice-Changing Bowtie, which modulates Conan's voice."
+  },
+  {
+    "q": "What is the Stun-Gun Wristwatch?",
+    "expected": ["gadget:2"],
+    "note": "gadget:2 is the Stun-Gun Wristwatch, which fires a tranquilizer dart."
+  },
+  {
+    "q": "What do the Power-Enhancing Kick Shoes do?",
+    "expected": ["gadget:3"],
+    "note": "gadget:3 is the Power-Enhancing Kick Shoes."
+  },
+  {
+    "q": "How do the Criminal Tracking Glasses work?",
+    "expected": ["gadget:5"],
+    "note": "gadget:5 is the Criminal Tracking Glasses, which show direction and distance to a radar sticker."
+  },
+  {
+    "q": "What is the Detective Boys Badge?",
+    "expected": ["gadget:7"],
+    "note": "gadget:7 is the Detective Boys Badge, a two-way walkie-talkie."
+  },
+  {
+    "q": "What does the Solar-Powered Skateboard do?",
+    "expected": ["gadget:4"],
+    "note": "gadget:4 is the Solar-Powered Skateboard."
+  },
+  {
+    "q": "What happens in Roller Coaster Murder Case?",
+    "expected": ["entry:ep-001"],
+    "note": "entry:ep-001 is the catalog row titled \"Roller Coaster Murder Case\"."
+  },
+  {
+    "q": "What happens in Moonlight Sonata Murder Case?",
+    "expected": ["entry:ep-011", "entry:ep-1000"],
+    "note": "ep-011 is the original; ep-1000 is the 2024 re-adaptation \"The Moonlight Sonata Murder (Part One)\"."
+  },
+  {
+    "q": "What is the Cruise Ship Serial Murder Case?",
+    "expected": ["entry:ep-022", "entry:ep-023"],
+    "note": "ep-022 and ep-023 are the two parts of the case."
+  },
+  {
+    "q": "What happens in the Mountain Villa Bandaged Man Murder Case?",
+    "expected": ["entry:ep-034", "entry:ep-035"],
+    "note": "ep-034 and ep-035 are the two parts of the case."
+  },
+  {
+    "q": "Tell me about Kaitou Kid's Teleportation Magic",
+    "expected": ["entry:ep-515"],
+    "note": "entry:ep-515 is the catalog row titled \"Kaitou Kid's Teleportation Magic\"."
+  },
+  {
+    "q": "What is The Locked Wine Cellar about?",
+    "expected": ["entry:ep-235"],
+    "note": "entry:ep-235 is the catalog row titled \"The Locked Wine Cellar\"."
+  },
+  {
+    "q": "What happens in The Ghost's Revenge?",
+    "expected": ["entry:ep-1055"],
+    "note": "entry:ep-1055 is the catalog row titled \"The Ghost's Revenge\"."
+  },
+  {
+    "q": "What is The Porch Pirate Epidemic?",
+    "expected": ["entry:ep-1200"],
+    "note": "entry:ep-1200 is the catalog row titled \"The Porch Pirate Epidemic\"."
+  },
+  {
+    "q": "What is episode 1 about?",
+    "expected": ["entry:ep-001"],
+    "note": "entry:ep-001 carries episodeNumber 1."
+  },
+  {
+    "q": "What happens in episode 129?",
+    "expected": ["entry:ep-129"],
+    "note": "entry:ep-129 carries episodeNumber 129 and is Haibara's debut."
+  },
+  {
+    "q": "What happens in episode 345?",
+    "expected": ["entry:ep-345"],
+    "note": "entry:ep-345 carries episodeNumber 345, the Full Moon duel."
+  },
+  {
+    "q": "What is episode 500 about?",
+    "expected": ["entry:ep-500"],
+    "note": "entry:ep-500 carries episodeNumber 500, the Clash of Red and Black."
+  },
+  {
+    "q": "Roller Coaser Murder Case",
+    "expected": ["entry:ep-001"],
+    "note": "Typo case: \"Coaser\" against entry:ep-001's \"Coaster\", reachable only through the fuzzy branch."
+  },
+  {
+    "q": "Mountain Vila Bandaged Man Murder Case",
+    "expected": ["entry:ep-034", "entry:ep-035"],
+    "note": "Typo case: \"Vila\" against the \"Villa\" titles of ep-034 and ep-035."
+  }
+]

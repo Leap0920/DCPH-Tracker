@@ -111,6 +111,12 @@ export function ChatInput({ onSend, onStop, disabled = false, isStreaming = fals
       event.preventDefault()
       submit()
     }
+    // The reader's hands are still on the keyboard — they just pressed Enter —
+    // so stopping a streaming answer must not require reaching for the mouse.
+    // Escape stops the answer only: whatever they had typed stays in the box.
+    if (event.key === "Escape" && isStreaming && onStop) {
+      onStop()
+    }
   }
 
   return (

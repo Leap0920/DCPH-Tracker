@@ -47,9 +47,26 @@ describe("tokenize", () => {
     expect(tokenize("ep 42 recap")).not.toContain("ep")
   })
 
-  it("orders keywords longest-first so the cut keeps the selective ones", () => {
-    const keywords = tokenize("which episode has the ski resort murder case")
-    expect(keywords[0]!.length).toBeGreaterThanOrEqual(keywords[keywords.length - 1]!.length)
+  it("still cuts by specificity, so the longest terms survive the cap", () => {
+    // The cut is what maxKeywords is for: "resort" and "murder" discriminate
+    // this question and "ski" is the term to drop.
+    const keywords = tokenize("which episode has the ski resort murder case", 2)
+    expect(keywords).toHaveLength(2)
+    expect(keywords).toContain("resort")
+    expect(keywords).toContain("murder")
+    expect(keywords).not.toContain("ski")
+  })
+
+  it("returns the survivors in the order the user asked them", () => {
+    // The cut no longer reorders: scoreEntry and buildWikiQueries read the run
+    // as a phrase, so "heiji hattori" has to come back as it was typed.
+    expect(tokenize("Who is Heiji Hattori?")).toEqual(["heiji", "hattori"])
+    expect(tokenize("Tell me about Kaitou Kid's Teleportation Magic")).toEqual([
+      "kaitou",
+      "kid",
+      "teleportation",
+      "magic",
+    ])
   })
 })
 
@@ -115,6 +132,14 @@ describe("searchTermGroups", () => {
     expect(groups.some((g) => g.includes("shiho"))).toBe(true)
   })
 
+  it("keeps its selective group by specificity, not by query order", () => {
+    // This group is a SQL recall strategy ("fetch the two most selective
+    // terms"), not a phrase, so it sorts for itself now that tokenize()
+    // returns query order.
+    const groups = searchTermGroups(["ski", "resort", "murder", "case"])
+    expect(groups[0]).toEqual(["resort", "murder"])
+  })
+
   it("always returns at least one group", () => {
     expect(searchTermGroups([]).length).toBeGreaterThan(0)
   })
@@ -148,7 +173,7 @@ describe("rankEntries with chronological intent", () => {
     { id: "mid", title: "Heiji Hattori's Desperate Situation!", air_date: "2003-06-09" },
   ]
 
-  // tokenize() emits longest-first, so "hattori" precedes "heiji".
+  // Hand-built terms: the chronological rules must not depend on their order.
   const terms = ["hattori", "heiji"]
 
   it("puts the loudest title first by default", () => {
@@ -196,6 +221,39 @@ describe("scoreEntry", () => {
 
   it("scores zero when nothing matches", () => {
     expect(scoreEntry({ title: "Moonlight Sonata" }, ["haibara"])).toBe(0)
+  })
+
+  it("pays the phrase bonus only for the word order the user asked", () => {
+    // Both orders hit the same two title words; only the asked-for run is a
+    // phrase, so only it earns the full bonus.
+    const asked = scoreEntry({ title: "Heiji Hattori" }, ["heiji", "hattori"])
+    const reversed = scoreEntry({ title: "Heiji Hattori" }, ["hattori", "heiji"])
+    expect(asked).toBe(reversed + 2)
+  })
+
+  it("pays the phrase bonus once, not twice, when both rules match", () => {
+    // "Heiji Hattori" satisfies the contiguous rule and the all-terms rule; the
+    // bonuses are alternatives, so the total is the phrase bonus alone:
+    // title 3 + title 3 + several-keyword 2 + phrase 4 = 12, not 14.
+    expect(scoreEntry({ title: "Heiji Hattori" }, ["heiji", "hattori"])).toBe(12)
+  })
+
+  it("counts whole words only, so a term inside a longer word does not qualify", () => {
+    // "ran" is a substring of "brand" but not a word of it. Neither title holds
+    // the run "ran brand", so the difference is the all-terms bonus alone.
+    const buried = scoreEntry({ title: "Brand New Day" }, ["ran", "brand"])
+    const spelled = scoreEntry({ title: "Brand Ran Day" }, ["ran", "brand"])
+    expect(spelled - buried).toBe(2)
+  })
+
+  it("gets the golden miss's order from tokenize, not from a hand-built array", () => {
+    // "Who is Heiji Hattori?" used to arrive as ["hattori", "heiji"], so the
+    // character's own title fell to the all-terms bonus while six episodes
+    // titled "Hattori Heiji ..." took the phrase one.
+    const entry = { title: "Heiji Hattori" }
+    expect(scoreEntry(entry, tokenize("Who is Heiji Hattori?"))).toBeGreaterThan(
+      scoreEntry(entry, ["hattori", "heiji"])
+    )
   })
 })
 
@@ -264,6 +322,14 @@ describe("isRelevantTitle", () => {
 })
 
 describe("buildWikiQueries", () => {
+  it("builds the user's own phrases now that keywords keep query order", () => {
+    // The run used to be length-sorted ("teleportation kaitou kid magic"),
+    // which is nobody's phrase on the wiki either.
+    const queries = buildWikiQueries("Tell me about Kaitou Kid's Teleportation Magic")
+    expect(queries).toContain("kaitou kid teleportation magic")
+    expect(queries).toContain("kaitou kid")
+  })
+
   it("falls back to single keywords, because MediaWiki ANDs every term", () => {
     const queries = buildWikiQueries(
       "whats the movie where kaito kid appeared with the sunflower painting"

@@ -1,0 +1,302 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+<title>Variant B — Celestial Atlas · Red Strings</title>
+<script>
+/* Dev probe: collects script errors, unhandled rejections and failed
+   resource loads (fonts, portraits) so a headless pass can read them. */
+window.__errs = [];
+window.addEventListener("error", function (e) {
+  var t = e.target;
+  if (t && t !== window && (t.tagName === "IMG" || t.tagName === "SCRIPT" || t.tagName === "LINK")) {
+    window.__errs.push("resource " + t.tagName + " " + (t.currentSrc || t.src || t.href));
+  } else {
+    window.__errs.push("error " + (e.message || "") + " @" + (e.filename || "") + ":" + (e.lineno || 0));
+  }
+}, true);
+window.addEventListener("unhandledrejection", function (e) {
+  window.__errs.push("rejection " + String((e.reason && e.reason.stack) || e.reason));
+});
+/* console.error/warn too: a theme callback that throws inside the frame loop
+   is caught by the engine and reported through console.error, which never
+   reaches window.onerror. Without this the page looks blank and silent. */
+["error", "warn"].forEach(function (k) {
+  var orig = console[k];
+  console[k] = function () {
+    window.__errs.push(k + ": " + Array.prototype.map.call(arguments, function (a) {
+      return (a && a.stack) || String(a);
+    }).join(" "));
+    return orig.apply(console, arguments);
+  };
+});
+</script>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=IM+Fell+English:ital@0;1&family=IM+Fell+English+SC&family=EB+Garamond:ital,wght@0,400;0,500;0,600;1,400&display=swap" rel="stylesheet" />
+<link rel="stylesheet" href="lib/base.css" />
+<style>
+/* ══ VARIANT B — CELESTIAL ATLAS ═════════════════════════════════════
+   An eighteenth-century star chart, printed from copper on laid paper. Every
+   character is a catalogued body, every relationship an aspect. The page is
+   LIGHT — the inverse of the case board — so the whole problem inverts: ink
+   on vellum, captions set straight onto the paper, and legibility bought with
+   a halo of bare paper rather than with a dark plate.
+   ═══════════════════════════════════════════════════════════════════ */
+:root{
+  --vellum:#EFE7D6; --vellum-hi:#F6F0E2; --vellum-lo:#DFD3B8; --vellum-edge:#C4B392;
+  --ink:#2A2418; --ink-fade:#6B5F48; --ink-hair:#8A7C60;
+  --gold:#B8892F; --gold-hi:#D9B24A; --red:#A8342E;
+}
+body{ background:#D8CBAE; font-family:'EB Garamond',Georgia,serif; color:var(--ink); }
+
+/* ── the sheet: laid paper, foxed, lit from the upper left ───────── */
+.bg{
+  background-color:#EFE7D6;
+  background-image:
+    /* foxing — the brown age-stains of a chart kept in a damp drawer */
+    radial-gradient(9% 7% at 17% 23%, rgba(150,116,66,.16), rgba(150,116,66,0) 70%),
+    radial-gradient(6% 5% at 68% 12%, rgba(150,116,66,.13), rgba(150,116,66,0) 70%),
+    radial-gradient(11% 8% at 84% 61%, rgba(150,116,66,.12), rgba(150,116,66,0) 72%),
+    radial-gradient(7% 6% at 34% 81%, rgba(150,116,66,.14), rgba(150,116,66,0) 70%),
+    radial-gradient(5% 4% at 52% 44%, rgba(150,116,66,.1), rgba(150,116,66,0) 70%),
+    radial-gradient(8% 6% at 8% 68%, rgba(150,116,66,.11), rgba(150,116,66,0) 72%),
+    /* the laid mould: two broad uneven washes across the sheet */
+    radial-gradient(70% 54% at 26% 18%, rgba(255,252,240,.5), rgba(255,252,240,0) 72%),
+    radial-gradient(60% 60% at 88% 92%, rgba(190,168,124,.22), rgba(190,168,124,0) 74%),
+    linear-gradient(162deg,#F3EBD9 0%,#EBE2CC 46%,#E0D4B6 100%);
+}
+/* paper tooth, anchored to the sheet so it travels with the chart */
+.tile{
+  background-image:var(--noise);
+  background-repeat:repeat;
+  opacity:.85;
+}
+.tile>i{
+  position:absolute; inset:0;
+  /* the laid lines of hand-made paper, every 26px, plus chain lines */
+  background-image:
+    repeating-linear-gradient(90deg, rgba(122,100,66,.055) 0 1px, rgba(122,100,66,0) 1px 26px),
+    repeating-linear-gradient(0deg, rgba(122,100,66,.035) 0 1px, rgba(122,100,66,0) 1px 78px);
+  background-size:26px 26px, 78px 78px;
+  opacity:.5;
+}
+/* the sheet is slightly grubby at the edges, as handled paper is */
+.veil{
+  background:
+    radial-gradient(80% 70% at 30% 22%, rgba(255,250,236,.34), rgba(255,250,236,0) 66%),
+    radial-gradient(130% 122% at 48% 48%, rgba(120,96,54,0) 52%, rgba(120,96,54,.13) 84%, rgba(104,82,44,.26) 100%);
+}
+
+/* ── title: an engraved cartouche ────────────────────────────────── */
+.slot-title{ left:26px; top:24px; }
+.cartouche{
+  position:relative; max-width:330px; padding:15px 20px 13px;
+  background:linear-gradient(165deg,#F7F1E2,#E9DFC6);
+  border:1.5px solid rgba(60,48,28,.62);
+  box-shadow:0 16px 30px -18px rgba(60,44,20,.7), 0 1px 0 rgba(255,255,255,.7) inset;
+}
+.cartouche::before{
+  content:''; position:absolute; inset:4px; border:1px solid rgba(60,48,28,.34); pointer-events:none;
+}
+.cartouche::after{
+  /* the engraver's corner florets */
+  content:''; position:absolute; inset:9px; pointer-events:none;
+  background:
+    radial-gradient(circle at 0 0, rgba(60,48,28,.5) 0 1.4px, transparent 1.5px),
+    radial-gradient(circle at 100% 0, rgba(60,48,28,.5) 0 1.4px, transparent 1.5px),
+    radial-gradient(circle at 0 100%, rgba(60,48,28,.5) 0 1.4px, transparent 1.5px),
+    radial-gradient(circle at 100% 100%, rgba(60,48,28,.5) 0 1.4px, transparent 1.5px);
+}
+.cartouche__rule{
+  height:2px; margin-bottom:9px;
+  background:linear-gradient(90deg, rgba(60,48,28,0), rgba(60,48,28,.62) 14%, rgba(60,48,28,.62) 86%, rgba(60,48,28,0));
+}
+.cartouche__rule--low{ margin:9px 0 8px; height:1px; background:linear-gradient(90deg, rgba(60,48,28,0), rgba(60,48,28,.42) 20%, rgba(60,48,28,.42) 80%, rgba(60,48,28,0)); }
+.cartouche__kicker{ display:block; font-family:'IM Fell English SC',serif; font-size:10.5px; letter-spacing:.2em; color:#8A6A3A; margin-bottom:3px; }
+.cartouche__title{ margin:0; font-family:'IM Fell English',Georgia,serif; font-weight:400; font-size:31px; line-height:1.02; letter-spacing:.005em; color:#241E14; }
+.cartouche__sub{ display:block; margin-top:3px; font-family:'EB Garamond',serif; font-style:italic; font-size:12.5px; color:#5A4C38; }
+.cartouche__meta{ margin:0; font-family:'IM Fell English SC',serif; font-size:9.5px; letter-spacing:.13em; color:#8A7C60; }
+
+/* ── legend: a key box, ruled like the plate it describes ────────── */
+.slot-legend{ right:26px; top:24px; width:268px; display:flex; justify-content:flex-end; }
+.legend-wrap{ position:relative; width:100%; }
+.legend-wrap .legend{ display:none; }
+.legend-wrap.is-open .legend{ display:block; }
+.legend-wrap.is-open .legend__tab{ display:none; }
+.legend__tab{
+  display:flex; align-items:center; gap:9px; width:100%;
+  padding:9px 12px; cursor:pointer; color:var(--ink);
+  background:linear-gradient(165deg,#F7F1E2,#E9DFC6);
+  border:1.5px solid rgba(60,48,28,.6);
+  box-shadow:0 14px 26px -16px rgba(60,44,20,.75);
+}
+.legend__tab:hover{ background:linear-gradient(165deg,#FBF6E9,#EFE6D0); }
+.legend__tab-label{ font-family:'IM Fell English SC',serif; font-size:11.5px; letter-spacing:.18em; white-space:nowrap; }
+.legend__tab-marks{ display:flex; gap:4px; margin-left:auto; }
+.legend__tab-marks i{ font-style:normal; font-size:13px; line-height:1; }
+.legend__tab-hint{ font-family:'IM Fell English SC',serif; font-size:9px; letter-spacing:.1em; color:#8A7C60; white-space:nowrap; }
+.legend{
+  position:relative; padding:13px 13px 11px;
+  background:linear-gradient(165deg,#F7F1E2,#E9DFC6);
+  border:1.5px solid rgba(60,48,28,.62);
+  box-shadow:0 22px 40px -20px rgba(60,44,20,.8), 0 1px 0 rgba(255,255,255,.7) inset;
+}
+.legend::before{ content:''; position:absolute; inset:5px; border:1px solid rgba(60,48,28,.3); pointer-events:none; }
+.legend__head{ display:flex; flex-direction:column; gap:2px; margin:2px 2px 9px; }
+.legend__head span{ font-family:'IM Fell English SC',serif; font-size:12px; letter-spacing:.17em; color:#241E14; }
+.legend__head em{ font-family:'EB Garamond',serif; font-style:italic; font-size:10.5px; color:#7A6A50; }
+.legend__item{ color:#33291B; font-size:12px; gap:8px; padding:.32rem .3rem; }
+.legend__item:hover{ background:rgba(60,48,28,.07); }
+.legend__item.is-active{ background:rgba(168,52,46,.1); box-shadow:inset 0 0 0 1px rgba(168,52,46,.42); }
+.legend__swatch svg{ display:block; }
+.legend__count{ font-family:'IM Fell English SC',serif; font-size:10.5px; color:#8A7C60; opacity:1; }
+.legend__clear{
+  font-family:'IM Fell English SC',serif; font-size:10px; letter-spacing:.14em;
+  color:#A8342E; border-top:1px solid rgba(60,48,28,.3); margin-top:8px; padding-top:8px;
+}
+
+/* ── search: the index ───────────────────────────────────────────── */
+.slot-search{ left:26px; bottom:26px; width:308px; }
+.search__head{ font-family:'IM Fell English SC',serif; font-size:10px; letter-spacing:.19em; color:#8A7C60; margin:0 0 6px 3px; }
+.search{
+  display:flex; align-items:center; gap:9px; padding:9px 12px;
+  background:linear-gradient(180deg,#F8F3E6,#EBE1C9);
+  border:1.5px solid rgba(60,48,28,.5);
+  box-shadow:0 14px 26px -16px rgba(60,44,20,.75);
+}
+.search::before{
+  content:''; flex:none; width:12px; height:12px; border-radius:50%;
+  border:1.5px solid #6B5F48; box-shadow:4px 4px 0 -3px #6B5F48;
+}
+.search__input{ font-family:'EB Garamond',serif; font-style:italic; font-size:13.5px; color:var(--ink); }
+.search__input::placeholder{ color:#9C8B6C; }
+.search__results{
+  margin-top:8px; overflow:hidden;
+  background:linear-gradient(180deg,#F8F3E6,#EDE3CC);
+  border:1.5px solid rgba(60,48,28,.5);
+  box-shadow:0 18px 32px -16px rgba(60,44,20,.8);
+}
+.search__hit{ color:#33291B; font-size:12px; border-bottom:1px solid rgba(60,48,28,.12); }
+.search__hit:hover{ background:rgba(60,48,28,.07); }
+.search__role{ font-family:'EB Garamond',serif; font-style:italic; font-size:10.5px; color:#7A6A50; }
+.search__none{ padding:.5rem .6rem; font-family:'EB Garamond',serif; font-style:italic; font-size:11.5px; color:#8A7C60; }
+
+/* ── tools: brass dials on the plate edge ────────────────────────── */
+.slot-tools{ right:26px; bottom:26px; }
+.tools__btn{
+  width:33px; height:33px; border-radius:50%; color:#2A2014; font-weight:600; font-size:16px;
+  font-family:'EB Garamond',serif;
+  background:radial-gradient(circle at 34% 26%, #F0DDA8, #C0983E 58%, #7A5C22);
+  border:1px solid rgba(255,244,206,.4);
+  box-shadow:0 5px 12px rgba(60,44,20,.5), inset 0 1px 0 rgba(255,255,255,.6);
+  transition:transform 120ms cubic-bezier(.2,.8,.2,1), filter 120ms;
+}
+.tools__btn:hover{ filter:brightness(1.09); transform:translateY(-1px); }
+.tools__btn:active{ transform:translateY(0); filter:brightness(.94); }
+.tools__btn--wide{ width:auto; padding:0 14px; border-radius:17px; font-family:'IM Fell English SC',serif; font-size:10.5px; letter-spacing:.15em; }
+.tools__k{ font-family:'IM Fell English SC',serif; font-size:11px; color:#6B5F48; }
+
+/* ── hud: the plate's scale bar ──────────────────────────────────── */
+.slot-hud{ left:50%; bottom:30px; transform:translateX(-50%); }
+.hud{ font-family:'IM Fell English SC',serif; font-size:10px; letter-spacing:.15em; color:#8A7C60; gap:10px; }
+.hud b{ color:#4A3E2E; font-weight:400; }
+.hud__sep{ color:rgba(60,48,28,.35); }
+.hud__bar{
+  width:74px; height:7px; border:1px solid rgba(60,48,28,.55);
+  background:repeating-linear-gradient(90deg, rgba(60,48,28,.55) 0 1px, transparent 1px 18.5px),
+             linear-gradient(90deg, rgba(60,48,28,.2) 0 50%, transparent 50% 100%);
+}
+
+/* ── dossier: an entry in the catalogue ──────────────────────────── */
+.dossier{ right:26px; top:104px; bottom:26px; width:400px; transform:translateX(26px); }
+.dossier.is-open{ transform:translateX(0); }
+.entry{
+  position:relative; display:flex; flex-direction:column; height:100%; overflow:hidden;
+  padding:24px 24px 0; color:var(--ink);
+  background:linear-gradient(168deg,#F8F3E5 0%,#EEE4CD 58%,#E4D8BC 100%);
+  border:1.5px solid rgba(60,48,28,.6);
+  box-shadow:0 34px 60px -24px rgba(60,44,20,.85), 0 1px 0 rgba(255,255,255,.7) inset;
+}
+.entry::before{ content:''; position:absolute; inset:6px; border:1px solid rgba(60,48,28,.26); pointer-events:none; }
+.entry__rule{ height:2px; background:linear-gradient(90deg, rgba(60,48,28,.6), rgba(60,48,28,.12)); margin-bottom:12px; }
+.dossier__close{ position:absolute; right:16px; top:18px; width:26px; height:26px; font-size:13px; color:#7A6A50; border-radius:50%; }
+.dossier__close:hover{ background:rgba(60,48,28,.1); }
+.entry__greek{
+  position:absolute; right:22px; top:44px; font-family:'EB Garamond',serif;
+  font-size:64px; line-height:1; color:rgba(184,137,47,.22); pointer-events:none;
+}
+.entry__fac{ display:block; font-family:'IM Fell English SC',serif; font-size:10.5px; letter-spacing:.19em; color:#8A6A3A; margin-bottom:5px; }
+.entry__name{ margin:0 0 3px; font-family:'IM Fell English',Georgia,serif; font-weight:400; font-size:30px; line-height:1.04; color:#241E14; }
+.entry__alias{ margin:0 0 7px; font-family:'EB Garamond',serif; font-style:italic; font-size:12.5px; color:#7A6A50; }
+.entry__role{ margin:0; font-family:'EB Garamond',serif; font-size:13px; line-height:1.5; color:#4A3E2E; }
+.entry__bio{ margin:14px 0 16px; font-family:'EB Garamond',serif; font-size:14px; line-height:1.72; color:#2E2519; }
+.entry__count{ display:flex; align-items:center; gap:10px; margin:2px 0 4px; font-family:'IM Fell English SC',serif; font-size:10px; letter-spacing:.16em; color:#7A6A50; }
+.entry__count::after{ content:''; flex:1; height:1px; background:rgba(60,48,28,.28); }
+.entry__aspects{ list-style:none; margin:0; padding:0 0 22px; overflow-y:auto; overscroll-behavior:contain; flex:1; }
+.entry__aspects::-webkit-scrollbar{ width:6px; }
+.entry__aspects::-webkit-scrollbar-thumb{ background:rgba(60,48,28,.28); border-radius:3px; }
+.aspect{ display:flex; gap:11px; width:100%; padding:10px 6px; border:0; border-bottom:1px solid rgba(60,48,28,.16); background:none; color:inherit; font:inherit; text-align:left; cursor:pointer; }
+.aspect:hover{ background:rgba(60,48,28,.06); }
+.aspect__swatch{ flex:none; padding-top:3px; }
+.aspect__body{ display:flex; flex-direction:column; gap:1px; min-width:0; }
+.aspect__type{ font-family:'IM Fell English SC',serif; font-size:10px; letter-spacing:.15em; color:#8A6A3A; }
+.aspect__name{ font-family:'EB Garamond',serif; font-size:13.5px; font-weight:600; }
+.aspect__detail{ font-family:'EB Garamond',serif; font-size:12px; line-height:1.55; color:#5A4C38; }
+
+@media (max-width:900px){
+  .slot-legend{ display:none; }
+  .slot-hud{ display:none; }
+  .dossier{ left:12px; right:12px; top:auto; bottom:12px; width:auto; height:66vh; transform:translateY(26px); }
+  .dossier.is-open{ transform:translateY(0); }
+  .slot-search{ left:14px; right:14px; bottom:16px; width:auto; }
+  .cartouche{ max-width:214px; padding:11px 14px 10px; }
+  .cartouche__title{ font-size:21px; }
+  .cartouche__sub{ display:none; }
+}
+</style>
+</head>
+<body>
+<div class="stage" id="stage">
+  <div class="bg" aria-hidden="true"></div>
+  <div class="tile" id="tile" aria-hidden="true"><i></i></div>
+  <canvas class="canvas" id="canvas" aria-label="Detective Conan relationship graph — celestial atlas"></canvas>
+  <div class="veil" aria-hidden="true"></div>
+
+  <div class="chrome">
+    <div class="slot-title" id="slot-title"></div>
+    <div class="slot-legend" id="slot-legend"></div>
+    <div class="slot-search" id="slot-search"></div>
+    <div class="slot-tools" id="slot-tools"></div>
+    <div class="slot-hud" id="slot-hud"></div>
+  </div>
+
+  <aside class="dossier" id="dossier" aria-hidden="true" aria-label="Atlas entry"></aside>
+  <ul class="a11y" id="a11y" aria-label="Character list"></ul>
+</div>
+
+<script src="lib/data.js"></script>
+<script src="lib/engine.js"></script>
+<script src="lib/theme-b.js"></script>
+<script>
+(function () {
+  window.__app = DCPHEngine.create({
+    theme: window.DCPH_THEME_B,
+    root: document.getElementById('stage'),
+    canvas: document.getElementById('canvas'),
+    bg: document.getElementById('tile'),
+    dossier: document.getElementById('dossier'),
+    a11y: document.getElementById('a11y'),
+    slots: {
+      title: document.getElementById('slot-title'),
+      legend: document.getElementById('slot-legend'),
+      tools: document.getElementById('slot-tools'),
+      search: document.getElementById('slot-search'),
+      hud: document.getElementById('slot-hud')
+    }
+  });
+})();
+</script>
+</body>
+</html>

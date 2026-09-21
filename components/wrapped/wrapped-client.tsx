@@ -63,8 +63,12 @@ export function WrappedClient({
   }
 
   return (
-    <div className="grid gap-10 lg:grid-cols-[minmax(0,1fr)_260px] lg:gap-12">
-      <div className="mx-auto w-full max-w-[420px] lg:max-w-[480px]">
+    /* min-w-0 on both children: the card wrapper holds a fixed 1080px-wide
+       scaled child, whose min-content width would otherwise size the auto
+       grid track (56px overflow on 390px phones — the "edges" of issue #11).
+       The minmax(0,1fr) track keeps the card inside the viewport. */
+    <div className="grid min-w-0 gap-10 lg:grid-cols-[minmax(0,1fr)_260px] lg:gap-12">
+      <div className="mx-auto min-w-0 w-full max-w-[420px] lg:max-w-[480px]">
         <CardFrame>
           <StatsCard
             ref={cardRef}
@@ -78,7 +82,7 @@ export function WrappedClient({
         </CardFrame>
       </div>
 
-      <aside className="flex flex-col gap-6 lg:sticky lg:top-24 lg:self-start">
+      <aside className="flex min-w-0 flex-col gap-6 lg:sticky lg:top-24 lg:self-start">
         <div>
           <h1 className="font-display text-xl font-semibold tracking-[-0.02em] text-ink">
             Your Wrapped

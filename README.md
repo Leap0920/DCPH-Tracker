@@ -50,6 +50,10 @@ Brevo is configured as the custom SMTP provider in Supabase Auth settings, and h
 npm run dev
 ```
 
+### Agent-operated local runs (MCP)
+
+Agents can operate the local dev server via the stdio MCP server in `mcp-server/` (status, start/stop, health, perf, build, logs). See [mcp-server/README.md](mcp-server/README.md) for install and Hermes wiring.
+
 ## Database
 
 Run `supabase/schema.sql` in the Supabase SQL Editor first to create all tables.

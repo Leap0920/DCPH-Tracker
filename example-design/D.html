@@ -1,0 +1,458 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+<title>Variant D — Hanko Registry · Red Strings</title>
+<script>
+/* Dev probe: collects script errors, unhandled rejections and failed
+   resource loads (fonts, portraits) so a headless pass can read them. */
+window.__errs = [];
+window.addEventListener("error", function (e) {
+  var t = e.target;
+  if (t && t !== window && (t.tagName === "IMG" || t.tagName === "SCRIPT" || t.tagName === "LINK")) {
+    window.__errs.push("resource " + t.tagName + " " + (t.currentSrc || t.src || t.href));
+  } else {
+    window.__errs.push("error " + (e.message || "") + " @" + (e.filename || "") + ":" + (e.lineno || 0));
+  }
+}, true);
+window.addEventListener("unhandledrejection", function (e) {
+  window.__errs.push("rejection " + String((e.reason && e.reason.stack) || e.reason));
+});
+/* console.error/warn too: a theme callback that throws inside the frame loop
+   is caught by the engine and reported through console.error, which never
+   reaches window.onerror. Without this the page looks blank and silent. */
+["error", "warn"].forEach(function (k) {
+  var orig = console[k];
+  console[k] = function () {
+    window.__errs.push(k + ": " + Array.prototype.map.call(arguments, function (a) {
+      return (a && a.stack) || String(a);
+    }).join(" "));
+    return orig.apply(console, arguments);
+  };
+});
+</script>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=EB+Garamond:ital,wght@0,400..800;1,400..600&family=Zen+Old+Mincho:wght@400;600;700&display=swap" rel="stylesheet" />
+<link rel="stylesheet" href="lib/base.css" />
+<style>
+/* ══ VARIANT D — HANKO REGISTRY ══════════════════════════════════════
+   A Japanese family register: a black urushi lacquer board with washi paper
+   and vermilion seals. Every character is a carved hanko; every thread is a
+   sumi-e brush stroke; the chrome is paper pasted onto the lacquer.
+
+   The board is black, so the ink is PALE — what reads on a lacquer ground is
+   the ink a seal carver leaves when he lifts the paper. Vermilion is spent
+   only on the seals (and the red thread of fate), gold maki-e only on the
+   family line and the finest rules.
+   ══════════════════════════════════════════════════════════════════ */
+:root{
+  --lacquer:#0B0908; --lacquer-hi:#191411;
+  --washi:#E7DCC4; --washi-hi:#F4EBD8; --washi-lo:#CDBE9C;
+  --vermilion:#D8382B; --verm-lo:#9B2018; --gold:#C9A227;
+  --sumi:#1A1512; --sumi-dim:#5C4C38; --edge:#8E7A56;
+  --washi-paper:linear-gradient(180deg,#F2E9D4 0%,#E7DBC0 58%,#DCCEB0 100%);
+  --washi-vert:linear-gradient(96deg,#F1E7D0 0%,#E3D6B8 58%,#D2C2A0 100%);
+}
+body{ background:var(--lacquer); color:var(--washi); font-family:'EB Garamond',Georgia,serif; }
+
+/* ── material: black urushi lacquer ────────────────────────────────
+   Deep, glossy, and lit from somewhere off the upper left. The pools are
+   world-anchored (they live on .bg, which the engine translates with the
+   camera), so the light stays in the room while the board moves. */
+.bg{
+  background-color:#0B0908;
+  background-image:
+    radial-gradient(54% 46% at 30% 24%, rgba(158,124,78,.13), rgba(158,124,78,0) 70%),
+    radial-gradient(40% 34% at 84% 86%, rgba(128,94,56,.09), rgba(128,94,56,0) 72%),
+    radial-gradient(30% 26% at 10% 76%, rgba(58,42,26,.5), rgba(58,42,26,0) 74%),
+    linear-gradient(154deg,#181411 0%,#100D0B 46%,#070605 100%);
+}
+/* the grain tile, at two scales: fine tooth over coarse mottle */
+.tile{
+  background-image:var(--noise),var(--noise);
+  background-repeat:repeat;
+  opacity:.8;
+}
+/* urushi is laid with a brush. The streaks are the one place the material
+   admits it was made by hand. */
+.tile>i{
+  position:absolute; inset:0;
+  background-image:
+    repeating-linear-gradient(177deg, rgba(255,242,218,.020) 0 1px, rgba(0,0,0,0) 1px 4px),
+    repeating-linear-gradient(93deg, rgba(0,0,0,.17) 0 2px, rgba(0,0,0,0) 2px 12px),
+    radial-gradient(circle at 40% 40%, rgba(255,240,212,.03) 0 1px, transparent 2px);
+  background-size:100% 4px,12px 100%,7px 7px;
+}
+/* ── the raking light ──────────────────────────────────────────────
+   One broad, soft highlight dragged across the polished surface. It is a
+   baked CSS layer on a compositor transform, drifting almost imperceptibly;
+   the canvas never builds a gradient. */
+.veil{ overflow:hidden; }
+.veil::before{
+  content:''; position:absolute; inset:-34% -62%;
+  background:linear-gradient(102deg,
+    rgba(255,248,232,0) 28%,
+    rgba(255,248,232,.045) 41%,
+    rgba(255,251,240,.115) 49.5%,
+    rgba(255,248,232,.04) 58%,
+    rgba(255,248,232,0) 72%);
+  animation:sweep 78s ease-in-out infinite alternate;
+  will-change:transform;
+}
+@keyframes sweep{
+  from{ transform:translate3d(-3.2%,-1.4%,0) rotate(-.5deg); }
+  to  { transform:translate3d(3.2%,1.4%,0) rotate(.5deg); }
+}
+.veil::after{
+  content:''; position:absolute; inset:0;
+  background:
+    radial-gradient(72% 62% at 34% 26%, rgba(255,238,206,.035), rgba(0,0,0,0) 62%),
+    radial-gradient(142% 130% at 46% 46%, rgba(0,0,0,0) 40%, rgba(0,0,0,.44) 78%, rgba(0,0,0,.8) 100%);
+}
+@media (prefers-reduced-motion: reduce){ .veil::before{ animation:none; } }
+
+/* ── washi: the fibre overlay every paper element shares ─────────── */
+.slip::before,.legend::before,.legend__tab::before,.search::before,.hud::before,.file__fibre{
+  content:''; position:absolute; inset:0; pointer-events:none; border-radius:inherit; opacity:.6;
+  background-image:
+    repeating-linear-gradient(88deg, rgba(122,98,62,.075) 0 1px, rgba(0,0,0,0) 1px 3px),
+    repeating-linear-gradient(2deg, rgba(255,255,255,.5) 0 1px, rgba(0,0,0,0) 1px 5px),
+    repeating-linear-gradient(41deg, rgba(112,90,56,.055) 0 1px, rgba(0,0,0,0) 1px 9px),
+    radial-gradient(circle at 30% 20%, rgba(122,98,62,.10) 0 1px, rgba(0,0,0,0) 1.7px);
+  background-size:3px 100%,100% 5px,9px 9px,13px 17px;
+}
+
+/* ── title: a vertical washi slip (tategaki) down the left edge ──── */
+.slot-title{ left:22px; top:22px; }
+.slip{
+  position:relative; display:flex; flex-direction:column; align-items:center; gap:13px;
+  padding:15px 10px 17px; border-radius:1px;
+  background:var(--washi-vert);
+  box-shadow:0 26px 46px -20px rgba(0,0,0,.95), 0 1px 0 rgba(255,255,255,.5) inset;
+}
+.slip__seal{
+  width:34px; height:34px; flex:none; display:grid; place-items:center;
+  background:radial-gradient(circle at 33% 26%, #EA5C4C, #D8382B 46%, #9B2018 88%);
+  color:#F7EEDB; font-family:'Zen Old Mincho','Noto Serif CJK JP',serif; font-size:20px; line-height:1;
+  border-radius:3px 5px 4px 6px;
+  box-shadow:inset 0 0 0 1.5px rgba(255,216,198,.34), inset 0 -3px 7px rgba(88,12,6,.5), 0 3px 8px rgba(0,0,0,.4);
+  text-shadow:0 1px 0 rgba(255,255,255,.28), 0 -1px 1px rgba(72,10,6,.55);
+}
+/* tategaki: the block axis of vertical-rl runs right to left, so a column
+   flex lays the title rightmost and the counts to its left. */
+.slip__cols{
+  writing-mode:vertical-rl; text-orientation:mixed;
+  display:flex; flex-direction:column; align-items:flex-start; gap:14px;
+}
+.slip__title{
+  margin:0; white-space:nowrap;
+  font-family:'Zen Old Mincho','Noto Serif CJK JP','Shippori Mincho',serif;
+  font-weight:600; font-size:29px; letter-spacing:.19em; color:var(--sumi);
+}
+.slip__sub{
+  margin:0; white-space:nowrap; font-size:12.5px; letter-spacing:.34em;
+  text-transform:uppercase; color:#8A7350;
+}
+.slip__meta{
+  margin:0; white-space:nowrap; font-size:11.5px; letter-spacing:.13em; color:#8A7350;
+}
+
+/* ── search: the registry lookup — a washi slip with a brush rule ── */
+.slot-search{ left:122px; top:22px; width:302px; }
+.search__head{
+  font-family:'Zen Old Mincho','EB Garamond',serif; font-size:11px; letter-spacing:.24em;
+  text-transform:uppercase; color:#9C8A6A; margin:0 0 5px 3px;
+}
+.search{
+  position:relative; display:flex; align-items:center;
+  padding:9px 12px 12px 34px; border-radius:1px;
+  background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 14 14'%3E%3Ccircle cx='6' cy='6' r='4.1' fill='none' stroke='%23C4382C' stroke-width='1.5'/%3E%3Cpath d='M9.4 9.4L12.6 12.6' stroke='%23C4382C' stroke-width='1.6' stroke-linecap='round'/%3E%3C/svg%3E"),
+    linear-gradient(180deg,#F3EAD6,#E1D4B6);
+  background-repeat:no-repeat,repeat;
+  background-position:12px 50%,0 0;
+  background-size:14px 14px,auto;
+  box-shadow:0 18px 32px -14px rgba(0,0,0,.92), 0 1px 0 rgba(255,255,255,.5) inset;
+}
+/* the rule under the lookup is a brush stroke: it enters thin, swells, lifts */
+.search::after{
+  content:''; position:absolute; left:9px; right:9px; bottom:5px; height:2px; border-radius:1px;
+  background:linear-gradient(90deg,
+    rgba(26,21,18,0) 0%, rgba(26,21,18,.68) 11%, rgba(26,21,18,.86) 52%,
+    rgba(26,21,18,.5) 85%, rgba(26,21,18,0) 100%);
+}
+.search__input{ font-family:'EB Garamond',Georgia,serif; font-size:15px; color:var(--sumi); }
+.search__input::placeholder{ color:#9C8A6A; font-style:italic; }
+.search__results{
+  margin-top:7px; padding:3px 0; border-radius:1px; overflow:hidden;
+  background:linear-gradient(180deg,#EFE5CC,#E2D5B7);
+  border:1px solid rgba(140,116,80,.45);
+  box-shadow:0 20px 34px -16px rgba(0,0,0,.9);
+}
+.search__hit{ padding:6px 11px; color:var(--sumi); border-bottom:1px solid rgba(140,116,80,.2); }
+.search__hit:last-child{ border-bottom:0; }
+.search__hit:hover{ background:rgba(120,96,60,.13); }
+.search__dot{ width:8px; height:8px; border-radius:1px; opacity:.9; filter:grayscale(.5) contrast(1.05); }
+.search__name{ font-size:14px; }
+.search__role{ font-size:11.5px; font-style:italic; color:#7A6242; }
+.search__none{ padding:7px 11px; font-size:12.5px; font-style:italic; color:#7A6242; }
+
+/* ── tools: ink stamps inlaid in the lacquer ─────────────────────── */
+.slot-tools{ right:22px; top:22px; }
+.tools{ gap:5px; }
+.tools__btn{
+  min-width:31px; height:31px; border-radius:1px; color:#EFE4CB; font-size:14px;
+  background:linear-gradient(180deg,#231D19,#14100E);
+  box-shadow:inset 0 0 0 1px rgba(201,162,39,.3), 0 5px 12px rgba(0,0,0,.7);
+  transition:box-shadow 140ms, color 140ms;
+}
+.tools__btn:hover{ color:#FFF8E6; box-shadow:inset 0 0 0 1px rgba(201,162,39,.7), 0 6px 15px rgba(0,0,0,.75); }
+.tools__btn:active{ transform:translateY(1px); }
+.tools__btn--wide{
+  padding:0 13px; font-family:'Zen Old Mincho','EB Garamond',serif;
+  font-size:11.5px; letter-spacing:.2em; text-transform:uppercase;
+}
+.tools__k{ min-width:46px; font-size:12.5px; color:#C9B98F; font-variant-numeric:tabular-nums; }
+
+/* ── legend: the seal key, a horizontal washi band along the bottom ── */
+.slot-legend{ left:122px; right:300px; bottom:18px; display:flex; }
+.legend-wrap{ position:relative; width:100%; }
+.legend-wrap .legend{ display:none; }
+.legend-wrap.is-open .legend{ display:block; }
+.legend-wrap.is-open .legend__tab{ display:none; }
+/* collapsed: a washi tag with a red seal on it */
+.legend__tab{
+  position:relative; display:flex; align-items:center; gap:11px; width:auto;
+  padding:6px 15px 6px 8px; cursor:pointer; border-radius:1px;
+  background:var(--washi-paper); border:1px solid rgba(140,116,80,.5); color:var(--sumi);
+  box-shadow:0 18px 32px -16px rgba(0,0,0,.9), 0 1px 0 rgba(255,255,255,.5) inset;
+}
+.legend__tab:hover{ background:linear-gradient(180deg,#F6EEDC,#E5D9BC); }
+.legend__tab-seal{
+  width:26px; height:26px; flex:none; display:grid; place-items:center;
+  background:radial-gradient(circle at 33% 26%, #EA5C4C, #D8382B 46%, #9B2018 88%);
+  color:#F7EEDB; font-family:'Zen Old Mincho','Noto Serif CJK JP',serif; font-size:15px; line-height:1;
+  border-radius:3px 4px 3px 5px;
+  box-shadow:inset 0 0 0 1px rgba(255,216,198,.34), 0 2px 6px rgba(0,0,0,.35);
+  text-shadow:0 1px 0 rgba(255,255,255,.28);
+}
+.legend__tab-label{ font-family:'Zen Old Mincho','EB Garamond',serif; font-size:13.5px; letter-spacing:.15em; }
+.legend__tab-hint{
+  margin-left:4px; font-size:10.5px; letter-spacing:.2em; text-transform:uppercase; color:#8A7350;
+}
+/* open: the key itself — a washi band carrying eight real brush samples,
+   each one mounted on a lacquer chip so the pale ink reads as it does on the
+   board. A row of colour chips would teach nothing. */
+.legend{
+  position:relative; padding:9px 13px 8px; border-radius:1px;
+  background:linear-gradient(180deg,#F2E9D4,#DFD2B4 62%,#D4C5A4);
+  border:1px solid rgba(140,116,80,.45);
+  box-shadow:0 22px 40px -18px rgba(0,0,0,.92), 0 1px 0 rgba(255,255,255,.5) inset;
+}
+.legend__head{ display:flex; align-items:baseline; gap:9px; margin:0 2px 7px; }
+.legend__head span{ font-family:'Zen Old Mincho','EB Garamond',serif; font-size:13px; letter-spacing:.2em; color:var(--sumi); }
+.legend__head em{ font-style:italic; font-size:11.5px; color:#8A7350; }
+.legend__list{ display:flex; }
+.legend__item{
+  flex:1 1 0; min-width:0; border-radius:0; border-left:1px solid rgba(140,116,80,.24);
+  display:grid; grid-template-columns:1fr auto; align-items:center; gap:2px 6px;
+  padding:4px 7px; color:var(--sumi); font-size:12px;
+}
+.legend__item:first-child{ border-left:0; padding-left:3px; }
+.legend__item:hover{ background:rgba(120,96,60,.1); }
+.legend__item.is-active{ background:rgba(216,56,43,.14); box-shadow:inset 0 0 0 1px rgba(155,32,24,.5); }
+.legend__swatch{
+  grid-column:1 / -1; justify-self:start;
+  background:#0B0908; padding:4px 7px; border-radius:1px;
+  box-shadow:inset 0 0 0 1px rgba(201,162,39,.22), 0 1px 2px rgba(0,0,0,.35);
+}
+.legend__swatch svg{ display:block; width:46px; height:15px; }
+.legend__label{
+  font-size:12.5px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;
+}
+.legend__count{ font-size:10.5px; color:#8A7350; margin-left:0; opacity:1; }
+.legend__clear{
+  margin-top:7px; padding-top:7px; width:100%; text-align:left;
+  font-size:11px; letter-spacing:.2em; text-transform:uppercase; color:var(--verm-lo);
+  border-top:1px solid rgba(140,116,80,.4);
+}
+
+/* ── hud: the registry footer ────────────────────────────────────── */
+.slot-hud{ right:22px; bottom:18px; }
+.hud{
+  position:relative; display:flex; gap:0; padding:6px 11px; border-radius:1px;
+  background:var(--washi-paper); border:1px solid rgba(140,116,80,.45); color:var(--sumi);
+  box-shadow:0 16px 30px -14px rgba(0,0,0,.9), 0 1px 0 rgba(255,255,255,.45) inset;
+}
+.hud__cell{ display:flex; align-items:baseline; gap:5px; padding:0 8px; border-left:1px solid rgba(140,116,80,.26); }
+.hud__cell:first-child{ border-left:0; padding-left:1px; }
+.hud__cell:last-child{ padding-right:1px; }
+.hud__cell i{ font-style:normal; font-size:10px; letter-spacing:.16em; text-transform:uppercase; color:#8A7350; }
+.hud__cell b{ font-weight:600; font-size:13.5px; font-variant-numeric:tabular-nums; }
+
+/* ── dossier: a page out of the register ─────────────────────────── */
+.dossier{ right:22px; top:22px; bottom:100px; width:406px; transform:translateX(30px) rotate(.5deg); }
+.dossier.is-open{ transform:translateX(0) rotate(0); }
+.file{
+  position:relative; display:flex; flex-direction:column; height:100%; overflow:hidden;
+  padding:24px 24px 0; border-radius:1px; color:var(--sumi);
+  background:linear-gradient(168deg,#F3EAD6 0%,#E7DBC0 56%,#DACBA9 100%);
+  box-shadow:0 34px 62px -22px rgba(0,0,0,.95), 0 1px 0 rgba(255,255,255,.55) inset;
+}
+/* the page's ruling: vertical columns and faint horizontal register lines */
+.file::before{
+  content:''; position:absolute; inset:0; pointer-events:none; opacity:.6;
+  background-image:
+    repeating-linear-gradient(90deg, rgba(140,116,80,.2) 0 1px, rgba(0,0,0,0) 1px 33px),
+    repeating-linear-gradient(0deg, rgba(140,116,80,.1) 0 1px, rgba(0,0,0,0) 1px 26px);
+}
+.file>*{ position:relative; z-index:1; }
+/* the moment the page opens: the seal is struck. A hanko is a stone, not a
+   chip — the corner is hand-cut, the field is unevenly inked, and the
+   character is a groove the paper shows through. */
+.file__seal{
+  position:absolute; right:20px; top:18px; width:80px; height:80px; z-index:2;
+  display:grid; place-items:center; transform:rotate(-6deg);
+  background:
+    radial-gradient(circle at 70% 76%, rgba(255,232,216,.20), rgba(255,232,216,0) 42%),
+    radial-gradient(circle at 26% 62%, rgba(96,16,8,.30), rgba(96,16,8,0) 46%),
+    radial-gradient(circle at 33% 26%, #EA5C4C, #D8382B 44%, #A3231A 82%, #8A1B13);
+  border-radius:7px 13px 8px 14px / 13px 8px 14px 9px;
+  box-shadow:
+    inset 0 0 0 2.5px rgba(255,206,184,.22),
+    inset 0 0 0 5px rgba(84,10,4,.34),
+    inset 0 -8px 16px rgba(88,12,6,.5),
+    inset 0 7px 13px rgba(255,180,150,.16),
+    0 9px 20px -7px rgba(0,0,0,.55);
+  animation:sealpress 480ms cubic-bezier(.16,1,.3,1) both;
+}
+.file__seal::after{
+  content:''; position:absolute; inset:0; border-radius:inherit; opacity:.42;
+  background-image:
+    repeating-linear-gradient(84deg, rgba(255,242,224,.32) 0 1px, rgba(0,0,0,0) 1px 3px),
+    repeating-linear-gradient(6deg, rgba(90,14,8,.32) 0 1px, rgba(0,0,0,0) 1px 4px);
+}
+.file__seal span{
+  position:relative; font-family:'Zen Old Mincho','EB Garamond',serif; font-size:33px; line-height:1;
+  color:#F7EEDB;
+  text-shadow:
+    -1.5px -1.5px 0 rgba(84,10,4,.62),
+    1.5px 1.5px 0 rgba(255,226,208,.34),
+    0 1px 2px rgba(70,8,4,.5);
+}
+@keyframes sealpress{
+  0%{ transform:rotate(-6deg) scale(1.6); opacity:0; }
+  55%{ transform:rotate(-6deg) scale(.93); opacity:1; }
+  100%{ transform:rotate(-6deg) scale(1); opacity:1; }
+}
+@media (prefers-reduced-motion: reduce){ .file__seal{ animation:none; } }
+
+.dossier__close{
+  position:absolute; right:110px; top:20px; width:26px; height:26px; z-index:2;
+  font-size:13px; color:#8A7350; border-radius:1px;
+}
+.dossier__close:hover{ background:rgba(120,96,60,.14); }
+.file__head{ padding-right:92px; }
+.file__reg{ display:block; margin-bottom:7px; font-size:10.5px; letter-spacing:.3em; color:#8A7350; }
+.file__name{
+  margin:0 0 5px; font-family:'Zen Old Mincho','EB Garamond',serif; font-weight:600;
+  font-size:30px; line-height:1.06; letter-spacing:.005em;
+}
+.file__alias{ margin:0 0 5px; font-size:13px; font-style:italic; color:#7A6242; }
+.file__role{ margin:0; font-size:13px; line-height:1.5; color:#4E4133; }
+.file__fac{
+  display:flex; align-items:baseline; gap:8px; margin:10px 0 0;
+  font-size:11px; letter-spacing:.14em; text-transform:uppercase; color:#7A6242;
+}
+.file__fac b{ font-weight:600; color:var(--verm-lo); letter-spacing:.18em; }
+.file__bio{ margin:16px 0 0; font-size:14.5px; line-height:1.72; color:#2C2419; }
+.file__rule{
+  display:flex; align-items:baseline; gap:10px; margin:18px 0 2px;
+  font-size:10.5px; letter-spacing:.22em; text-transform:uppercase; color:#8A7350;
+}
+.file__rule::after{ content:''; flex:1; height:1px; background:rgba(140,116,80,.4); }
+.file__rule em{ font-style:italic; letter-spacing:.04em; text-transform:none; font-size:12px; color:#A88C5E; }
+.file__threads{
+  list-style:none; margin:0; padding:2px 0 22px; flex:1;
+  overflow-y:auto; overscroll-behavior:contain;
+}
+.file__threads::-webkit-scrollbar{ width:6px; }
+.file__threads::-webkit-scrollbar-thumb{ background:rgba(140,116,80,.4); border-radius:3px; }
+.thread{
+  display:flex; gap:10px; width:100%; padding:8px 6px; border:0; border-radius:0;
+  border-bottom:1px solid rgba(140,116,80,.22); background:none; color:inherit;
+  font:inherit; text-align:left; cursor:pointer;
+}
+.thread:hover{ background:rgba(120,96,60,.11); }
+.thread__no{ flex:none; min-width:15px; padding-top:3px; font-size:11px; color:#A08A64; }
+.thread__swatch{
+  flex:none; align-self:flex-start; padding:4px 6px; border-radius:1px; background:#0B0908;
+  box-shadow:inset 0 0 0 1px rgba(201,162,39,.22);
+}
+.thread__swatch svg{ display:block; width:44px; height:15px; }
+.thread__body{ display:flex; flex-direction:column; gap:1px; min-width:0; }
+.thread__type{
+  display:flex; gap:7px; font-size:10px; letter-spacing:.2em; text-transform:uppercase; color:#8A7350;
+}
+.thread__type em{ font-style:normal; color:#B49E76; letter-spacing:.12em; }
+.thread__name{ font-family:'Zen Old Mincho','EB Garamond',serif; font-size:14.5px; }
+.thread__detail{ font-size:12px; line-height:1.45; color:#5A4C38; }
+
+/* ── the graph is the subject; the chrome never steals a drag ────── */
+.chrome > .slot-legend,.chrome > .slot-hud,.chrome > .slot-tools,.chrome > .slot-search{ pointer-events:none; }
+.slot-legend > *,.slot-hud > *,.slot-tools > *,.slot-search > *{ pointer-events:auto; }
+
+@media (max-width:900px){
+  .slot-legend,.slot-hud{ display:none; }
+  .slot-search{ left:14px; right:14px; top:auto; bottom:16px; width:auto; }
+  .slot-title{ left:12px; top:12px; }
+  .slip__cols{ display:none; }
+  .dossier{ left:12px; right:12px; top:auto; bottom:12px; width:auto; height:68vh; transform:translateY(26px); }
+  .dossier.is-open{ transform:translateY(0); }
+}
+</style>
+</head>
+<body>
+<div class="stage" id="stage">
+  <div class="bg" aria-hidden="true"></div>
+  <div class="tile" id="tile" aria-hidden="true"><i></i></div>
+  <canvas class="canvas" id="canvas" aria-label="Detective Conan relationship graph — hanko registry"></canvas>
+  <div class="veil" aria-hidden="true"></div>
+
+  <div class="chrome">
+    <div class="slot-title" id="slot-title"></div>
+    <div class="slot-legend" id="slot-legend"></div>
+    <div class="slot-search" id="slot-search"></div>
+    <div class="slot-tools" id="slot-tools"></div>
+    <div class="slot-hud" id="slot-hud"></div>
+  </div>
+
+  <aside class="dossier" id="dossier" aria-hidden="true" aria-label="Registry page"></aside>
+  <ul class="a11y" id="a11y" aria-label="Character list"></ul>
+</div>
+
+<script src="lib/data.js"></script>
+<script src="lib/engine.js"></script>
+<script src="lib/theme-d.js"></script>
+<script>
+(function () {
+  window.__app = DCPHEngine.create({
+    theme: window.DCPH_THEME_D,
+    root: document.getElementById('stage'),
+    canvas: document.getElementById('canvas'),
+    bg: document.getElementById('tile'),
+    dossier: document.getElementById('dossier'),
+    a11y: document.getElementById('a11y'),
+    slots: {
+      title: document.getElementById('slot-title'),
+      legend: document.getElementById('slot-legend'),
+      tools: document.getElementById('slot-tools'),
+      search: document.getElementById('slot-search'),
+      hud: document.getElementById('slot-hud')
+    }
+  });
+})();
+</script>
+</body>
+</html>

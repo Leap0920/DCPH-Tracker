@@ -55,5 +55,14 @@ jobs:
       - name: Test
         run: npm run test
 
+      # The retrieval and pipeline evals are the quality gate: they fail the
+      # build from inside `npm run test` above, and they keep their own
+      # `RECALL_GATE` assertion there. This step runs exactly those two files
+      # again so their measured recall is a named line in the log rather than a
+      # number buried in the suite's output. Offline, like the suite: no
+      # database, no network, no secret beyond the placeholders above.
+      - name: Eval gate (recall)
+        run: npm run test:eval
+
       - name: Build
         run: npm run build

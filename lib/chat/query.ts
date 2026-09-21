@@ -67,17 +67,28 @@ export function sanitizeLike(value: string): string {
 /**
  * Splits a question into search keywords.
  *
- * Sorted by specificity (longest first) rather than by frequency: for
- * "Which episode has the ski resort murder?", `resort` and `murder` are the
- * discriminating terms and should survive the MAX_KEYWORDS cut.
+ * Two halves to the contract:
+ *  - WHICH keywords survive is decided by specificity: for "Which episode has
+ *    the ski resort murder?", `resort` and `murder` are the discriminating
+ *    terms and should survive the MAX_KEYWORDS cut.
+ *  - The survivors keep their QUERY order, because `keywords` is not a bag of
+ *    terms — scoreEntry() and buildWikiQueries() read `keywords.join(" ")` as a
+ *    phrase. Length-sorting the run turned "Who is Heiji Hattori?" into
+ *    ["hattori", "heiji"], which is a contiguous substring of six episode
+ *    titles ("Hattori Heiji …") but not of the character's own "Heiji Hattori",
+ *    so the episodes outranked the answer.
  */
 export function tokenize(query: string, maxKeywords = 6): string[] {
   const tokens = normalizeText(query)
     .split(" ")
     .filter((t) => (t.length >= MIN_KEYWORD_LENGTH || SHORT_TERMS.has(t)) && !STOPWORDS.has(t))
 
-  const unique = Array.from(new Set(tokens)).sort((a, b) => b.length - a.length)
-  return unique.slice(0, maxKeywords)
+  // First occurrence wins, so `unique` is already in query order.
+  const unique = Array.from(new Set(tokens))
+  // The cut is by specificity; what comes back is not re-sorted.
+  const kept = new Set(unique.slice().sort((a, b) => b.length - a.length).slice(0, maxKeywords))
+
+  return unique.filter((token) => kept.has(token))
 }
 
 /**
@@ -179,7 +190,14 @@ export function expandAliases(keywords: string[]): string[] {
  */
 export function searchTermGroups(keywords: string[]): string[][] {
   const groups: string[][] = []
-  if (keywords.length > 2) groups.push(keywords.slice(0, 2))
+  // The selective group sorts for itself: `tokenize` now returns query order,
+  // and "the two most selective terms" is a different question from "the two
+  // the user said first". It stays a small, precise SQL probe.
+  if (keywords.length > 2) {
+    groups.push([...keywords].sort((a, b) => b.length - a.length).slice(0, 2))
+  }
+  // The full group keeps the caller's order: buildOrFilter ORs the terms, so
+  // the order cannot change which rows match.
   if (keywords.length > 0) groups.push(keywords)
 
   const aliases = expandAliases(keywords)
@@ -247,12 +265,33 @@ const FIELD_WEIGHTS: ReadonlyArray<readonly [keyof RankableEntry, number]> = [
 
 /** Bonus when the whole phrase appears in a title, e.g. "ski lodge murder case". */
 const BONUS_PHRASE_IN_TITLE = 4
+/**
+ * Half the phrase bonus, paid when a title holds every keyword as a whole word
+ * but in a different order.
+ *
+ * "Who is Heiji Hattori?" asks for the run "heiji hattori", while six episode
+ * titles say "Hattori Heiji …": without this, the character's own entry scores
+ * below all six. It stays weaker than the run because it is a weaker signal.
+ */
+const BONUS_ALL_TERMS_IN_TITLE = 2
 /** An exact episode/movie number beats every keyword match. */
 const BONUS_EXACT_NUMBER = 10
 
 /** Concatenates the title-like fields used for the whole-phrase bonus. */
 function titleText(entry: RankableEntry): string {
   return normalizeText([entry.title, entry.dcw_title, entry.page_title].filter(Boolean).join(" "))
+}
+
+/**
+ * True when every keyword is a whole word of `title` (already normalized).
+ *
+ * A word set, never `includes`: "ran" is a substring of "brand" and would
+ * qualify under a substring test, which is the one way this bonus could leak
+ * across the corpus.
+ */
+function allTermsInTitle(title: string, keywords: string[]): boolean {
+  const words = new Set(title.split(" "))
+  return keywords.every((keyword) => words.has(keyword))
 }
 
 /**
@@ -290,9 +329,16 @@ export function scoreEntry(
   // Reward entries matching several keywords over entries matching one.
   if (matched > 1) score += matched
 
+  // The two title bonuses are alternatives, not a sum: an entry that matches
+  // the run is worth exactly BONUS_PHRASE_IN_TITLE, never the two together.
+  const title = titleText(entry)
   const phrase = keywords.join(" ")
-  if (keywords.length > 1 && phrase.length > 0 && titleText(entry).includes(phrase)) {
-    score += BONUS_PHRASE_IN_TITLE
+  if (keywords.length > 1 && phrase.length > 0) {
+    if (title.includes(phrase)) {
+      score += BONUS_PHRASE_IN_TITLE
+    } else if (allTermsInTitle(title, keywords)) {
+      score += BONUS_ALL_TERMS_IN_TITLE
+    }
   }
 
   for (const n of numbers) {
@@ -419,7 +465,13 @@ export function buildWikiQueries(query: string, maxQueries = 6): string[] {
   if (keywords.length >= 2) push(keywords.join(" "))
   if (keywords.length >= 3) push(keywords.slice(0, 2).join(" "))
 
-  for (const kw of keywords) push(kw)
+  // Longest single keyword first, not in query order: a five-keyword question
+  // spends the list above on phrase forms and would never reach the singles,
+  // and the whole point of a lone keyword is that MediaWiki can still match on
+  // the most selective one. This order used to come from tokenize()'s sort; it
+  // is stated here now that tokenize() keeps the question's order.
+  const singles = [...keywords].sort((a, b) => b.length - a.length)
+  for (const kw of singles) push(kw)
 
   for (let i = 0; i < keywords.length - 1; i += 1) {
     push(`${keywords[i]} ${keywords[i + 1]}`)

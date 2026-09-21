@@ -43,7 +43,7 @@ export interface Character {
 const CHARACTER_IMAGES: Record<string, string> = {
   "conan-edogawa": "Conan Edogawa Shinichi Kudo.jpg",
   "yusaku-kudo": "yusakukudo.jpg",
-  "yukiko-kudo": "yukikokudo.jpg",
+  "yukiko-kudo": "Yukikokudo.jpg",
   "heiji-hattori": "Heiji Hattori.jpg",
   "kazuha-toyama": "kazuha toyama.jpg",
   "heizo-hattori": "Heizo Hattori.jpg",

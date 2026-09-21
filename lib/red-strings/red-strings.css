@@ -1,0 +1,544 @@
+/*
+  red-strings — the renderer's stylesheet.
+
+  Ported from `example-design/lib/base.css` followed by the `<style>` block in
+  `example-design/A.html`, with one change: every page-level rule is scoped
+  under `.dcph-rs`, the class the React component puts on the graph root.
+
+  That scoping is not cosmetic. The prototype owned the whole document, so
+  `base.css` sets `html, body { height: 100%; overflow: hidden }` and
+  `body { background; font-family }` outright. Imported into the app as-is,
+  those would kill scrolling on every other route and repaint the app
+  background. Class selectors are untouched: none of `.stage`, `.canvas`,
+  `.chrome`, `.veil`, `.tile`, `.legend`, `.hud`, `.brand`, `.search`,
+  `.dossier` or `.a11y` collides with the app's global stylesheet or Tailwind,
+  so the drawing surface keeps the selectors the engine writes.
+*/
+
+/*
+  red-strings.css — variant A (Case Board) renderer stylesheet.
+
+  Merge of the two prototype stylesheets, in cascade order:
+    1. example-design/lib/base.css        — the shared structural shell
+    2. the <style> block in example-design/A.html — variant A's chrome CSS
+
+  No rule from either source was dropped. The only additions are this header
+  and the separators. The engine writes the class names below and delegates on
+  the `[data-*]` hooks, so nothing here may be renamed.
+
+  FONTS. The prototype loaded three families from the Google Fonts CDN via a
+  <link> in A.html:
+      Oswald       (400, 600, 700) — display / stamp / legend heads
+      Inter        (400, 500, 600, 700) — body, canvas label family
+      Courier Prime(400, 700) — typewriter detail (case number, hud, hints)
+  `Inter` is already self-hosted by the app through next/font in app/layout.tsx;
+  `Oswald` and `Courier Prime` are not. The CDN URL is a network dependency the
+  app cannot serve itself, so no @font-face / @import is added here — provide
+  them (next/font/google, or local files) before this sheet is used, or the
+  display and typewriter text falls back to `sans-serif` / `monospace`.
+
+  RUNTIME CUSTOM PROPERTIES. The engine sets `--noise` and the `bgMotion` tile
+  size on the root at runtime; the `var()` references below are intentional and
+  are left with no fallback, exactly as authored.
+*/
+
+/*
+  Structural shell shared by all four prototypes. Art direction lives in each
+  variant's own <style> block — this file only guarantees the layers stack
+  correctly, the chrome slots exist, and the accessibility scaffolding works.
+*/
+
+.dcph-rs,
+.dcph-rs *,
+.dcph-rs *::before,
+.dcph-rs *::after {
+  box-sizing: border-box;
+}
+
+.dcph-rs {
+  margin: 0;
+  padding: 0;
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+  overscroll-behavior: none;
+  background: #06060a;
+}
+
+.dcph-rs {
+  font-family: system-ui, -apple-system, "Segoe UI", sans-serif;
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+}
+
+/*
+  `absolute`, not `fixed`. The prototype owned the document, so pinning the
+  stage to the viewport was right. In the app the board is one route inside a
+  chrome-bearing shell — the mobile navbar insets the route with `pt-16` — and a
+  fixed stage would draw straight under it. Absolute fills the container the
+  route actually hands us.
+*/
+.stage {
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+}
+
+/*
+  With the case-file sheet open on a narrow frame the sheet occupies the bottom,
+  which is exactly where the search panel, the tool dock and the readout live.
+  Hide them rather than let the sheet cover its own controls. Wider frames are
+  untouched: there the dossier is a right-hand column, not a bottom sheet.
+
+  This breakpoint must stay equal to the one that turns `.dossier` into a sheet
+  below (900px) and to the `useMediaQuery` in CharactersExplorer that publishes
+  `is-sheet-open`. Three places, one number.
+*/
+@media (max-width: 900px) {
+  .dcph-rs.is-sheet-open .slot-search,
+  .dcph-rs.is-sheet-open .slot-tools,
+  .dcph-rs.is-sheet-open .slot-hud {
+    display: none;
+  }
+}
+
+/* L0 — material. Screen-fixed by default; world-anchored variants translate it
+   with a compositor-only transform (never a background-position write). */
+.bg,
+.veil {
+  position: absolute;
+  inset: -260px;
+  pointer-events: none;
+}
+.bg {
+  z-index: 0;
+  will-change: transform;
+}
+.veil {
+  z-index: 3;
+  inset: 0;
+}
+
+/* L1 — the single canvas surface. */
+.canvas {
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  display: block;
+  touch-action: none;
+  cursor: grab;
+}
+.canvas:active {
+  cursor: grabbing;
+}
+
+/* L2 — real DOM chrome. Never canvas text. */
+.chrome {
+  position: absolute;
+  inset: 0;
+  z-index: 4;
+  pointer-events: none;
+}
+.chrome > * {
+  pointer-events: auto;
+}
+.slot-title,
+.slot-legend,
+.slot-tools,
+.slot-search,
+.slot-hud {
+  position: absolute;
+}
+
+.dossier {
+  position: absolute;
+  z-index: 5;
+  opacity: 0;
+  visibility: hidden;
+  transition: opacity 300ms cubic-bezier(0.16, 1, 0.3, 1), transform 340ms cubic-bezier(0.16, 1, 0.3, 1),
+    visibility 0s linear 340ms;
+}
+.dossier.is-open {
+  opacity: 1;
+  visibility: visible;
+  transition: opacity 300ms cubic-bezier(0.16, 1, 0.3, 1), transform 340ms cubic-bezier(0.16, 1, 0.3, 1),
+    visibility 0s;
+}
+
+/* ── generic chrome primitives variants restyle ───────────────────── */
+.legend__list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+.legend__item {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  width: 100%;
+  border: 0;
+  background: none;
+  color: inherit;
+  font: inherit;
+  cursor: pointer;
+  text-align: left;
+  padding: 0.28rem 0.4rem;
+}
+.legend__swatch {
+  display: flex;
+  align-items: center;
+  flex: none;
+}
+.legend__count {
+  margin-left: auto;
+  font-variant-numeric: tabular-nums;
+  opacity: 0.6;
+}
+.legend__clear {
+  width: 100%;
+  border: 0;
+  background: none;
+  color: inherit;
+  font: inherit;
+  cursor: pointer;
+  padding: 0.35rem 0.4rem;
+  text-align: left;
+}
+
+.tools {
+  display: flex;
+  align-items: center;
+  gap: 0.25rem;
+}
+.tools__btn {
+  border: 0;
+  background: none;
+  color: inherit;
+  font: inherit;
+  cursor: pointer;
+  min-width: 2rem;
+  height: 2rem;
+}
+.tools__k {
+  font-variant-numeric: tabular-nums;
+  min-width: 3.4rem;
+  text-align: center;
+}
+
+.search__input {
+  width: 100%;
+  border: 0;
+  background: none;
+  color: inherit;
+  font: inherit;
+  outline: none;
+}
+.search__results {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+.search__hit {
+  display: flex;
+  align-items: baseline;
+  gap: 0.5rem;
+  width: 100%;
+  border: 0;
+  background: none;
+  color: inherit;
+  font: inherit;
+  cursor: pointer;
+  text-align: left;
+  padding: 0.3rem 0.4rem;
+}
+.search__dot {
+  width: 0.5rem;
+  height: 0.5rem;
+  border-radius: 50%;
+  flex: none;
+  align-self: center;
+}
+.search__name {
+  flex: none;
+}
+.search__role {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  opacity: 0.6;
+}
+
+.hud {
+  display: flex;
+  gap: 0.75rem;
+  font-variant-numeric: tabular-nums;
+}
+
+.dossier__close {
+  border: 0;
+  background: none;
+  color: inherit;
+  font: inherit;
+  cursor: pointer;
+}
+
+/* Accessibility mirror: the canvas cannot expose 95 focusable nodes, so the
+   real, keyboard-navigable list lives here and drives the renderer. */
+.a11y {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  margin: -1px;
+  padding: 0;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  clip-path: inset(50%);
+  white-space: nowrap;
+  border: 0;
+  list-style: none;
+}
+.a11y__node:focus-visible {
+  outline: 2px solid currentColor;
+}
+
+.dcph-rs :focus-visible {
+  outline: 2px solid currentColor;
+  outline-offset: 2px;
+}
+
+/* Motion is decorative here; the graph itself stays fully operable. */
+@media (prefers-reduced-motion: reduce) {
+  .dossier,
+  .dossier.is-open {
+    transition: none;
+  }
+}
+
+/* ══════════════════════════════════════════════════════════════════════
+   Variant A chrome CSS — from the <style> block in example-design/A.html.
+   Loaded after base.css so it wins where the two overlap (body background).
+   ══════════════════════════════════════════════════════════════════════ */
+
+/* ══ VARIANT A — CASE BOARD ══════════════════════════════════════════
+   A detective's evidence board in a dark room. Cork, steel pins, manila
+   photo mounts and crimson thread, lit by one tungsten bulb off to the
+   upper left. Everything outside that pool falls to near-black.
+   ══════════════════════════════════════════════════════════════════ */
+.dcph-rs{
+  --manila:#E8DCC8; --manila-hi:#F2E9D8; --manila-lo:#D6C6A8; --manila-edge:#C2AE8A;
+  --ink:#1A1410; --ink-dim:#6B5B45; --thread:#C8102E; --brass:#C9A24A;
+}
+.dcph-rs{ background:#0A0806; font-family:'Inter',system-ui,sans-serif; color:#D9CBAC; }
+
+/* ── material: cork over plaster, one pool of tungsten light ─────── */
+.bg{
+  background-color:#2E2418;
+  background-image:
+    radial-gradient(52% 44% at 27% 20%, rgba(255,230,182,.2), rgba(255,230,182,0) 70%),
+    radial-gradient(34% 30% at 84% 88%, rgba(255,208,152,.075), rgba(255,208,152,0) 72%),
+    radial-gradient(22% 20% at 12% 74%, rgba(96,72,44,.4), rgba(96,72,44,0) 72%),
+    radial-gradient(26% 22% at 68% 16%, rgba(88,64,38,.36), rgba(88,64,38,0) 74%),
+    linear-gradient(158deg,#43341F 0%,#332719 44%,#261D12 100%);
+}
+/* world-anchored grain: the board moves under a fixed light */
+.tile{
+  background-image:var(--noise);
+  background-repeat:repeat;
+  opacity:.9;
+}
+.tile>i{
+  position:absolute; inset:0;
+  background-image:
+    radial-gradient(circle at 30% 32%, rgba(255,238,206,.055) 0 1px, transparent 1.7px),
+    radial-gradient(circle at 72% 64%, rgba(0,0,0,.22) 0 1.5px, transparent 2.2px),
+    radial-gradient(circle at 50% 50%, rgba(255,232,190,.03) 0 .8px, transparent 1.2px);
+  background-size:6px 6px,9px 9px,3px 3px;
+}
+/* the room: vignette down to black + a faint lens haze */
+/* The bulb is up and to the left; a second, much weaker bounce comes back off
+   the floor at the lower right so the police cluster at the bottom of the
+   board is dim rather than unreadable. */
+.veil{
+  background:
+    radial-gradient(72% 62% at 30% 24%, rgba(255,226,180,.055), rgba(0,0,0,0) 62%),
+    radial-gradient(40% 34% at 84% 96%, rgba(255,196,132,.045), rgba(0,0,0,0) 70%),
+    radial-gradient(128% 118% at 42% 46%, rgba(0,0,0,0) 46%, rgba(0,0,0,.42) 80%, rgba(0,0,0,.7) 100%);
+}
+
+/* ── title: a taped index card ───────────────────────────────────── */
+.slot-title{ left:24px; top:22px; }
+.brand__card{
+  position:relative; max-width:284px; padding:15px 19px 13px;
+  background:linear-gradient(158deg,#F4EBD9,#DCCDB0);
+  color:var(--ink); border-radius:2px; transform:rotate(-1.4deg);
+  box-shadow:0 18px 34px -12px rgba(0,0,0,.9), 0 1px 0 rgba(255,255,255,.5) inset;
+}
+.brand__card::before{
+  content:''; position:absolute; top:-12px; left:30px; width:104px; height:25px;
+  background:linear-gradient(180deg,rgba(230,218,186,.85),rgba(203,188,152,.8));
+  transform:rotate(-3.2deg); box-shadow:0 4px 9px rgba(0,0,0,.45);
+  border-left:1px solid rgba(255,255,255,.4); border-right:1px solid rgba(122,104,74,.35);
+}
+.brand__case{ display:block; font-family:var(--font-board-mono),monospace; font-size:10px; letter-spacing:.17em; text-transform:uppercase; color:#8A6A3A; }
+.brand__title{ margin:3px 0 5px; font-family:var(--font-board-display),sans-serif; font-weight:700; font-size:28px; line-height:.98; letter-spacing:.005em; text-transform:uppercase; }
+.brand__sub{ margin:0; font-family:var(--font-board-mono),monospace; font-size:10px; letter-spacing:.05em; color:var(--ink-dim); }
+
+/* ── legend: the thread spool tray, a manila card pinned to the board ──
+   Deliberately the SAME stock as the photo mounts, so the tray reads as one
+   more artefact on the board rather than a UI panel floating over it. It also
+   has to be light: the adversary thread is black cord, and a black swatch on a
+   dark panel is an empty row. */
+.slot-legend{ right:24px; top:22px; width:250px; display:flex; justify-content:flex-end; }
+.legend-wrap{ position:relative; width:100%; }
+.legend-wrap .legend{ display:none; }
+.legend-wrap.is-open .legend{ display:block; }
+.legend-wrap.is-open .legend__tab{ display:none; }
+/* the collapsed spool tab — same manila stock, so it is the tray seen edge-on */
+.legend__tab{
+  display:flex; align-items:center; gap:9px; width:100%;
+  padding:9px 11px; border-radius:2px; cursor:pointer;
+  background:linear-gradient(158deg,#F0E6D2,#DCCDB2);
+  border:1px solid rgba(120,98,66,.55); color:#231A10;
+  box-shadow:0 18px 34px -14px rgba(0,0,0,.9);
+}
+.legend__tab:hover{ background:linear-gradient(158deg,#F6EEDC,#E2D4BB); }
+.legend__tab-label{
+  font-family:var(--font-board-display),sans-serif; font-weight:700; font-size:11px;
+  letter-spacing:.16em; text-transform:uppercase; white-space:nowrap;
+}
+.legend__tab-dots{ display:flex; gap:3px; margin-left:auto; }
+.legend__tab-dots i{ width:7px; height:7px; border-radius:50%; box-shadow:0 1px 1px rgba(0,0,0,.35); }
+.legend__tab-hint{
+  font-family:var(--font-board-mono),monospace; font-size:9px; letter-spacing:.06em;
+  text-transform:uppercase; color:#7A6746; white-space:nowrap;
+}
+.legend{
+  position:relative; padding:12px 12px 10px; border-radius:2px;
+  background:
+    linear-gradient(158deg, #F0E6D2 0%, #E6D9C1 46%, #DCCDB2 100%);
+  border:1px solid rgba(120,98,66,.55);
+  box-shadow:
+    0 24px 46px -16px rgba(0,0,0,.95),
+    0 2px 0 rgba(255,255,255,.12) inset,
+    0 -18px 30px -22px rgba(120,92,56,.9) inset;
+}
+/* punched hole + pin, top centre — it is a card, so it hangs like one */
+.legend::before{
+  content:''; position:absolute; left:50%; top:7px; width:7px; height:7px;
+  margin-left:-3.5px; border-radius:50%;
+  background:radial-gradient(circle at 36% 30%, #C9A24A, #7A5F22 62%, #3A2C10);
+  box-shadow:0 2px 4px rgba(0,0,0,.55), 0 0 0 1px rgba(60,44,16,.6);
+}
+.legend__head{ display:flex; flex-direction:column; gap:1px; margin:6px 2px 8px; }
+.legend__head span{ font-family:var(--font-board-display),sans-serif; font-weight:700; font-size:11.5px; letter-spacing:.16em; text-transform:uppercase; color:#231A10; }
+.legend__head em{ font-family:var(--font-board-mono),monospace; font-style:normal; font-size:9.5px; letter-spacing:.02em; color:#7A6746; }
+.legend__item{ border-radius:1px; color:#2C2317; font-size:11.5px; font-weight:500; gap:8px; padding:.32rem .3rem; }
+.legend__item:hover{ background:rgba(60,42,18,.09); }
+.legend__item.is-active{ background:rgba(200,16,46,.13); box-shadow:inset 0 0 0 1px rgba(176,20,42,.45); }
+.legend__swatch svg{ display:block; }
+.legend__count{ font-family:var(--font-board-mono),monospace; font-size:10.5px; color:#7A6746; opacity:1; }
+.legend__clear{
+  font-family:var(--font-board-mono),monospace; font-size:10px; letter-spacing:.09em; text-transform:uppercase;
+  color:#A8121F; border-top:1px dashed rgba(122,103,70,.5); margin-top:7px; padding-top:8px;
+}
+
+/* ── search: a magnifier on a manila slip ────────────────────────── */
+.slot-search{ left:24px; bottom:26px; width:296px; }
+.search__head{ font-family:var(--font-board-display),sans-serif; font-weight:600; font-size:10px; letter-spacing:.16em; text-transform:uppercase; color:#B7A483; margin:0 0 6px 3px; }
+.search{
+  display:flex; align-items:center; gap:8px; padding:8px 11px; border-radius:2px;
+  background:linear-gradient(180deg,#F4EBD9,#E1D2B4); transform:rotate(-.5deg);
+  box-shadow:0 16px 30px -12px rgba(0,0,0,.9), 0 1px 0 rgba(255,255,255,.5) inset;
+}
+.search::before{
+  content:''; flex:none; width:13px; height:13px; border-radius:50%;
+  border:2px solid #7A6242; box-shadow:5px 5px 0 -3.5px #7A6242;
+}
+.search__input{ font-family:var(--font-board-mono),monospace; font-size:12.5px; color:var(--ink); }
+.search__input::placeholder{ color:#9C8767; }
+.search__results{ margin-top:7px; border-radius:2px; overflow:hidden; background:rgba(18,14,10,.95); border:1px solid rgba(148,122,84,.28); box-shadow:0 18px 34px -14px rgba(0,0,0,.9); }
+.search__hit{ color:#D6C8A9; font-size:11.5px; }
+.search__hit:hover{ background:rgba(255,226,178,.08); }
+.search__role{ font-family:var(--font-board-mono),monospace; font-size:9.5px; }
+.search__none{ padding:.5rem .6rem; font-family:var(--font-board-mono),monospace; font-size:10.5px; color:#8B795B; }
+
+/* ── tools: brass fittings ───────────────────────────────────────── */
+/* The app's chat bubble is `fixed bottom-5 right-5` and 56px across, so it owns
+   the bottom-right corner from 20px to 76px. Clear it: the dock's own controls
+   are the primary interaction on this route and must not sit under a bubble. */
+.slot-tools{ right:92px; bottom:26px; }
+.tools__btn{
+  width:32px; height:32px; border-radius:50%; color:#2A1E0C; font-weight:700; font-size:15px;
+  background:radial-gradient(circle at 34% 26%, #EFD79A, #B48C42 58%, #6E5322);
+  border:1px solid rgba(255,236,190,.32);
+  box-shadow:0 4px 10px rgba(0,0,0,.75), inset 0 1px 0 rgba(255,255,255,.5);
+  transition:transform 120ms cubic-bezier(.2,.8,.2,1), filter 120ms;
+}
+.tools__btn:hover{ filter:brightness(1.12); transform:translateY(-1px); }
+.tools__btn:active{ transform:translateY(0); filter:brightness(.94); }
+.tools__btn--wide{ width:auto; padding:0 13px; border-radius:16px; font-family:var(--font-board-display),sans-serif; font-size:10.5px; letter-spacing:.14em; text-transform:uppercase; }
+.tools__k{ font-family:var(--font-board-mono),monospace; font-size:11px; color:#C4B08A; }
+
+/* ── hud ─────────────────────────────────────────────────────────── */
+.slot-hud{ left:50%; bottom:28px; transform:translateX(-50%); }
+.hud{ font-family:var(--font-board-mono),monospace; font-size:10px; letter-spacing:.08em; text-transform:uppercase; color:#8B795B; gap:14px; }
+.hud b{ color:#C4B08A; font-weight:700; }
+
+/* ── dossier: the case file sheet ────────────────────────────────── */
+/* The sheet stops above the bottom rail rather than running to the viewport
+   edge: the chat bubble owns the bottom 20–76px on the right and `.slot-tools`
+   sits at 26–58px, so a full-height sheet would bury both. 88px clears the
+   bubble's top edge by 12px at 900px tall and keeps the dock reachable while a
+   file is open. */
+.dossier{ right:24px; top:96px; bottom:88px; width:392px; transform:translateX(26px) rotate(.6deg); }
+.dossier.is-open{ transform:translateX(0) rotate(0deg); }
+.file{
+  position:relative; display:flex; flex-direction:column; height:100%; overflow:hidden;
+  padding:22px 22px 0; border-radius:3px; color:var(--ink);
+  background:linear-gradient(168deg,#F4EBD9 0%,#E6D7BA 58%,#DCCBA8 100%);
+  box-shadow:0 34px 64px -22px rgba(0,0,0,.95), 0 1px 0 rgba(255,255,255,.55) inset;
+}
+.file::before{
+  content:''; position:absolute; left:0; right:0; top:0; height:5px;
+  background:repeating-linear-gradient(90deg,#C8102E 0 14px,#E8DCC8 14px 28px);
+  opacity:.75;
+}
+.dossier__close{ position:absolute; right:14px; top:16px; width:26px; height:26px; font-size:13px; color:#7A6242; border-radius:50%; }
+.dossier__close:hover{ background:rgba(122,98,66,.14); }
+.file__stamp{
+  display:inline-block; margin-bottom:9px; padding:3px 9px; border-radius:1px;
+  font-family:var(--font-board-display),sans-serif; font-weight:600; font-size:10px; letter-spacing:.17em; text-transform:uppercase;
+  color:#8E1B2C; border:1.5px solid rgba(142,27,44,.55); transform:rotate(-1.6deg);
+}
+.file__name{ margin:0 0 4px; font-family:var(--font-board-display),sans-serif; font-weight:700; font-size:26px; line-height:1.02; letter-spacing:.005em; text-transform:uppercase; }
+.file__alias{ margin:0 0 6px; font-family:var(--font-board-mono),monospace; font-size:11px; color:#8A6A3A; letter-spacing:.03em; }
+.file__role{ margin:0; font-size:12.5px; line-height:1.5; color:#4A3E2E; }
+.file__bio{ margin:14px 0 0; font-size:13.5px; line-height:1.68; color:#2E2519; }
+.file__rule{ display:flex; align-items:center; gap:10px; margin:18px 0 4px; font-family:var(--font-board-mono),monospace; font-size:10px; letter-spacing:.14em; text-transform:uppercase; color:#7A6242; }
+.file__rule::after{ content:''; flex:1; height:1px; background:rgba(122,98,66,.35); }
+.file__threads{ list-style:none; margin:0; padding:0 0 22px; overflow-y:auto; overscroll-behavior:contain; flex:1; }
+.file__threads::-webkit-scrollbar{ width:6px; }
+.file__threads::-webkit-scrollbar-thumb{ background:rgba(122,98,66,.35); border-radius:3px; }
+.thread{ display:flex; gap:10px; width:100%; padding:9px 6px; border:0; border-bottom:1px dashed rgba(122,98,66,.28); background:none; color:inherit; font:inherit; text-align:left; cursor:pointer; border-radius:2px; }
+.thread:hover{ background:rgba(122,98,66,.1); }
+.thread__swatch{ flex:none; padding-top:3px; }
+.thread__body{ display:flex; flex-direction:column; gap:1px; min-width:0; }
+.thread__type{ font-family:var(--font-board-display),sans-serif; font-weight:600; font-size:9.5px; letter-spacing:.14em; text-transform:uppercase; color:#8A6A3A; }
+.thread__name{ font-size:12.5px; font-weight:600; }
+.thread__detail{ font-size:11.5px; line-height:1.5; color:#5A4C38; }
+
+@media (max-width:900px){
+  .slot-legend{ display:none; }
+  .slot-hud{ display:none; }
+  .dossier{ left:12px; right:12px; top:auto; bottom:12px; width:auto; height:66vh; transform:translateY(26px); }
+  .dossier.is-open{ transform:translateY(0); }
+  /* The bottom rail stacks on a narrow frame: the search panel sits on the
+     floor and the dock lifts above it. The search stops short of the right
+     edge so the app's chat bubble keeps its corner (it is 52px wide, inset
+     20px), and the dock's 88px floor clears both the search and the bubble. */
+  .slot-search{ left:14px; right:78px; bottom:16px; width:auto; }
+  .slot-tools{ right:14px; bottom:88px; }
+  .brand__card{ max-width:210px; padding:11px 14px 10px; }
+  .brand__title{ font-size:21px; }
+}
