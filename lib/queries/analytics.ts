@@ -81,7 +81,14 @@ export interface RatingDistribution {
 
 export interface SelfAnalytics {
   watchedCount: number
+  /** Entries sitting in the "rewatched" state — a row count, like watchedCount. */
   rewatchedCount: number
+  /**
+   * Sum of watch_count across rewatched entries — how many rewatch views were
+   * logged, not how many entries were rewatched. Matches getUserStats
+   * (lib/queries/profile.ts) and drives the "Total Rewatches" tiles.
+   */
+  totalRewatchViews: number
   /** Sum of every watch_count — a rewatch counts as an extra view. */
   totalViews: number
   minutesWatched: number
@@ -508,7 +515,8 @@ export async function getSelfAnalytics(userId: string): Promise<SelfAnalytics> {
 
   return {
     watchedCount,
-    rewatchedCount: totalRewatchViews,
+    rewatchedCount,
+    totalRewatchViews,
     totalViews,
     minutesWatched,
     timeFormatted: {
