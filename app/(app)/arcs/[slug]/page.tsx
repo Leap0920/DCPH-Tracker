@@ -62,8 +62,8 @@ export default async function ArcDetailPage({
 
   const { prev, next } = getAdjacentArcs(slug)
 
-  const { signedIn, watchedEpisodeNumbers } = await getArcProgressData()
-  const progress = computeArcProgress(arc, watchedEpisodeNumbers)
+  const { signedIn, watchedEpisodeNumbers, latestEpisodeNumber } = await getArcProgressData()
+  const progress = computeArcProgress(arc, watchedEpisodeNumbers, latestEpisodeNumber)
   const nextEpisode = progress.nextUnwatchedEpisode
 
   return (

@@ -26,11 +26,11 @@ export const metadata = {
 }
 
 export default async function ArcsPage() {
-  const { signedIn, watchedEpisodeNumbers } = await getArcProgressData()
+  const { signedIn, watchedEpisodeNumbers, latestEpisodeNumber } = await getArcProgressData()
   const progressBySlug = new Map(
     STORY_ARCS.map((arc) => [
       arc.slug,
-      computeArcProgress(arc, watchedEpisodeNumbers),
+      computeArcProgress(arc, watchedEpisodeNumbers, latestEpisodeNumber),
     ])
   )
   return (
