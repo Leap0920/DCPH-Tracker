@@ -9,6 +9,8 @@
  */
 export const queryKeys = {
   content: {
+    /** Every content key, for dropping the cache after an admin edit. */
+    root: () => ["content"] as const,
     all: () => ["content", "all"] as const,
     bySlug: (slug: string) => ["content", "bySlug", slug] as const,
     comments: (contentId: string) => ["content", "comments", contentId] as const,
