@@ -111,7 +111,10 @@ export default async function RootLayout({
       className={`dark ${plusJakartaSans.variable} ${inter.variable} ${jetbrainsMono.variable} scroll-smooth`}
       suppressHydrationWarning
     >
-      <body className="min-h-screen bg-page text-ink font-body antialiased overflow-x-hidden w-full max-w-full">
+      {/* The horizontal overflow clip lives on <html> (see globals.css); on
+          <body> it propagates to the viewport and turns every scroll lock into
+          a layout jump. */}
+      <body className="min-h-screen bg-page text-ink font-body antialiased w-full max-w-full">
         {/* FOUC guard, inverted for a dark-default app: <html> already has
             `dark`, so this only strips it when the visitor explicitly chose
             light. Net effect — dark users never flash, light users flip

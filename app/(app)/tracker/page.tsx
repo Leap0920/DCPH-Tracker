@@ -23,6 +23,7 @@ import {
 } from "@/lib/queries/client/watch-status"
 import { queryKeys } from "@/lib/queries/keys"
 import { useContentCacheSync } from "@/lib/queries/client/content-cache"
+import { lockPageScroll } from "@/lib/scroll-lock"
 import {
   WATCH_STATUSES,
   VIEW_MODES,
@@ -189,18 +190,17 @@ function TrackerPageContent() {
     })
   }
 
-  // Modal lifecycle: ESC closes, body scroll locked, focus moves into the panel.
+  // Modal lifecycle: ESC closes, page scroll locked, focus moves into the panel.
   useEffect(() => {
     if (!selectedEntry) return
-    const prevOverflow = document.body.style.overflow
-    document.body.style.overflow = "hidden"
+    const unlock = lockPageScroll()
     panelRef.current?.focus()
     const onKeyDown = (e: KeyboardEvent) => {
       if (e.key === "Escape") setSelectedEntry(null)
     }
     document.addEventListener("keydown", onKeyDown)
     return () => {
-      document.body.style.overflow = prevOverflow
+      unlock()
       document.removeEventListener("keydown", onKeyDown)
     }
   }, [selectedEntry])
