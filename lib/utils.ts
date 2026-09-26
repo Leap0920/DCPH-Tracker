@@ -1,5 +1,6 @@
 import { type ClassValue, clsx } from "clsx";
 import { twMerge } from "tailwind-merge";
+import { defaultRuntimeMinutes } from "@/lib/runtime-defaults";
 
 export function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs));
@@ -27,9 +28,15 @@ export function formatHours(minutes: number): string {
   return m > 0 ? `${h}h ${m}m` : `${h}h`;
 }
 
-/** Default runtime (minutes) for a content type when the DB has no runtime stored. */
+/**
+ * Default runtime (minutes) for a content type when the DB has no runtime stored.
+ *
+ * Delegates to lib/runtime-defaults so analytics, profile and the sync importer
+ * all price a missing runtime the same way — this used to be a second table
+ * (movie 100 / special 45) that disagreed with the DB migration's (110 / 46).
+ */
 export function getDefaultRuntime(type: string): number {
-  return type === "movie" ? 100 : type === "special" || type === "ova" ? 45 : 25
+  return defaultRuntimeMinutes(type)
 }
 
 /** Format an ISO timestamp as a compact relative time (e.g. "just now", "3h ago", "5d ago") */

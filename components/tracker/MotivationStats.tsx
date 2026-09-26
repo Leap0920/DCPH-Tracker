@@ -18,7 +18,7 @@ import {
 import type { Database } from "@/types/database.types"
 import type { WatchStatus } from "@/lib/constants"
 import { CONTENT_TYPE_LABELS, type ContentType } from "@/lib/constants"
-import { formatHours } from "@/lib/utils"
+import { formatHours, getDefaultRuntime } from "@/lib/utils"
 import { isOtherMovie, MAINLINE_MOVIES } from "@/lib/movies-guide"
 
 type ContentEntry = Database["public"]["Tables"]["content_entries"]["Row"]
@@ -41,10 +41,6 @@ const TYPE_ICONS: Record<ContentType, React.ComponentType<{ className?: string }
   hanzawa: CircleDot,
   zero_tea_time: Coffee,
   yaiba: Swords,
-}
-
-export function getDefaultRuntime(type: string): number {
-  return type === "movie" ? 100 : type === "special" || type === "ova" ? 45 : 25
 }
 
 export interface SeriesTotals {
