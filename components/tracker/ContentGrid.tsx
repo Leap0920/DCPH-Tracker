@@ -497,7 +497,9 @@ export function ContentGrid({
         return titleHit || synopsisHit || numberHit || exactNumberHit
       })
       .sort((a, b) => getNumber(a) - getNumber(b))
-  }, [search, entries, statusFilter])
+    // userStatuses drives matchesStatus: a status filter must re-partition the
+    // results the moment the reader marks something watched.
+  }, [search, entries, statusFilter, userStatuses])
 
   function getStatusForEntry(id: string): WatchStatus | null {
     return userStatuses?.get(id) ?? null
@@ -506,6 +508,31 @@ export function ContentGrid({
   function getArcForEntry(entry: ContentEntry): { slug: string; title: string } | null {
     if (!arcMap || entry.type !== "episode") return null
     return arcMap.get(entry.arc_id ?? "") ?? null
+  }
+
+  /**
+   * The list `handleJump` should locate the episode in: the target section as it
+   * will look AFTER the jump clears the type/status filters. Using `sections`
+   * here would search a list built from the filters being cleared, so a deep
+   * link like ?ep=800&status=unwatched landed on page 0 and scrolled nowhere.
+   */
+  function jumpList(mode: ViewMode, n: number, ep: ContentEntry): ContentEntry[] {
+    if (mode === "order") return watchOrder.items.map((item) => item.entry)
+    const byEpisodeNumber = (list: ContentEntry[]) =>
+      [...list].sort((a, b) => (a.episode_number ?? 0) - (b.episode_number ?? 0))
+    const episodesOnly = entries.filter((e) => e.type === "episode")
+    if (mode === "canon")
+      return byEpisodeNumber(
+        episodesOnly.filter((e) => canonSectionBucket(e.episode_number) === canonSectionBucket(n))
+      )
+    if (mode === "year") {
+      const year = ep.air_date?.slice(0, 4) ?? "Unknown"
+      return byEpisodeNumber(
+        episodesOnly.filter((e) => (e.air_date?.slice(0, 4) ?? "Unknown") === year)
+      )
+    }
+    // Chronological mode orders episodes by canon_order.
+    return [...episodesOnly].sort((a, b) => (a.canon_order ?? 0) - (b.canon_order ?? 0))
   }
 
   function handleJump(value: string) {
@@ -523,31 +550,20 @@ export function ContentGrid({
     setTypeFilter("all")
     setStatusFilter("all")
 
-    let targetKey: string
-    let pageIdx = 0
-    if (mode === "order") {
-      targetKey = WATCH_ORDER_KEY
-      const orderList = sections.find((s) => s.key === targetKey)?.entries ?? []
-      pageIdx = Math.floor(Math.max(0, orderList.findIndex((e) => e.id === ep.id)) / PAGE_SIZE)
-    } else if (mode === "canon") {
-      // The target section is whichever canon bucket this episode belongs to.
-      targetKey = `canon-${canonSectionBucket(n)}`
-      const canonList = sections.find((s) => s.key === targetKey)?.entries ?? []
-      pageIdx = Math.floor(
-        Math.max(0, canonList.findIndex((e) => e.id === ep.id)) / PAGE_SIZE
-      )
-    } else if (mode === "year") {
-      const year = ep.air_date?.slice(0, 4) ?? "Unknown"
-      targetKey = `year-${year}`
-      const yearList = sections.find((s) => s.key === targetKey)?.entries ?? []
-      pageIdx = Math.floor(Math.max(0, yearList.findIndex((e) => e.id === ep.id)) / PAGE_SIZE)
-    } else {
-      targetKey = "episode"
-      const epList = sections.find((s) => s.key === targetKey)?.entries ?? []
-      pageIdx = Math.floor(Math.max(0, epList.findIndex((e) => e.id === ep.id)) / PAGE_SIZE)
-    }
+    const targetKey =
+      mode === "order"
+        ? WATCH_ORDER_KEY
+        : mode === "canon"
+          ? `canon-${canonSectionBucket(n)}`
+          : mode === "year"
+            ? `year-${ep.air_date?.slice(0, 4) ?? "Unknown"}`
+            : "episode"
+    const list = jumpList(mode, n, ep)
     setExpandedType(targetKey)
-    setPages((prev) => ({ ...prev, [targetKey]: pageIdx }))
+    setPages((prev) => ({
+      ...prev,
+      [targetKey]: Math.floor(Math.max(0, list.findIndex((e) => e.id === ep.id)) / PAGE_SIZE),
+    }))
 
     requestAnimationFrame(() => {
       const el = document.getElementById(`card-${ep.id}`)
