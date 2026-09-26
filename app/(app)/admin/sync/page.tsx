@@ -10,14 +10,18 @@ export default async function AdminSyncPage() {
   const supabase = await createClient()
 
   let stagedItems: any[] = []
+  let readError: string | null = null
   try {
-    const { data } = await supabase
+    const { data, error } = await supabase
       .from("sync_staging")
       .select("*")
       .order("created_at", { ascending: false })
+    if (error) readError = error.message
     stagedItems = data ?? []
-  } catch {
-    // If sync_staging table is not yet created, stagedItems stays []
+  } catch (err) {
+    // The table may not be migrated yet — but say so instead of rendering an
+    // empty queue, which reads as "nothing was staged" when the read failed.
+    readError = err instanceof Error ? err.message : String(err)
   }
 
   return (
@@ -29,6 +33,13 @@ export default async function AdminSyncPage() {
           publish approved content to the official tracker.
         </p>
       </div>
+
+      {readError && (
+        <div className="rounded-md border border-danger/25 bg-danger/[0.06] px-3 py-2.5 text-xs text-danger">
+          The approval queue could not be read ({readError}). Anything staged is still in the
+          database — reload once the error clears.
+        </div>
+      )}
 
       <SyncApprovalQueueLoader items={stagedItems} />
 

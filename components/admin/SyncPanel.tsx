@@ -1,12 +1,14 @@
 "use client"
 
 import { useState, useTransition } from "react"
+import { useRouter } from "next/navigation"
 import { RefreshCw, Loader2, CheckCircle2, AlertCircle } from "lucide-react"
 import { triggerSync } from "@/lib/actions/admin-system"
 
 type Status = { kind: "idle" } | { kind: "ok"; msg: string } | { kind: "err"; msg: string }
 
 export function SyncPanel() {
+  const router = useRouter()
   const [pending, startTransition] = useTransition()
   const [activeMode, setActiveMode] = useState<"seed" | "latest" | null>(null)
   const [status, setStatus] = useState<Status>({ kind: "idle" })
@@ -20,6 +22,10 @@ export function SyncPanel() {
         result.ok ? { kind: "ok", msg: result.message ?? "Done." } : { kind: "err", msg: result.error }
       )
       setActiveMode(null)
+      // Re-fetch this page's own data. triggerSync's revalidatePath clears the
+      // cache, but the approval queue rendered "Queue is Clean!" after a run that
+      // had just staged 7 rows — the page's own read was never repeated.
+      router.refresh()
     })
   }
 
