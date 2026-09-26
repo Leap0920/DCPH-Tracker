@@ -67,11 +67,6 @@ logs/
 # local agent/tool state (was accidentally committed; removed via history scrub)
 .freebuff/
 .workbuddy-ai/
-.pi/
-.pi-tasks/
-
-# supabase CLI state
-supabase/.temp/
 
 # curation backups
 /scripts/out/
@@ -81,11 +76,3 @@ task5-*.png
 *.xlsx
 tracker-t5-snapshot.yml
 
-# design prototype QA captures (regenerable via example-design/serve.py)
-example-design/qa/
-example-design/tools/.guide.tmp.ts
-
-
-# mcp-server (agent tooling)
-mcp-server/node_modules/
-mcp-server/.dcph-dev.pid

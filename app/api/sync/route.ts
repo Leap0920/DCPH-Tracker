@@ -1,8 +1,8 @@
 import { NextRequest, NextResponse } from "next/server"
+import crypto from "crypto"
 import { createClient } from "@/utils/supabase/server"
 import { createAdminClient } from "@/utils/supabase/admin"
 import { handleApiError } from "@/lib/api-utils"
-import { cronSecret, headerMatchesSecret } from "@/lib/cron-auth"
 import {
   getAllEpisodes,
   getAnimeFull,
@@ -15,7 +15,7 @@ import {
 import { getNextAiringEpisode } from "@/lib/anilist"
 import { pickImageUrl, resolveDcwImagesBatch } from "@/lib/dcw-images"
 import type { Database } from "@/types/database.types"
-import { authRateLimitKey } from "@/lib/rate-limit"
+import { rateLimit, authRateLimitKey } from "@/lib/rate-limit"
 import { rateLimitPersistent } from "@/lib/rate-limit-db"
 import { isSameOrigin } from "@/lib/origin-check"
 import { defaultRuntimeMinutes, isPlausibleRuntime } from "@/lib/runtime-defaults"
@@ -24,16 +24,24 @@ export const maxDuration = 60
 
 type ContentInsert = Database["public"]["Tables"]["content_entries"]["Insert"]
 
-/**
- * The accepted `mode` values. `all` and `seed` both run the full pull — the
- * route has always treated them as one path — and `airing` is the AniList-driven
- * incremental one. This is the vocabulary the POST docblock documents.
- */
-const SYNC_MODES = ["all", "seed", "airing"] as const
-type SyncMode = (typeof SYNC_MODES)[number]
-
 /** Either the cookie-bound server client or the service-role admin client. */
 type SyncClient = Awaited<ReturnType<typeof createClient>>
+
+/**
+ * Constant-time comparison of `Authorization: Bearer <secret>` against the
+ * configured CRON_SECRET. Never accepts the secret via query string — that
+ * would leak it into Vercel/access logs.
+ */
+function headerMatchesSecret(
+  authorization: string | null,
+  secret: string | undefined
+): boolean {
+  if (!secret || !authorization) return false
+  // Compare fixed-width digests so the secret's length never leaks.
+  const a = crypto.createHash("sha256").update(authorization).digest()
+  const b = crypto.createHash("sha256").update(`Bearer ${secret}`).digest()
+  return crypto.timingSafeEqual(a, b)
+}
 
 interface SyncResult {
   type: "episodes" | "franchise" | "airing"
@@ -86,7 +94,8 @@ export async function POST(request: NextRequest) {
     const supabase = await createClient()
 
     // 0. Authorize: cron secret (header-only, timing-safe) OR admin user session.
-    const isCron = headerMatchesSecret(request.headers.get("authorization"), cronSecret())
+    const cronSecret = process.env.CRON_SECRET
+    const isCron = headerMatchesSecret(request.headers.get("authorization"), cronSecret)
 
     if (!isCron) {
       const { data: { user } } = await supabase.auth.getUser()
@@ -116,18 +125,6 @@ export async function POST(request: NextRequest) {
         )
       }
       writeClient = admin as unknown as SyncClient
-    }
-
-    // A typo in `mode` must not silently run the expensive seed: everything
-    // unrecognized used to fall through to the two full paginated pulls, so a
-    // mistyped cron path or a stray curl cost a wasted invocation rather than
-    // an error. Validated after the guards, so an unauthenticated caller still
-    // gets its 401 rather than learning the vocabulary.
-    if (!SYNC_MODES.includes(mode as SyncMode)) {
-      return NextResponse.json(
-        { error: `Unknown mode. Expected one of: ${SYNC_MODES.join(", ")}.` },
-        { status: 400 }
-      )
     }
 
     // ── Airing mode: AniList detects new episode → Jikan pulls its detail ──
@@ -613,20 +610,8 @@ async function syncAiring(
 /**
  * GET /api/sync
  * Returns current sync status (how many entries exist by type)
- *
- * Vercel Cron also calls this path — with GET, and `Authorization: Bearer
- * $CRON_SECRET` when that env var is set. The status body below takes no request
- * argument and ignores `?mode=`, so a cron call is delegated to POST, which owns
- * the whole sync implementation. A request without the secret falls through to
- * the byte-identical status response.
  */
-export async function GET(request: NextRequest) {
-  // A cron sends no Origin, so POST's `isSameOrigin` passes; and POST reads its
-  // params from `request.nextUrl.searchParams`, which a GET request has too.
-  if (headerMatchesSecret(request.headers.get("authorization"), cronSecret())) {
-    return POST(request)
-  }
-
+export async function GET() {
   try {
     const supabase = await createClient()
 

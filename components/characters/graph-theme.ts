@@ -19,138 +19,10 @@ export interface FactionTheme {
   badge: string
 }
 
-/*
-  The faction taxonomy. The 15 keys and their hues come from the reviewed art
-  direction (`example-design/tools/extract-data.mjs`); `AFFILIATION_FACTION`
-  maps every one of the 42 authored affiliation strings explicitly, so no
-  affiliation can fall through to a catch-all bucket by accident the way a
-  substring match let it.
-*/
-export type FactionKey =
-  | "JDL"
-  | "KUDO"
-  | "OSAKA"
-  | "MOURI"
-  | "SUZUKI"
-  | "KID"
-  | "TMPD"
-  | "POLICE"
-  | "PSB"
-  | "FBI"
-  | "MI6"
-  | "CIA"
-  | "BO"
-  | "MIYANO"
-  | "CIVILIAN"
-
-export const FACTIONS: Record<
-  FactionKey,
-  { label: string; short: string; hue: string }
-> = {
-  JDL:      { label: "Junior Detective League", short: "JDL",  hue: "#22D3EE" },
-  KUDO:     { label: "Kudo Family",             short: "KUD",  hue: "#38BDF8" },
-  OSAKA:    { label: "Osaka & Hattori",         short: "OSA",  hue: "#FB923C" },
-  MOURI:    { label: "Mouri & Kisaki",          short: "MOR",  hue: "#2DD4BF" },
-  SUZUKI:   { label: "Suzuki Family",           short: "SUZ",  hue: "#F472B6" },
-  KID:      { label: "Kaitou Kid",              short: "KID",  hue: "#818CF8" },
-  TMPD:     { label: "Tokyo Metropolitan PD",   short: "TMPD", hue: "#FBBF24" },
-  POLICE:   { label: "Regional Police",         short: "RPD",  hue: "#D9A441" },
-  PSB:      { label: "Public Security Bureau",  short: "PSB",  hue: "#C084FC" },
-  FBI:      { label: "FBI",                     short: "FBI",  hue: "#A78BFA" },
-  MI6:      { label: "MI6 & Sera Family",       short: "MI6",  hue: "#8B9CF7" },
-  CIA:      { label: "CIA",                     short: "CIA",  hue: "#94A3B8" },
-  BO:       { label: "Black Organization",      short: "B.O.", hue: "#F43F5E" },
-  MIYANO:   { label: "Miyano Family",           short: "MIY",  hue: "#E879B9" },
-  CIVILIAN: { label: "Civilians & Allies",      short: "CIV",  hue: "#60A5FA" },
-}
-
-/** Every authored `Character.affiliation` resolves through here. */
-export const AFFILIATION_FACTION: Record<string, FactionKey> = {
-  "Junior Detective League": "JDL",
-  "Kudo Family": "KUDO",
-  "Osaka / Hattori Household": "OSAKA",
-  "Osaka Cast": "OSAKA",
-  "Osaka Police": "OSAKA",
-  "Hattori Family": "OSAKA",
-  "Mouri Detective Agency": "MOURI",
-  "Mouri Family": "MOURI",
-  "Kisaki Law Offices": "MOURI",
-  "Suzuki Family": "SUZUKI",
-  "Suzuki Family / Martial Arts Cast": "SUZUKI",
-  "Phantom Thief Kid": "KID",
-  "Phantom Thief Cast": "KID",
-  "Kaito Kid Legacy": "KID",
-  "Tokyo Metropolitan Police": "TMPD",
-  "Nagano Police": "POLICE",
-  "Gunma Police": "POLICE",
-  "Shizuoka Police": "POLICE",
-  "Saitama Police": "POLICE",
-  "Kyoto Police": "POLICE",
-  "Regional Police": "POLICE",
-  "Hokkaido Police": "POLICE",
-  "Public Security Bureau": "PSB",
-  "Public Security Bureau (deceased)": "PSB",
-  "Public Security Bureau / Black Organization": "PSB",
-  FBI: "FBI",
-  "MI6 / Sera Family": "MI6",
-  "Akai Family / MI6": "MI6",
-  "Teitan High School": "MI6",
-  "CIA / Black Organization": "CIA",
-  "CIA Connection": "CIA",
-  "Black Organization": "BO",
-  "Black Organization (deceased)": "BO",
-  "Miyano Family": "MIYANO",
-  "Beika Inventor & Supporting Cast": "CIVILIAN",
-  "Haneda Family": "CIVILIAN",
-  Civilian: "CIVILIAN",
-  "Media / Celebrity": "CIVILIAN",
-  "Soccer World": "CIVILIAN",
-  "Café Poirot": "CIVILIAN",
-  "Nagoya Detectives": "CIVILIAN",
-  "Teitan Elementary": "CIVILIAN",
-}
-
-/** The dark board ground. `darkFill` mixes toward it, `lightFill` toward white. */
-const BOARD_GROUND = "#0B1220"
-
-function rgbOf(hex: string): [number, number, number] {
-  const n = parseInt(hex.replace("#", "").slice(0, 6), 16)
-  return [(n >> 16) & 255, (n >> 8) & 255, n & 255]
-}
-
-function mixHex(a: string, b: string, t: number): string {
-  const [ar, ag, ab] = rgbOf(a)
-  const [br, bg, bb] = rgbOf(b)
-  const byte = (v: number) =>
-    Math.round(v).toString(16).padStart(2, "0").toUpperCase()
-  const mix = (x: number, y: number) => byte(x + (y - x) * t)
-  return `#${mix(ar, br)}${mix(ag, bg)}${mix(ab, bb)}`
-}
-
-/*
-  The five surface variants the components expect, derived from the one hue the
-  art direction actually chose. Pure and deterministic, run once at module load
-  for the 8 factions that have no hand-authored theme — no new hue is invented,
-  only the tints the existing palette already sits between.
-*/
-function themeFromHue(key: FactionKey): FactionTheme {
-  const hue = FACTIONS[key].hue
-  const [r, g, b] = rgbOf(hue)
-  return {
-    primary: hue,
-    glow: `rgba(${r}, ${g}, ${b}, 0.5)`,
-    darkFill: mixHex(hue, BOARD_GROUND, 0.66),
-    lightFill: mixHex(hue, "#FFFFFF", 0.86),
-    border: mixHex(hue, "#FFFFFF", 0.42),
-    badge: FACTIONS[key].label,
-  }
-}
-
-/* Same hue identities as the original palette, harmonised for equal perceived
-   weight and lifted out of the muddy range on dark surfaces. Seven factions
-   carry a hand-authored theme; the rest are derived from their hue below. */
-const AUTHORED_FACTION_THEMES: Partial<Record<FactionKey, FactionTheme>> = {
-  JDL: {
+/* Same hue identities as the original palette, harmonised for equal
+   perceived weight and lifted out of the muddy range on dark surfaces. */
+export const FACTION_THEMES: Record<string, FactionTheme> = {
+  "Junior Detective League": {
     primary: "#22D3EE",
     glow: "rgba(34, 211, 238, 0.55)",
     darkFill: "#0B4A5E",
@@ -158,7 +30,7 @@ const AUTHORED_FACTION_THEMES: Partial<Record<FactionKey, FactionTheme>> = {
     border: "#67E8F9",
     badge: "Protagonists",
   },
-  KUDO: {
+  "Kudo Family": {
     primary: "#38BDF8",
     glow: "rgba(56, 189, 248, 0.5)",
     darkFill: "#0B4166",
@@ -166,7 +38,7 @@ const AUTHORED_FACTION_THEMES: Partial<Record<FactionKey, FactionTheme>> = {
     border: "#7DD3FC",
     badge: "Kudo Family",
   },
-  BO: {
+  "Black Organization": {
     primary: "#F43F5E",
     glow: "rgba(244, 63, 94, 0.55)",
     darkFill: "#5C1224",
@@ -174,7 +46,7 @@ const AUTHORED_FACTION_THEMES: Partial<Record<FactionKey, FactionTheme>> = {
     border: "#FB7185",
     badge: "Black Organization",
   },
-  TMPD: {
+  "Tokyo Metropolitan Police": {
     primary: "#FBBF24",
     glow: "rgba(251, 191, 36, 0.5)",
     darkFill: "#5A3A08",
@@ -182,7 +54,7 @@ const AUTHORED_FACTION_THEMES: Partial<Record<FactionKey, FactionTheme>> = {
     border: "#FCD34D",
     badge: "Police Department",
   },
-  OSAKA: {
+  "Osaka Police": {
     primary: "#FB923C",
     glow: "rgba(251, 146, 60, 0.5)",
     darkFill: "#5E2A0C",
@@ -190,7 +62,63 @@ const AUTHORED_FACTION_THEMES: Partial<Record<FactionKey, FactionTheme>> = {
     border: "#FDBA74",
     badge: "Osaka Police",
   },
-  MOURI: {
+  FBI: {
+    primary: "#A78BFA",
+    glow: "rgba(167, 139, 250, 0.5)",
+    darkFill: "#3B2378",
+    lightFill: "#EAE2FE",
+    border: "#C4B5FD",
+    badge: "FBI / Security",
+  },
+  "Public Security Bureau": {
+    primary: "#C084FC",
+    glow: "rgba(192, 132, 252, 0.5)",
+    darkFill: "#4A1D7A",
+    lightFill: "#F1E3FE",
+    border: "#D8B4FE",
+    badge: "Public Security",
+  },
+  "Osaka / Hattori Household": {
+    primary: "#FB923C",
+    glow: "rgba(251, 146, 60, 0.5)",
+    darkFill: "#6B2E0D",
+    lightFill: "#FEE7CF",
+    border: "#FDBA74",
+    badge: "Osaka Sleuths",
+  },
+  "Phantom Thief Kid": {
+    primary: "#818CF8",
+    glow: "rgba(129, 140, 248, 0.5)",
+    darkFill: "#282B6E",
+    lightFill: "#E2E5FE",
+    border: "#A5B4FC",
+    badge: "Kaitou Kid",
+  },
+  "Phantom Thief Cast": {
+    primary: "#818CF8",
+    glow: "rgba(129, 140, 248, 0.5)",
+    darkFill: "#282B6E",
+    lightFill: "#E2E5FE",
+    border: "#A5B4FC",
+    badge: "Magic Kaito",
+  },
+  "Suzuki Family": {
+    primary: "#F472B6",
+    glow: "rgba(244, 114, 182, 0.45)",
+    darkFill: "#631439",
+    lightFill: "#FDE2EF",
+    border: "#F9A8D4",
+    badge: "Suzuki Family",
+  },
+  "Mouri Family": {
+    primary: "#2DD4BF",
+    glow: "rgba(45, 212, 191, 0.45)",
+    darkFill: "#0C4B47",
+    lightFill: "#CDF6F0",
+    border: "#5EEAD4",
+    badge: "Mouri Family",
+  },
+  "Mouri Detective Agency": {
     primary: "#2DD4BF",
     glow: "rgba(45, 212, 191, 0.45)",
     darkFill: "#0C4B47",
@@ -198,7 +126,7 @@ const AUTHORED_FACTION_THEMES: Partial<Record<FactionKey, FactionTheme>> = {
     border: "#5EEAD4",
     badge: "Mouri Agency",
   },
-  CIVILIAN: {
+  DEFAULT: {
     primary: "#60A5FA",
     glow: "rgba(96, 165, 250, 0.42)",
     darkFill: "#12365E",
@@ -207,13 +135,6 @@ const AUTHORED_FACTION_THEMES: Partial<Record<FactionKey, FactionTheme>> = {
     badge: "Civilians & Allies",
   },
 }
-
-export const FACTION_THEMES: Record<string, FactionTheme> = Object.fromEntries(
-  (Object.keys(FACTIONS) as FactionKey[]).map((key) => [
-    key,
-    AUTHORED_FACTION_THEMES[key] ?? themeFromHue(key),
-  ])
-)
 
 /** Locked/silhouette palette. Deliberately outside FACTION_THEMES so a locked
  *  node can never be tinted by the faction it belongs to. */
@@ -236,14 +157,18 @@ export function factionSlug(key: string): string {
   return key.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "")
 }
 
-/** Resolve an affiliation string to its faction key + theme. Explicit lookup —
- *  an unmapped affiliation is civilians, never a substring accident. */
+/** Resolve an affiliation string to its faction key + theme. */
 export function resolveFaction(affiliation: string): {
   key: string
   theme: FactionTheme
 } {
-  const key = AFFILIATION_FACTION[affiliation] ?? "CIVILIAN"
-  return { key, theme: FACTION_THEMES[key] ?? FACTION_THEMES.CIVILIAN }
+  const needle = affiliation.toLowerCase()
+  for (const key of FACTION_KEYS) {
+    if (key !== "DEFAULT" && needle.includes(key.toLowerCase())) {
+      return { key, theme: FACTION_THEMES[key] }
+    }
+  }
+  return { key: "DEFAULT", theme: FACTION_THEMES.DEFAULT }
 }
 
 export function getFactionTheme(affiliation: string): FactionTheme {
