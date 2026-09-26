@@ -262,9 +262,9 @@ function TrackerPageContent() {
       setMutationError("Couldn't update your progress. Please try again.")
     },
     onSuccess: () => setMutationError(null),
-    onSettled: () => {
-      queryClient.invalidateQueries({ queryKey: statusKey() })
-    },
+    // Nothing to refetch: the optimistic update above already holds the row the
+    // server writes (same count rules), so invalidating here only re-downloaded
+    // the whole watch_status table after every single click.
   })
 
   const rewatchMutation = useMutation({
@@ -293,9 +293,6 @@ function TrackerPageContent() {
       setMutationError("Couldn't update your rewatch count. Please try again.")
     },
     onSuccess: () => setMutationError(null),
-    onSettled: () => {
-      queryClient.invalidateQueries({ queryKey: statusKey() })
-    },
   })
 
   const toggleFavoriteMutation = useMutation({
@@ -317,9 +314,6 @@ function TrackerPageContent() {
       setMutationError("Couldn't update your favorites. Please try again.")
     },
     onSuccess: () => setMutationError(null),
-    onSettled: () => {
-      queryClient.invalidateQueries({ queryKey: statusKey() })
-    },
   })
 
   const setRatingMutation = useMutation({
@@ -345,9 +339,6 @@ function TrackerPageContent() {
       setMutationError("Couldn't save your rating. Please try again.")
     },
     onSuccess: () => setMutationError(null),
-    onSettled: () => {
-      queryClient.invalidateQueries({ queryKey: statusKey() })
-    },
   })
 
   const markAllMutation = useMutation({

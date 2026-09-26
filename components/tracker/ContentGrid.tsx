@@ -161,6 +161,12 @@ function canonSectionBucket(episodeNumber: number | null | undefined): CanonBuck
 /** Section key for the single Full Watch Order section. */
 const WATCH_ORDER_KEY = "watch-order"
 
+/**
+ * Search matches mount a card each, and a two-letter query can match most of the
+ * catalog. Cap the grid; the count line still reports every match.
+ */
+const SEARCH_RENDER_LIMIT = 60
+
 function getNumber(entry: ContentEntry): number {
   if (entry.type === "movie") return entry.movie_number ?? entry.release_order ?? 0
   if (entry.type === "episode") return entry.episode_number ?? 0
@@ -865,21 +871,29 @@ export function ContentGrid({
           {searchResults.length === 0 ? (
             <p className="text-sm text-ink-dim">No matches found.</p>
           ) : (
-            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4">
-              {searchResults.map((entry) => (
-                <ContentCard
-                  key={entry.id}
-                  entry={entry}
-                  watchStatus={getStatusForEntry(entry.id)}
-                  onSetStatus={onSetStatus}
-                  onIncrementRewatch={onIncrementRewatch}
-                  watchCount={watchCounts?.get(entry.id) ?? 0}
-                  flash={flashId === entry.id}
-                  arc={getArcForEntry(entry)}
-                  onSelect={onSelect}
-                />
-              ))}
-            </div>
+            <>
+              <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4">
+                {searchResults.slice(0, SEARCH_RENDER_LIMIT).map((entry) => (
+                  <ContentCard
+                    key={entry.id}
+                    entry={entry}
+                    watchStatus={getStatusForEntry(entry.id)}
+                    onSetStatus={onSetStatus}
+                    onIncrementRewatch={onIncrementRewatch}
+                    watchCount={watchCounts?.get(entry.id) ?? 0}
+                    flash={flashId === entry.id}
+                    arc={getArcForEntry(entry)}
+                    onSelect={onSelect}
+                  />
+                ))}
+              </div>
+              {searchResults.length > SEARCH_RENDER_LIMIT && (
+                <p className="mt-4 text-xs text-ink-dim">
+                  Showing the first {SEARCH_RENDER_LIMIT} of {searchResults.length} — narrow the
+                  search to see the rest.
+                </p>
+              )}
+            </>
           )}
         </div>
       )}
@@ -947,6 +961,7 @@ export function ContentGrid({
                   <div key={entry.id} className="snap-start w-36 sm:w-40 shrink-0">
                     <ContentCard
                       entry={entry}
+                      sizes="160px"
                       watchStatus={getStatusForEntry(entry.id)}
                       onSetStatus={onSetStatus}
                       onIncrementRewatch={onIncrementRewatch}
@@ -1172,6 +1187,20 @@ function Section({
     typeof watched === "number" &&
     typeof count === "number"
 
+  // A collapsed section kept its cards mounted, so "By Year" shipped ~30 cards
+  // per year (≈900 cards, tens of thousands of nodes) for the one section the
+  // reader could actually see. Mount on open, hold through the collapse
+  // animation, then drop.
+  const [mounted, setMounted] = useState(isOpen)
+  useEffect(() => {
+    if (isOpen) {
+      setMounted(true)
+      return
+    }
+    const timer = setTimeout(() => setMounted(false), 250) // matches duration-[250ms]
+    return () => clearTimeout(timer)
+  }, [isOpen])
+
   return (
     <section className="border-b border-ink-dim/10 last:border-b-0">
       <div
@@ -1234,7 +1263,7 @@ function Section({
         )}
       >
         <div className="overflow-hidden">
-          <div className="px-4 sm:px-6 pb-6">{children}</div>
+          <div className="px-4 sm:px-6 pb-6">{mounted ? children : null}</div>
         </div>
       </div>
     </section>

@@ -180,9 +180,8 @@ export function ContentDetail({ entry, inModal }: { entry: ContentEntry; inModal
       if (ctx?.prev && watchStatusKey) queryClient.setQueryData(watchStatusKey, ctx.prev)
       setMutationError("Couldn't update your progress. Please try again.")
     },
-    onSettled: () => {
-      if (watchStatusKey) queryClient.invalidateQueries({ queryKey: watchStatusKey })
-    },
+    // The optimistic write above already matches what the server stores, so no
+    // refetch of the whole watch_status table is needed here.
   })
 
   const rewatchMutation = useMutation({
@@ -205,9 +204,6 @@ export function ContentDetail({ entry, inModal }: { entry: ContentEntry; inModal
       if (ctx?.prev && watchStatusKey) queryClient.setQueryData(watchStatusKey, ctx.prev)
       setMutationError("Couldn't update your rewatch count. Please try again.")
     },
-    onSettled: () => {
-      if (watchStatusKey) queryClient.invalidateQueries({ queryKey: watchStatusKey })
-    },
   })
 
   const favoriteMutation = useMutation({
@@ -227,9 +223,6 @@ export function ContentDetail({ entry, inModal }: { entry: ContentEntry; inModal
     onError: (_err, _vars, ctx) => {
       if (ctx?.prev && watchStatusKey) queryClient.setQueryData(watchStatusKey, ctx.prev)
       setMutationError("Couldn't update your favorites. Please try again.")
-    },
-    onSettled: () => {
-      if (watchStatusKey) queryClient.invalidateQueries({ queryKey: watchStatusKey })
     },
   })
 
@@ -255,8 +248,7 @@ export function ContentDetail({ entry, inModal }: { entry: ContentEntry; inModal
       if (ctx?.prev && watchStatusKey) queryClient.setQueryData(watchStatusKey, ctx.prev)
       setMutationError("Couldn't save your rating. Please try again.")
     },
-    onSettled: () => {
-      if (watchStatusKey) queryClient.invalidateQueries({ queryKey: watchStatusKey })
+    onSuccess: () => {
       // The user's own rating feeds the aggregate — refresh it.
       queryClient.invalidateQueries({ queryKey: queryKeys.content.rating(entry.id) })
     },
@@ -275,10 +267,13 @@ export function ContentDetail({ entry, inModal }: { entry: ContentEntry; inModal
   const avgDisplay = hasRating ? avg5.toFixed(1) : "0.0"
 
   // ── Prev/Next navigation within the same type ──
+  // Only the full page renders these controls, so the modal skips the two
+  // content_entries requests it would never display.
   const adjacentQuery = useQuery({
     queryKey: ["content", "adjacent", entry.type, entry.canon_order],
     queryFn: () => fetchAdjacentEntries(entry.type, entry.canon_order),
     staleTime: 1000 * 60 * 30,
+    enabled: !inModal,
   })
   const prev = adjacentQuery.data?.prev ?? null
   const next = adjacentQuery.data?.next ?? null
