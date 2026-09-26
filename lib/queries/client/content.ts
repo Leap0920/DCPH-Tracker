@@ -81,11 +81,13 @@ export async function fetchContentEntries(): Promise<ContentEntriesResult> {
 export async function fetchContentEntryBySlug(slug: string) {
   const supabase = createClient()
 
+  // maybeSingle: a slug that is not in the catalog is a normal miss the caller
+  // handles, not the PGRST116 error single() raises for an empty result.
   const { data, error } = await supabase
     .from("content_entries")
     .select("*, arcs(*)")
     .eq("slug", slug)
-    .single()
+    .maybeSingle()
 
   if (error) throw error
   return data
