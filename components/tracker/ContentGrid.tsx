@@ -781,8 +781,8 @@ export function ContentGrid({
         </div>
 
         {/* Jump-to-episode + mark-up-to-N */}
-        <div className="flex flex-wrap items-center gap-2 pt-0.5">
-          <div className="flex items-center gap-1.5">
+        <div className="flex flex-wrap items-center gap-1.5 sm:gap-2 pt-0.5">
+          <div className="flex min-w-0 flex-1 items-center gap-1.5 sm:flex-none">
             <ArrowDownToLine className="h-3.5 w-3.5 text-ink-faint shrink-0" />
             <input
               type="number"
@@ -795,7 +795,7 @@ export function ContentGrid({
               onKeyDown={(e) => {
                 if (e.key === "Enter") handleJump(jumpInput)
               }}
-              className="w-20 h-9 rounded-md border border-ink-dim/20 bg-surface-muted px-2 text-xs text-ink placeholder:text-ink-faint focus:outline-none focus:ring-2 focus:ring-accent/20 focus:border-accent"
+              className="h-9 w-full min-w-12 rounded-md border border-ink-dim/20 bg-surface-muted px-2 text-xs text-ink placeholder:text-ink-faint focus:outline-none focus:ring-2 focus:ring-accent/20 focus:border-accent sm:w-20"
             />
             <button
               onClick={() => handleJump(jumpInput)}
@@ -806,9 +806,10 @@ export function ContentGrid({
             </button>
           </div>
 
-          <div className="flex items-center gap-1.5">
-            <span className="text-[10px] font-mono text-ink-faint shrink-0">
-              Mark up to
+          <div className="flex min-w-0 flex-1 items-center gap-1.5 sm:flex-none">
+            <span className="shrink-0 font-mono text-[10px] text-ink-faint">
+              <span className="sm:hidden">Up to</span>
+              <span className="hidden sm:inline">Mark up to</span>
             </span>
             <input
               type="number"
@@ -821,7 +822,7 @@ export function ContentGrid({
               onKeyDown={(e) => {
                 if (e.key === "Enter") handleMarkUpTo(markInput)
               }}
-              className="w-20 h-9 rounded-md border border-ink-dim/20 bg-surface-muted px-2 text-xs text-ink placeholder:text-ink-faint focus:outline-none focus:ring-2 focus:ring-accent/20 focus:border-accent"
+              className="h-9 w-full min-w-12 rounded-md border border-ink-dim/20 bg-surface-muted px-2 text-xs text-ink placeholder:text-ink-faint focus:outline-none focus:ring-2 focus:ring-accent/20 focus:border-accent sm:w-20"
             />
             <button
               onClick={() => handleMarkUpTo(markInput)}
