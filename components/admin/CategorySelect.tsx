@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation"
 import { Loader2 } from "lucide-react"
 import { CONTENT_TYPE_LABELS, type ContentType } from "@/lib/constants"
 import { updateContentType } from "@/lib/actions/admin-content"
+import { useInvalidateContentCache } from "@/lib/queries/client/content-cache"
 
 const TYPE_OPTIONS = Object.entries(CONTENT_TYPE_LABELS) as [ContentType, string][]
 
@@ -16,6 +17,7 @@ export function CategorySelect({
   currentType: ContentType
 }) {
   const router = useRouter()
+  const invalidateContent = useInvalidateContentCache()
   const [pending, startTransition] = useTransition()
   const [selected, setSelected] = useState<ContentType>(currentType)
 
@@ -25,6 +27,7 @@ export function CategorySelect({
     startTransition(async () => {
       const res = await updateContentType(id, newType)
       if (res.ok) {
+        invalidateContent()
         router.refresh()
       } else {
         alert(res.error)

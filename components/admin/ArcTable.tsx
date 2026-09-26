@@ -7,6 +7,7 @@ import { BookOpen, Trash2, Loader2 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { ArcFormModal } from "./ArcFormModal"
 import { updateArc, deleteArc } from "@/lib/actions/admin-arcs"
+import { useInvalidateContentCache } from "@/lib/queries/client/content-cache"
 import type { Database } from "@/types/database.types"
 
 type ArcRow = Database["public"]["Tables"]["arcs"]["Row"]
@@ -15,6 +16,7 @@ const thCls = "px-4 py-2 font-mono text-[10px] font-normal uppercase tracking-wi
 
 export function ArcTable({ arcs }: { arcs: ArcRow[] }) {
   const router = useRouter()
+  const invalidateContent = useInvalidateContentCache()
   const [pendingId, setPendingId] = useState<string | null>(null)
 
   async function handleDelete(id: string, title: string) {
@@ -22,8 +24,10 @@ export function ArcTable({ arcs }: { arcs: ArcRow[] }) {
     setPendingId(id)
     const res = await deleteArc(id)
     setPendingId(null)
-    if (res.ok) router.refresh()
-    else window.alert(res.error)
+    if (res.ok) {
+      invalidateContent()
+      router.refresh()
+    } else window.alert(res.error)
   }
 
   if (arcs.length === 0) {

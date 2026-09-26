@@ -22,6 +22,7 @@ import {
   type UserWatchStatuses,
 } from "@/lib/queries/client/watch-status"
 import { queryKeys } from "@/lib/queries/keys"
+import { useContentCacheSync } from "@/lib/queries/client/content-cache"
 import {
   WATCH_STATUSES,
   VIEW_MODES,
@@ -166,6 +167,9 @@ function TrackerPageContent() {
   }, [supabase])
 
   // ── Queries ──
+  // Admin edits happen in the /admin tab; the broadcast that follows is the only
+  // way this tab learns its hour-long content cache is stale.
+  useContentCacheSync()
   const contentQuery = useQuery({
     queryKey: queryKeys.content.all(),
     queryFn: fetchContentEntries,
