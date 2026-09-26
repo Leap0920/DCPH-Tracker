@@ -661,14 +661,16 @@ export function ContentGrid({
     <div className="space-y-0">
       {/* ── Hero Banner ── */}
       <div className="relative w-full h-64 sm:h-80 bg-surface-muted overflow-hidden rounded-t-lg border-b border-line/40">
-        {/* Tracker Banner Image */}
+        {/* Tracker Banner Image. The group-shot art carries every head in the top
+            third of the frame, so the cover crop is anchored to the top — the
+            default centred crop slices the faces off at the banner's top edge. */}
         <Image
-          src="/tracker-image.jpg"
+          src="/New-poster.jpg"
           alt="Detective Conan Tracker Banner"
           fill
           priority
           sizes="(max-width: 1280px) 100vw, 1280px"
-          className="absolute inset-0 h-full w-full object-cover object-[center_10%]"
+          className="absolute inset-0 h-full w-full object-cover object-top"
         />
         {/* Gradient overlay at bottom to ensure text readability on top of straight image */}
         <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/25 to-transparent" />
