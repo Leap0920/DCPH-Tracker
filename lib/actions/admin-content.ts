@@ -239,8 +239,14 @@ export async function updateContentType(
 
 /**
  * Resolves a copy-pasted Wiki File page URL into a clean direct cover image URL.
+ *
+ * Admin-only like every other action in this file: a server action endpoint is a
+ * POST anyone can reach with the action id, and this one makes the server fetch
+ * an arbitrary caller-provided URL. The form that uses it is already admin-gated,
+ * so the guard costs nothing.
  */
 export async function resolveWikiImageUrl(url: string): Promise<string> {
+  await requireAdmin()
   const resolved = await resolveAndCleanImageUrl(url)
   return resolved ?? url.trim()
 }
