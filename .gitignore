@@ -76,6 +76,3 @@ task5-*.png
 *.xlsx
 tracker-t5-snapshot.yml
 
-# large video assets
-/public/videos/BS2026.mp4
-
