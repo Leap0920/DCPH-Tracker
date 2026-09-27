@@ -53,12 +53,16 @@ import {
 } from "react";
 import { useReducedMotion } from "framer-motion";
 import {
-  CHARACTERS,
-  RELATIONSHIPS,
   type Character,
   type Relationship,
   type RelationshipType,
 } from "@/lib/characters-guide";
+import type { QualityTier } from "@/lib/device-tier";
+import {
+  GRAPH_QUALITY,
+  labelTierLimit,
+  type GraphQuality,
+} from "@/components/characters/graph-quality";
 import {
   FACTION_THEMES,
   LOCKED_EDGE_COLOR,
@@ -106,20 +110,18 @@ const CAM_TAU = 85;
 /** Inertia applied to the pan target on release (ms of projected travel). */
 const PAN_INERTIA_MS = 140;
 
-const DRIFT_AMP = 3.5;
-
-/* ── low-end device detection ──────────────────────────────────
- * Heuristic: navigator.deviceMemory (Chrome, ≤2 GB) or
- * navigator.hardwareConcurrency (≤2 cores). Drives collision
- * passes, particle count, and frame budget so the graph stays
- * usable on budget phones. */
-const isLowEndDevice = (() => {
-  if (typeof navigator === "undefined") return false;
-  const n = navigator as any;
-  if (n.deviceMemory !== undefined && n.deviceMemory <= 2) return true;
-  if (n.hardwareConcurrency !== undefined && n.hardwareConcurrency <= 2) return true;
-  return false;
-})();
+/* ── quality tiers ────────────────────────────────────────────────
+ * Every frame-by-frame cost in this file is read from the visitor's
+ * quality tier (see graph-quality.ts) rather than from a one-shot guess
+ * at load. The tier the visitor's device earned decides how far nodes
+ * drift, how many particles float, how often the 153 strings are
+ * re-pathed, and whether the 95 breathing rings animate at all.
+ *
+ * The `low` tier is a STILL graph: with no drift, node positions and
+ * string paths never change between frames, so the loop stops rewriting
+ * 95 transforms and 153 `d` attributes and only reacts to pan/zoom —
+ * one transform on the world <g>, written once per frame.
+ * ---------------------------------------------------------------- */
 
 /* ── anti-collision ───────────────────────────────────────────────
  * Circles push each other apart when their radii overlap. The push is
@@ -129,7 +131,6 @@ const isLowEndDevice = (() => {
  * zoomToConan keep reading the untouched authored layout.
  * ---------------------------------------------------------------- */
 const COLLIDE_PAD = 2;          // world px of breathing room beyond r_i + r_j — tight packing per user request
-const COLLIDE_ITERS = isLowEndDevice ? 2 : 4;  // Gauss-Seidel relaxation passes per frame
 const COLLIDE_STIFF = 0.8;      // fraction of each overlap resolved per pass — snappier settle
 const COLLIDE_MAX_OFFSET = 16;  // hard cap on displacement from home (world px) — keep close to authored layout
 const COLLIDE_RELAX_TAU = 260;  // ms; how fast a pushed circle drifts back home
@@ -137,11 +138,8 @@ const BASE_BOW = 6;
 const PARALLEL_GAP = 22;
 const STRING_WIDTH = 2;
 const DIM_OPACITY = 0.1;
-const PARTICLE_COUNT = isLowEndDevice ? 8 : 30;
-/** Idle seconds before the animation loop parks (drift + CSS keyframes stop). */
-const IDLE_PARK_MS = isLowEndDevice ? 2000 : 4000;
-/** Minimum ms between frames. Set >16 on low-end to target ~30 fps. */
-const FRAME_BUDGET_MS = isLowEndDevice ? 32 : 0;
+/** Idle ms before the animation loop parks (drift + CSS keyframes stop). */
+const IDLE_PARK_MS = 4000;
 
 /* ── stable style objects ──────────────────────────────────────
  * Module-scope so re-rendered edges/nodes never hand React a fresh object
@@ -288,8 +286,10 @@ function pairKey(r: Relationship): string {
 }
 
 export interface CharactersWebProps {
-  characters?: Character[];
-  relationships?: Relationship[];
+  characters: Character[];
+  relationships: Relationship[];
+  /** Device tier driving the frame-by-frame cost. See graph-quality.ts. */
+  quality?: QualityTier;
   onSelectCharacter: (character: Character | null) => void;
   selectedCharacterId?: string | null;
   activeFilter?: RelationshipType | null;
@@ -319,6 +319,11 @@ type NodeViewProps = {
   isSelected: boolean;
   isHovered: boolean;
   isSearchMatch: boolean;
+  /** Tier gates: the breathing halo and the Conan ripple are the two
+   *  infinitely-running keyframe animations in the graph, so cheap devices
+   *  drop the elements entirely instead of animating them out of sight. */
+  breathe: boolean;
+  ripple: boolean;
   nodeEls: { current: (SVGGElement | null)[] };
   labelEls: { current: (SVGGElement | null)[] };
   grabbingRef: { current: boolean };
@@ -343,6 +348,8 @@ const NodeView = memo(function NodeView({
   isSelected,
   isHovered,
   isSearchMatch,
+  breathe,
+  ripple,
   nodeEls,
   labelEls,
   grabbingRef,
@@ -386,7 +393,7 @@ const NodeView = memo(function NodeView({
       onFocus={() => onHoverChange(n.c.id)}
       onBlur={() => onHoverChange(null)}
     >
-      {isConan && (
+      {isConan && ripple && (
         <circle
           key="conan-ripple"
           className="dcph-ripple"
@@ -398,22 +405,26 @@ const NodeView = memo(function NodeView({
         />
       )}
 
-      {/* Breathing ring — pure opacity keyframes, zero layout overhead */}
-      <circle
-        key="breathe-ring"
-        className="dcph-breathe"
-        r={n.r + 3}
-        fill="none"
-        stroke={n.theme.border}
-        strokeWidth={1}
-        pointerEvents="none"
-        style={
-          {
-            "--dcph-dur": `${n.breatheDur}s`,
-            "--dcph-delay": `${n.breatheDelay}s`,
-          } as CSSProperties
-        }
-      />
+      {/* Breathing ring — pure opacity keyframes, zero layout overhead. Dropped
+          on the low tier: 95 infinite SVG keyframe animations are 95 repaint
+          sources per frame, and SVG opacity is not composited. */}
+      {breathe && (
+        <circle
+          key="breathe-ring"
+          className="dcph-breathe"
+          r={n.r + 3}
+          fill="none"
+          stroke={n.theme.border}
+          strokeWidth={1}
+          pointerEvents="none"
+          style={
+            {
+              "--dcph-dur": `${n.breatheDur}s`,
+              "--dcph-delay": `${n.breatheDelay}s`,
+            } as CSSProperties
+          }
+        />
+      )}
 
       {/* State ring — the hover + selection/search highlight merged into one
           element. Selected/search nodes pin opacity via inline style (inline
@@ -527,8 +538,9 @@ const EdgeView = memo(function EdgeView({
 });
 
 export default function CharactersWeb({
-  characters = CHARACTERS,
-  relationships = RELATIONSHIPS,
+  characters,
+  relationships,
+  quality = "balanced",
   onSelectCharacter,
   selectedCharacterId,
   activeFilter,
@@ -540,6 +552,11 @@ export default function CharactersWeb({
   const reduce = useReducedMotion();
   const isMobile = useMediaQuery("(max-width: 767px)");
   const isDark = theme === "dark";
+  /** The tier's budget for this graph. Module-level objects, so identity is
+   *  stable across renders and the memos below only rebuild on a real change. */
+  const q: GraphQuality = GRAPH_QUALITY[quality];
+  /** Weakest node tier whose label is painted while zoomed out (null = all). */
+  const labelLimit = labelTierLimit(q.labels);
 
   const [hoveredId, setHoveredId] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState("");
@@ -564,6 +581,8 @@ export default function CharactersWeb({
   const didFitRef = useRef(false);
   const forcedLabelsRef = useRef<Set<number>>(new Set());
   const labelsDirtyRef = useRef(true);
+  /** Per-node: is the label currently displayed? (display is written only on change) */
+  const labelShownRef = useRef<boolean[]>([]);
   const isGrabbingRef = useRef(false);
 
   useEffect(() => {
@@ -683,18 +702,18 @@ export default function CharactersWeb({
     if (!Number.isFinite(minX) || !Number.isFinite(minY)) {
       return { minX: -500, minY: -500, w: 1000, h: 1000 };
     }
-    const m = DRIFT_AMP + 6;
+    const m = q.driftAmp + 6;
     return {
       minX: minX - m,
       minY: minY - m,
       w: maxX - minX + m * 2,
       h: maxY - minY + m * 2,
     };
-  }, [nodes]);
+  }, [nodes, q.driftAmp]);
 
   const particles = useMemo<Particle[]>(() => {
     const out: Particle[] = [];
-    for (let i = 0; i < PARTICLE_COUNT; i++) {
+    for (let i = 0; i < q.particles; i++) {
       out.push({
         x0: rand01(9176, i * 4 + 1),
         y0: rand01(9176, i * 4 + 2),
@@ -708,7 +727,7 @@ export default function CharactersWeb({
       });
     }
     return out;
-  }, []);
+  }, [q.particles]);
 
   /* ── element refs ──────────────────────────────────────────────── */
   const nodeEls = useRef<(SVGGElement | null)[]>([]);
@@ -734,17 +753,35 @@ export default function CharactersWeb({
     return set;
   }, [searchLower, characters]);
 
+  /**
+   * One label's full live style: opacity from the zoom tier, and visibility
+   * from the quality policy. Labels the policy suppresses while zoomed out are
+   * `display:none`d rather than faded to 0, so the renderer can skip them — but
+   * a forced label (hover, selection, search hit) is exempt at any zoom.
+   * Display is written only when it flips, since style writes on 95 elements
+   * are the expensive part.
+   */
+  const styleLabel = useCallback(
+    (i: number, k: number, forced: Set<number>) => {
+      const el = labelEls.current[i];
+      if (!el) return;
+      const o = forced.has(i) ? 1 : labelOpacityFor(k, nodes[i].tier);
+      el.style.opacity = o.toFixed(2);
+      const show = labelLimit === null || nodes[i].tier <= labelLimit || o > 0.01;
+      if (labelShownRef.current[i] !== show) {
+        labelShownRef.current[i] = show;
+        el.style.display = show ? "" : "none";
+      }
+    },
+    [nodes, labelLimit]
+  );
+
   const updateLabelOpacities = useCallback(
     (k: number) => {
       const forced = forcedLabelsRef.current;
-      for (let i = 0; i < nodes.length; i++) {
-        const el = labelEls.current[i];
-        if (!el) continue;
-        const o = forced.has(i) ? 1 : labelOpacityFor(k, nodes[i].tier);
-        el.style.opacity = o.toFixed(2);
-      }
+      for (let i = 0; i < nodes.length; i++) styleLabel(i, k, forced);
     },
-    [nodes]
+    [nodes, styleLabel]
   );
 
   // Labels that must stay fully legible regardless of zoom.
@@ -859,6 +896,8 @@ export default function CharactersWeb({
     nodeEls.current.length = nodes.length;
     labelEls.current.length = nodes.length;
     edgeEls.current.length = edges.length;
+    // Freshly rendered labels carry no inline display, i.e. they are shown.
+    labelShownRef.current = new Array(nodes.length).fill(true);
 
     const forced = forcedLabelsRef.current;
     const currentK = camRef.current.k || 1;
@@ -871,10 +910,7 @@ export default function CharactersWeb({
         );
       }
       const lbl = labelEls.current[i];
-      if (lbl) {
-        const o = forced.has(i) ? 1 : labelOpacityFor(currentK, nodes[i].tier);
-        lbl.style.opacity = o.toFixed(2);
-      }
+      if (lbl) styleLabel(i, currentK, forced);
     }
     for (let i = 0; i < edges.length; i++) {
       const el = edgeEls.current[i];
@@ -886,7 +922,7 @@ export default function CharactersWeb({
         );
       }
     }
-  }, [nodes, edges, geom]);
+  }, [nodes, edges, geom, styleLabel]);
 
   /* ── size observation + initial fit ───────────────────────────── */
   useIsoLayoutEffect(() => {
@@ -965,9 +1001,9 @@ export default function CharactersWeb({
     const loop = (now: number) => {
       if (parked) return;
       raf = requestAnimationFrame(loop);
-      // Frame rate limiter: on low-end devices, skip frames that arrive
-      // before the budget elapses so we target ~30 fps instead of 60.
-      if (FRAME_BUDGET_MS > 0 && now - last < FRAME_BUDGET_MS) return;
+      // Frame rate limiter: a tier may cap the rate (skip frames that arrive
+      // before the budget elapses) instead of rendering every vsync.
+      if (q.frameBudgetMs > 0 && now - last < q.frameBudgetMs) return;
       frameCount++;
       const dt = Math.min(50, now - last);
       last = now;
@@ -999,7 +1035,7 @@ export default function CharactersWeb({
       }
 
       /* 2 — node drift + anti-collision (positions feed BOTH nodes and strings) */
-      const amp = reduceRef.current ? 0 : DRIFT_AMP;
+      const amp = reduceRef.current ? 0 : q.driftAmp;
       const { base, curX, curY } = geom;
       const dragIdx = dragNodeRef.current?.index ?? -1;
 
@@ -1045,7 +1081,7 @@ export default function CharactersWeb({
 
       /* 2b — pairwise separation (only run Gauss-Seidel when dragging or settling) */
       if (dragIdx !== -1 || hasActiveOffsets) {
-        for (let iter = 0; iter < COLLIDE_ITERS; iter++) {
+        for (let iter = 0; iter < q.collideIters; iter++) {
           for (let i = 0; i < N; i++) {
             const ri = nodes[i].r;
             const iFixed = i === dragIdx;
@@ -1155,15 +1191,17 @@ export default function CharactersWeb({
       }
 
       /* 3 — strings follow the same drifted coordinates.
-         Update cadence: edge `d` strings are recomputed at HALF cadence when the
-         graph is idle and at FULL cadence only while a node is being dragged.
-         Drift is sub-pixel per frame (≤3.5px over 12–30s periods) and pan/zoom
-         only rewrites the world <g> transform — world-space endpoints never move
-         from the camera — so 30fps path updates are visually identical to 60fps.
+         Update cadence: edge `d` strings are recomputed every Nth frame while
+         the graph is idle (the tier decides N) and EVERY frame only while a
+         node is being dragged. Drift is sub-pixel per frame (≤3.5px over 12–30s
+         periods) and pan/zoom only rewrites the world <g> transform — world-space
+         endpoints never move from the camera — so a lower path cadence is
+         visually identical, and on a still (`low`) graph the endpoints never
+         change at all, making the whole block a no-op after the first frame.
          Edges whose endpoints are both off-screen are skipped entirely; their `d`
          is recomputed when the camera brings them back into view. */
       const edgeEveryFrame = dragIdx !== -1;
-      if (edgeEveryFrame || frameCount % 2 === 0) {
+      if (edgeEveryFrame || frameCount % q.edgeFrameDivisor === 0) {
         const { w: vwPx, h: vhPx } = sizeRef.current;
         const cull = vwPx > 0 && vhPx > 0 && cam.k > 0;
         const cullMargin = COLLIDE_MAX_OFFSET + 64;
@@ -1200,23 +1238,17 @@ export default function CharactersWeb({
         }
       }
 
-      /* 4 — zoom-dependent label opacity */
+      /* 4 — zoom-dependent label opacity + policy culling */
       if (labelsDirtyRef.current || Math.abs(cam.k - lastLabelK) > 0.003) {
         labelsDirtyRef.current = false;
         lastLabelK = cam.k;
         const forced = forcedLabelsRef.current;
-        for (let i = 0; i < N; i++) {
-          const el = labelEls.current[i];
-          if (!el) continue;
-          const o = forced.has(i) ? 1 : labelOpacityFor(cam.k, nodes[i].tier);
-          el.style.opacity = o.toFixed(2);
-        }
+        for (let i = 0; i < N; i++) styleLabel(i, cam.k, forced);
       }
 
-      /* 5 — ambient particles (screen space, behind the world — throttled to every 2nd frame,
-         every 4th on low-end to further reduce DOM writes) */
-      const particleCadence = isLowEndDevice ? 4 : 2;
-      if (!reduceRef.current && frameCount % particleCadence === 0) {
+      /* 5 — ambient particles (screen space, behind the world — throttled by the
+         tier; the low tier has none at all) */
+      if (!reduceRef.current && particles.length > 0 && frameCount % q.particleCadence === 0) {
         const { w, h } = sizeRef.current;
         if (w && h) {
           for (let i = 0; i < particles.length; i++) {
@@ -1244,6 +1276,11 @@ export default function CharactersWeb({
         lastZoomLabel = pct;
         zoomLabelRef.current.textContent = `${pct}%`;
       }
+
+      /* 7 — a tier with no ambient motion has nothing left to animate once the
+         camera settles, so park straight away instead of waiting out the idle
+         timer. (tryPark re-checks gestures and the camera itself.) */
+      if (q.driftAmp === 0 && particles.length === 0) tryPark();
     };
 
     /* ── idle / hidden-tab park ────────────────────────────────────
@@ -1325,7 +1362,7 @@ export default function CharactersWeb({
       document.removeEventListener("visibilitychange", onVisibility);
       container?.classList.remove("dcph-parked");
     };
-  }, [nodes, edges, geom, particles]);
+  }, [nodes, edges, geom, particles, q, styleLabel]);
 
   /* ── pointer gestures: pan, node drag, pinch ─────────────────── */
 
@@ -1709,22 +1746,25 @@ export default function CharactersWeb({
           </pattern>
         </defs>
 
-        {/* Background stack: crisp clean dark vignette → dot matrix */}
+        {/* Background stack: crisp clean dark vignette → dot matrix. The dot
+            pattern is a full-viewport pattern fill, so the low tier drops it. */}
         <rect width={vw} height={vh} fill="url(#dcph-bg)" />
-        <rect width={vw} height={vh} fill="url(#dcph-dots)" />
+        {q.dotGrid && <rect width={vw} height={vh} fill="url(#dcph-dots)" />}
 
-        <g aria-hidden pointerEvents="none" className="pointer-events-none">
-          {particles.map((p, i) => (
-            <circle
-              key={i}
-              ref={(el) => {
-                particleEls.current[i] = el;
-              }}
-              r={p.r}
-              fill={pal.particle}
-            />
-          ))}
-        </g>
+        {particles.length > 0 && (
+          <g aria-hidden pointerEvents="none" className="pointer-events-none">
+            {particles.map((p, i) => (
+              <circle
+                key={i}
+                ref={(el) => {
+                  particleEls.current[i] = el;
+                }}
+                r={p.r}
+                fill={pal.particle}
+              />
+            ))}
+          </g>
+        )}
 
         {/* World layer — transform written by the rAF loop, never by CSS */}
         <g ref={worldRef} style={{ transformOrigin: "0px 0px" }}>
@@ -1777,6 +1817,8 @@ export default function CharactersWeb({
                 isSelected={selectedCharacterId === n.c.id}
                 isHovered={hoveredId === n.c.id}
                 isSearchMatch={searchMatches.has(n.c.id)}
+                breathe={q.breathe}
+                ripple={q.ripple}
                 nodeEls={nodeEls}
                 labelEls={labelEls}
                 grabbingRef={isGrabbingRef}

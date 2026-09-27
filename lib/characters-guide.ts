@@ -29,7 +29,7 @@ export interface Character {
   role: string
   affiliation: string
   bio?: string
-  /** Character portrait image path (relative to /characters/) */
+  /** Resolved portrait path under /characters/ — see getCharacterImage(). */
   image?: string
   /** Fixed canvas position for the SVG graph */
   x?: number
@@ -2339,9 +2339,18 @@ export function getRelationshipById(id: string): Relationship | undefined {
   return RELATIONSHIPS_MAP.get(id)
 }
 
-/** Lightweight versions of characters without bio (for fast canvas rendering) */
+/**
+ * Lightweight versions of characters without bio (for fast canvas rendering).
+ *
+ * The portrait path IS resolved here — a short string that lets the client start
+ * the image fetch the instant a character is tapped, instead of waiting for the
+ * async guide chunk that carries the bios and thread prose.
+ */
 export function getLightweightCharacters(): Character[] {
-  return CHARACTERS.map(({ bio: _b, image: _img, ...c }) => c)
+  return CHARACTERS.map(({ bio: _b, ...c }) => ({
+    ...c,
+    image: getCharacterImage(c.id) ?? undefined,
+  }))
 }
 
 /** Lightweight versions of relationships without detail string (for fast canvas rendering) */
