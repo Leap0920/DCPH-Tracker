@@ -1,42 +1,40 @@
-"use client";
+"use client"
 
-import { useCallback, useEffect, useRef } from "react";
-import Image from "next/image";
-import { motion, MotionConfig, type Variants } from "framer-motion";
-import { X } from "lucide-react";
-import { RELATIONSHIP_META, getCharacterById, getRelationshipById, getCharacterImage } from "@/lib/characters-guide";
-import type { Character, Relationship, RelationshipType } from "@/lib/characters-guide";
-import { getRelationshipColor } from "@/components/characters/graph-theme";
-import { useTheme } from "@/components/theme-provider";
-import { cn } from "@/lib/utils";
+import { useCallback, useEffect, useRef } from "react"
+import Image from "next/image"
+import { motion, MotionConfig, type Variants } from "framer-motion"
+import { X } from "lucide-react"
+import type { Character, RelationshipType } from "@/lib/characters-guide"
+import type { CharacterDossier } from "@/lib/characters-detail"
+import { getRelationshipColor } from "@/components/characters/graph-theme"
+import type { RelationshipMeta } from "@/components/characters/RelationshipLegend"
+import { Skeleton, SkeletonRegion } from "@/components/ui/skeleton"
+import { useTheme } from "@/components/theme-provider"
 
-const EASE = [0.16, 1, 0.3, 1] as const;
-
-const RELATIONSHIP_TYPES: RelationshipType[] = [
-  "romance",
-  "family",
-  "friendship",
-  "rivalry",
-  "mentor",
-  "colleague",
-  "secret_identity",
-  "adversary",
-];
+const EASE = [0.16, 1, 0.3, 1] as const
 
 const threadList: Variants = {
   hidden: {},
   show: { transition: { staggerChildren: 0.035, delayChildren: 0.08 } },
-};
+}
 
 const threadItem: Variants = {
   hidden: { opacity: 0, x: -10 },
   show: { opacity: 1, x: 0, transition: { duration: 0.4, ease: EASE } },
-};
+}
 
 /**
  * CharacterDetailPanel — the character dossier beside the graph. Thread dot
  * colors come from the shared resolver, so a thread's color always matches
  * the string drawn in the graph, in both themes.
+ *
+ * Two data sources, deliberately:
+ *
+ *  * the header and the portrait come from the lightweight `character` the
+ *    server already sent, so they paint on the tap itself;
+ *  * the bio and the thread prose come from `dossier`, fetched on demand (see
+ *    lib/characters-detail.ts). Until it lands the panel holds the space with
+ *    skeletons instead of shifting the layout.
  *
  * Crimson text and icons use accent-bright rather than accent: the plain
  * accent (#C8102E) is only ~3.3:1 against the near-black surface, while
@@ -44,74 +42,61 @@ const threadItem: Variants = {
  */
 export function CharacterDetailPanel({
   character,
-  relationships,
+  meta,
+  filter,
+  dossier,
   onClose,
 }: {
-  character: Character | null;
-  relationships: Relationship[];
-  onClose: () => void;
+  character: Character
+  meta: RelationshipMeta
+  filter: RelationshipType | null
+  dossier: CharacterDossier | null
+  onClose: () => void
 }) {
-  const panelRef = useRef<HTMLDivElement>(null);
-  const returnFocusRef = useRef<HTMLElement | null>(null);
-  const wasOpen = useRef(false);
-  const { theme } = useTheme();
-  const isDark = theme === "dark";
-
-  const isOpen = character !== null;
+  const panelRef = useRef<HTMLDivElement>(null)
+  const returnFocusRef = useRef<HTMLElement | null>(null)
+  const { theme } = useTheme()
+  const isDark = theme === "dark"
 
   const restoreFocus = useCallback(() => {
-    const target = returnFocusRef.current;
-    returnFocusRef.current = null;
-    if (target && target.isConnected) target.focus();
-  }, []);
+    const target = returnFocusRef.current
+    returnFocusRef.current = null
+    if (target && target.isConnected) target.focus()
+  }, [])
 
+  // Focus moves into the dossier on open and back where it came from on close.
   useEffect(() => {
-    if (isOpen && !wasOpen.current) {
-      const active = document.activeElement;
-      const canFocus =
-        active instanceof Element &&
-        active !== panelRef.current &&
-        typeof (active as { focus?: () => void }).focus === "function";
-      returnFocusRef.current = canFocus ? (active as HTMLElement) : null;
-      panelRef.current?.focus();
-    } else if (!isOpen && wasOpen.current) {
-      const active = document.activeElement;
-      const focusInsidePanel =
-        panelRef.current !== null && panelRef.current.contains(active);
-      if (active === document.body || focusInsidePanel) restoreFocus();
+    const panel = panelRef.current
+    const active = document.activeElement
+    const canFocus =
+      active instanceof Element &&
+      active !== panel &&
+      typeof (active as { focus?: () => void }).focus === "function"
+    returnFocusRef.current = canFocus ? (active as HTMLElement) : null
+    panel?.focus()
+    return () => {
+      const current = document.activeElement
+      const focusInsidePanel = panel !== null && panel.contains(current)
+      if (current === document.body || focusInsidePanel) restoreFocus()
     }
-    wasOpen.current = isOpen;
-  }, [isOpen, restoreFocus]);
+  }, [restoreFocus])
+
+  const handleClose = useCallback(() => {
+    restoreFocus()
+    onClose()
+  }, [onClose, restoreFocus])
 
   useEffect(() => {
-    if (!isOpen) return;
     const onKeyDown = (event: KeyboardEvent) => {
-      if (event.key === "Escape") {
-        restoreFocus();
-        onClose();
-      }
-    };
-    window.addEventListener("keydown", onKeyDown);
-    return () => window.removeEventListener("keydown", onKeyDown);
-  }, [isOpen, onClose, restoreFocus]);
+      if (event.key === "Escape") handleClose()
+    }
+    window.addEventListener("keydown", onKeyDown)
+    return () => window.removeEventListener("keydown", onKeyDown)
+  }, [handleClose])
 
-  if (!character) return null;
-
-  // Resolve full character info (including bio) on demand
-  const fullCharacter = getCharacterById(character.id) ?? character;
-
-  const threads = relationships.map((relationship) => {
-    const otherId =
-      relationship.source === character.id ? relationship.target : relationship.source;
-    const other = getCharacterById(otherId);
-    const fullRel = getRelationshipById(relationship.id) ?? relationship;
-    return {
-      relationship: fullRel,
-      meta: RELATIONSHIP_META[relationship.type],
-      color: getRelationshipColor(relationship.type, isDark),
-      otherName: other?.name ?? otherId,
-    };
-  });
+  const threads = dossier
+    ? dossier.threads.filter((thread) => !filter || thread.type === filter)
+    : []
 
   return (
     <MotionConfig reducedMotion="user">
@@ -165,10 +150,7 @@ export function CharacterDetailPanel({
 
           <button
             type="button"
-            onClick={() => {
-              restoreFocus();
-              onClose();
-            }}
+            onClick={handleClose}
             aria-label="Close dossier"
             className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg border border-line bg-surface text-ink-dim shadow-sm transition-all hover:rotate-90 hover:border-accent/40 hover:bg-accent-soft hover:text-accent-bright"
           >
@@ -177,11 +159,12 @@ export function CharacterDetailPanel({
         </div>
 
         <div className="flex-1 space-y-4 overflow-y-auto p-4 text-left sm:p-5">
-          {/* Character portrait */}
-          {getCharacterImage(character.id) && (
+          {/* Character portrait — its path rides along with the lightweight
+              character, so the fetch starts on the tap itself. */}
+          {character.image && (
             <div className="flex justify-center">
               <Image
-                src={getCharacterImage(character.id)!}
+                src={character.image}
                 alt={character.name}
                 width={160}
                 height={160}
@@ -191,15 +174,35 @@ export function CharacterDetailPanel({
             </div>
           )}
 
-          <p className="text-xs leading-relaxed text-ink-dim sm:text-sm">
-            {fullCharacter.bio || character.bio}
-          </p>
+          {dossier ? (
+            <p className="text-xs leading-relaxed text-ink-dim sm:text-sm">
+              {dossier.bio}
+            </p>
+          ) : (
+            <SkeletonRegion className="space-y-2">
+              <Skeleton className="h-3 w-full" />
+              <Skeleton className="h-3 w-11/12" />
+              <Skeleton className="h-3 w-4/5" />
+            </SkeletonRegion>
+          )}
 
           <div className="border-t border-line pt-4">
             <h3 className="font-mono text-[10px] uppercase tracking-stamp text-ink-faint">
-              Threads ({threads.length})
+              Threads{dossier ? ` (${threads.length})` : ""}
             </h3>
-            {threads.length === 0 ? (
+            {!dossier ? (
+              <SkeletonRegion className="mt-3 space-y-3">
+                {[0, 1, 2].map((i) => (
+                  <div key={i} className="flex gap-3">
+                    <Skeleton className="mt-1 h-2.5 w-2.5 shrink-0 rounded-full" />
+                    <div className="min-w-0 flex-1 space-y-1.5">
+                      <Skeleton className="h-3 w-24" />
+                      <Skeleton className="h-3 w-full" />
+                    </div>
+                  </div>
+                ))}
+              </SkeletonRegion>
+            ) : threads.length === 0 ? (
               <p className="mt-2 text-xs text-ink-faint">No threads on record.</p>
             ) : (
               <motion.ul
@@ -208,24 +211,26 @@ export function CharacterDetailPanel({
                 animate="show"
                 className="mt-3 space-y-3"
               >
-                {threads.map(({ relationship, meta, color, otherName }) => (
+                {threads.map((thread) => (
                   <motion.li
-                    key={relationship.id}
+                    key={thread.id}
                     variants={threadItem}
                     className="group flex gap-3"
                   >
                     <span
                       className="mt-1 h-2.5 w-2.5 shrink-0 rounded-full ring-2 ring-surface transition-transform duration-200 group-hover:scale-125"
-                      style={{ backgroundColor: color }}
+                      style={{ backgroundColor: getRelationshipColor(thread.type, isDark) }}
                     />
                     <div className="min-w-0">
                       <p className="text-xs font-semibold tracking-wide text-ink">
-                        {meta.label}
+                        {meta[thread.type].label}
                       </p>
                       <p className="mt-0.5 text-xs leading-snug text-ink-dim sm:text-sm">
-                        <span className="font-medium text-accent-bright">{otherName}</span>
+                        <span className="font-medium text-accent-bright">
+                          {thread.otherName}
+                        </span>
                         <span className="mx-1.5 text-ink-faint">—</span>
-                        {relationship.detail}
+                        {thread.detail}
                       </p>
                     </div>
                   </motion.li>
@@ -236,69 +241,5 @@ export function CharacterDetailPanel({
         </div>
       </motion.div>
     </MotionConfig>
-  );
-}
-
-/**
- * Legend + type filter. Swatches use the same theme-aware resolver as the
- * graph edges, so chip color and string color can never drift apart.
- */
-export function RelationshipLegend({
-  activeFilter,
-  onFilterType,
-  compact = false,
-}: {
-  activeFilter: RelationshipType | null;
-  onFilterType: (type: RelationshipType | null) => void;
-  compact?: boolean;
-}) {
-  const { theme } = useTheme();
-  const isDark = theme === "dark";
-
-  return (
-    <div className={cn("grid gap-1.5", !compact && "sm:grid-cols-2")}>
-      {RELATIONSHIP_TYPES.map((type) => {
-        const meta = RELATIONSHIP_META[type];
-        const active = activeFilter === type;
-        const color = getRelationshipColor(type, isDark);
-        return (
-          <button
-            key={type}
-            type="button"
-            onClick={() => onFilterType(active ? null : type)}
-            aria-pressed={active}
-            className={cn(
-              "flex items-start gap-2.5 rounded-lg border px-3 py-2 text-left transition-all duration-200",
-              active
-                ? "border-accent bg-accent-soft text-accent-bright"
-                : "border-line bg-surface text-ink-dim hover:-translate-y-0.5 hover:border-ink-faint/40 hover:bg-surface-muted"
-            )}
-          >
-            <span
-              className="mt-1 h-2.5 w-2.5 shrink-0 rounded-full"
-              style={{
-                backgroundColor: color,
-                boxShadow: active ? `0 0 0 3px ${color}33` : undefined,
-              }}
-            />
-            <span className="min-w-0">
-              <span
-                className={cn(
-                  "block text-xs font-semibold",
-                  active ? "text-accent-bright" : "text-ink"
-                )}
-              >
-                {meta.label}
-              </span>
-              {!compact && (
-                <span className="mt-0.5 block text-[11px] leading-snug text-ink-faint">
-                  {meta.description}
-                </span>
-              )}
-            </span>
-          </button>
-        );
-      })}
-    </div>
-  );
+  )
 }
