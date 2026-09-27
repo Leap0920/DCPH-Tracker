@@ -8,7 +8,6 @@ import {
   Mail,
   ShieldAlert,
   User,
-  Calendar,
   Lock,
   Eye,
   EyeOff,
@@ -45,7 +44,6 @@ export function AuthModal() {
 
   // Signup-only fields
   const [displayName, setDisplayName] = useState("")
-  const [birthday, setBirthday] = useState("")
   const [confirmPassword, setConfirmPassword] = useState("")
   const [showConfirmPassword, setShowConfirmPassword] = useState(false)
 
@@ -199,7 +197,6 @@ export function AuthModal() {
           email: cleanEmail,
           mode: "signup",
           displayName: displayName.trim(),
-          birthday: birthday || null,
         }),
       })
       const data = await res.json().catch(() => null)
@@ -253,7 +250,6 @@ export function AuthModal() {
         options: {
           data: {
             display_name: displayName,
-            birthday: birthday || null,
           },
         },
       })
@@ -283,7 +279,6 @@ export function AuthModal() {
           email: cleanEmail,
           mode: "signup",
           displayName: displayName.trim(),
-          birthday: birthday || null,
         }),
       })
       const data = await res.json().catch(() => null)
@@ -441,40 +436,22 @@ export function AuthModal() {
             )}
 
             {!otpSent && (
-              <>
-                <div className="space-y-1.5">
-                  <Label htmlFor="auth-displayName" className="font-display text-xs font-semibold text-ink-dim">
-                    Display Name
-                  </Label>
-                  <div className="relative">
-                    <User className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-ink-faint" />
-                    <Input
-                      id="auth-displayName"
-                      placeholder="Conan Edogawa"
-                      value={displayName}
-                      onChange={(e) => setDisplayName(e.target.value)}
-                      required
-                      className="pl-10 bg-surface border border-line focus:border-accent focus:ring-1 focus:ring-accent rounded-lg text-ink placeholder:text-ink-faint text-sm h-11 transition-colors"
-                    />
-                  </div>
+              <div className="space-y-1.5">
+                <Label htmlFor="auth-displayName" className="font-display text-xs font-semibold text-ink-dim">
+                  Display Name
+                </Label>
+                <div className="relative">
+                  <User className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-ink-faint" />
+                  <Input
+                    id="auth-displayName"
+                    placeholder="Conan Edogawa"
+                    value={displayName}
+                    onChange={(e) => setDisplayName(e.target.value)}
+                    required
+                    className="pl-10 bg-surface border border-line focus:border-accent focus:ring-1 focus:ring-accent rounded-lg text-ink placeholder:text-ink-faint text-sm h-11 transition-colors"
+                  />
                 </div>
-
-                <div className="space-y-1.5">
-                  <Label htmlFor="auth-birthday" className="font-display text-xs font-semibold text-ink-dim">
-                    Birthday
-                  </Label>
-                  <div className="relative">
-                    <Calendar className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-ink-faint" />
-                    <Input
-                      id="auth-birthday"
-                      type="date"
-                      value={birthday}
-                      onChange={(e) => setBirthday(e.target.value)}
-                      className="pl-10 bg-surface border border-line focus:border-accent focus:ring-1 focus:ring-accent rounded-lg text-ink text-sm h-11 transition-colors"
-                    />
-                  </div>
-                </div>
-              </>
+              </div>
             )}
 
             <div className="space-y-1.5">

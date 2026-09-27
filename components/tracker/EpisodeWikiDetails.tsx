@@ -3,6 +3,7 @@
 import { useMemo } from "react"
 
 import { useDcwEpisodeDetails } from "@/lib/queries/client/dcw"
+import { safeExternalUrl } from "@/lib/utils"
 
 type EpisodeWikiDetailsProps = {
   dcwTitle?: string | null
@@ -297,10 +298,13 @@ export function EpisodeWikiDetails({
     normalised.gadgets.length > 0 ||
     normalised.meta.length > 0
 
+  // The wiki API is third-party data: only link out when the href is a real
+  // http(s) URL, and use the sanitised value rather than the raw field.
+  const sourceHref = safeExternalUrl(normalised.url)
   const sourceLink =
-    normalised.url ? (
+    sourceHref ? (
       <a
-        href={normalised.url}
+        href={sourceHref}
         target="_blank"
         rel="noreferrer noopener"
         className="font-display text-xs text-ink-dim/70 underline decoration-line underline-offset-4 transition-colors hover:text-ink"

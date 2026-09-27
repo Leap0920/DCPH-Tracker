@@ -39,16 +39,19 @@ function formatRelative(iso: string): string {
 /**
  * In-app notification bell: unread badge + dropdown panel, fed by the
  * RLS-safe GET /api/notifications route. Polls every 45s and refetches when
- * the tab becomes visible again.
+ * the tab becomes visible again — but only while `signedIn`, since the route
+ * is own-rows-only and answers 401 to an anonymous visitor.
  *
- * Degrades gracefully: any poll/API error (including a 401 for a logged-out
- * visitor, or the pre-migration 500) silently keeps the previous state —
- * badge stays ≥ 0, never a crash. Renders inside the Navbar only.
+ * Degrades gracefully: any poll/API error (or the pre-migration 500)
+ * silently keeps the previous state — badge stays ≥ 0, never a crash.
+ * Renders inside the Navbar only.
  */
 export function NotificationBell({
+  signedIn,
   mobile = false,
   className,
 }: {
+  signedIn: boolean
   mobile?: boolean
   className?: string
 }) {
@@ -71,8 +74,18 @@ export function NotificationBell({
     }
   }, [])
 
-  // Initial fetch + 45s polling + refetch on tab visibility.
+  // Initial fetch + 45s polling + refetch on tab visibility, only while
+  // signed in: an anonymous visitor gets a 401 from this route, so polling
+  // would just paint a failed request in the console every 45s (and on every
+  // tab focus) with no notifications to show. State is cleared on sign-out so
+  // a previous user's badge never lingers on a shared screen.
   useEffect(() => {
+    if (!signedIn) {
+      setItems([])
+      setUnreadCount(0)
+      return
+    }
+
     fetchData()
     const id = setInterval(fetchData, POLL_INTERVAL_MS)
     const onVisibility = () => {
@@ -83,7 +96,7 @@ export function NotificationBell({
       clearInterval(id)
       document.removeEventListener("visibilitychange", onVisibility)
     }
-  }, [fetchData])
+  }, [fetchData, signedIn])
 
   // Close on outside click or Escape.
   useEffect(() => {

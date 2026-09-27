@@ -1,7 +1,10 @@
+import { NextRequest } from "next/server"
 import { createClient } from "@/utils/supabase/server"
 import { searchAll } from "@/lib/chat/search"
 import { buildSystemPrompt } from "@/lib/chat/prompt"
 import { ThinkingFilter } from "@/lib/chat/answer"
+import { rateLimit, authRateLimitKey } from "@/lib/rate-limit"
+import { rateLimitPersistent } from "@/lib/rate-limit-db"
 import {
   REFUSAL_NO_CONTEXT,
   classifyChatIntent,
@@ -286,7 +289,17 @@ async function pumpStream(
   }
 }
 
-export async function POST(request: Request) {
+export async function POST(request: NextRequest) {
+  // Burst cap before the body is read: otherwise an anonymous caller makes the
+  // server parse a request body on every attempt, for free, with no limit.
+  const burst = rateLimit(authRateLimitKey(request), {
+    limit: 30,
+    windowMs: 60_000,
+  })
+  if (!burst.allowed) {
+    return jsonError("Too many requests. Please try again in a moment.", 429)
+  }
+
   const targets = buildProviderTargets()
   if (targets.length === 0) {
     return jsonError("Chat is not configured on this server.", 500)
@@ -318,6 +331,18 @@ export async function POST(request: Request) {
 
   if (!user) {
     return jsonError("Please sign in to chat with DCPH Bot.", 401)
+  }
+
+  // Every request here costs an external LLM call, so cap the sustained rate
+  // per account, not just the burst per IP. failOpen: a limiter outage should
+  // not take chat down.
+  const userLimit = await rateLimitPersistent(`ai-chat:user:${user.id}`, {
+    limit: 30,
+    windowMs: 5 * 60 * 1000,
+    failClosed: false,
+  })
+  if (!userLimit.allowed) {
+    return jsonError("You're sending messages too quickly. Please slow down.", 429)
   }
 
   // Lightweight out-of-domain pre-check: clearly off-topic requests (coding help,
