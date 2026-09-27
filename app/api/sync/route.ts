@@ -1,5 +1,4 @@
 import { NextRequest, NextResponse } from "next/server"
-import crypto from "crypto"
 import { createClient } from "@/utils/supabase/server"
 import { createAdminClient } from "@/utils/supabase/admin"
 import { handleApiError } from "@/lib/api-utils"
@@ -25,6 +24,7 @@ import type { Database } from "@/types/database.types"
 import { rateLimit, authRateLimitKey } from "@/lib/rate-limit"
 import { rateLimitPersistent } from "@/lib/rate-limit-db"
 import { isSameOrigin } from "@/lib/origin-check"
+import { secretMatches } from "@/lib/secret-compare"
 import { defaultRuntimeMinutes, isPlausibleRuntime } from "@/lib/runtime-defaults"
 
 export const maxDuration = 60
@@ -43,11 +43,8 @@ function headerMatchesSecret(
   authorization: string | null,
   secret: string | undefined
 ): boolean {
-  if (!secret || !authorization) return false
-  // Compare fixed-width digests so the secret's length never leaks.
-  const a = crypto.createHash("sha256").update(authorization).digest()
-  const b = crypto.createHash("sha256").update(`Bearer ${secret}`).digest()
-  return crypto.timingSafeEqual(a, b)
+  if (!secret) return false
+  return secretMatches(authorization, `Bearer ${secret}`)
 }
 
 interface SyncResult {

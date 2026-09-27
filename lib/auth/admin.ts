@@ -4,6 +4,11 @@ import { redirect } from "next/navigation"
 /**
  * Returns the current user's profile if they are an admin, otherwise null.
  * Safe to call from Server Components / Server Actions.
+ *
+ * Columns are listed explicitly rather than `select("*")`: this row is handed
+ * to every admin action, and the profiles table also holds email, birthday and
+ * ban fields that no caller here needs — so they should not travel with it.
+ * Add to this list when a caller needs a new column.
  */
 export async function getAdminProfile() {
   const supabase = await createClient()
@@ -14,7 +19,7 @@ export async function getAdminProfile() {
 
   const { data: profile } = await supabase
     .from("profiles")
-    .select("*")
+    .select("user_id, role, username, display_name, avatar_url")
     .eq("user_id", user.id)
     .single()
 

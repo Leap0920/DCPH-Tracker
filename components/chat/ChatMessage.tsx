@@ -2,7 +2,7 @@
 
 import * as React from "react"
 import { Copy, Check, ExternalLink } from "lucide-react"
-import { cn } from "@/lib/utils"
+import { cn, safeExternalUrl } from "@/lib/utils"
 
 export interface ChatMessageData {
   id: string
@@ -13,15 +13,8 @@ export interface ChatMessageData {
 /**
  * Only http(s) is linkified. Anything else — `javascript:`, `data:` — is
  * rendered as plain text, because the bot echoes model output verbatim.
+ * Shared with the wiki source link in components/tracker/EpisodeWikiDetails.
  */
-function isSafeUrl(url: string): boolean {
-  try {
-    const parsed = new URL(url)
-    return parsed.protocol === "https:" || parsed.protocol === "http:"
-  } catch {
-    return false
-  }
-}
 
 /** Trims sentence punctuation that clings to the end of a bare URL. */
 function trimUrl(url: string): { href: string; trailing: string } {
@@ -73,7 +66,7 @@ function renderInline(text: string, keyPrefix: string): React.ReactNode[] {
     if (mdLink) {
       const label = mdLink[1]!
       const href = mdLink[2]!
-      if (!isSafeUrl(href)) return <React.Fragment key={key}>{part}</React.Fragment>
+      if (!safeExternalUrl(href)) return <React.Fragment key={key}>{part}</React.Fragment>
       const isInternal = isTrackerUrl(href)
       return (
         <a
@@ -97,7 +90,7 @@ function renderInline(text: string, keyPrefix: string): React.ReactNode[] {
     // Bare URL.
     if (/^https?:\/\//i.test(part)) {
       const { href, trailing } = trimUrl(part)
-      if (!isSafeUrl(href)) return <React.Fragment key={key}>{part}</React.Fragment>
+      if (!safeExternalUrl(href)) return <React.Fragment key={key}>{part}</React.Fragment>
       const isInternal = isTrackerUrl(href)
       return (
         <React.Fragment key={key}>

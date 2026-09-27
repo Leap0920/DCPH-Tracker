@@ -4,7 +4,7 @@ import { fail, tooManyRequests, handleApiError } from "@/lib/api-utils"
 import { isSameOrigin } from "@/lib/origin-check"
 import { authRateLimitKey, identifierRateLimitKey } from "@/lib/rate-limit"
 import { rateLimitPersistent } from "@/lib/rate-limit-db"
-import { validateEmail } from "@/lib/validation"
+import { validateEmail, validateDisplayName, validateBirthday } from "@/lib/validation"
 
 const SITE_URL = (
   process.env.NEXT_PUBLIC_SITE_URL ??
@@ -44,6 +44,23 @@ export async function POST(request: NextRequest) {
     const emailError = validateEmail(email)
     if (emailError) {
       return fail(400, emailError)
+    }
+
+    /*
+      Signup only — a signin OTP needs nothing but the address. Both values are
+      copied into the new profile row by handle_new_user(), so they are capped
+      and type-checked here; before this they were only trimmed, which let a
+      caller write an arbitrarily long display name and an unparseable birthday
+      into profiles via the signup metadata. An absent display name is still
+      fine: the signup path below derives one from the address.
+    */
+    if (mode === "signup") {
+      if (displayName) {
+        const displayNameError = validateDisplayName(displayName)
+        if (displayNameError) return fail(400, displayNameError)
+      }
+      const birthdayError = validateBirthday(birthday)
+      if (birthdayError) return fail(400, birthdayError)
     }
 
     // OTP requests per hour per address

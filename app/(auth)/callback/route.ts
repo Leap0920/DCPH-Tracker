@@ -1,6 +1,7 @@
 import { NextResponse, type NextRequest } from "next/server"
 import { createClient } from "@/utils/supabase/server"
 import type { EmailOtpType } from "@supabase/supabase-js"
+import { rateLimit, authRateLimitKey } from "@/lib/rate-limit"
 
 /**
  * GET /auth/callback
@@ -11,6 +12,18 @@ import type { EmailOtpType } from "@supabase/supabase-js"
  */
 export async function GET(request: NextRequest) {
   const { searchParams, origin } = request.nextUrl
+
+  // This route consumes one-time tokens, so it is a guessing surface like any
+  // other verification endpoint: cap attempts per IP before touching Supabase.
+  const rl = rateLimit(authRateLimitKey(request), {
+    limit: 10,
+    windowMs: 5 * 60 * 1000,
+  })
+  if (!rl.allowed) {
+    return NextResponse.redirect(
+      `${origin}/?auth=signin&error=${encodeURIComponent("Too many attempts. Please try again later.")}`
+    )
+  }
 
   const code = searchParams.get("code")
   const tokenHash = searchParams.get("token_hash")

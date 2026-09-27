@@ -16,6 +16,7 @@ import {
   listCrimeCaseTitles,
   parseCrimeBlocks,
 } from "@/lib/dcw-cases";
+import { secretMatches } from "@/lib/secret-compare";
 
 export const runtime = "nodejs";
 export const maxDuration = 300;
@@ -91,7 +92,8 @@ function chunk<T>(items: T[], size: number): T[][] {
 
 export async function POST(request: Request) {
   const secret = process.env.ADMIN_TASK_SECRET || process.env.CRON_SECRET;
-  if (!secret || request.headers.get("x-admin-secret") !== secret) {
+  // Constant-time compare: this secret authorizes service-role writes.
+  if (!secretMatches(request.headers.get("x-admin-secret"), secret)) {
     return NextResponse.json({ error: "unauthorized" }, { status: 401 });
   }
 

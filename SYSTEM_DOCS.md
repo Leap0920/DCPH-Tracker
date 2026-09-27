@@ -232,7 +232,11 @@ NEXT_PUBLIC_SITE_URL=https://dcphtracker.vercel.app
 
 # Cron sync
 CRON_SECRET=...
-ADMIN_TASK_SECRET=dcph123
+# Gates /api/admin/backfill-images and /api/admin/sync-crimes. Generate a long
+# random value (openssl rand -base64 32); a short one is guessable. The value
+# that used to be written here was committed to this repo, so treat it as
+# public and rotate it in Vercel + .env.local.
+ADMIN_TASK_SECRET=
 
 # AI Chatbot Providers
 GEMINI_API_KEY=AQ.Ab...

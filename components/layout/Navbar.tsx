@@ -361,7 +361,7 @@ export function Navbar() {
             </Button>
           </Link>
 
-          <NotificationBell className="hidden md:block" />
+          <NotificationBell signedIn={!!user} className="hidden md:block" />
 
           {!loading && (
             <>
@@ -550,7 +550,7 @@ export function Navbar() {
 
             {/* Section: Account / Auth */}
             <div className="pt-3 border-t border-line">
-              <NotificationBell mobile />
+              <NotificationBell signedIn={!!user} mobile />
               {!loading && (
                 <>
                   {user ? (

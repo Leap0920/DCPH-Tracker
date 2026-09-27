@@ -50,6 +50,13 @@ export function buildCsp(nonce: string): string {
  */
 const CSP_REPORT_ONLY = process.env.CSP_REPORT_ONLY === "true"
 
+/**
+ * Sets the security headers that must be per-request (the CSP) or that the
+ * middleware is the single source of truth for. Anything set in both
+ * next.config.ts and here would be duplicated, and the config's copy wins in
+ * the Node runtime — so the config carries only the headers that must also
+ * reach static assets (see the comment there).
+ */
 export function applySecurityHeaders(
   response: NextResponse,
   csp: string
