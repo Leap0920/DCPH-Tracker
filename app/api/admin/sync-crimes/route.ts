@@ -92,8 +92,14 @@ function chunk<T>(items: T[], size: number): T[][] {
 
 export async function POST(request: Request) {
   const secret = process.env.ADMIN_TASK_SECRET || process.env.CRON_SECRET;
-  // Constant-time compare: this secret authorizes service-role writes.
-  if (!secretMatches(request.headers.get("x-admin-secret"), secret)) {
+  const cronSecret = process.env.CRON_SECRET;
+  // Constant-time compares: either secret authorizes service-role writes.
+  // The bearer path exists because a scheduler (Vercel cron, CI) can send an
+  // Authorization header but cannot set a custom one.
+  const authorized =
+    secretMatches(request.headers.get("x-admin-secret"), secret) ||
+    secretMatches(request.headers.get("authorization"), cronSecret ? `Bearer ${cronSecret}` : null);
+  if (!authorized) {
     return NextResponse.json({ error: "unauthorized" }, { status: 401 });
   }
 
@@ -299,3 +305,10 @@ export async function POST(request: Request) {
     elapsedMs: Date.now() - startedAt,
   });
 }
+
+/**
+ * The same run over GET, because a scheduler can only issue GET here. Safe as a
+ * write: the route is secret-gated and every write is an idempotent upsert keyed
+ * on (page_title, case_index).
+ */
+export const GET = POST;
