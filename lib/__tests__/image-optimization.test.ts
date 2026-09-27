@@ -11,6 +11,7 @@ describe("Image delivery & payload optimization", () => {
       { relPath: "img/logo_DCPH.png", type: "png", maxWidth: 512 },
       { relPath: "tab-icon.png", type: "png", maxWidth: 192 },
       { relPath: "Bs2026.jpg", type: "jpg", maxWidth: 1200 },
+      { relPath: "New-poster.jpg", type: "jpg", maxWidth: 1600 },
       { relPath: "hero-image-darkM.jpg", type: "jpg", maxWidth: 1920 },
       { relPath: "hero-image.jpg", type: "jpg", maxWidth: 1920 },
       { relPath: "tracker-image.jpg", type: "jpg", maxWidth: 1600 },

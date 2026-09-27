@@ -16,15 +16,20 @@ export interface ArcProgressInfo {
   nextUnwatchedEpisode: number | null
 }
 
-/** Latest episode number; arcs without an end resolve here (STORY_ARCS rum-arc). */
+/** Fallback when the catalog is unreadable; the live max comes from the DB. */
 const LATEST_EPISODE = 1209
 
-/** Pure helper: progress of an arc given the set of watched episode numbers. */
+/**
+ * Pure helper: progress of an arc given the set of watched episode numbers.
+ * `latestEpisode` closes an arc that has no recorded end (see STORY_ARCS rum-arc) —
+ * pass the catalog's newest episode so the bar keeps moving as episodes air.
+ */
 export function computeArcProgress(
   arc: { episodeStart: number; episodeEnd: number | null },
-  watchedEpisodeNumbers: Set<number>
+  watchedEpisodeNumbers: Set<number>,
+  latestEpisode: number = LATEST_EPISODE
 ): ArcProgressInfo {
-  const end = arc.episodeEnd ?? LATEST_EPISODE
+  const end = arc.episodeEnd ?? Math.max(latestEpisode, arc.episodeStart)
   let watched = 0
   let nextUnwatchedEpisode: number | null = null
   for (let ep = arc.episodeStart; ep <= end; ep++) {
@@ -47,6 +52,8 @@ export function computeArcProgress(
 export async function getArcProgressData(): Promise<{
   signedIn: boolean
   watchedEpisodeNumbers: Set<number>
+  /** The catalog's newest episode number — closes arcs with no recorded end. */
+  latestEpisodeNumber: number
 }> {
   const supabase = await createClient()
 
@@ -66,29 +73,43 @@ export async function getArcProgressData(): Promise<{
   }
 
   const idToNumber = new Map<string, number>()
+  let latestEpisodeNumber = LATEST_EPISODE
   for (const e of episodes) {
-    if (e.episode_number != null) idToNumber.set(e.id, e.episode_number)
+    if (e.episode_number != null) {
+      idToNumber.set(e.id, e.episode_number)
+      if (e.episode_number > latestEpisodeNumber) latestEpisodeNumber = e.episode_number
+    }
   }
 
-  // 2) Fetch the signed-in user's watch_status rows.
+  // 2) Fetch the signed-in user's watch_status rows. Chunked for the same reason
+  //    as above: a user with 1,000+ rows would otherwise lose arc progress
+  //    silently (they have one row per episode they have touched).
   const {
     data: { user },
   } = await supabase.auth.getUser()
-  if (!user) return { signedIn: false, watchedEpisodeNumbers: new Set() }
+  if (!user) {
+    return { signedIn: false, watchedEpisodeNumbers: new Set(), latestEpisodeNumber }
+  }
 
-  const { data: statuses } = await supabase
-    .from("watch_status")
-    .select("content_id, status")
-    .eq("user_id", user.id)
+  const statuses: { content_id: string; status: string }[] = []
+  for (let offset = 0; ; offset += PAGE_SIZE) {
+    const { data, error } = await supabase
+      .from("watch_status")
+      .select("content_id, status")
+      .eq("user_id", user.id)
+      .order("content_id")
+      .range(offset, offset + PAGE_SIZE - 1)
+    if (error || !data || data.length === 0) break
+    statuses.push(...data)
+    if (data.length < PAGE_SIZE) break
+  }
 
   const watchedEpisodeNumbers = new Set<number>()
-  if (statuses) {
-    for (const s of statuses) {
-      if (s.status === "watched" || s.status === "rewatched") {
-        const num = idToNumber.get(s.content_id)
-        if (num != null) watchedEpisodeNumbers.add(num)
-      }
+  for (const s of statuses) {
+    if (s.status === "watched" || s.status === "rewatched") {
+      const num = idToNumber.get(s.content_id)
+      if (num != null) watchedEpisodeNumbers.add(num)
     }
   }
-  return { signedIn: true, watchedEpisodeNumbers }
+  return { signedIn: true, watchedEpisodeNumbers, latestEpisodeNumber }
 }

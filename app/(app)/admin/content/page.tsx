@@ -3,6 +3,7 @@ import { Plus, ChevronLeft, ChevronRight, FileQuestion } from "lucide-react"
 import { createClient } from "@/utils/supabase/server"
 import { ContentTable } from "@/components/admin/ContentTable"
 import { ContentFilters } from "@/components/admin/ContentFilters"
+import { ilikeOr } from "@/lib/postgrest-filter"
 import type { Database } from "@/types/database.types"
 
 type ContentType = Database["public"]["Tables"]["content_entries"]["Row"]["type"]
@@ -32,7 +33,7 @@ export default async function AdminContentPage({
     .range(from, to)
 
   if (type) query = query.eq("type", type as ContentType)
-  if (q) query = query.or(`title.ilike.%${q}%,slug.ilike.%${q}%`)
+  if (q) query = query.or(ilikeOr(q, ["title", "slug"]))
 
   const { data: entries, count } = await query
   const rows = entries ?? []

@@ -6,7 +6,7 @@
   },
   "crons": [
     {
-      "path": "/api/sync?mode=airing",
+      "path": "/api/sync?mode=latest",
       "schedule": "23 0 * * *"
     },
     {

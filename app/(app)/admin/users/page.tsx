@@ -4,6 +4,7 @@ import { createClient } from "@/utils/supabase/server"
 import { createAdminClient } from "@/utils/supabase/admin"
 import { requireAdmin } from "@/lib/auth/admin"
 import { isSystemOwner } from "@/lib/owner-protection"
+import { ilikeOr } from "@/lib/postgrest-filter"
 import { RoleSelect } from "@/components/admin/RoleSelect"
 import { UserActions } from "@/components/admin/UserActions"
 
@@ -82,7 +83,7 @@ export default async function AdminUsersPage({
     .order("created_at", { ascending: false })
     .range(from, to)
 
-  if (q) query = query.or(`username.ilike.%${q}%,display_name.ilike.%${q}%`)
+  if (q) query = query.or(ilikeOr(q, ["username", "display_name"]))
 
   let { data: users, count } = await query
 
@@ -92,7 +93,7 @@ export default async function AdminUsersPage({
       .select("user_id, username, display_name, role, created_at", { count: "exact" })
       .order("created_at", { ascending: false })
       .range(from, to)
-    if (q) fallback = fallback.or(`username.ilike.%${q}%,display_name.ilike.%${q}%`)
+    if (q) fallback = fallback.or(ilikeOr(q, ["username", "display_name"]))
     const result = await fallback
     users = result.data?.map((u) => ({ ...u, status: "active" as const })) ?? null
     count = result.count

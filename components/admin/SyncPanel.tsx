@@ -1,17 +1,19 @@
 "use client"
 
 import { useState, useTransition } from "react"
+import { useRouter } from "next/navigation"
 import { RefreshCw, Loader2, CheckCircle2, AlertCircle } from "lucide-react"
 import { triggerSync } from "@/lib/actions/admin-system"
 
 type Status = { kind: "idle" } | { kind: "ok"; msg: string } | { kind: "err"; msg: string }
 
 export function SyncPanel() {
+  const router = useRouter()
   const [pending, startTransition] = useTransition()
-  const [activeMode, setActiveMode] = useState<"seed" | "airing" | null>(null)
+  const [activeMode, setActiveMode] = useState<"seed" | "latest" | null>(null)
   const [status, setStatus] = useState<Status>({ kind: "idle" })
 
-  function run(mode: "seed" | "airing") {
+  function run(mode: "seed" | "latest") {
     setActiveMode(mode)
     setStatus({ kind: "idle" })
     startTransition(async () => {
@@ -20,6 +22,10 @@ export function SyncPanel() {
         result.ok ? { kind: "ok", msg: result.message ?? "Done." } : { kind: "err", msg: result.error }
       )
       setActiveMode(null)
+      // Re-fetch this page's own data. triggerSync's revalidatePath clears the
+      // cache, but the approval queue rendered "Queue is Clean!" after a run that
+      // had just staged 7 rows — the page's own read was never repeated.
+      router.refresh()
     })
   }
 
@@ -27,15 +33,15 @@ export function SyncPanel() {
     <div className="space-y-3">
       <div className="grid gap-3 sm:grid-cols-2">
         <SyncCard
-          title="Airing sync"
-          desc="Checks AniList for the next airing episode and pulls any new episodes from Jikan. Fast, safe to run often."
-          busy={pending && activeMode === "airing"}
+          title="Latest sync"
+          desc="Checks AniList for the next airing episode, then pulls everything the Detective Conan World wiki lists for the current year — episodes, movies, TV specials and OVAs. Fast, safe to run often."
+          busy={pending && activeMode === "latest"}
           disabled={pending}
-          onClick={() => run("airing")}
+          onClick={() => run("latest")}
         />
         <SyncCard
           title="Full seed"
-          desc="Re-pulls the complete episode list (Jikan) and franchise movies/specials/OVAs (Kitsu). Slower; upserts everything."
+          desc="Re-pulls the complete episode list (Jikan) and franchise movies/specials/OVAs (Kitsu), plus the wiki's current-year content. Slower; upserts everything."
           busy={pending && activeMode === "seed"}
           disabled={pending}
           onClick={() => run("seed")}

@@ -30,26 +30,31 @@ async function rateLimitedFetch<T>(url: string): Promise<T> {
       setTimeout(resolve, RATE_LIMIT_DELAY_MS - timeSinceLastRequest)
     )
   }
-  lastRequestTime = Date.now()
 
-  const response = await fetch(url, { signal: AbortSignal.timeout(FETCH_TIMEOUT_MS) })
+  // 429 is a rate limit; 5xx is Jikan losing its upstream (MAL maintenance
+  // surfaces as a 504 on the episode endpoint). Both are transient, so one
+  // retry turns a momentary blip into a successful sync. Deliberately a single
+  // retry — a hard outage must not eat the route's 60s budget.
+  const MAX_ATTEMPTS = 2
+  let lastStatus = 0
 
-  if (response.status === 429) {
-    // Rate limited — wait 1 second and retry once
-    await new Promise((resolve) => setTimeout(resolve, 1000))
+  for (let attempt = 0; attempt < MAX_ATTEMPTS; attempt++) {
     lastRequestTime = Date.now()
-    const retryResponse = await fetch(url, { signal: AbortSignal.timeout(FETCH_TIMEOUT_MS) })
-    if (!retryResponse.ok) {
-      throw new Error(`Jikan API error: ${retryResponse.status}`)
-    }
-    return retryResponse.json()
+    const response = await fetch(url, { signal: AbortSignal.timeout(FETCH_TIMEOUT_MS) })
+
+    if (response.ok) return response.json()
+
+    lastStatus = response.status
+    const transient = response.status === 429 || response.status >= 500
+    if (!transient || attempt === MAX_ATTEMPTS - 1) break
+
+    const retryAfter = Number(response.headers.get("retry-after") ?? 0)
+    await new Promise((resolve) =>
+      setTimeout(resolve, retryAfter > 0 ? retryAfter * 1000 : 1000)
+    )
   }
 
-  if (!response.ok) {
-    throw new Error(`Jikan API error: ${response.status}`)
-  }
-
-  return response.json()
+  throw new Error(`Jikan API error: ${lastStatus}`)
 }
 
 // ─── Types ───────────────────────────────────────────────────────

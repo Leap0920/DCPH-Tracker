@@ -161,6 +161,12 @@ function canonSectionBucket(episodeNumber: number | null | undefined): CanonBuck
 /** Section key for the single Full Watch Order section. */
 const WATCH_ORDER_KEY = "watch-order"
 
+/**
+ * Search matches mount a card each, and a two-letter query can match most of the
+ * catalog. Cap the grid; the count line still reports every match.
+ */
+const SEARCH_RENDER_LIMIT = 60
+
 function getNumber(entry: ContentEntry): number {
   if (entry.type === "movie") return entry.movie_number ?? entry.release_order ?? 0
   if (entry.type === "episode") return entry.episode_number ?? 0
@@ -497,7 +503,9 @@ export function ContentGrid({
         return titleHit || synopsisHit || numberHit || exactNumberHit
       })
       .sort((a, b) => getNumber(a) - getNumber(b))
-  }, [search, entries, statusFilter])
+    // userStatuses drives matchesStatus: a status filter must re-partition the
+    // results the moment the reader marks something watched.
+  }, [search, entries, statusFilter, userStatuses])
 
   function getStatusForEntry(id: string): WatchStatus | null {
     return userStatuses?.get(id) ?? null
@@ -506,6 +514,31 @@ export function ContentGrid({
   function getArcForEntry(entry: ContentEntry): { slug: string; title: string } | null {
     if (!arcMap || entry.type !== "episode") return null
     return arcMap.get(entry.arc_id ?? "") ?? null
+  }
+
+  /**
+   * The list `handleJump` should locate the episode in: the target section as it
+   * will look AFTER the jump clears the type/status filters. Using `sections`
+   * here would search a list built from the filters being cleared, so a deep
+   * link like ?ep=800&status=unwatched landed on page 0 and scrolled nowhere.
+   */
+  function jumpList(mode: ViewMode, n: number, ep: ContentEntry): ContentEntry[] {
+    if (mode === "order") return watchOrder.items.map((item) => item.entry)
+    const byEpisodeNumber = (list: ContentEntry[]) =>
+      [...list].sort((a, b) => (a.episode_number ?? 0) - (b.episode_number ?? 0))
+    const episodesOnly = entries.filter((e) => e.type === "episode")
+    if (mode === "canon")
+      return byEpisodeNumber(
+        episodesOnly.filter((e) => canonSectionBucket(e.episode_number) === canonSectionBucket(n))
+      )
+    if (mode === "year") {
+      const year = ep.air_date?.slice(0, 4) ?? "Unknown"
+      return byEpisodeNumber(
+        episodesOnly.filter((e) => (e.air_date?.slice(0, 4) ?? "Unknown") === year)
+      )
+    }
+    // Chronological mode orders episodes by canon_order.
+    return [...episodesOnly].sort((a, b) => (a.canon_order ?? 0) - (b.canon_order ?? 0))
   }
 
   function handleJump(value: string) {
@@ -523,31 +556,20 @@ export function ContentGrid({
     setTypeFilter("all")
     setStatusFilter("all")
 
-    let targetKey: string
-    let pageIdx = 0
-    if (mode === "order") {
-      targetKey = WATCH_ORDER_KEY
-      const orderList = sections.find((s) => s.key === targetKey)?.entries ?? []
-      pageIdx = Math.floor(Math.max(0, orderList.findIndex((e) => e.id === ep.id)) / PAGE_SIZE)
-    } else if (mode === "canon") {
-      // The target section is whichever canon bucket this episode belongs to.
-      targetKey = `canon-${canonSectionBucket(n)}`
-      const canonList = sections.find((s) => s.key === targetKey)?.entries ?? []
-      pageIdx = Math.floor(
-        Math.max(0, canonList.findIndex((e) => e.id === ep.id)) / PAGE_SIZE
-      )
-    } else if (mode === "year") {
-      const year = ep.air_date?.slice(0, 4) ?? "Unknown"
-      targetKey = `year-${year}`
-      const yearList = sections.find((s) => s.key === targetKey)?.entries ?? []
-      pageIdx = Math.floor(Math.max(0, yearList.findIndex((e) => e.id === ep.id)) / PAGE_SIZE)
-    } else {
-      targetKey = "episode"
-      const epList = sections.find((s) => s.key === targetKey)?.entries ?? []
-      pageIdx = Math.floor(Math.max(0, epList.findIndex((e) => e.id === ep.id)) / PAGE_SIZE)
-    }
+    const targetKey =
+      mode === "order"
+        ? WATCH_ORDER_KEY
+        : mode === "canon"
+          ? `canon-${canonSectionBucket(n)}`
+          : mode === "year"
+            ? `year-${ep.air_date?.slice(0, 4) ?? "Unknown"}`
+            : "episode"
+    const list = jumpList(mode, n, ep)
     setExpandedType(targetKey)
-    setPages((prev) => ({ ...prev, [targetKey]: pageIdx }))
+    setPages((prev) => ({
+      ...prev,
+      [targetKey]: Math.floor(Math.max(0, list.findIndex((e) => e.id === ep.id)) / PAGE_SIZE),
+    }))
 
     requestAnimationFrame(() => {
       const el = document.getElementById(`card-${ep.id}`)
@@ -661,14 +683,16 @@ export function ContentGrid({
     <div className="space-y-0">
       {/* ── Hero Banner ── */}
       <div className="relative w-full h-64 sm:h-80 bg-surface-muted overflow-hidden rounded-t-lg border-b border-line/40">
-        {/* Tracker Banner Image */}
+        {/* Tracker Banner Image. The group-shot art carries every head in the top
+            third of the frame, so the cover crop is anchored to the top — the
+            default centred crop slices the faces off at the banner's top edge. */}
         <Image
-          src="/tracker-image.jpg"
+          src="/New-poster.jpg"
           alt="Detective Conan Tracker Banner"
           fill
           priority
           sizes="(max-width: 1280px) 100vw, 1280px"
-          className="absolute inset-0 h-full w-full object-cover object-[center_10%]"
+          className="absolute inset-0 h-full w-full object-cover object-top"
         />
         {/* Gradient overlay at bottom to ensure text readability on top of straight image */}
         <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/25 to-transparent" />
@@ -779,8 +803,8 @@ export function ContentGrid({
         </div>
 
         {/* Jump-to-episode + mark-up-to-N */}
-        <div className="flex flex-wrap items-center gap-2 pt-0.5">
-          <div className="flex items-center gap-1.5">
+        <div className="flex flex-wrap items-center gap-1.5 sm:gap-2 pt-0.5">
+          <div className="flex min-w-0 flex-1 items-center gap-1.5 sm:flex-none">
             <ArrowDownToLine className="h-3.5 w-3.5 text-ink-faint shrink-0" />
             <input
               type="number"
@@ -793,7 +817,7 @@ export function ContentGrid({
               onKeyDown={(e) => {
                 if (e.key === "Enter") handleJump(jumpInput)
               }}
-              className="w-20 h-9 rounded-md border border-ink-dim/20 bg-surface-muted px-2 text-xs text-ink placeholder:text-ink-faint focus:outline-none focus:ring-2 focus:ring-accent/20 focus:border-accent"
+              className="h-9 w-full min-w-12 rounded-md border border-ink-dim/20 bg-surface-muted px-2 text-xs text-ink placeholder:text-ink-faint focus:outline-none focus:ring-2 focus:ring-accent/20 focus:border-accent sm:w-20"
             />
             <button
               onClick={() => handleJump(jumpInput)}
@@ -804,9 +828,10 @@ export function ContentGrid({
             </button>
           </div>
 
-          <div className="flex items-center gap-1.5">
-            <span className="text-[10px] font-mono text-ink-faint shrink-0">
-              Mark up to
+          <div className="flex min-w-0 flex-1 items-center gap-1.5 sm:flex-none">
+            <span className="shrink-0 font-mono text-[10px] text-ink-faint">
+              <span className="sm:hidden">Up to</span>
+              <span className="hidden sm:inline">Mark up to</span>
             </span>
             <input
               type="number"
@@ -819,7 +844,7 @@ export function ContentGrid({
               onKeyDown={(e) => {
                 if (e.key === "Enter") handleMarkUpTo(markInput)
               }}
-              className="w-20 h-9 rounded-md border border-ink-dim/20 bg-surface-muted px-2 text-xs text-ink placeholder:text-ink-faint focus:outline-none focus:ring-2 focus:ring-accent/20 focus:border-accent"
+              className="h-9 w-full min-w-12 rounded-md border border-ink-dim/20 bg-surface-muted px-2 text-xs text-ink placeholder:text-ink-faint focus:outline-none focus:ring-2 focus:ring-accent/20 focus:border-accent sm:w-20"
             />
             <button
               onClick={() => handleMarkUpTo(markInput)}
@@ -846,21 +871,29 @@ export function ContentGrid({
           {searchResults.length === 0 ? (
             <p className="text-sm text-ink-dim">No matches found.</p>
           ) : (
-            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4">
-              {searchResults.map((entry) => (
-                <ContentCard
-                  key={entry.id}
-                  entry={entry}
-                  watchStatus={getStatusForEntry(entry.id)}
-                  onSetStatus={onSetStatus}
-                  onIncrementRewatch={onIncrementRewatch}
-                  watchCount={watchCounts?.get(entry.id) ?? 0}
-                  flash={flashId === entry.id}
-                  arc={getArcForEntry(entry)}
-                  onSelect={onSelect}
-                />
-              ))}
-            </div>
+            <>
+              <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4">
+                {searchResults.slice(0, SEARCH_RENDER_LIMIT).map((entry) => (
+                  <ContentCard
+                    key={entry.id}
+                    entry={entry}
+                    watchStatus={getStatusForEntry(entry.id)}
+                    onSetStatus={onSetStatus}
+                    onIncrementRewatch={onIncrementRewatch}
+                    watchCount={watchCounts?.get(entry.id) ?? 0}
+                    flash={flashId === entry.id}
+                    arc={getArcForEntry(entry)}
+                    onSelect={onSelect}
+                  />
+                ))}
+              </div>
+              {searchResults.length > SEARCH_RENDER_LIMIT && (
+                <p className="mt-4 text-xs text-ink-dim">
+                  Showing the first {SEARCH_RENDER_LIMIT} of {searchResults.length} — narrow the
+                  search to see the rest.
+                </p>
+              )}
+            </>
           )}
         </div>
       )}
@@ -928,6 +961,7 @@ export function ContentGrid({
                   <div key={entry.id} className="snap-start w-36 sm:w-40 shrink-0">
                     <ContentCard
                       entry={entry}
+                      sizes="160px"
                       watchStatus={getStatusForEntry(entry.id)}
                       onSetStatus={onSetStatus}
                       onIncrementRewatch={onIncrementRewatch}
@@ -1153,6 +1187,20 @@ function Section({
     typeof watched === "number" &&
     typeof count === "number"
 
+  // A collapsed section kept its cards mounted, so "By Year" shipped ~30 cards
+  // per year (≈900 cards, tens of thousands of nodes) for the one section the
+  // reader could actually see. Mount on open, hold through the collapse
+  // animation, then drop.
+  const [mounted, setMounted] = useState(isOpen)
+  useEffect(() => {
+    if (isOpen) {
+      setMounted(true)
+      return
+    }
+    const timer = setTimeout(() => setMounted(false), 250) // matches duration-[250ms]
+    return () => clearTimeout(timer)
+  }, [isOpen])
+
   return (
     <section className="border-b border-ink-dim/10 last:border-b-0">
       <div
@@ -1215,7 +1263,7 @@ function Section({
         )}
       >
         <div className="overflow-hidden">
-          <div className="px-4 sm:px-6 pb-6">{children}</div>
+          <div className="px-4 sm:px-6 pb-6">{mounted ? children : null}</div>
         </div>
       </div>
     </section>

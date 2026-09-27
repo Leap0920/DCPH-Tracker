@@ -68,7 +68,7 @@ export function AnalyticsDashboard({ analytics }: AnalyticsDashboardProps) {
     {
       key: "rewatched",
       label: "Total Rewatches",
-      value: analytics.rewatchedCount.toLocaleString(),
+      value: analytics.totalRewatchViews.toLocaleString(),
       sub: "Times you hit rewatch",
       icon: RefreshCw,
     },
@@ -286,7 +286,7 @@ export function AnalyticsDashboard({ analytics }: AnalyticsDashboardProps) {
                   </div>
                   <div className="rounded-lg bg-surface-muted p-3 border border-line">
                     <div className="text-xs text-ink-dim">Total Rewatches</div>
-                    <div className="font-display text-xl text-ink">{analytics.rewatchedCount}</div>
+                    <div className="font-display text-xl text-ink">{analytics.totalRewatchViews}</div>
                   </div>
                   <div className="rounded-lg bg-surface-muted p-3 border border-line">
                     <div className="text-xs text-ink-dim">Completed Arcs</div>

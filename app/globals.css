@@ -94,8 +94,16 @@
     accent-color: rgb(var(--accent));
   }
 
+  /* <html> is the viewport's scroll container, so the horizontal clip belongs
+     here and never on <body>. A body-level `overflow-x: hidden` propagates to
+     the viewport instead of clipping the body, which makes a body-level
+     `overflow: hidden` scroll lock (Radix Select on open, Radix Dialog, the
+     episode panel) delete the page scrollbar itself — and with it 10px of
+     layout width, so the whole page jolts sideways every time one opens.
+     Locks belong on <html> too; see lib/scroll-lock.ts. */
   html {
     caret-color: rgb(var(--accent-bright));
+    overflow-x: hidden;
   }
 
   /* Visible keyboard focus everywhere — non-negotiable a11y floor.

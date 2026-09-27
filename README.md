@@ -91,7 +91,7 @@ Hosted on Vercel. Only `main` auto-deploys; production deployments from other br
 
 Scheduled jobs, both authenticated with `CRON_SECRET`:
 
-- `/api/sync?mode=airing` — daily
+- `/api/sync?mode=latest` — daily (AniList airing check + DCW wiki content for the current year)
 - `/api/sync?mode=seed` — weekly
 
 ## License

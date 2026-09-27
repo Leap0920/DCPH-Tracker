@@ -11,6 +11,7 @@ import {
 } from "@/lib/dcw-cases"
 import { CONTENT_TYPES, CONTENT_TYPE_LABELS, type ContentType } from "@/lib/constants"
 import { CaseFilterBar, type FilterOption } from "@/components/cases/CaseFilterBar"
+import { ilikeOr } from "@/lib/postgrest-filter"
 import { cn } from "@/lib/utils"
 
 export const dynamic = "force-dynamic"
@@ -395,7 +396,10 @@ export default async function CasesPage({
       // With the new view, entry_id is always set, so filter by crime_slug presence
       if (linkFilter === "tracker") query = query.not("crime_slug", "is", null)
       if (linkFilter === "wiki") query = query.is("crime_slug", null)
-      if (q) query = query.or(`victim.ilike.%${q}%,page_title.ilike.%${q}%,location.ilike.%${q}%,entry_title.ilike.%${q}%`)
+      if (q)
+        query = query.or(
+          ilikeOr(q, ["victim", "page_title", "location", "entry_title"])
+        )
 
       // entry_release_order is a real view column precisely so this is a plain
       // top-level order — ordering by an embedded column is a silent no-op.

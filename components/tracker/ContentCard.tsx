@@ -34,7 +34,17 @@ interface ContentCardProps {
   flash?: boolean
   /** Optional: intercept title clicks (e.g. open a detail modal instead of navigating). */
   onSelect?: (entry: ContentEntry) => void
+  /**
+   * Rendered width hint for the image optimizer. The default matches the
+   * accordion grid (2/3/4/5 columns); fixed-width placements such as the
+   * continue-tracking strip pass their pixel width so a 160px card doesn't ask
+   * for a half-viewport image.
+   */
+  sizes?: string
 }
+
+/** Mirrors the card grid: 2 cols, then 3, 4 and 5 as the breakpoints kick in. */
+const GRID_SIZES = "(max-width: 640px) 50vw, (max-width: 768px) 33vw, (max-width: 1024px) 25vw, 20vw"
 
 export function ContentCard({
   entry,
@@ -49,6 +59,7 @@ export function ContentCard({
   arc,
   flash = false,
   onSelect,
+  sizes = GRID_SIZES,
 }: ContentCardProps) {
   const status = watchStatus ?? "none"
   const isSeen = status === "watched" || status === "rewatched"
@@ -94,7 +105,7 @@ export function ContentCard({
             src={entry.image_url}
             alt={entry.title}
             fill
-            sizes="(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 25vw"
+            sizes={sizes}
             loading="lazy"
             className="h-full w-full object-cover transition-transform group-hover:scale-105"
           />

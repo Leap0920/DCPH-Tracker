@@ -140,6 +140,7 @@
   - Title matching (tracker ↔ wiki) — `lib/dcw-match.ts`
   - Image fetching — `lib/dcw-image-for-title.ts`
   - Chatbot search — `lib/chat/search.ts`
+  - Sync source: current-year episodes, movies, TV specials and OVAs — `lib/dcw-content.ts` (parses the `Season N`, `Regular movies`, `TV Specials` and `OVA` list pages; rebroadcasts and untitled placeholder rows are skipped)
 
 ### 2. Google AI Studio (Gemini API)
 - **URL**: `https://generativelanguage.googleapis.com/v1beta/openai/chat/completions`
@@ -249,7 +250,7 @@ CLOUDFLARE_API_TOKEN=cfut_...
 - **Platform**: Vercel
 - **Auto-deploy**: `main` branch
 - **Cron jobs** (Vercel Cron):
-  - `/api/sync?mode=airing` — daily
+  - `/api/sync?mode=latest` — daily (AniList airing check + DCW wiki content for the current year)
   - `/api/sync?mode=seed` — weekly
 - **Production URL**: `https://dcphtracker.vercel.app`
 
