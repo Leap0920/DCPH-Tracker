@@ -145,7 +145,7 @@ export function CaseFilterBar({
   ].filter(Boolean).length
 
   return (
-    <div className="sticky top-16 z-20 -mx-4 border-y border-line bg-surface/95 px-4 py-3 backdrop-blur sm:-mx-6 sm:px-6">
+    <div className="-mx-4 border-y border-line bg-surface px-4 py-3 sm:-mx-6 sm:px-6">
       <div className="flex items-center justify-between gap-2 pb-2.5">
         <div className="flex shrink-0 items-center gap-1.5">
           <SlidersHorizontal className="h-3.5 w-3.5 text-ink-faint" />
