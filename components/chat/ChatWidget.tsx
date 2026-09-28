@@ -12,7 +12,10 @@ import {
   BookOpen,
   Wrench,
   Film,
+  Maximize2,
+  Minimize2,
 } from "lucide-react"
+import Image from "next/image"
 import { cn } from "@/lib/utils"
 import { ChatInput } from "@/components/chat/ChatInput"
 import { ChatMessage, type ChatMessageData } from "@/components/chat/ChatMessage"
@@ -57,10 +60,24 @@ const SUGGESTION_CHIPS: SuggestionChip[] = [
 ]
 
 const HISTORY_TURNS = 8
-const STORAGE_KEY = "dcph_chat_history_v1"
+const STORAGE_KEY = "dcph_chat_history_v2"
+const LEGACY_STORAGE_KEY = "dcph_chat_history_v1"
+/** Keeps the stored conversation bounded — this lives in the reader's browser. */
+const MAX_STORED_MESSAGES = 60
+
+function isStoredMessage(value: unknown): value is ChatMessageData {
+  if (!value || typeof value !== "object") return false
+  const message = value as Record<string, unknown>
+  return (
+    typeof message.id === "string" &&
+    typeof message.content === "string" &&
+    (message.role === "user" || message.role === "assistant")
+  )
+}
 
 export function ChatWidget() {
   const [open, setOpen] = React.useState(false)
+  const [expanded, setExpanded] = React.useState(false)
   const [mounted, setMounted] = React.useState(false)
   const [messages, setMessages] = React.useState<ChatMessageData[]>([GREETING])
   const [isLoading, setIsLoading] = React.useState(false)
@@ -69,32 +86,42 @@ export function ChatWidget() {
   const [authLoading, setAuthLoading] = React.useState(true)
 
   const scrollRef = React.useRef<HTMLDivElement>(null)
+  const panelRef = React.useRef<HTMLDivElement>(null)
+  const expandButtonRef = React.useRef<HTMLButtonElement>(null)
   const abortRef = React.useRef<AbortController | null>(null)
 
-  // Restore saved messages from sessionStorage on initial client load
+  // Restore the saved conversation on mount. localStorage, not sessionStorage:
+  // following a source link or reloading the page must not throw away a
+  // conversation the reader was in the middle of.
   React.useEffect(() => {
     try {
-      const saved = sessionStorage.getItem(STORAGE_KEY)
-      if (saved) {
-        const parsed = JSON.parse(saved)
-        if (Array.isArray(parsed) && parsed.length > 0) {
-          setMessages(parsed)
-        }
+      const saved =
+        localStorage.getItem(STORAGE_KEY) ?? sessionStorage.getItem(LEGACY_STORAGE_KEY)
+      if (!saved) return
+      const parsed: unknown = JSON.parse(saved)
+      if (Array.isArray(parsed) && parsed.length > 0 && parsed.every(isStoredMessage)) {
+        setMessages(parsed)
       }
     } catch {
-      // sessionStorage unavailable
+      // storage unavailable or holds something we did not write
     }
   }, [])
 
-  // Persist messages to sessionStorage when updated
+  // Persist when the conversation settles. Debounced because a streaming answer
+  // re-renders on every chunk, and this write is synchronous.
   React.useEffect(() => {
-    if (messages.length > 1 || (messages.length === 1 && messages[0].id !== "greeting")) {
+    if (!messages.some((message) => message.role === "user")) return
+    const timer = setTimeout(() => {
       try {
-        sessionStorage.setItem(STORAGE_KEY, JSON.stringify(messages))
+        localStorage.setItem(
+          STORAGE_KEY,
+          JSON.stringify(messages.slice(-MAX_STORED_MESSAGES))
+        )
       } catch {
         // storage quota or disabled
       }
-    }
+    }, 400)
+    return () => clearTimeout(timer)
   }, [messages])
 
   React.useEffect(() => {
@@ -129,10 +156,45 @@ export function ChatWidget() {
   React.useEffect(() => {
     if (!open) return
     const onKeyDown = (event: KeyboardEvent) => {
-      if (event.key === "Escape") setOpen(false)
+      if (event.key !== "Escape") return
+      // Escape leaves full screen first; pressing it again closes the chat, so a
+      // reader who only wanted their panel size back is not thrown out.
+      if (expanded) setExpanded(false)
+      else setOpen(false)
     }
     window.addEventListener("keydown", onKeyDown)
     return () => window.removeEventListener("keydown", onKeyDown)
+  }, [open, expanded])
+
+  // The large view sits over a long page; let it own the scrollbar while it is
+  // up. Restoring the previous value matters — the widget can unmount under a
+  // page that had its own overflow set.
+  React.useEffect(() => {
+    if (!open || !expanded) return
+    const previous = document.body.style.overflow
+    document.body.style.overflow = "hidden"
+    return () => {
+      document.body.style.overflow = previous
+    }
+  }, [open, expanded])
+
+  // Moving between sizes keeps the same DOM node (the panel is never remounted),
+  // so the conversation, the draft text and the scroll position all survive.
+  // Focus follows the move instead: the draft field when growing, the toggle
+  // when shrinking back, so a keyboard user is never dropped on the page.
+  const toggleExpanded = React.useCallback(() => {
+    setExpanded((prev) => {
+      const next = !prev
+      requestAnimationFrame(() => {
+        if (next) panelRef.current?.querySelector("textarea")?.focus()
+        else expandButtonRef.current?.focus()
+      })
+      return next
+    })
+  }, [])
+
+  React.useEffect(() => {
+    if (!open) setExpanded(false)
   }, [open])
 
   React.useEffect(() => {
@@ -152,7 +214,8 @@ export function ChatWidget() {
     setMessages([GREETING])
     setError(null)
     try {
-      sessionStorage.removeItem(STORAGE_KEY)
+      localStorage.removeItem(STORAGE_KEY)
+      sessionStorage.removeItem(LEGACY_STORAGE_KEY)
     } catch {
       // ignore
     }
@@ -249,32 +312,72 @@ export function ChatWidget() {
         <MessageSquare className="size-5" />
       </button>
 
+      {/* Full-screen backdrop. Rendered as a sibling so the panel below keeps its
+          DOM identity across the size change — a wrapper would remount it and
+          lose the conversation's scroll position and the draft text. */}
+      {open && expanded && (
+        <button
+          type="button"
+          tabIndex={-1}
+          aria-label="Exit full screen chat"
+          onClick={() => setExpanded(false)}
+          className="fixed inset-0 z-40 cursor-default bg-black/70 backdrop-blur-sm"
+        />
+      )}
+
       {/* Chat panel */}
       {open && (
         <div
+          ref={panelRef}
           role="dialog"
-          aria-modal="false"
+          aria-modal={expanded}
           aria-label="DCPH Bot — episode finder"
           className={cn(
-            "fixed bottom-5 right-5 z-50 flex flex-col overflow-hidden rounded-2xl",
-            "border border-line bg-surface shadow-2xl shadow-black/70",
-            "w-[min(26rem,calc(100vw-1.5rem))] h-[min(34rem,calc(100vh-6rem))]",
+            "fixed z-50 flex flex-col overflow-hidden border border-line bg-surface shadow-2xl shadow-black/70",
             "transition-all duration-200 ease-out",
+            expanded
+              ? cn(
+                  "inset-x-2 bottom-2 top-2 mx-auto rounded-2xl",
+                  "w-auto max-w-5xl",
+                  "sm:inset-x-4 sm:bottom-4 sm:top-4"
+                )
+              : cn(
+                  "bottom-5 right-5 rounded-2xl",
+                  "w-[min(26rem,calc(100vw-1.5rem))] h-[min(34rem,calc(100vh-6rem))]"
+                ),
             mounted ? "translate-y-0 opacity-100" : "translate-y-4 opacity-0"
           )}
         >
           <header className="flex items-center justify-between gap-2 border-b border-line px-4 py-3">
             <div className="flex min-w-0 items-center gap-2.5">
-              <span className="flex size-8 shrink-0 items-center justify-center rounded-full bg-accent/15 text-accent-bright">
-                <MessageSquare className="size-4" />
-              </span>
+              <Image
+                src="/tab-icon.png"
+                alt=""
+                width={32}
+                height={32}
+                className="size-8 shrink-0 rounded-full object-contain"
+              />
               <div className="min-w-0">
                 <p className="truncate text-sm font-semibold text-ink">DCPH Bot</p>
-                <p className="truncate text-xs text-ink-faint">Detective Conan assistant & tracker</p>
+                <p className="truncate text-xs text-ink-faint">
+                  {expanded
+                    ? "Full screen — Esc to shrink back"
+                    : "Detective Conan assistant & tracker"}
+                </p>
               </div>
             </div>
 
             <div className="flex shrink-0 items-center gap-1">
+              <button
+                ref={expandButtonRef}
+                type="button"
+                onClick={toggleExpanded}
+                aria-label={expanded ? "Exit full screen chat" : "Expand chat to full screen"}
+                title={expanded ? "Exit full screen (Esc)" : "Expand chat (full screen)"}
+                className="rounded-lg p-1.5 text-ink-faint transition-colors hover:bg-surface-muted hover:text-ink"
+              >
+                {expanded ? <Minimize2 className="size-4" /> : <Maximize2 className="size-4" />}
+              </button>
               {user && (
                 <button
                   type="button"
@@ -319,51 +422,59 @@ export function ChatWidget() {
             <>
               <div
                 ref={scrollRef}
-                className="flex-1 space-y-3 overflow-y-auto px-4 py-4"
+                className="flex-1 overflow-y-auto px-4 py-4"
                 aria-live="polite"
                 aria-atomic="false"
               >
-                {messages.map((message) => (
-                  <ChatMessage
-                    key={message.id}
-                    message={message}
-                    isStreaming={isLoading && message.id === lastMessage?.id}
-                  />
-                ))}
+                {/* The wrapper is always present (even when it adds nothing) so
+                    that growing the panel cannot remount the messages. Full
+                    screen keeps the reading column narrow instead of stretching
+                    every answer across the whole viewport. */}
+                <div className={cn("space-y-3", expanded && "mx-auto w-full max-w-3xl")}>
+                  {messages.map((message) => (
+                    <ChatMessage
+                      key={message.id}
+                      message={message}
+                      isStreaming={isLoading && message.id === lastMessage?.id}
+                    />
+                  ))}
 
-                {isConversationFresh && !isLoading && (
-                  <div className="mt-4 pt-1">
-                    <div className="mb-2 flex items-center gap-1.5 px-1 text-[11px] font-medium text-ink-faint">
-                      <Sparkles className="size-3 text-accent-bright" />
-                      <span>Suggested questions:</span>
+                  {isConversationFresh && !isLoading && (
+                    <div className="mt-4 pt-1">
+                      <div className="mb-2 flex items-center gap-1.5 px-1 text-[11px] font-medium text-ink-faint">
+                        <Sparkles className="size-3 text-accent-bright" />
+                        <span>Suggested questions:</span>
+                      </div>
+                      <div className="flex flex-wrap gap-1.5">
+                        {SUGGESTION_CHIPS.map((chip, idx) => {
+                          const Icon = chip.icon
+                          return (
+                            <button
+                              key={idx}
+                              type="button"
+                              onClick={() => send(chip.prompt)}
+                              className="group inline-flex items-center gap-1.5 rounded-full border border-line bg-surface-muted px-3 py-1.5 text-xs text-ink transition-all hover:border-accent/50 hover:bg-accent/10 hover:text-accent-bright text-left"
+                            >
+                              <Icon className="size-3.5 text-accent-bright shrink-0 transition-transform group-hover:scale-110" />
+                              <span>{chip.label}</span>
+                            </button>
+                          )
+                        })}
+                      </div>
                     </div>
-                    <div className="flex flex-wrap gap-1.5">
-                      {SUGGESTION_CHIPS.map((chip, idx) => {
-                        const Icon = chip.icon
-                        return (
-                          <button
-                            key={idx}
-                            type="button"
-                            onClick={() => send(chip.prompt)}
-                            className="group inline-flex items-center gap-1.5 rounded-full border border-line bg-surface-muted px-3 py-1.5 text-xs text-ink transition-all hover:border-accent/50 hover:bg-accent/10 hover:text-accent-bright text-left"
-                          >
-                            <Icon className="size-3.5 text-accent-bright shrink-0 transition-transform group-hover:scale-110" />
-                            <span>{chip.label}</span>
-                          </button>
-                        )
-                      })}
-                    </div>
-                  </div>
-                )}
+                  )}
 
-                {error && (
-                  <p className="rounded-xl border border-accent/40 bg-accent/10 px-3 py-2 text-xs text-accent-bright">
-                    {error}
-                  </p>
-                )}
+                  {error && (
+                    <p className="rounded-xl border border-accent/40 bg-accent/10 px-3 py-2 text-xs text-accent-bright">
+                      {error}
+                    </p>
+                  )}
+                </div>
               </div>
 
-              <ChatInput onSend={send} onStop={stop} disabled={isLoading} isStreaming={isLoading} />
+              <div className={cn(expanded && "mx-auto w-full max-w-3xl")}>
+                <ChatInput onSend={send} onStop={stop} disabled={isLoading} isStreaming={isLoading} />
+              </div>
             </>
           )}
         </div>
