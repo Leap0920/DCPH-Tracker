@@ -146,6 +146,8 @@ const BASE_BOW = 6;
 const PARALLEL_GAP = 22;
 const STRING_WIDTH = 2;
 const DIM_OPACITY = 0.1;
+/** Label halo width in SCREEN px — held constant across zoom (see styleLabel). */
+const LABEL_HALO = 3;
 /** Idle ms before the animation loop parks (drift + CSS keyframes stop). */
 const IDLE_PARK_MS = 4000;
 
@@ -477,13 +479,18 @@ const NodeView = memo(function NodeView({
         pointerEvents="none"
       />
 
-      {/* Label — stable key and ref, never unmounted */}
+      {/* Label — stable key and ref, never unmounted. The halo width is a
+          presentation attribute rather than an inline style: the loop rewrites
+          it per zoom (see styleLabel) to keep the halo a constant 3 SCREEN px
+          now that the camera is a CSS transform on the world box instead of an
+          SVG transform — `non-scaling-stroke` cannot see past it. */}
       <g
         key="node-label"
         ref={(el) => {
           labelEls.current[i] = el;
         }}
         transform={`translate(0, ${n.r + 15})`}
+        strokeWidth={LABEL_HALO}
         pointerEvents="none"
       >
         <text
@@ -500,7 +507,6 @@ const NodeView = memo(function NodeView({
             fill: emphasised ? pal.labelStrong : pal.label,
             paintOrder: "stroke",
             stroke: pal.labelHalo,
-            strokeWidth: 3,
             strokeLinejoin: "round",
             vectorEffect: "non-scaling-stroke",
           }}
@@ -575,7 +581,7 @@ export default function CharactersWeb({
   /* ── refs the rAF loop reads ───────────────────────────────────── */
   const containerRef = useRef<HTMLDivElement>(null);
   const svgRef = useRef<SVGSVGElement>(null);
-  const worldRef = useRef<SVGGElement>(null);
+  const worldRef = useRef<SVGSVGElement>(null);
   const zoomLabelRef = useRef<HTMLSpanElement>(null);
 
   const camRef = useRef({ x: 0, y: 0, k: 1 });
@@ -597,6 +603,8 @@ export default function CharactersWeb({
   const labelsDirtyRef = useRef(true);
   /** Per-node: is the label currently displayed? (display is written only on change) */
   const labelShownRef = useRef<boolean[]>([]);
+  /** Last halo width written to the label groups (zoom-compensated, see styleLabel). */
+  const lastHaloRef = useRef("");
   const isGrabbingRef = useRef(false);
   /** A dossier is open: the graph holds still while it is (see `holdStill`). */
   const focusedRef = useRef(Boolean(selectedCharacterId));
@@ -801,6 +809,15 @@ export default function CharactersWeb({
     (i: number, k: number, forced: Set<number>) => {
       const el = labelEls.current[i];
       if (!el) return;
+      /* The halo has to stay LABEL_HALO screen px wide. `non-scaling-stroke`
+         holds it against the SVG's own viewBox mapping, but the camera is now
+         a CSS transform outside the SVG, which that property cannot see — so
+         the width is divided by the zoom here. */
+      const halo = (LABEL_HALO / Math.max(k, 0.02)).toFixed(2);
+      if (lastHaloRef.current !== halo) {
+        lastHaloRef.current = halo;
+        el.setAttribute("stroke-width", halo);
+      }
       const o = forced.has(i) ? 1 : labelOpacityFor(k, nodes[i].tier);
       el.style.opacity = o.toFixed(2);
       const show = labelLimit === null || nodes[i].tier <= labelLimit || o > 0.01;
@@ -1126,9 +1143,19 @@ export default function CharactersWeb({
         lastCamY = cam.y;
         lastCamK = cam.k;
         if (world) {
-          world.style.transform = `translate(${cam.x.toFixed(2)}px, ${cam.y.toFixed(
+          /* The world is an <svg> ELEMENT whose own viewBox is the content
+             box, so the camera lands on it as a CSS transform: an HTML-level
+             box Chromium composites, unlike the SVG <g> it used to sit on.
+             It has to, because an SVG transform is not composited — every
+             frame of a glide re-laid-out and re-painted all 103 nodes, 216
+             strings and 103 labels on the main thread (55ms frames against a
+             7ms vsync). Its local origin is the content box corner, so the
+             camera's world translation carries that offset. */
+          world.style.transform = `translate(${(cam.x + cam.k * bbox.minX).toFixed(
             2
-          )}px) scale(${cam.k.toFixed(4)})`;
+          )}px, ${(cam.y + cam.k * bbox.minY).toFixed(2)}px) scale(${cam.k.toFixed(
+            4
+          )})`;
         }
       }
 
@@ -1491,9 +1518,17 @@ export default function CharactersWeb({
       container?.classList.remove("dcph-parked");
       if (wakeRef.current === poke) wakeRef.current = null;
     };
-  }, [nodes, edges, geom, particles, q, styleLabel]);
+  }, [nodes, edges, geom, particles, q, styleLabel, bbox]);
 
   /* ── pointer gestures: pan, node drag, pinch ─────────────────── */
+
+  /** Is this event target part of the graph itself (rather than the control
+   *  chrome or the search panel sharing the same box)? */
+  const inCanvas = useCallback((target: EventTarget | null) => {
+    const t = target as Element | null;
+    if (!t || typeof t.nodeType !== "number") return false;
+    return Boolean(svgRef.current?.contains(t) || worldRef.current?.contains(t));
+  }, []);
 
   const pointersRef = useRef(new Map<number, { x: number; y: number }>());
   const rectRef = useRef<DOMRect | null>(null);
@@ -1545,13 +1580,18 @@ export default function CharactersWeb({
 
   /** Capture phase: every pointer that touches the canvas is registered here,
    *  including ones that land on a node, so pinch works anywhere. */
-  const handleCapturePointerDown = (e: ReactPointerEvent<SVGSVGElement>) => {
+  const handleCapturePointerDown = (e: ReactPointerEvent<HTMLDivElement>) => {
+    if (!inCanvas(e.target)) return;
     rectRef.current = svgRef.current?.getBoundingClientRect() ?? null;
     pointersRef.current.set(e.pointerId, { x: e.clientX, y: e.clientY });
     if (pointersRef.current.size === 2) beginPinch();
   };
 
-  const handleCanvasPointerDown = (e: ReactPointerEvent<SVGSVGElement>) => {
+  const handleCanvasPointerDown = (e: ReactPointerEvent<HTMLDivElement>) => {
+    // Gestures belong to the canvas only. This box also hosts the control
+    // chrome and the search results, and a drag that starts on those must not
+    // drag the graph out from under them.
+    if (!inCanvas(e.target)) return;
     if (pointersRef.current.size > 1) return;
     didDragRef.current = false;
     pinchRef.current = null;
@@ -1563,7 +1603,7 @@ export default function CharactersWeb({
       lastT: performance.now(),
     };
     isGrabbingRef.current = true;
-    if (svgRef.current) svgRef.current.style.cursor = "grabbing";
+    if (containerRef.current) containerRef.current.style.cursor = "grabbing";
     userAdjustedRef.current = true;
   };
 
@@ -1586,7 +1626,7 @@ export default function CharactersWeb({
         offY: wy - geom.base[index * 2 + 1],
       };
       isGrabbingRef.current = true;
-      if (svgRef.current) svgRef.current.style.cursor = "grabbing";
+      if (containerRef.current) containerRef.current.style.cursor = "grabbing";
     },
     [localPoint, geom]
   );
@@ -1713,7 +1753,7 @@ export default function CharactersWeb({
       panRef.current = null;
       dragNodeRef.current = null;
       isGrabbingRef.current = false;
-      if (svgRef.current) svgRef.current.style.cursor = "";
+      if (containerRef.current) containerRef.current.style.cursor = "";
     };
 
     const onBlur = () => {
@@ -1723,7 +1763,7 @@ export default function CharactersWeb({
       panRef.current = null;
       dragNodeRef.current = null;
       isGrabbingRef.current = false;
-      if (svgRef.current) svgRef.current.style.cursor = "";
+      if (containerRef.current) containerRef.current.style.cursor = "";
       if (moveRaf) {
         cancelAnimationFrame(moveRaf);
         moveRaf = 0;
@@ -1750,8 +1790,10 @@ export default function CharactersWeb({
 
   /* ── wheel zoom: accumulates into the target, loop glides there ── */
   useEffect(() => {
-    const svg = svgRef.current;
-    if (!svg) return;
+    // On the container, not the backdrop SVG: the world layer is its sibling,
+    // so a wheel over a node never reaches the backdrop.
+    const el = containerRef.current;
+    if (!el) return;
     const onWheel = (e: WheelEvent) => {
       e.preventDefault();
       const { sx, sy } = localPoint(e.clientX, e.clientY);
@@ -1770,8 +1812,8 @@ export default function CharactersWeb({
       if (reduceRef.current) camRef.current = { ...targetRef.current };
       userAdjustedRef.current = true;
     };
-    svg.addEventListener("wheel", onWheel, { passive: false });
-    return () => svg.removeEventListener("wheel", onWheel);
+    el.addEventListener("wheel", onWheel, { passive: false });
+    return () => el.removeEventListener("wheel", onWheel);
   }, [localPoint]);
 
   /* ── keyboard shortcuts ───────────────────────────────────────── */
@@ -1831,38 +1873,45 @@ export default function CharactersWeb({
     <div
       ref={containerRef}
       className={cn(
-        "relative h-full w-full select-none overflow-hidden rounded-2xl border transition-colors duration-300",
+        "relative h-full w-full select-none touch-none overflow-hidden rounded-2xl border transition-colors duration-300",
         // One token recipe for both themes — the hairline does the separation
         // work that the old theme-specific drop shadows did.
         "border-line bg-page text-ink shadow-card",
+        // Gestures live on this box (not on the backdrop SVG): the world layer
+        // is a sibling of it, so a tap on a node has to reach the same handler
+        // as a tap on the background.
+        "cursor-grab active:cursor-grabbing",
         className
       )}
+      onPointerDownCapture={handleCapturePointerDown}
+      onPointerDown={handleCanvasPointerDown}
+      onClick={(e) => {
+        if (didDragRef.current) {
+          didDragRef.current = false;
+          return;
+        }
+        if (
+          selectedCharacterId &&
+          (e.target === svgRef.current ||
+            e.target === worldRef.current ||
+            (e.target as Element)?.tagName === "rect" ||
+            (e.target as Element)?.tagName === "ellipse")
+        ) {
+          onSelectCharacter(null);
+        }
+      }}
     >
+      {/* Screen-space backdrop: vignette, dot matrix, ambient motes. Everything
+          the camera must NOT move. Purely decorative, so it takes no pointers. */}
       <svg
         ref={svgRef}
         viewBox={`0 0 ${vw} ${vh}`}
         preserveAspectRatio="xMidYMid meet"
+        aria-hidden
         className={cn(
-          "h-full w-full touch-none select-none cursor-grab active:cursor-grabbing transition-opacity duration-500",
+          "pointer-events-none absolute inset-0 h-full w-full transition-opacity duration-500",
           ready ? "opacity-100" : "opacity-0"
         )}
-        aria-label="Detective Conan character relationship graph"
-        onPointerDownCapture={handleCapturePointerDown}
-        onPointerDown={handleCanvasPointerDown}
-        onClick={(e) => {
-          if (didDragRef.current) {
-            didDragRef.current = false;
-            return;
-          }
-          if (
-            selectedCharacterId &&
-            (e.target === svgRef.current ||
-              (e.target as Element)?.tagName === "rect" ||
-              (e.target as Element)?.tagName === "ellipse")
-          ) {
-            onSelectCharacter(null);
-          }
-        }}
       >
         <defs>
           <radialGradient id="dcph-bg" cx="50%" cy="42%" r="78%">
@@ -1894,69 +1943,86 @@ export default function CharactersWeb({
             ))}
           </g>
         )}
+      </svg>
 
-        {/* World layer — the rAF loop owns its transform (as a CSS transform, so
-            it can be composited while the camera glides), never React. */}
-        <g ref={worldRef} style={{ transformOrigin: "0px 0px" }}>
-          <g>
-            {/* Strings — `d` is owned by the rAF loop; React owns paint + state.
-                Memoized EdgeViews bail unless THIS edge's live state changed,
-                so hover/size churn reconciles only the affected paths. */}
-            {edges.map((e, i) => {
-              const isTarget =
-                hoveredId === e.rel.source ||
-                hoveredId === e.rel.target ||
-                selectedCharacterId === e.rel.source ||
-                selectedCharacterId === e.rel.target;
-              const matchesSearch =
-                searchMatches.size === 0 ||
-                searchMatches.has(e.rel.source) ||
-                searchMatches.has(e.rel.target);
-              const opacity = dimmed
-                ? isTarget
-                  ? 1
-                  : DIM_OPACITY
-                : matchesSearch
-                  ? pal.stringActive
-                  : pal.stringIdle;
-              return (
-                <EdgeView
-                  key={e.rel.id}
-                  e={e}
-                  i={i}
-                  edgeEls={edgeEls}
-                  isTarget={isTarget}
-                  opacity={opacity}
-                />
-              );
-            })}
-
-            {/* Nodes — one <g> per node: the rAF loop repositions it via the
-                nodeEls ref; React paints structure + state. Memoized NodeViews
-                bail unless THIS node's visual state changed, so a hover
-                re-renders ~2 subtrees, not the whole graph. */}
-            {nodes.map((n, i) => (
-              <NodeView
-                key={n.c.id}
-                n={n}
+      {/* World layer — the rAF loop owns its transform, never React. It is a
+          separate <svg> ELEMENT (not a <g>) with the content box as its own
+          viewBox, so the camera is a CSS transform on an HTML-level box that
+          Chromium can composite: an SVG <g> transform is not composited, and
+          every frame of a glide re-laid-out and re-painted the whole graph on
+          the main thread. `overflow: visible` keeps labels that hang past the
+          content box from being clipped by that viewBox; the container's
+          overflow hidden does the real clipping. */}
+      <svg
+        ref={worldRef}
+        width={bbox.w}
+        height={bbox.h}
+        viewBox={`${bbox.minX} ${bbox.minY} ${bbox.w} ${bbox.h}`}
+        aria-label="Detective Conan character relationship graph"
+        style={{ transformOrigin: "0px 0px", overflow: "visible" }}
+        className={cn(
+          "absolute left-0 top-0 transition-opacity duration-500",
+          ready ? "opacity-100" : "opacity-0"
+        )}
+      >
+        <g>
+          {/* Strings — `d` is owned by the rAF loop; React owns paint + state.
+              Memoized EdgeViews bail unless THIS edge's live state changed,
+              so hover/size churn reconciles only the affected paths. */}
+          {edges.map((e, i) => {
+            const isTarget =
+              hoveredId === e.rel.source ||
+              hoveredId === e.rel.target ||
+              selectedCharacterId === e.rel.source ||
+              selectedCharacterId === e.rel.target;
+            const matchesSearch =
+              searchMatches.size === 0 ||
+              searchMatches.has(e.rel.source) ||
+              searchMatches.has(e.rel.target);
+            const opacity = dimmed
+              ? isTarget
+                ? 1
+                : DIM_OPACITY
+              : matchesSearch
+                ? pal.stringActive
+                : pal.stringIdle;
+            return (
+              <EdgeView
+                key={e.rel.id}
+                e={e}
                 i={i}
-                isDark={isDark}
-                pal={pal}
-                isSelected={selectedCharacterId === n.c.id}
-                isHovered={hoveredId === n.c.id}
-                isSearchMatch={searchMatches.has(n.c.id)}
-                breathe={q.breathe}
-                ripple={q.ripple}
-                nodeEls={nodeEls}
-                labelEls={labelEls}
-                grabbingRef={isGrabbingRef}
-                didDragRef={didDragRef}
-                onSelectNode={selectNode}
-                onNodePointerDown={handleNodePointerDown}
-                onHoverChange={setHoveredId}
+                edgeEls={edgeEls}
+                isTarget={isTarget}
+                opacity={opacity}
               />
-            ))}
-          </g>
+            );
+          })}
+
+          {/* Nodes — one <g> per node: the rAF loop repositions it via the
+              nodeEls ref; React paints structure + state. Memoized NodeViews
+              bail unless THIS node's visual state changed, so a hover
+              re-renders ~2 subtrees, not the whole graph. */}
+          {nodes.map((n, i) => (
+            <NodeView
+              key={n.c.id}
+              n={n}
+              i={i}
+              isDark={isDark}
+              pal={pal}
+              isSelected={selectedCharacterId === n.c.id}
+              isHovered={hoveredId === n.c.id}
+              isSearchMatch={searchMatches.has(n.c.id)}
+              breathe={q.breathe}
+              ripple={q.ripple}
+              nodeEls={nodeEls}
+              labelEls={labelEls}
+              grabbingRef={isGrabbingRef}
+              didDragRef={didDragRef}
+              onSelectNode={selectNode}
+              onNodePointerDown={handleNodePointerDown}
+              onHoverChange={setHoveredId}
+            />
+          ))}
         </g>
       </svg>
 
