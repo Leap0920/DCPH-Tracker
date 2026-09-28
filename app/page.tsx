@@ -7,7 +7,7 @@ import { HowItWorks } from "@/components/marketing/HowItWorks"
 import { LatestContent } from "@/components/marketing/LatestContent"
 import { HomeCta } from "@/components/marketing/HomeCta"
 import { BlockScreeningSection } from "@/components/marketing/BlockScreeningSection"
-import { FourYearsSection } from "@/components/marketing/FourYearsSection"
+import { FiveYearsSection } from "@/components/marketing/FiveYearsSection"
 import { AccountDeletedNotice } from "@/components/layout/AccountDeletedNotice"
 import {
   LiveEpisodeBadge,
@@ -60,7 +60,7 @@ export default async function HomePage() {
         </div>
 
         <div className="py-12 sm:py-16 lg:py-20">
-          <FourYearsSection />
+          <FiveYearsSection />
         </div>
 
         <BlockScreeningSection />

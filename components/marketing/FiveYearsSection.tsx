@@ -6,7 +6,7 @@ import ElegantCarousel from "@/components/ui/elegant-carousel"
 
 const EASE = [0.16, 1, 0.3, 1] as const
 
-export function FourYearsSection() {
+export function FiveYearsSection() {
   const reduce = useReducedMotion()
 
   return (
@@ -25,7 +25,7 @@ export function FourYearsSection() {
               SM North EDSA Cinema Highlights
             </div>
             <h3 className="font-display text-2xl font-bold text-ink sm:text-3xl">
-              Four Years of Screenings
+              Five Years of Screenings
             </h3>
           </div>
           <p className="max-w-md text-xs text-ink-dim sm:text-sm">
