@@ -4,9 +4,30 @@ import { useEffect } from "react"
 
 export function ServiceWorkerRegister() {
   useEffect(() => {
-    if (process.env.NODE_ENV !== "production") return
     if (typeof window === "undefined") return
     if (!("serviceWorker" in navigator)) return
+
+    // Development: leave no worker in control. A worker registered by an earlier
+    // production run on this origin serves /_next/static/* cache-first, and dev
+    // chunk URLs carry no content hash — so it keeps handing back the old bundle
+    // on every reload (stale modules, and "Loading chunk ... failed" once one of
+    // those files stops existing). Clearing it here means a local production
+    // build can never poison the next `npm run dev`.
+    if (process.env.NODE_ENV !== "production") {
+      void navigator.serviceWorker
+        .getRegistrations()
+        .then((registrations) =>
+          Promise.all(registrations.map((registration) => registration.unregister()))
+        )
+        .catch(() => {})
+      if (typeof caches !== "undefined") {
+        void caches
+          .keys()
+          .then((keys) => Promise.all(keys.map((key) => caches.delete(key))))
+          .catch(() => {})
+      }
+      return
+    }
 
     let cancelled = false
 
