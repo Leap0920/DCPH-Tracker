@@ -30,6 +30,32 @@ export const STOPWORDS = new Set([
   // franchise boilerplate: nearly every row mentions these, so they carry
   // no discriminating power.
   "conan", "detective", "episode", "episodes",
+  // Tagalog function words and politeness filler. Most of the audience asks in
+  // Filipino, and these are long enough to eat the whole MAX_KEYWORDS budget:
+  // "may list po kayo ng episodes kung sino sino po ang mga napaliit ng
+  // APTX-4869" tokenized to [napaliit, maraming, salamat, tanong, good, lang]
+  // and dropped "aptx" entirely, so the bot answered with no APTX context.
+  "ang", "mga", "si", "ni", "kay", "kina", "nito", "nila", "namin", "natin",
+  "kami", "kayo", "sila", "ninyo", "kanila", "kanino", "akin", "iyo", "kanya",
+  "sya", "siya", "ako", "tayo",
+  "ito", "iyan", "iyon", "yung", "ung", "dito", "diyan", "doon", "po", "pong",
+  "opo", "ho", "ba", "naman", "lang", "lamang", "din", "rin", "daw", "raw",
+  "kasi", "pero", "at", "o", "ay", "na", "pa", "may", "meron", "mayroon",
+  "wala", "kung", "kapag", "kaya", "sana", "muna", "ulit", "tapos", "saka",
+  "nga", "pala", "yata", "siguro", "masyado", "sobra", "buong", "lahat",
+  // "gawa" and its affixed forms are "do / make / did" — pure filler.
+  "gawa", "gawin", "ginawa", "gumawa", "makagawa", "nakagawa", "gumagawa",
+  // Tagalog interrogatives: intent classification reads these off the raw
+  // query, they are not search terms.
+  "ano", "sino", "saan", "alin", "ilan", "kailan", "bakit", "paano", "magkano",
+  // question shells and courtesy
+  "tanong", "nagtanong", "itanong", "sagot", "sagutin", "tulong", "tulungan",
+  "hanap", "hanapin", "maghanap", "tingnan", "makita", "kita", "sabihin",
+  "sabi", "malaman", "alam", "nalalaman", "gusto", "ibig", "pwede", "puwede",
+  "maaari", "paki", "pakiusap", "mangyaring", "salamat", "maraming", "maganda",
+  "magandang", "araw", "umaga", "gabi", "tanghali", "good", "day", "hello",
+  "hi", "kumusta", "musta", "welcome", "naging", "nang", "nag", "pag", "para",
+  "pala", "mismo", "talaga", "syempre", "ewan", "hindi", "oo", "opo",
 ])
 
 /**
@@ -39,6 +65,97 @@ export const STOPWORDS = new Set([
 const SHORT_TERMS = new Set(["ai"])
 
 const MIN_KEYWORD_LENGTH = 3
+
+/**
+ * Tagalog content words mapped to the English the tracker and the wiki use.
+ *
+ * The databases are written in English, so a Filipino question's own words
+ * match nothing: "kriminal" and "paretoke" returned zero rows for the episode
+ * where a plastic-surgery double frames Shinichi, so the bot never saw
+ * "Murderer, Shinichi Kudo" (Ep 521) and named the closest-looking episode
+ * instead. These are additive recall terms, never replacements — the user's
+ * own words are still searched and still score.
+ *
+ * Keys are matched as substrings once they are at least five characters long,
+ * because Tagalog marks aspect and focus with affixes: "paretoke" also covers
+ * "nagparetoke" / "pinaretoke", "lason" covers "nilason" / "pagkalason".
+ */
+const TAGALOG_TERMS: Record<string, readonly string[]> = {
+  // crime and culprits
+  kriminal: ["murderer", "criminal", "culprit"],
+  krimen: ["crime", "murder"],
+  salarin: ["culprit", "suspect"],
+  pumatay: ["murderer", "killer", "murder"],
+  patay: ["killed", "death", "dead"],
+  namatay: ["died", "death"],
+  pagpatay: ["murder", "killing"],
+  biktima: ["victim"],
+  motibo: ["motive"],
+  kaso: ["case"],
+  // disguise and identity
+  paretoke: ["plastic", "surgery", "disguise"],
+  nagpanggap: ["disguise", "impostor", "impersonate"],
+  pagpapanggap: ["disguise", "impostor"],
+  peke: ["fake", "impostor"],
+  pagkatao: ["identity"],
+  kilala: ["known", "identity"],
+  tunay: ["real", "true"],
+  isisi: ["frame", "framed", "blame"],
+  // shrinking (APTX-4869)
+  napaliit: ["shrink", "shrinking", "smaller"],
+  lumiit: ["shrink", "shrinking", "smaller"],
+  pagliit: ["shrink", "shrinking"],
+  // methods of death
+  lason: ["poison", "poisoning", "poisoned"],
+  lasong: ["poison", "poisoning"],
+  saksak: ["stab", "stabbed", "stabbing"],
+  baril: ["gunshot", "shot", "gun"],
+  sunog: ["burned", "burning", "arson"],
+  lunod: ["drowned", "drowning"],
+  bigti: ["hanged", "hanging"],
+  sabog: ["explosion", "bombing", "bomb"],
+  bomba: ["bomb", "bombing"],
+  nakaw: ["theft", "robbery", "stolen"],
+  dukot: ["kidnapped", "abduction"],
+  // media
+  pelikula: ["movie", "film"],
+  palabas: ["series"],
+  serye: ["series"],
+  misteryo: ["mysterious", "mystery"],
+}
+
+/**
+ * English recall terms for any Tagalog words in `keywords`, in order.
+ *
+ * Additive on purpose: the caller still searches the user's literal words, so
+ * an English question is unaffected and a Filipino one gains a second chance
+ * at the same rows.
+ */
+export function translateTerms(keywords: string[]): string[] {
+  const out: string[] = []
+  const seen = new Set(keywords)
+
+  for (const kw of keywords) {
+    for (const [key, terms] of Object.entries(TAGALOG_TERMS)) {
+      // Substring match only for keys long enough that a false positive is
+      // unlikely; short keys ("patay", "peke") must match whole words.
+      const hit = kw === key || (key.length >= 5 && kw.includes(key))
+      if (!hit) continue
+      for (const term of terms) {
+        if (seen.has(term)) continue
+        seen.add(term)
+        out.push(term)
+      }
+    }
+  }
+
+  return out
+}
+
+/** Every term a relevance filter should accept: the user's words plus translations. */
+export function searchTerms(keywords: string[]): string[] {
+  return [...keywords, ...translateTerms(keywords)]
+}
 
 /**
  * Lowercases, drops punctuation and collapses whitespace.
@@ -174,13 +291,19 @@ export function expandAliases(keywords: string[]): string[] {
  * The keyword groups to try against Postgres, most selective first.
  *
  * Every group is fetched and the results are UNIONED: the groups are recall
- * strategies, and rankEntries() decides what actually survives. Aliases come
- * last because they are a long shot rather than the user's literal words.
+ * strategies, and rankEntries() decides what actually survives. The user's own
+ * words come first; English translations of Tagalog words follow, because a
+ * Filipino question's literal words match nothing in an English database.
+ * Aliases come last because they are a long shot rather than the user's words.
  */
 export function searchTermGroups(keywords: string[]): string[][] {
   const groups: string[][] = []
   if (keywords.length > 2) groups.push(keywords.slice(0, 2))
   if (keywords.length > 0) groups.push(keywords)
+
+  const translated = translateTerms(keywords)
+  if (translated.length > 2) groups.push(translated.slice(0, 2))
+  if (translated.length > 0) groups.push(translated)
 
   const aliases = expandAliases(keywords)
   if (aliases.length > 0) groups.push(aliases)
@@ -188,9 +311,12 @@ export function searchTermGroups(keywords: string[]): string[][] {
   return groups.length > 0 ? groups : [[]]
 }
 
-/** Every term that should count when scoring: the user's words plus aliases. */
+/**
+ * Every term that should count when scoring: the user's words, their English
+ * translations when they asked in Tagalog, and character aliases.
+ */
 export function rankingTerms(keywords: string[]): string[] {
-  return [...keywords, ...expandAliases(keywords)]
+  return [...keywords, ...translateTerms(keywords), ...expandAliases(keywords)]
 }
 
 /** Builds a PostgREST `or()` value: every keyword ILIKE-matched on every column. */
@@ -391,7 +517,6 @@ export function isRelevantTitle(title: string, keywords: string[]): boolean {
 
 /** Page titles that answer "what is the newest movie?" style questions. */
 const LIST_PAGE_QUERIES = ["List of Detective Conan movies", "Detective Conan film series"]
-
 /**
  * Builds progressively looser wiki queries.
  *
@@ -419,11 +544,335 @@ export function buildWikiQueries(query: string, maxQueries = 6): string[] {
   if (keywords.length >= 2) push(keywords.join(" "))
   if (keywords.length >= 3) push(keywords.slice(0, 2).join(" "))
 
-  for (const kw of keywords) push(kw)
+  // Per-word and bigram queries run over the translated terms as well, so a
+  // Tagalog question can still reach an English page by its English name.
+  const terms = searchTerms(keywords)
+  for (const term of terms) push(term)
 
-  for (let i = 0; i < keywords.length - 1; i += 1) {
-    push(`${keywords[i]} ${keywords[i + 1]}`)
+  for (let i = 0; i < terms.length - 1; i += 1) {
+    push(`${terms[i]} ${terms[i + 1]}`)
   }
 
   return queries.slice(0, maxQueries)
+}
+
+/**
+ * Every word of the question, stopwords included.
+ *
+ * `tokenize` drops stopwords because they are useless as search recall, but a
+ * wiki title has to be compared against the question as a whole: "the black
+ * organization's goal" must recognise the page title "Black Organization".
+ */
+export function queryWords(query: string): Set<string> {
+  return new Set(normalizeText(query).split(" ").filter(Boolean))
+}
+
+/** List-like page titles: they list things rather than describe them. */
+const LIST_LIKE_TITLE = /\b(appearances|gallery|timeline|list of)\b/i
+
+/**
+ * Orders the wiki pages the model reads.
+ *
+ * MediaWiki's internal relevance put "List of characters who know Ai Haibara's
+ * identity" ahead of "Ai Haibara" itself, and gallery subpages ahead of the
+ * pages they illustrate — and the prompt tells the model to trust the first
+ * entry, so ordering is part of correctness, not presentation. A title whose
+ * every word appears in the question is the entity being asked about (+10);
+ * list-like pages and subpages only stand in for it (−6 each).
+ *
+ * An "X Appearances" page is the exception: for "all of Vermouth's
+ * appearances" it is not a stand-in for the article, it IS the answer, so the
+ * question's own wording flips its penalty into a bonus.
+ */
+export function scoreWikiTitle(
+  title: string,
+  words: Set<string>,
+  options: { wantsAppearances?: boolean } = {}
+): number {
+  const titleWords = normalizeText(title).split(" ").filter(Boolean)
+  const appearancesTitle = isAppearancesTitle(title)
+  const listLike = LIST_LIKE_TITLE.test(title)
+  let score = 0
+
+  if (titleWords.length > 0 && titleWords.every((w) => words.has(w))) score += 10
+  if (listLike) score += options.wantsAppearances && appearancesTitle ? 6 : -6
+  if (title.includes("/")) score -= 6
+
+  return score
+}
+
+/**
+ * True for subpages that hold no prose (image galleries).
+ *
+ * They are skipped during retrieval, but `content_entries.dcw_title` sometimes
+ * points at one (Ep 2 → "Company President's Daughter Kidnapping Case/Gallery"),
+ * so the culprit path strips the suffix rather than fetching a gallery.
+ */
+export function isGalleryTitle(title: string): boolean {
+  return /\/(gallery|images?|sounds?)$/i.test(title.trim())
+}
+
+/** "X Appearances" pages — the wiki's own per-character episode index. */
+export function isAppearancesTitle(title: string): boolean {
+  return /\S\s+appearances$/i.test(title.trim())
+}
+
+/**
+ * True when the question is asking for a list of entries rather than one.
+ *
+ * Listing questions are answered by a different retrieval path (a filtered
+ * sweep plus a link to the matching tracker filter), because relevance ranking
+ * can only ever return the dozen best-scoring rows — useless when the user
+ * asked for "all the episodes where someone is stabbed".
+ */
+export function prefersList(query: string): boolean {
+  if (/\b(?:which|what|list|all|every|give me|show me|name|examples of|how many)\b[^?]{0,50}\b(?:eps|episodes|movies|specials)\b/i.test(query)) {
+    return true
+  }
+  if (/\b(?:eps|episodes)\b[^?]{0,40}\b(?:that|which|with|where|featuring|involving|having|have|has|contain(?:ing|s)?)\b/i.test(query)) {
+    return true
+  }
+  // Tagalog list requests: "mga episode na may saksak", "listahan ng episodes
+  // kung saan may lasong". "mga" (plural marker) and "may" (there is / with)
+  // stand in for the English list words.
+  return /\b(?:mga|listahan|lahat)\b[^?]{0,40}\b(?:eps|episode|episodes)\b/i.test(query) ||
+    /\b(?:eps|episode|episodes)\b[^?]{0,40}\b(?:na may|mayroong|meron|kung saan|gumawa|gumamit|naglason|nagsaksak)\b/i.test(query)
+}
+
+/**
+ * True when the question asks how a case ends — the culprit, the trick, the
+ * resolution. Those answers live in DCW's "Resolution" section, which the lead
+ * extract never reaches.
+ *
+ * The Tagalog branch matters: "kung saan si shinichi yung naging kriminal" is
+ * a culprit/identity question, but no English keyword appears in it, so the
+ * resolution was never fetched and the bot answered with a lookalike episode.
+ */
+const CULPRIT_RE =
+  /\b(culprit|murderer|killer|who (?:did it|killed|dunnit)|perpetrator|offender|solved|solution|resolution|trick|revealed?|true identity|spoiler)\b/i
+
+export function wantsCulprit(query: string): boolean {
+  if (CULPRIT_RE.test(query)) return true
+  return CULPRIT_RE.test(translateTerms(tokenize(query)).join(" "))
+}
+
+/** True when the question asks for a character's appearances rather than facts. */
+export function wantsAppearances(query: string): boolean {
+  return /\b(appearances?|appeared|appears|appear|debuts?|debuted)\b/i.test(query)
+}
+
+/** One crime method or crime type named in the question. */
+export interface CrimeMethodMatch {
+  kind: "cause" | "crime"
+  slug: string
+  label: string
+}
+
+/**
+ * The crime-group slugs that are too common to be a list request on their own.
+ *
+ * "murder" appears in a large share of ordinary case questions ("the ski lodge
+ * murder"), so treating it as a filter would bury the real question under forty
+ * rows of murder. The specific methods below are distinctive enough to stand.
+ */
+const GENERIC_CRIME_SLUGS = new Set([
+  "murder",
+  "attempted-murder",
+  "accident",
+  "assault",
+  "suicide",
+  "vandalism",
+  "other",
+])
+
+/**
+ * Named crime methods and crime types, most specific first.
+ *
+ * The slugs are the canonical group slugs from lib/dcw-cases.ts (METHOD_GROUPS
+ * for causes of death, CRIME_GROUPS for crime types) — the same ones /cases
+ * filters on — and the search layer validates them against those lists before
+ * querying, so a stale entry here degrades to "no list" rather than to a
+ * silently empty answer.
+ */
+const CRIME_METHOD_TERMS: ReadonlyArray<{ re: RegExp } & CrimeMethodMatch> = [
+  { re: /\bstab(?:bed|bing|s|wound)?\b/i, kind: "cause", slug: "stabbing", label: "Stabbing" },
+  { re: /\bstrangl(?:ed|ing|e)\b|\bchoke[ds]?\b|\bgarrot/i, kind: "cause", slug: "strangulation", label: "Strangulation" },
+  { re: /\bsuffocat/i, kind: "cause", slug: "suffocation", label: "Suffocation" },
+  { re: /\bhang(?:ed|ing|s)\b/i, kind: "cause", slug: "hanging", label: "Hanging" },
+  { re: /\bdecapitat|\bbehead/i, kind: "cause", slug: "decapitation", label: "Decapitation" },
+  { re: /\belectrocut/i, kind: "cause", slug: "electrocution", label: "Electrocution" },
+  { re: /\boverdose\b|\bdrugged\b|\bpoison(?:ed|ing|s)?\b/i, kind: "cause", slug: "poisoning", label: "Poisoning" },
+  { re: /\bdrown(?:ed|ing|s)?\b/i, kind: "cause", slug: "drowning", label: "Drowning" },
+  { re: /\bburn(?:ed|ing|s)?\b|\barson\b|\bimmolat/i, kind: "cause", slug: "burning", label: "Burning" },
+  { re: /\bexplos(?:ion|ions|ive|ives)\b|\bbomb(?:ed|ing|s)?\b/i, kind: "cause", slug: "explosion", label: "Explosion" },
+  { re: /\bgunshot\b|\bshot\b|\bshoot(?:ing|s|er|ers)?\b|\bbullet\b|\bfirearm\b/i, kind: "cause", slug: "gunshot", label: "Gunshot" },
+  { re: /\bblunt[- ]force\b|\bbludgeon|\bbeaten\b|\bbeating\b|\bblunt object\b/i, kind: "cause", slug: "blunt-force", label: "Blunt force" },
+  { re: /\bhit[- ]and[- ]run\b|\bvehicl|\bcar crash\b|\btrain\b|\btraffic accident\b/i, kind: "cause", slug: "vehicle", label: "Vehicle & train" },
+  { re: /\bfall(?:ing)?\b|\bfell\b|\bfell to (?:his|her) death\b/i, kind: "cause", slug: "fall", label: "Fall" },
+  { re: /\bkidnap/i, kind: "crime", slug: "kidnapping", label: "Kidnapping & Hostage" },
+  { re: /\bhostage\b|\bbarricad/i, kind: "crime", slug: "kidnapping", label: "Kidnapping & Hostage" },
+  { re: /\brobb(?:ery|er|ers|ed|ing)?\b|\btheft\b|\bsteal(?:ing|s)?\b|\bstolen\b|\bheist\b|\bburglar/i, kind: "crime", slug: "robbery", label: "Robbery & Theft" },
+  { re: /\bfraud\b|\bscam\b|\bextortion\b|\bblackmail\b|\bcon[- ]?artist\b/i, kind: "crime", slug: "fraud", label: "Scam & Extortion" },
+  { re: /\bmissing person\b|\bdisappear/i, kind: "crime", slug: "missing-person", label: "Missing Person" },
+  { re: /\bsuicide\b/i, kind: "crime", slug: "suicide", label: "Suicide" },
+  { re: /\barson\b/i, kind: "crime", slug: "bombing", label: "Bombing & Arson" },
+  { re: /\battempted murder\b/i, kind: "crime", slug: "attempted-murder", label: "Attempted Murder" },
+  { re: /\bmurder\b|\bhomicide\b/i, kind: "crime", slug: "murder", label: "Murder" },
+]
+
+/**
+ * The crime method or crime type the question is about, if any.
+ *
+ * A generic group (plain "murder") only counts when the question is a real
+ * list request — "list all murder episodes" yes, "the ski lodge murder" no.
+ */
+export function matchCrimeMethod(query: string): CrimeMethodMatch | null {
+  const direct = matchCrimeMethodText(query, query)
+  if (direct) return direct
+
+  // Tagalog method words ("saksak", "lasong", "nalunod") only match once they
+  // are in English; the list-word gate still reads the original question.
+  const translated = translateTerms(tokenize(query)).join(" ")
+  return translated ? matchCrimeMethodText(translated, query) : null
+}
+
+function matchCrimeMethodText(text: string, query: string): CrimeMethodMatch | null {
+  for (const { re, kind, slug, label } of CRIME_METHOD_TERMS) {
+    if (!re.test(text)) continue
+    if (GENERIC_CRIME_SLUGS.has(slug) && !/\b(?:list|all|every|how many|which eps|what eps)\b/i.test(query)) {
+      continue
+    }
+    return { kind, slug, label }
+  }
+  return null
+}
+
+/** Two-hour specials and other long formats, as asked for in the question. */
+export type SpecialKind = "two-hour" | "one-hour" | "specials"
+
+/** The question points at one numbered entry rather than at the set. */
+const NAMES_ONE_ENTRY = /\b(?:ep|eps|episode|episodes|special|ova)\s*\.?\s*#?\s*\d{1,4}\b/i
+
+/** …which it may ask for anyway ("list all the 2-hour specials"). */
+const ASKS_FOR_SET = /\b(?:list|all|every|each|how many|which|mga|lahat|listahan)\b/i
+
+/**
+ * Which long-form list the question is asking for, if any.
+ *
+ * DCW and the tracker both count a "two-hour special" as ~92 minutes of
+ * content (a broadcast hour is 46), so the length buckets are 85+ and 40-84.
+ *
+ * "Special" and "OVA" also describe a single entry — "what is the special
+ * episode 1209 about?" — and answering one of those with the 103-row listing
+ * put a link to the whole set at the top of the reply. Like the generic crime
+ * groups, the listing is only for questions that ask for the set.
+ */
+export function matchSpecialKind(query: string): SpecialKind | null {
+  const kind = longFormKind(query)
+  if (!kind) return null
+  if (NAMES_ONE_ENTRY.test(query) && !ASKS_FOR_SET.test(query)) return null
+  return kind
+}
+
+function longFormKind(query: string): SpecialKind | null {
+  if (/\b(?:2|two)[- ]?hour\b|\bdouble[- ]?length\b|\b92[- ]?min/i.test(query)) return "two-hour"
+  if (/\b(?:1|one)[- ]?hour\b|\bsingle[- ]?hour\b/i.test(query)) return "one-hour"
+  if (/\bspecials?\b|\bovas?\b|\blong(?:er)?(?:-| )?(?:episodes?|format)\b/i.test(query)) return "specials"
+  return null
+}
+
+/** Blurbs that are the entire text of a gallery page — no answer in them. */
+const JUNK_EXTRACT = /^this is a (?:gallery|list) of images/i
+
+export function isJunkWikiExtract(text: string): boolean {
+  return JUNK_EXTRACT.test(text.trim())
+}
+
+/**
+ * The first article link on a page. Used to follow DCW's spoiler
+ * "soft redirects", which wrap the real page in a click-through notice.
+ * Namespace links (File:, Help:, …) are skipped: on those pages the first
+ * link is usually the notice icon.
+ */
+export function firstWikiLinkTarget(html: string): string | null {
+  const NAMESPACES = /^(file|help|category|template|special|talk|user|mediawiki|module):/i
+
+  for (const match of html.matchAll(/href="\/wiki\/([^"#?]+)"/gi)) {
+    const raw = match[1]
+    if (!raw) continue
+    let target: string
+    try {
+      target = decodeURIComponent(raw)
+    } catch {
+      target = raw
+    }
+    if (NAMESPACES.test(target)) continue
+    return target.replace(/_/g, " ")
+  }
+
+  return null
+}
+
+/** True when a page is DCW's spoiler-gating stand-in for another page. */
+export function isSoftRedirect(text: string): boolean {
+  return /soft redirect/i.test(text)
+}
+
+/**
+ * Sentences that state the real culprit.
+ *
+ * DCW writes a case's Resolution as narrative, and the narrative deliberately
+ * leads with the false solution — "Heiji proclaims the family servant was the
+ * murderer", "Sakuraba is soon arrested" — before the reveal. A reader (or a
+ * model) that stops at the first accused name gets the wrong answer, which is
+ * exactly what happened to "who's the murderer in episode 141": the true culprit
+ * was named later, in "The real culprit is revealed to be Kukihito Morizono".
+ */
+const REVEAL_SENTENCE =
+  /\b(?:real|true|actual)\s+(?:culprit|murderer|killer|criminal)\b|\b(?:culprit|murderer|killer|criminal)\s+(?:is|was)\s+revealed\b|\b(?:revealed|turn(?:s|ed)?\s+out)\s+to\s+be\b/i
+
+/** A capitalized name, up to four words, as wiki prose writes one. */
+const NAME = "([A-Z][\\p{L}'’-]*(?:\\s+[A-Z][\\p{L}'’-]*){0,3})"
+
+const REVEAL_NAME_PATTERNS: RegExp[] = [
+  new RegExp(
+    `\\b(?:real|true|actual)\\s+(?:culprit|murderer|killer|criminal)\\s+(?:is|was)?\\s*(?:revealed\\s+to\\s+be|turn(?:s|ed)?\\s+out\\s+to\\s+be|is|was)\\s+${NAME}`,
+    "u"
+  ),
+  new RegExp(`\\b(?:culprit|murderer|killer|criminal)\\s+(?:is|was)\\s+revealed\\s+to\\s+be\\s+${NAME}`, "u"),
+  // "turned out to be" is a reveal; a bare "the culprit is X" is not, because
+  // DCW uses that phrasing for the false accusation too.
+  new RegExp(`\\b(?:culprit|murderer|killer|criminal)\\s+turn(?:s|ed)?\\s+out\\s+to\\s+be\\s+${NAME}`, "u"),
+]
+
+/**
+ * Puts the sentences that state the real culprit in front of the rest.
+ *
+ * Order is the whole point: the model reads the resolution top-down and the
+ * narrative buries the answer behind the false accusation, so the reveal is
+ * moved up rather than left where the case's storyline put it.
+ */
+export function prioritizeResolution(text: string): string {
+  const sentences = text.match(/[^.!?]+[.!?]*/g) ?? [text]
+  const reveal: string[] = []
+  const rest: string[] = []
+
+  for (const sentence of sentences) {
+    const trimmed = sentence.trim()
+    if (!trimmed) continue
+    if (REVEAL_SENTENCE.test(trimmed)) reveal.push(trimmed)
+    else rest.push(trimmed)
+  }
+
+  return [...reveal, ...rest].join(" ")
+}
+
+/** The culprit's name as DCW's own reveal sentence states it, when readable. */
+export function extractCulpritName(text: string): string | null {
+  for (const pattern of REVEAL_NAME_PATTERNS) {
+    const match = text.match(pattern)
+    const name = match?.[1]?.trim()
+    if (name) return name
+  }
+  return null
 }

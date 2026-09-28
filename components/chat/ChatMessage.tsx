@@ -1,7 +1,8 @@
 "use client"
 
 import * as React from "react"
-import { Copy, Check, ExternalLink } from "lucide-react"
+import Link from "next/link"
+import { ArrowRight, Copy, Check, ExternalLink } from "lucide-react"
 import { cn, safeExternalUrl } from "@/lib/utils"
 
 export interface ChatMessageData {
@@ -35,6 +36,85 @@ function isTrackerUrl(url: string): boolean {
 const INLINE_PATTERN =
   /(\*\*[^*\n]+\*\*|`[^`\n]+`|\[[^\]\n]+\]\((?:https?:\/\/)[^)\s]+\)|https?:\/\/[^\s<>()]+)/g
 
+/**
+ * Tracker links stay in this tab and navigate in place: the widget lives in the
+ * root layout, so the route change is client-side and the conversation stays
+ * open behind the page. They also resolve to a path on whatever origin the
+ * reader is already on — the answers carry the canonical site URL, which is a
+ * different origin while running locally and a different host under a custom
+ * domain, and a cross-origin jump would reload the page and drop the chat.
+ *
+ * Outbound sources (DCW, Wikipedia) open in a new tab instead: they are
+ * somewhere to read alongside the tracker, and spending the chat tab on them
+ * would cost the conversation.
+ */
+function appPath(url: string): string | null {
+  try {
+    const { pathname, search, hash } = new URL(url)
+    return /^\/(?:tracker|cases|arcs)(?:\/|$)/.test(pathname) ? `${pathname}${search}${hash}` : null
+  } catch {
+    return null
+  }
+}
+
+function ChatLink({ href, label, isInternal }: { href: string; label: string; isInternal: boolean }) {
+  const inApp = isInternal ? appPath(href) : null
+  const Anchor: React.ElementType = inApp ? Link : "a"
+  return (
+    <Anchor
+      href={inApp ?? href}
+      {...(inApp ? {} : { target: "_blank", rel: "noopener noreferrer" })}
+      className={cn(
+        "inline-flex items-center gap-1 break-words font-medium transition-colors",
+        isInternal
+          ? "rounded-md border border-accent/30 bg-accent/10 px-1.5 py-0.5 text-xs text-accent-bright hover:bg-accent/20 hover:text-white"
+          : "text-accent-bright underline underline-offset-2 hover:text-accent"
+      )}
+    >
+      <span>{label}</span>
+      {inApp ? (
+        <ArrowRight className="inline size-3 shrink-0 opacity-70" />
+      ) : (
+        <ExternalLink className="inline size-3 shrink-0 opacity-70" />
+      )}
+    </Anchor>
+  )
+}
+
+/**
+ * One row of the sources list.
+ *
+ * The footer used to render as prose: bordered chips flowing in a paragraph,
+ * where a long label ("Specials, OVAs and long episodes (40+ minutes) case
+ * files (103)") broke mid-word across two lines and the "·" separators were
+ * left stranded at the line ends. A source is a list item, so it renders like
+ * one — one per line, no box, wrapping at word boundaries.
+ */
+function SourceRow({ label, href }: { label: string; href: string }) {
+  const inApp = href && isTrackerUrl(href) ? appPath(href) : null
+  const Anchor: React.ElementType = inApp ? Link : "a"
+
+  if (!href) return <span className="break-words text-ink-faint">{label}</span>
+
+  return (
+    <Anchor
+      href={inApp ?? href}
+      {...(inApp ? {} : { target: "_blank", rel: "noopener noreferrer" })}
+      className={cn(
+        "inline-flex min-w-0 items-start gap-1.5 break-words transition-colors",
+        inApp ? "text-accent-bright hover:text-accent" : "text-ink-dim hover:text-ink"
+      )}
+    >
+      <span className="min-w-0 break-words">{label}</span>
+      {inApp ? (
+        <ArrowRight className="mt-0.5 size-3 shrink-0 opacity-70" />
+      ) : (
+        <ExternalLink className="mt-0.5 size-3 shrink-0 opacity-70" />
+      )}
+    </Anchor>
+  )
+}
+
 /** Renders `**bold**`, `` `code` `` and links without dangerouslySetInnerHTML. */
 function renderInline(text: string, keyPrefix: string): React.ReactNode[] {
   const parts = text.split(INLINE_PATTERN)
@@ -67,47 +147,16 @@ function renderInline(text: string, keyPrefix: string): React.ReactNode[] {
       const label = mdLink[1]!
       const href = mdLink[2]!
       if (!safeExternalUrl(href)) return <React.Fragment key={key}>{part}</React.Fragment>
-      const isInternal = isTrackerUrl(href)
-      return (
-        <a
-          key={key}
-          href={href}
-          target="_blank"
-          rel="noopener noreferrer"
-          className={cn(
-            "inline-flex items-center gap-1 break-all font-medium transition-colors",
-            isInternal
-              ? "rounded-md border border-accent/30 bg-accent/10 px-1.5 py-0.5 text-xs text-accent-bright hover:bg-accent/20 hover:text-white"
-              : "text-accent-bright underline underline-offset-2 hover:text-accent"
-          )}
-        >
-          <span>{label}</span>
-          <ExternalLink className="inline size-3 shrink-0 opacity-70" />
-        </a>
-      )
+      return <ChatLink key={key} href={href} label={label} isInternal={isTrackerUrl(href)} />
     }
 
     // Bare URL.
     if (/^https?:\/\//i.test(part)) {
       const { href, trailing } = trimUrl(part)
       if (!safeExternalUrl(href)) return <React.Fragment key={key}>{part}</React.Fragment>
-      const isInternal = isTrackerUrl(href)
       return (
         <React.Fragment key={key}>
-          <a
-            href={href}
-            target="_blank"
-            rel="noopener noreferrer"
-            className={cn(
-              "inline-flex items-center gap-1 break-all font-medium transition-colors",
-              isInternal
-                ? "rounded-md border border-accent/30 bg-accent/10 px-1.5 py-0.5 text-xs text-accent-bright hover:bg-accent/20 hover:text-white"
-                : "text-accent-bright underline underline-offset-2 hover:text-accent"
-            )}
-          >
-            <span>{href}</span>
-            <ExternalLink className="inline size-3 shrink-0 opacity-70" />
-          </a>
+          <ChatLink href={href} label={href} isInternal={isTrackerUrl(href)} />
           {trailing}
         </React.Fragment>
       )
@@ -117,8 +166,55 @@ function renderInline(text: string, keyPrefix: string): React.ReactNode[] {
   })
 }
 
-function renderContent(content: string): React.ReactNode {
+/**
+ * Splits the app-appended source list off the answer.
+ *
+ * The route appends "**Sources**" plus its lines after the model finishes. They
+ * are real citations, but reading them as part of the prose is what made an
+ * answer look like a wall of links, so they render smaller and set apart.
+ */
+function splitSources(content: string): { body: string; sources: string[] } {
   const lines = content.split("\n")
+  const index = lines.findIndex((line) => line.trim().startsWith("**Sources**"))
+  if (index === -1) return { body: content, sources: [] }
+
+  const sources = lines
+    .slice(index)
+    .map((line) =>
+      line
+        .replace(/^\s*\*\*Sources\*\*\s*/, "")
+        .replace(/^\s*(?:[-*•]|\d+\.)\s+/, "")
+        .trim()
+    )
+    .filter(Boolean)
+
+  return { body: lines.slice(0, index).join("\n").trimEnd(), sources }
+}
+
+/** One `[label](url)` as the footer joins them. */
+const SOURCE_LINK = /^\[([^\]\n]+)\]\(((?:https?:\/\/)[^)\s]+)\)$/
+
+/**
+ * Splits the joined sources line back into rows.
+ *
+ * The route joins its links with " · ", which reads as a sentence and wraps as
+ * one. Anything that is not a link is kept as plain text so a stored
+ * conversation from an older format still renders.
+ */
+function parseSources(sources: string[]): { label: string; href: string }[] {
+  return sources
+    .flatMap((line) => line.split("·"))
+    .map((part) => part.trim())
+    .filter(Boolean)
+    .map((part) => {
+      const match = part.match(SOURCE_LINK)
+      return match ? { label: match[1]!, href: match[2]! } : { label: part, href: "" }
+    })
+}
+
+function renderContent(content: string): React.ReactNode {
+  const { body, sources } = splitSources(content)
+  const lines = body.split("\n")
   const blocks: React.ReactNode[] = []
   let bullets: string[] = []
 
@@ -159,6 +255,26 @@ function renderContent(content: string): React.ReactNode {
   })
 
   flushBullets()
+
+  const items = parseSources(sources)
+
+  if (items.length > 0) {
+    blocks.push(
+      <div key="sources" className="mt-2.5 border-t border-line/60 pt-2">
+        <p className="text-[10px] font-semibold uppercase tracking-wider text-ink-faint">
+          Sources
+        </p>
+        <ul className="mt-1 space-y-0.5 text-[11px] leading-snug">
+          {items.map((item, index) => (
+            <li key={index} className="min-w-0">
+              <SourceRow label={item.label} href={item.href} />
+            </li>
+          ))}
+        </ul>
+      </div>
+    )
+  }
+
   return blocks
 }
 

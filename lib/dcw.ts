@@ -4,9 +4,13 @@
 
 export const DCW_API = "https://www.detectiveconanworld.com/wiki/api.php";
 
+// MediaWiki asks for a UA that identifies the tool and a way to contact its
+// operator; the old default shipped a placeholder ("your-org", "you@example.com")
+// which reads as an unattended scraper. Override with DCW_USER_AGENT if the
+// site ever needs a different contact.
 export const DCW_USER_AGENT =
   process.env.DCW_USER_AGENT ??
-  "DCPH-Tracker/1.0 (+https://github.com/your-org/DCPH-Tracker; you@example.com)";
+  "DCPH-Tracker/1.0 (+https://github.com/Leap0920/DCPH-Tracker; https://dcphtracker.vercel.app)";
 
 const MIN_INTERVAL_MS = 200; // <= 5 req/s
 const MAX_RETRIES = 4;
