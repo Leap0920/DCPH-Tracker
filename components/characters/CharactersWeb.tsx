@@ -110,6 +110,9 @@ const FIT_MAX_K = 1.6;
  */
 const MIN_FIT_K = 0.2;
 
+/** Phone breakpoint: the media query and the pre-hydration probe both read it. */
+const MOBILE_QUERY = "(max-width: 767px)";
+
 /** Camera smoothing time constant (ms). Lower = snappier. */
 const CAM_TAU = 85;
 /** Inertia applied to the pan target on release (ms of projected travel). */
@@ -562,7 +565,7 @@ export default function CharactersWeb({
   className = "",
 }: CharactersWebProps) {
   const reduce = useReducedMotion();
-  const isMobile = useMediaQuery("(max-width: 767px)");
+  const isMobile = useMediaQuery(MOBILE_QUERY);
   const isDark = theme === "dark";
   /** The tier's budget for this graph. Module-level objects, so identity is
    *  stable across renders and the memos below only rebuild on a real change. */
@@ -586,7 +589,13 @@ export default function CharactersWeb({
   const targetRef = useRef({ x: 0, y: 0, k: 1 });
   const minZoomRef = useRef(FIT_MIN_K);
   const sizeRef = useRef({ w: 0, h: 0 });
-  const isMobileRef = useRef(isMobile);
+  /** `isMobile` only settles in a passive effect, which runs after the layout
+   *  effect that measures and fits the graph. On a phone that first fit would
+   *  take the desktop path — centered on Conan at 1.35x, most of the cast
+   *  off-screen — so the ref asks matchMedia directly from the start. */
+  const isMobileRef = useRef(
+    typeof window === "undefined" ? isMobile : window.matchMedia(MOBILE_QUERY).matches
+  );
   const panelOpenRef = useRef(Boolean(selectedCharacterId));
   const reduceRef = useRef(Boolean(reduce));
   const userAdjustedRef = useRef(false);
@@ -1003,6 +1012,7 @@ export default function CharactersWeb({
     let sizeTimer = 0;
     const commitSize = () => {
       sizeRaf = 0;
+      sizeTimer = 0;
       const { w: curW, h: curH } = sizeRef.current;
       setSize((prev) => (prev.w === curW && prev.h === curH ? prev : { w: curW, h: curH }));
     };
@@ -1011,19 +1021,25 @@ export default function CharactersWeb({
       if (w < 1 || h < 1) return;
       if (w === sizeRef.current.w && h === sizeRef.current.h) return;
       sizeRef.current = { w, h };
-      if (!sizeRaf) sizeRaf = requestAnimationFrame(commitSize);
-      if (sizeTimer) window.clearTimeout(sizeTimer);
-      sizeTimer = window.setTimeout(commitSize, 120);
       if (!didFitRef.current) {
         didFitRef.current = true;
+        /* The first measurement commits straight away: the SVG cannot lay out
+           until React has the size (it falls back to a 1x1 viewBox, which draws
+           the whole graph at one unit per pixel — an empty canvas), and a
+           debounced commit can still be cancelled by this effect re-running
+           before it fires. Later resizes stay debounced. */
+        commitSize();
         // A phone opens on the whole cast: centered on Conan it showed a handful
         // of nodes, and the rest sat off-screen. The dock still centers Conan on
         // request, and a tap zooms to that character.
         if (isMobileRef.current) fitToContent(true);
         else centerOnConan(true);
         setReady(true);
-      } else if (!userAdjustedRef.current) {
-        centerOnConan();
+      } else {
+        if (!sizeRaf) sizeRaf = requestAnimationFrame(commitSize);
+        if (sizeTimer) window.clearTimeout(sizeTimer);
+        sizeTimer = window.setTimeout(commitSize, 120);
+        if (!userAdjustedRef.current) centerOnConan();
       }
     };
 
@@ -1041,8 +1057,15 @@ export default function CharactersWeb({
     applySize(Math.round(box.width), Math.round(box.height));
     return () => {
       ro.disconnect();
-      if (sizeRaf) cancelAnimationFrame(sizeRaf);
-      if (sizeTimer) window.clearTimeout(sizeTimer);
+      /* A pending commit must land, not evaporate: this effect re-runs when the
+         callbacks above change identity, and dropping the trailing commit left
+         React with a stale size while sizeRef had moved on — and the guard in
+         applySize then kept any later measurement from scheduling another. */
+      if (sizeRaf || sizeTimer) {
+        if (sizeRaf) cancelAnimationFrame(sizeRaf);
+        if (sizeTimer) window.clearTimeout(sizeTimer);
+        commitSize();
+      }
     };
   }, [centerOnConan, fitToContent]);
 
