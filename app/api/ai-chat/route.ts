@@ -1,7 +1,8 @@
 import { NextRequest } from "next/server"
 import { createClient } from "@/utils/supabase/server"
 import { searchAll } from "@/lib/chat/search"
-import { buildSystemPrompt } from "@/lib/chat/prompt"
+import { tokenize } from "@/lib/chat/query"
+import { buildSourcesFooter, buildSystemPrompt, stripSourcesFooter } from "@/lib/chat/prompt"
 import { ThinkingFilter } from "@/lib/chat/answer"
 import { rateLimit, authRateLimitKey } from "@/lib/rate-limit"
 import { rateLimitPersistent } from "@/lib/rate-limit-db"
@@ -144,7 +145,7 @@ function buildProviderTargets(): ChatProviderTarget[] {
   return targets
 }
 
-const MAX_TOKENS = 1500
+const MAX_TOKENS = 2200
 const TEMPERATURE = 0.1
 
 const MAX_MESSAGE_CHARS = 1000
@@ -366,13 +367,22 @@ export async function POST(request: NextRequest) {
     // Non-fatal profile lookup error
   }
 
-  // Include the previous user turn so follow-ups ("what about the victim?") retrieve.
+  // Include the previous user turn so follow-ups ("what about the victim?")
+  // retrieve — but only when this message cannot stand on its own. Concatenating
+  // unconditionally fed the older question's words into every request: after an
+  // impostor question, an APTX-4869 question searched for "shinichi" and
+  // "disguise", spent its whole keyword budget on them, and inherited that
+  // question's crime-method intent (it was sourced to a "Murder" filter page).
   const lastUserTurn = [...priorTurns].reverse().find((t) => t.role === "user")
-  const searchQuery = lastUserTurn ? `${lastUserTurn.content} ${userMessage}` : userMessage
+  const selfContained = tokenize(userMessage).length >= 2
+  const searchQuery =
+    lastUserTurn && !selfContained ? `${lastUserTurn.content} ${userMessage}` : userMessage
+
+  const siteUrl = process.env.NEXT_PUBLIC_SITE_URL ?? "https://dcphtracker.vercel.app"
 
   let context
   try {
-    context = await searchAll(searchQuery, userId)
+    context = await searchAll(searchQuery, userId, siteUrl)
   } catch {
     context = { episodes: [], cases: [], dcwWiki: [] }
   }
@@ -386,6 +396,8 @@ export async function POST(request: NextRequest) {
   const hasInDomainContext =
     context.episodes.length > 0 ||
     context.cases.length > 0 ||
+    Boolean(context.crimeMethod) ||
+    Boolean(context.specials) ||
     context.dcwWiki.some((r) => r.source === "dcw")
   if (
     shouldRefuseForMissingContext({
@@ -398,7 +410,6 @@ export async function POST(request: NextRequest) {
   ) {
     return refusalResponse(REFUSAL_NO_CONTEXT)
   }
-  const siteUrl = process.env.NEXT_PUBLIC_SITE_URL ?? "https://dcphtracker.vercel.app"
 
   const systemPrompt = buildSystemPrompt({
     context,
@@ -409,7 +420,13 @@ export async function POST(request: NextRequest) {
 
   const messages = [
     { role: "system" as const, content: systemPrompt },
-    ...priorTurns,
+    // Earlier answers had the app's Sources block appended to them. Feeding it
+    // back shows the model the citation format, and it then imitates it in its
+    // own prose — one live answer ended with five "Ep N | Title — tracker: … ·
+    // DCW: …" lines, one of them a URL it reconstructed from memory.
+    ...priorTurns.map((turn) =>
+      turn.role === "assistant" ? { ...turn, content: stripSourcesFooter(turn.content) } : turn
+    ),
     { role: "user" as const, content: userMessage },
   ]
 
@@ -420,10 +437,14 @@ export async function POST(request: NextRequest) {
     async start(controller) {
       let sent = 0
       let encounteredRateLimit = false
+      // The finished answer, kept only so the Sources list can name the entries
+      // the answer actually mentions instead of everything retrieval returned.
+      let answer = ""
 
       const emit = (text: string) => {
         if (!text) return
         sent += text.length
+        answer += text
         controller.enqueue(encoder.encode(text))
       }
 
@@ -497,6 +518,12 @@ export async function POST(request: NextRequest) {
 
       if (sent === 0) {
         emit(encounteredRateLimit ? RATE_LIMITED_MESSAGE : EMPTY_RESULT_MESSAGE)
+      } else {
+        // The Sources list is appended by the app, not written by the model: a
+        // citation the model composes is a citation it can invent, and this
+        // list is exactly what retrieval read. It also stays off refusals and
+        // fallback messages, which never have sources to show.
+        emit(buildSourcesFooter(context, siteUrl, answer))
       }
 
       close()
