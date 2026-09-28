@@ -74,7 +74,7 @@ import {
   resolveFaction,
   type FactionTheme,
 } from "@/components/characters/graph-theme";
-import { RotateCcw, Sparkles, Target, ZoomIn, ZoomOut } from "lucide-react";
+import { RotateCcw, Search, Sparkles, Target, X, ZoomIn, ZoomOut } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 export { FACTION_THEMES, getFactionTheme } from "@/components/characters/graph-theme";
@@ -103,11 +103,24 @@ const ZOOM_STEP = 1.35;
 const ZOOM_TO_NODE = 1.9;
 const FIT_MIN_K = 0.6;
 const FIT_MAX_K = 1.6;
+/**
+ * Absolute zoom-out floor. The cast is ~1430x830 world px wide, so a phone
+ * needs ~0.25 to hold all of it: a higher floor meant the whole graph could
+ * never be seen on a phone, no matter how far the visitor zoomed out.
+ */
+const MIN_FIT_K = 0.2;
 
 /** Camera smoothing time constant (ms). Lower = snappier. */
 const CAM_TAU = 85;
 /** Inertia applied to the pan target on release (ms of projected travel). */
 const PAN_INERTIA_MS = 140;
+/**
+ * Slack allowed past the content edge (screen px). Panning is clamped so the
+ * graph cannot be dragged off into empty space, but stopping an edge node dead
+ * against the viewport border feels jammed, so the outermost nodes get a
+ * little breathing room instead.
+ */
+const OVERPAN = 96;
 
 /* ── quality tiers ────────────────────────────────────────────────
  * Every frame-by-frame cost in this file is read from the visitor's
@@ -159,6 +172,7 @@ const CANVAS = {
     strokeStrong: "#FFFFFF",
     particle: "#A1A1A1",                  // --ink-dim
     dotRadius: 1.1,
+    stringActive: 0.75,
     stringIdle: 0.26,
   },
   light: {
@@ -171,6 +185,7 @@ const CANVAS = {
     strokeStrong: "#171717",
     particle: "#64748B",
     dotRadius: 1.3,
+    stringActive: 0.62,
     stringIdle: 0.18,
   },
 } as const;
@@ -210,10 +225,10 @@ function usableRect(
   isMobile: boolean,
   panelOpen: boolean
 ): Rect {
-  const top = 100; // control column (host slot)
+  const top = 100; // control row (graphics + search)
   const left = isMobile ? 16 : 28;
   const right = panelOpen && !isMobile ? 416 : isMobile ? 16 : 28;
-  const bottom = panelOpen && isMobile ? Math.round(h * 0.48) + 20 : 92;
+  const bottom = panelOpen && isMobile ? Math.round(h * SHEET_VH) + 20 : 92;
   return {
     x: left,
     y: top,
@@ -221,6 +236,13 @@ function usableRect(
     h: Math.max(140, h - top - bottom),
   };
 }
+
+/**
+ * Share of the viewport the mobile dossier sheet may take. It is also what the
+ * graph reserves above it and what the dock clears, so the three stay in step;
+ * the sheet is tallest where the phone has the least room to waste.
+ */
+const SHEET_VH = 0.56;
 
 function labelOpacityFor(k: number, tier: 0 | 1 | 2): number {
   if (tier === 0) return 1;
@@ -310,6 +332,8 @@ type NodeViewProps = {
   pal: (typeof CANVAS)[keyof typeof CANVAS];
   isSelected: boolean;
   isHovered: boolean;
+  /** A live search hit: the ring pins on, so matches read at any zoom. */
+  isSearchMatch: boolean;
   /** Tier gates: the breathing halo and the Conan ripple are the two
    *  infinitely-running keyframe animations in the graph, so cheap devices
    *  drop the elements entirely instead of animating them out of sight. */
@@ -338,6 +362,7 @@ const NodeView = memo(function NodeView({
   pal,
   isSelected,
   isHovered,
+  isSearchMatch,
   breathe,
   ripple,
   nodeEls,
@@ -427,7 +452,7 @@ const NodeView = memo(function NodeView({
         stroke={isSelected ? pal.strokeStrong : n.theme.border}
         strokeWidth={2}
         className="opacity-0 transition-opacity duration-200 group-hover:opacity-100"
-        style={isSelected ? { opacity: 1 } : undefined}
+        style={isSelected || isSearchMatch ? { opacity: 1 } : undefined}
         pointerEvents="none"
       />
 
@@ -546,6 +571,8 @@ export default function CharactersWeb({
   const labelLimit = labelTierLimit(q.labels);
 
   const [hoveredId, setHoveredId] = useState<string | null>(null);
+  const [searchOpen, setSearchOpen] = useState(false);
+  const [searchQuery, setSearchQuery] = useState("");
   const [size, setSize] = useState({ w: 0, h: 0 });
   const [ready, setReady] = useState(false);
 
@@ -733,11 +760,38 @@ export default function CharactersWeb({
 
   /* ── highlight ─────────────────────────────────────────────────── */
 
+  /* Search matches drive three things at once: the results list, the pinned
+     ring on each hit, and a label that stays legible while the camera is zoomed
+     out. The match set is small and the graph is 103 nodes, so it is rebuilt
+     per keystroke rather than indexed. */
+  const searchLower = searchQuery.trim().toLowerCase();
+  const searchMatches = useMemo(() => {
+    if (!searchLower) return new Set<string>();
+    const set = new Set<string>();
+    for (const c of characters) {
+      if (
+        c.name.toLowerCase().includes(searchLower) ||
+        c.role.toLowerCase().includes(searchLower) ||
+        c.affiliation.toLowerCase().includes(searchLower) ||
+        c.aliases?.some((a) => a.toLowerCase().includes(searchLower))
+      ) {
+        set.add(c.id);
+      }
+    }
+    return set;
+  }, [searchLower, characters]);
+
+  /** Matches in graph order, so the results list reads like the roster. */
+  const searchResults = useMemo(
+    () => nodes.map((n, i) => ({ n, i })).filter(({ n }) => searchMatches.has(n.c.id)),
+    [nodes, searchMatches]
+  );
+
   /**
    * One label's full live style: opacity from the zoom tier, and visibility
    * from the quality policy. Labels the policy suppresses while zoomed out are
    * `display:none`d rather than faded to 0, so the renderer can skip them — but
-   * a forced label (hover, selection) is exempt at any zoom.
+   * a forced label (hover, selection, search hit) is exempt at any zoom.
    * Display is written only when it flips, since style writes on 95 elements
    * are the expensive part.
    */
@@ -774,25 +828,52 @@ export default function CharactersWeb({
     };
     add(hoveredId);
     add(selectedCharacterId ?? null);
+    searchMatches.forEach(add);
     forcedLabelsRef.current = forced;
     labelsDirtyRef.current = true;
     updateLabelOpacities(camRef.current.k || 1);
-  }, [hoveredId, selectedCharacterId, indexById, updateLabelOpacities]);
+  }, [hoveredId, selectedCharacterId, searchMatches, indexById, updateLabelOpacities]);
 
   /* ── camera commands ──────────────────────────────────────────── */
+
+  /**
+   * Bounds a camera target from a gesture. Without this the canvas could be
+   * dragged until the cast was nowhere on screen and there was nothing to
+   * bring it back; here the content always keeps the viewport covered up to
+   * OVERPAN, and when it is smaller than the viewport (zoomed out past the
+   * fit) it is centered instead of being left wherever the drag dropped it.
+   * `pos` is the content edge in screen space: x + bbox.min * k.
+   */
+  const clampCamera = useCallback(
+    (next: { k: number; x: number; y: number }) => {
+      const { w, h } = sizeRef.current;
+      if (!w || !h || !bbox.w || !bbox.h) return next;
+      const cw = bbox.w * next.k;
+      const ch = bbox.h * next.k;
+      const bound = (pos: number, content: number, view: number) =>
+        content <= view ? (view - content) / 2 : clamp(pos, view - content - OVERPAN, OVERPAN);
+      return {
+        k: next.k,
+        x: bound(next.x + bbox.minX * next.k, cw, w) - bbox.minX * next.k,
+        y: bound(next.y + bbox.minY * next.k, ch, h) - bbox.minY * next.k,
+      };
+    },
+    [bbox]
+  );
 
   const fitToContent = useCallback(
     (instant = false) => {
       const { w, h } = sizeRef.current;
       if (!w || !h) return;
       const vp = usableRect(w, h, isMobileRef.current, panelOpenRef.current);
-      const minFit = isMobileRef.current ? 0.75 : 0.6;
       const k = clamp(
         Math.min(vp.w / bbox.w, vp.h / bbox.h),
-        minFit,
+        MIN_FIT_K,
         FIT_MAX_K
       );
-      minZoomRef.current = FIT_MIN_K;
+      // Zooming out is always allowed at least as far as the fit, or a phone
+      // could never reach the view that holds the whole cast.
+      minZoomRef.current = Math.min(FIT_MIN_K, k);
       const next = {
         k,
         x: vp.x + (vp.w - bbox.w * k) / 2 - bbox.minX * k,
@@ -926,11 +1007,8 @@ export default function CharactersWeb({
       setSize((prev) => (prev.w === curW && prev.h === curH ? prev : { w: curW, h: curH }));
     };
 
-    const ro = new ResizeObserver((entries) => {
-      const cr = entries[0]?.contentRect;
-      if (!cr || cr.width < 1 || cr.height < 1) return;
-      const w = Math.round(cr.width);
-      const h = Math.round(cr.height);
+    const applySize = (w: number, h: number) => {
+      if (w < 1 || h < 1) return;
       if (w === sizeRef.current.w && h === sizeRef.current.h) return;
       sizeRef.current = { w, h };
       if (!sizeRaf) sizeRaf = requestAnimationFrame(commitSize);
@@ -938,19 +1016,35 @@ export default function CharactersWeb({
       sizeTimer = window.setTimeout(commitSize, 120);
       if (!didFitRef.current) {
         didFitRef.current = true;
-        centerOnConan(true);
+        // A phone opens on the whole cast: centered on Conan it showed a handful
+        // of nodes, and the rest sat off-screen. The dock still centers Conan on
+        // request, and a tap zooms to that character.
+        if (isMobileRef.current) fitToContent(true);
+        else centerOnConan(true);
         setReady(true);
       } else if (!userAdjustedRef.current) {
         centerOnConan();
       }
+    };
+
+    const ro = new ResizeObserver((entries) => {
+      const cr = entries[0]?.contentRect;
+      if (!cr) return;
+      applySize(Math.round(cr.width), Math.round(cr.height));
     });
     ro.observe(el);
+    /* Measure once now rather than waiting for the observer's first delivery:
+       without it the SVG renders with the 1x1 fallback viewBox — everything
+       laid out at 1 unit per pixel, the camera unscaled — until the browser
+       gets round to notifying, which on a phone can be a while. */
+    const box = el.getBoundingClientRect();
+    applySize(Math.round(box.width), Math.round(box.height));
     return () => {
       ro.disconnect();
       if (sizeRaf) cancelAnimationFrame(sizeRaf);
       if (sizeTimer) window.clearTimeout(sizeTimer);
     };
-  }, [centerOnConan]);
+  }, [centerOnConan, fitToContent]);
 
   /* ── the single animation loop ────────────────────────────────── */
   useEffect(() => {
@@ -1529,7 +1623,7 @@ export default function CharactersWeb({
           minZoomRef.current,
           MAX_ZOOM
         );
-        const next = { k: nk, x: sx - pinch.wx * nk, y: sy - pinch.wy * nk };
+        const next = clampCamera({ k: nk, x: sx - pinch.wx * nk, y: sy - pinch.wy * nk });
         camRef.current = { ...next };
         targetRef.current = { ...next };
         didDragRef.current = true;
@@ -1578,7 +1672,7 @@ export default function CharactersWeb({
         pan.cy = e.clientY;
         if (Math.abs(dx) + Math.abs(dy) > 1) didDragRef.current = true;
         const cam = camRef.current;
-        const next = { k: cam.k, x: cam.x + dx, y: cam.y + dy };
+        const next = clampCamera({ k: cam.k, x: cam.x + dx, y: cam.y + dy });
         camRef.current = { ...next };
         targetRef.current = { ...next };
       }
@@ -1618,11 +1712,11 @@ export default function CharactersWeb({
         const speed = Math.hypot(pan.vx, pan.vy);
         if (speed > 0.25) {
           const t = targetRef.current;
-          targetRef.current = {
+          targetRef.current = clampCamera({
             k: t.k,
             x: t.x + clamp(pan.vx, -4, 4) * PAN_INERTIA_MS,
             y: t.y + clamp(pan.vy, -4, 4) * PAN_INERTIA_MS,
-          };
+          });
         }
       }
       panRef.current = null;
@@ -1661,7 +1755,7 @@ export default function CharactersWeb({
       window.removeEventListener("pointercancel", onUp);
       window.removeEventListener("blur", onBlur);
     };
-  }, [geom, bbox, beginPinch, localPoint]);
+  }, [geom, bbox, beginPinch, localPoint, clampCamera]);
 
   /* ── wheel zoom: accumulates into the target, loop glides there ── */
   useEffect(() => {
@@ -1681,13 +1775,13 @@ export default function CharactersWeb({
         MAX_ZOOM
       );
       if (nk === t.k) return;
-      targetRef.current = { k: nk, x: sx - targetWx * nk, y: sy - targetWy * nk };
+      targetRef.current = clampCamera({ k: nk, x: sx - targetWx * nk, y: sy - targetWy * nk });
       if (reduceRef.current) camRef.current = { ...targetRef.current };
       userAdjustedRef.current = true;
     };
     svg.addEventListener("wheel", onWheel, { passive: false });
     return () => svg.removeEventListener("wheel", onWheel);
-  }, [localPoint]);
+  }, [localPoint, clampCamera]);
 
   /* ── keyboard shortcuts ───────────────────────────────────────── */
   useEffect(() => {
@@ -1823,11 +1917,17 @@ export default function CharactersWeb({
                 hoveredId === e.rel.target ||
                 selectedCharacterId === e.rel.source ||
                 selectedCharacterId === e.rel.target;
+              const matchesSearch =
+                searchMatches.size === 0 ||
+                searchMatches.has(e.rel.source) ||
+                searchMatches.has(e.rel.target);
               const opacity = dimmed
                 ? isTarget
                   ? 1
                   : DIM_OPACITY
-                : pal.stringIdle;
+                : matchesSearch
+                  ? pal.stringActive
+                  : pal.stringIdle;
               return (
                 <EdgeView
                   key={e.rel.id}
@@ -1853,6 +1953,7 @@ export default function CharactersWeb({
                 pal={pal}
                 isSelected={selectedCharacterId === n.c.id}
                 isHovered={hoveredId === n.c.id}
+                isSearchMatch={searchMatches.has(n.c.id)}
                 breathe={q.breathe}
                 ripple={q.ripple}
                 nodeEls={nodeEls}
@@ -1868,10 +1969,100 @@ export default function CharactersWeb({
         </g>
       </svg>
 
-      {/* ── top-left control column: host slot only ──
-           One flex column of flow siblings, so nothing can overlap. */}
-      <div className="pointer-events-none absolute left-3 top-4 z-40 flex w-[16rem] flex-col gap-2 sm:left-4 sm:w-[18rem] md:top-5">
-        {topLeftSlot && <div className="pointer-events-auto">{topLeftSlot}</div>}
+      {/* ── top-left control row: host slot (graphics) + search ──
+           One flow row, so the two icons line up and neither can overlap the
+           other or the graph. The field itself only exists once search is on. */}
+      <div className="pointer-events-none absolute left-3 top-4 z-40 flex flex-col gap-2 sm:left-4 md:top-5">
+        <div className="pointer-events-auto flex items-center gap-2">
+          {topLeftSlot}
+          <button
+            type="button"
+            onClick={() => {
+              if (searchOpen) setSearchQuery("");
+              setSearchOpen(!searchOpen);
+            }}
+            aria-label="Search characters"
+            aria-expanded={searchOpen}
+            title="Search characters"
+            className={cn(
+              "flex h-9 w-9 items-center justify-center rounded-full border shadow-lift transition-all",
+              "border-line bg-surface text-ink hover:border-ink-faint/40 hover:bg-surface-muted",
+              searchOpen && "border-accent/70 ring-2 ring-accent/40",
+            )}
+          >
+            <Search className="h-4 w-4" />
+          </button>
+        </div>
+
+        {searchOpen && (
+          <div className="pointer-events-auto w-[15rem] space-y-1.5 rounded-xl border border-line bg-surface p-2 text-ink shadow-lift sm:w-[17rem]">
+            <div className="flex items-center gap-2 rounded-lg bg-surface-muted px-2.5 py-1.5">
+              <Search className="h-3.5 w-3.5 shrink-0 text-ink-faint" aria-hidden />
+              <input
+                autoFocus
+                type="text"
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === "Escape") {
+                    setSearchQuery("");
+                    setSearchOpen(false);
+                    e.stopPropagation();
+                  }
+                }}
+                placeholder="Search characters"
+                aria-label="Search characters"
+                className="w-full min-w-0 select-text bg-transparent text-sm text-ink outline-none placeholder:text-ink-faint"
+              />
+              {searchQuery && (
+                <button
+                  type="button"
+                  onClick={() => setSearchQuery("")}
+                  aria-label="Clear search"
+                  className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full text-ink-faint transition-colors hover:bg-surface hover:text-ink"
+                >
+                  <X className="h-3.5 w-3.5" />
+                </button>
+              )}
+            </div>
+
+            {searchQuery && (
+              <div className="max-h-[42vh] overflow-y-auto">
+                {searchResults.length === 0 ? (
+                  <p className="px-2.5 py-2 text-xs text-ink-faint">
+                    No characters match that.
+                  </p>
+                ) : (
+                  searchResults.map(({ n, i }) => (
+                    <button
+                      key={n.c.id}
+                      type="button"
+                      onClick={() => {
+                        handleSelectNode(i);
+                        setSearchQuery("");
+                        setSearchOpen(false);
+                      }}
+                      className="flex w-full items-center gap-2.5 rounded-lg px-2.5 py-1.5 text-left transition-colors hover:bg-surface-muted"
+                    >
+                      <span
+                        className="h-2.5 w-2.5 shrink-0 rounded-full"
+                        style={{ backgroundColor: n.theme.primary }}
+                      />
+                      <span className="min-w-0 flex-1">
+                        <span className="block truncate text-xs font-semibold">
+                          {n.c.name}
+                        </span>
+                        <span className="block truncate text-[10px] text-ink-dim">
+                          {n.c.role}
+                        </span>
+                      </span>
+                    </button>
+                  ))
+                )}
+              </div>
+            )}
+          </div>
+        )}
       </div>
 
       {/* ── bottom-left dock ─────────────────────────────────────── */}
@@ -1880,7 +2071,7 @@ export default function CharactersWeb({
           "absolute z-30 flex items-center gap-1 rounded-full border p-1.5 shadow-lift transition-all duration-300",
           "border-line bg-surface",
           selectedCharacterId && isMobile
-            ? "bottom-[calc(48vh+12px)] left-3"
+            ? "bottom-[calc(56vh+12px)] left-3"
             : "bottom-6 left-4 sm:left-6"
         )}
       >
