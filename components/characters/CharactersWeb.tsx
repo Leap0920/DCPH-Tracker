@@ -117,13 +117,6 @@ const MOBILE_QUERY = "(max-width: 767px)";
 const CAM_TAU = 85;
 /** Inertia applied to the pan target on release (ms of projected travel). */
 const PAN_INERTIA_MS = 140;
-/**
- * Slack allowed past the content edge (screen px). Panning is clamped so the
- * graph cannot be dragged off into empty space, but stopping an edge node dead
- * against the viewport border feels jammed, so the outermost nodes get a
- * little breathing room instead.
- */
-const OVERPAN = 96;
 
 /* ── quality tiers ────────────────────────────────────────────────
  * Every frame-by-frame cost in this file is read from the visitor's
@@ -844,31 +837,6 @@ export default function CharactersWeb({
   }, [hoveredId, selectedCharacterId, searchMatches, indexById, updateLabelOpacities]);
 
   /* ── camera commands ──────────────────────────────────────────── */
-
-  /**
-   * Bounds a camera target from a gesture. Without this the canvas could be
-   * dragged until the cast was nowhere on screen and there was nothing to
-   * bring it back; here the content always keeps the viewport covered up to
-   * OVERPAN, and when it is smaller than the viewport (zoomed out past the
-   * fit) it is centered instead of being left wherever the drag dropped it.
-   * `pos` is the content edge in screen space: x + bbox.min * k.
-   */
-  const clampCamera = useCallback(
-    (next: { k: number; x: number; y: number }) => {
-      const { w, h } = sizeRef.current;
-      if (!w || !h || !bbox.w || !bbox.h) return next;
-      const cw = bbox.w * next.k;
-      const ch = bbox.h * next.k;
-      const bound = (pos: number, content: number, view: number) =>
-        content <= view ? (view - content) / 2 : clamp(pos, view - content - OVERPAN, OVERPAN);
-      return {
-        k: next.k,
-        x: bound(next.x + bbox.minX * next.k, cw, w) - bbox.minX * next.k,
-        y: bound(next.y + bbox.minY * next.k, ch, h) - bbox.minY * next.k,
-      };
-    },
-    [bbox]
-  );
 
   const fitToContent = useCallback(
     (instant = false) => {
@@ -1646,7 +1614,7 @@ export default function CharactersWeb({
           minZoomRef.current,
           MAX_ZOOM
         );
-        const next = clampCamera({ k: nk, x: sx - pinch.wx * nk, y: sy - pinch.wy * nk });
+        const next = { k: nk, x: sx - pinch.wx * nk, y: sy - pinch.wy * nk };
         camRef.current = { ...next };
         targetRef.current = { ...next };
         didDragRef.current = true;
@@ -1695,7 +1663,7 @@ export default function CharactersWeb({
         pan.cy = e.clientY;
         if (Math.abs(dx) + Math.abs(dy) > 1) didDragRef.current = true;
         const cam = camRef.current;
-        const next = clampCamera({ k: cam.k, x: cam.x + dx, y: cam.y + dy });
+        const next = { k: cam.k, x: cam.x + dx, y: cam.y + dy };
         camRef.current = { ...next };
         targetRef.current = { ...next };
       }
@@ -1735,11 +1703,11 @@ export default function CharactersWeb({
         const speed = Math.hypot(pan.vx, pan.vy);
         if (speed > 0.25) {
           const t = targetRef.current;
-          targetRef.current = clampCamera({
+          targetRef.current = {
             k: t.k,
             x: t.x + clamp(pan.vx, -4, 4) * PAN_INERTIA_MS,
             y: t.y + clamp(pan.vy, -4, 4) * PAN_INERTIA_MS,
-          });
+          };
         }
       }
       panRef.current = null;
@@ -1778,7 +1746,7 @@ export default function CharactersWeb({
       window.removeEventListener("pointercancel", onUp);
       window.removeEventListener("blur", onBlur);
     };
-  }, [geom, bbox, beginPinch, localPoint, clampCamera]);
+  }, [geom, bbox, beginPinch, localPoint]);
 
   /* ── wheel zoom: accumulates into the target, loop glides there ── */
   useEffect(() => {
@@ -1798,13 +1766,13 @@ export default function CharactersWeb({
         MAX_ZOOM
       );
       if (nk === t.k) return;
-      targetRef.current = clampCamera({ k: nk, x: sx - targetWx * nk, y: sy - targetWy * nk });
+      targetRef.current = { k: nk, x: sx - targetWx * nk, y: sy - targetWy * nk };
       if (reduceRef.current) camRef.current = { ...targetRef.current };
       userAdjustedRef.current = true;
     };
     svg.addEventListener("wheel", onWheel, { passive: false });
     return () => svg.removeEventListener("wheel", onWheel);
-  }, [localPoint, clampCamera]);
+  }, [localPoint]);
 
   /* ── keyboard shortcuts ───────────────────────────────────────── */
   useEffect(() => {
