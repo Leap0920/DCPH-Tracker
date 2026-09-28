@@ -31,6 +31,9 @@ export async function fetchPeriodTotals(
       .select("user_id, content_id, created_at, content_entries(runtime_minutes, type)")
       .gte("created_at", cutoff)
       .order("created_at", { ascending: false })
+      // Tiebreaker on the primary key: created_at alone is not a total order, and
+      // LIMIT/OFFSET over a partial order can drop or repeat rows across pages.
+      .order("id", { ascending: false })
       .range(page * PAGE_SIZE, page * PAGE_SIZE + PAGE_SIZE - 1)
 
     if (error) throw error

@@ -463,7 +463,12 @@ function TrackerPageContent() {
                 {error}
               </div>
             )}
-            <MotivationStats entries={entries} userStatuses={userStatuses} userName={user} />
+            <MotivationStats
+              entries={entries}
+              userStatuses={userStatuses}
+              userWatchCounts={watchCounts}
+              userName={user}
+            />
             {!user && (
               <div className="flex flex-wrap items-center gap-4 rounded-lg border border-line bg-surface p-5">
                 <div className="flex-1">

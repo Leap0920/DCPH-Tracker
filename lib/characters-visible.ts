@@ -4,11 +4,11 @@
  * The render layer receives ONLY what the viewer is allowed to see. Hidden
  * characters are dropped; silhouetted ones have their name, aliases, role,
  * affiliation, and bio replaced with placeholders BEFORE they reach any
- * component. No spoiler string can leak through a tooltip, a search index, or
- * the React DevTools tree, because the string is not there.
+ * component. No spoiler string can leak through a tooltip or the React
+ * DevTools tree, because the string is not there.
  */
 
-import type { Character, Relationship, RelationshipType } from "@/lib/characters-guide"
+import type { Character, Relationship } from "@/lib/characters-guide"
 import { getSpoilerMeta } from "@/lib/characters-debut"
 import type { GateOptions, Visibility, WatchProgress } from "@/lib/characters-spoiler"
 import {
@@ -136,18 +136,4 @@ export function gateGraph(
   }
 
   return { characters: gated, relationships: gatedRelationships, stats }
-}
-
-/** Ids safe to expose to search. Locked nodes must never be findable by name. */
-export function searchableCharacters(graph: GatedGraph): GatedCharacter[] {
-  return graph.characters.filter((character) => !character.locked)
-}
-
-/** Relationship types still present after gating, for the legend. */
-export function activeRelationshipTypes(graph: GatedGraph): Set<RelationshipType> {
-  const types = new Set<RelationshipType>()
-  for (const relationship of graph.relationships) {
-    if (!relationship.locked) types.add(relationship.type)
-  }
-  return types
 }

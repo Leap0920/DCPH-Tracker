@@ -47,6 +47,7 @@ import {
   type CanonType,
 } from "@/lib/canon-guide"
 import { resolveWatchOrder } from "@/lib/watch-order"
+import { isNonMainlineMovie, MAINLINE_MOVIES } from "@/lib/movies-guide"
 
 type ContentEntry = Database["public"]["Tables"]["content_entries"]["Row"]
 
@@ -312,11 +313,18 @@ export function ContentGrid({
     return s === "watched" || s === "rewatched"
   }
 
-  const totalYears = new Set(entries.map((e) => e.air_date?.slice(0, 4))).size
-  const totalEpisodes = entries.filter((e) => e.type === "episode").length
-  const totalMovies = entries.filter((e) => e.type === "movie").length
-  const overallWatched = entries.filter(isWatched).length
-  const overallPercent = entries.length > 0 ? Math.round((overallWatched / entries.length) * 100) : 0
+  // Same footing as the Your Progress tile: crossovers, TV specials and the
+  // manner short are catalog rows but not mainline films, and counting them made
+  // this header say 34 movies while the tile said 29.
+  const mainlineEntries = entries.filter((e) => !isNonMainlineMovie(e))
+  const totalYears = new Set(mainlineEntries.map((e) => e.air_date?.slice(0, 4))).size
+  const totalEpisodes = mainlineEntries.filter((e) => e.type === "episode").length
+  const totalMovies = MAINLINE_MOVIES.length
+  const overallWatched = mainlineEntries.filter(isWatched).length
+  const overallPercent =
+    mainlineEntries.length > 0
+      ? Math.min(100, Math.round((overallWatched / mainlineEntries.length) * 100))
+      : 0
 
   // Sections grouped by content type. Episodes are grouped by air-date year in
   // "year" mode, or sorted by canon_order in "chronological" mode.
@@ -1146,7 +1154,7 @@ export function ContentGrid({
                 </div>
                 <div className="font-display text-3xl text-ink">{overallPercent}%</div>
                 <div className="font-mono text-[10px] text-ink-faint mt-1">
-                  {overallWatched} of {entries.length} watched
+                  {overallWatched} of {mainlineEntries.length} watched
                 </div>
               </div>
             </div>

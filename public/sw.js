@@ -1,14 +1,14 @@
 /* Detective Conan PH — service worker.
  *
  * Deliberately conservative:
- *   - Immutable build assets: cache-first (safe, content-hashed URLs).
+ *   - Immutable build assets (content-hashed URLs): cache-first.
  *   - Same-origin static files in PRECACHE: stale-while-revalidate.
  *   - Everything else (HTML, /api/*, Supabase, auth): network-only, untouched.
  *
  * Bump CACHE_VERSION on any change to this file or PRECACHE_ASSETS.
  */
 
-const CACHE_VERSION = "dcph-v2";
+const CACHE_VERSION = "dcph-v3";
 const STATIC_CACHE = `${CACHE_VERSION}-static`;
 const IMMUTABLE_CACHE = `${CACHE_VERSION}-immutable`;
 
@@ -54,11 +54,18 @@ self.addEventListener("message", (event) => {
   if (event.data === "SKIP_WAITING") self.skipWaiting();
 });
 
+/* Next's content hash in a build filename: `page-c384621c5adcdcf2.js` or
+ * `2337.7b7a3e696d294070.js`. Only such URLs are safe to pin forever.
+ * Dev chunks (`chunks/app/(app)/characters/page.js`) carry no hash and keep the
+ * same URL across builds, so caching one pins a stale bundle on the origin —
+ * the app then loads old modules until a chunk it asks for is gone, which
+ * surfaces as "Loading chunk ... failed". */
+const HASHED_BUILD_ASSET = /[.-][0-9a-f]{16}\.(?:js|css|woff2?|png|jpe?g|svg|webp|avif)$/;
+
 function isImmutableAsset(url) {
-  return (
-    url.pathname.startsWith("/_next/static/") ||
-    url.pathname.startsWith("/_next/image")
-  );
+  if (url.pathname.startsWith("/_next/image")) return true;
+  if (!url.pathname.startsWith("/_next/static/")) return false;
+  return HASHED_BUILD_ASSET.test(url.pathname);
 }
 
 function isPrecachedAsset(url) {

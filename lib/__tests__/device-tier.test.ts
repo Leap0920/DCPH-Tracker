@@ -118,7 +118,7 @@ describe("graph quality tiers", () => {
     expect(low.ripple).toBe(false)
   })
 
-  it("stops the 95 breathing rings below high, so a phone never repaints every node", () => {
+  it("stops the 103 breathing rings below high, so a phone never repaints every node", () => {
     // The breathing halo is one infinite, non-composited SVG animation per node.
     // Only the tier a desktop explicitly picks may keep them.
     expect(GRAPH_QUALITY.balanced.breathe).toBe(false)

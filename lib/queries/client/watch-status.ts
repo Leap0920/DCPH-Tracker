@@ -38,6 +38,9 @@ export async function fetchUserWatchStatuses(userId: string): Promise<UserWatchS
       .from("watch_status")
       .select("content_id, status, watch_count, favorite, rating")
       .eq("user_id", userId)
+      // Total order for the paging: a partial order lets LIMIT/OFFSET repeat or
+      // skip rows, which would drop tracker state for the heaviest users.
+      .order("id")
       .range(from, from + PAGE_SIZE - 1)
     if (chunkErr) throw chunkErr
     if (!chunk || chunk.length === 0) break

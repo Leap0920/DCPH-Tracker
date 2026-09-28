@@ -3,9 +3,9 @@
 import { useEffect, useState } from "react"
 import { AnimatePresence } from "framer-motion"
 import { CharacterDetailPanel } from "@/components/characters/CharacterDetailPanel"
-import type { RelationshipMeta } from "@/components/characters/RelationshipLegend"
+import type { RelationshipMeta } from "@/lib/characters-guide"
 import { loadCharacterDossier, peekDossier, type CharacterDossier } from "@/lib/characters-detail"
-import type { Character, RelationshipType } from "@/lib/characters-guide"
+import type { Character } from "@/lib/characters-guide"
 
 /**
  * CharacterDossier — the lazily-loaded half of the explorer.
@@ -24,12 +24,10 @@ import type { Character, RelationshipType } from "@/lib/characters-guide"
 export default function CharacterDossier({
   character,
   meta,
-  filter,
   onClose,
 }: {
   character: Character | null
   meta: RelationshipMeta
-  filter: RelationshipType | null
   onClose: () => void
 }) {
   const id = character?.id ?? null
@@ -67,7 +65,6 @@ export default function CharacterDossier({
           <CharacterDetailPanel
             character={character}
             meta={meta}
-            filter={filter}
             dossier={dossier?.id === character.id ? dossier : null}
             onClose={onClose}
           />

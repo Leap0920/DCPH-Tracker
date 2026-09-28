@@ -4,10 +4,9 @@ import { useCallback, useEffect, useRef } from "react"
 import Image from "next/image"
 import { motion, MotionConfig, type Variants } from "framer-motion"
 import { X } from "lucide-react"
-import type { Character, RelationshipType } from "@/lib/characters-guide"
+import type { Character, RelationshipMeta } from "@/lib/characters-guide"
 import type { CharacterDossier } from "@/lib/characters-detail"
 import { getRelationshipColor } from "@/components/characters/graph-theme"
-import type { RelationshipMeta } from "@/components/characters/RelationshipLegend"
 import { Skeleton, SkeletonRegion } from "@/components/ui/skeleton"
 import { useTheme } from "@/components/theme-provider"
 
@@ -43,13 +42,11 @@ const threadItem: Variants = {
 export function CharacterDetailPanel({
   character,
   meta,
-  filter,
   dossier,
   onClose,
 }: {
   character: Character
   meta: RelationshipMeta
-  filter: RelationshipType | null
   dossier: CharacterDossier | null
   onClose: () => void
 }) {
@@ -94,9 +91,7 @@ export function CharacterDetailPanel({
     return () => window.removeEventListener("keydown", onKeyDown)
   }, [handleClose])
 
-  const threads = dossier
-    ? dossier.threads.filter((thread) => !filter || thread.type === filter)
-    : []
+  const threads = dossier ? dossier.threads : []
 
   return (
     <MotionConfig reducedMotion="user">
@@ -116,10 +111,6 @@ export function CharacterDetailPanel({
           aria-hidden
           className="dcph-underline-sweep absolute left-0 right-0 top-0 z-30 h-[2px] bg-gradient-to-r from-accent via-accent-bright to-transparent"
         />
-
-        <div className="flex w-full shrink-0 justify-center bg-surface/95 pb-1 pt-2.5 sm:hidden">
-          <div className="h-1.5 w-12 rounded-full bg-line" />
-        </div>
 
         <div className="sticky top-0 z-20 flex shrink-0 items-start justify-between gap-3 border-b border-line bg-surface px-4 py-3 sm:p-5">
           <div className="min-w-0 pr-4">

@@ -19,13 +19,15 @@ import type { Database } from "@/types/database.types"
 import type { WatchStatus } from "@/lib/constants"
 import { CONTENT_TYPE_LABELS, type ContentType } from "@/lib/constants"
 import { formatHours, getDefaultRuntime } from "@/lib/utils"
-import { isOtherMovie, MAINLINE_MOVIES } from "@/lib/movies-guide"
+import { isNonMainlineMovie, MAINLINE_MOVIES } from "@/lib/movies-guide"
 
 type ContentEntry = Database["public"]["Tables"]["content_entries"]["Row"]
 
 interface MotivationStatsProps {
   entries: ContentEntry[]
   userStatuses?: Map<string, WatchStatus>
+  /** content_id -> watch_count. Rewatches are extra time spent. */
+  userWatchCounts?: Map<string, number>
   userName?: string | null
 }
 
@@ -54,10 +56,11 @@ export interface SeriesTotals {
 export function computeSeriesTotals(entries: ContentEntry[]): SeriesTotals {
   // Non-mainline movies (crossovers, TV specials, manner short) exist in the
   // catalog but don't count toward the 29 mainline films.
-  const mainlineEntries = entries.filter((e) => !(e.type === "movie" && isOtherMovie(e.slug)))
+  const mainlineEntries = entries.filter((e) => !isNonMainlineMovie(e))
   const episodes = mainlineEntries.filter((e) => e.type === "episode").length
-  // 29 canonical mainline films: 27 rows in the DB + 2 upcoming films
-  // (One-eyed Flashback 2025, Fallen Angel of the Highway 2026).
+  // The catalog carries one row per numbered film (1-29) and MAINLINE_MOVIES is
+  // the canonical list the totals are expressed in; the substitution keeps a
+  // deleted row from shrinking the count below 29.
   const movies = MAINLINE_MOVIES.length
   const mainlineMovieCount = mainlineEntries.filter((e) => e.type === "movie").length
   const total = mainlineEntries.length - mainlineMovieCount + MAINLINE_MOVIES.length
@@ -88,28 +91,41 @@ export interface PersonalStats {
 
 export function computePersonalStats(
   entries: ContentEntry[],
-  userStatuses?: Map<string, WatchStatus>
+  userStatuses?: Map<string, WatchStatus>,
+  userWatchCounts?: Map<string, number>
 ): PersonalStats {
   const isWatched = (e: ContentEntry) => {
     const s = userStatuses?.get(e.id)
     return s === "watched" || s === "rewatched"
   }
-  const mainlineEntries = entries.filter((e) => !(e.type === "movie" && isOtherMovie(e.slug)))
+  const mainlineEntries = entries.filter((e) => !isNonMainlineMovie(e))
   const mainlineMovieCount = mainlineEntries.filter((e) => e.type === "movie").length
   // Canonical total: 1337 = 1209 episodes + 29 mainline films + 99 other entries.
   const adjustedTotal = mainlineEntries.length - mainlineMovieCount + MAINLINE_MOVIES.length
-  const watched = entries.filter(isWatched).length
-  const percent = adjustedTotal > 0 ? Math.round((watched / adjustedTotal) * 100) : 0
+  // Counted against the same list as the denominator. A non-mainline movie is
+  // watchable and still shows in the grid above, but letting it into this
+  // numerator is what pushed the bar past 100% and reported "0 remaining" with
+  // films still unwatched.
+  const watched = mainlineEntries.filter(isWatched).length
+  const percent =
+    adjustedTotal > 0 ? Math.min(100, Math.round((watched / adjustedTotal) * 100)) : 0
+  // Time spent, not time of unique entries: a rewatch cost another pass through
+  // the runtime. /analytics and /profile already multiply by watch_count, so
+  // ignoring it here made the same user's watch time differ between tabs.
+  // A seen row is never a zero-view row, hence the floor of one.
   const minutesWatched = entries
     .filter(isWatched)
-    .reduce((acc, e) => acc + (e.runtime_minutes ?? getDefaultRuntime(e.type)), 0)
+    .reduce((acc, e) => {
+      const views = userWatchCounts?.get(e.id)
+      return acc + (e.runtime_minutes ?? getDefaultRuntime(e.type)) * (views && views > 0 ? views : 1)
+    }, 0)
   const perType = (Object.keys(CONTENT_TYPE_LABELS) as ContentType[])
     .map((type) => {
-      // Mainline movies are the canonical 29 (incl. 2 upcoming films with no
-      // DB row); non-mainline movies (crossovers/specials) are excluded.
+      // Mainline movies are the canonical 29 from MAINLINE_MOVIES; non-mainline
+      // movies (crossovers, TV specials, manner short) are excluded.
       const list =
         type === "movie"
-          ? entries.filter((e) => e.type === "movie" && !isOtherMovie(e.slug))
+          ? entries.filter((e) => e.type === "movie" && !isNonMainlineMovie(e))
           : entries.filter((e) => e.type === type)
       const total = type === "movie" ? MAINLINE_MOVIES.length : list.length
       return {
@@ -136,9 +152,12 @@ export function formatDate(date: Date): string {
   return date.toLocaleDateString("en-US", { month: "long", day: "numeric", year: "numeric" })
 }
 
-export function MotivationStats({ entries, userStatuses, userName }: MotivationStatsProps) {
+export function MotivationStats({ entries, userStatuses, userWatchCounts, userName }: MotivationStatsProps) {
   const series = useMemo(() => computeSeriesTotals(entries), [entries])
-  const personal = useMemo(() => computePersonalStats(entries, userStatuses), [entries, userStatuses])
+  const personal = useMemo(
+    () => computePersonalStats(entries, userStatuses, userWatchCounts),
+    [entries, userStatuses, userWatchCounts]
+  )
   const hasUser = typeof userName === "string" && userName.length > 0
 
   // User-adjustable eps-per-day rate for the finish projection, persisted client-side.
@@ -329,7 +348,7 @@ export function MotivationStats({ entries, userStatuses, userName }: MotivationS
                 <Target className="h-4 w-4 text-accent flex-shrink-0" />
                 <p className="text-xs text-ink-dim">
                   {toMilestone > 0
-                    ? `${toMilestone}% to your next milestone. ${nextMilestone}% complete. Keep going!`
+                    ? `${toMilestone}% to the ${nextMilestone}% milestone. Keep going!`
                     : `You hit the ${nextMilestone}% milestone. Nice work!`}
                 </p>
               </div>

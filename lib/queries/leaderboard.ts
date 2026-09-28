@@ -3,9 +3,10 @@ import { createClient } from "@/utils/supabase/server"
 import { createAdminClient } from "@/utils/supabase/admin"
 import type { Database } from "@/types/database.types"
 import { getDetectiveRank } from "@/lib/ranks"
+import { defaultRuntimeMinutes } from "@/lib/runtime-defaults"
 import { PUBLIC_PROFILE_COLUMNS } from "@/lib/queries/profile"
 import { fetchPeriodTotals } from "@/lib/queries/leaderboard-events"
-import { MOVIE_TYPE, zeroPeriodTotals } from "@/lib/leaderboard-periods"
+import { EPISODE_TYPE, MOVIE_TYPE, zeroPeriodTotals } from "@/lib/leaderboard-periods"
 
 type ContentRef = { runtime_minutes: number | null; type: string | null }
 
@@ -18,7 +19,20 @@ type WatchStatusRow = {
 
 type WatchCountRow = {
   user_id: string
-  content_entries: { runtime_minutes: number | null } | null
+  watch_count: number | null
+  content_entries: ContentRef | null
+}
+
+/**
+ * Minutes to credit a watched entry. Falls back to the entry's type default when
+ * the row has no runtime, so this board and the period tabs (which use the same
+ * fallback via lib/leaderboard-periods.ts) can never report two different watch
+ * times for the same user.
+ */
+function entryMinutes(rel: ContentRef | null): number {
+  const stored = rel?.runtime_minutes
+  if (typeof stored === "number" && stored > 0) return stored
+  return defaultRuntimeMinutes(rel?.type ?? "")
 }
 
 export interface RankingRow {
@@ -35,6 +49,8 @@ export interface RankingRow {
   total_views: number
   /** All-time: entries of type 'movie'. Real, computed from content_entries.type. */
   movie_count: number
+  /** All-time: entries of type 'episode'. The Episodes category ranks on this. */
+  episode_count: number
 
   /**
    * Rolling-window totals from watch_events. These replaced the client-side
@@ -52,9 +68,11 @@ export interface RankingRow {
   month_count: number
   month_minutes: number
   month_movie_count: number
+  month_episode_count: number
   week_count: number
   week_minutes: number
   week_movie_count: number
+  week_episode_count: number
 
   /** Career title. Always all-time, on every tab. */
   detectiveRank: { title: string; level: number }
@@ -71,7 +89,9 @@ export async function getRankings(limit = 100): Promise<RankingRow[]> {
   const supabase = createAdminClient() ?? (await createClient())
 
   // PostgREST caps each request at 1,000 rows; paginate so the leaderboard
-  // stays correct once the community has more than 1,000 watch rows.
+  // stays correct once the community has more than 1,000 watch rows. The ORDER BY
+  // is not decoration: without a total order, LIMIT/OFFSET pages can repeat or
+  // skip rows, which silently mis-counts everyone's totals.
   const PAGE_SIZE = 1000
   const watched: WatchStatusRow[] = []
   for (let from = 0; ; from += PAGE_SIZE) {
@@ -81,6 +101,7 @@ export async function getRankings(limit = 100): Promise<RankingRow[]> {
       // estimated client-side as watched_count / 15.
       .select("user_id, status, watch_count, content_entries(runtime_minutes, type)")
       .in("status", ["watched", "rewatched"])
+      .order("id")
       .range(from, from + PAGE_SIZE - 1)
     if (error) throw error
     if (!chunk || chunk.length === 0) break
@@ -90,19 +111,37 @@ export async function getRankings(limit = 100): Promise<RankingRow[]> {
 
   const agg = new Map<
     string,
-    { count: number; minutes: number; rewatched: number; views: number; movies: number }
+    {
+      count: number
+      minutes: number
+      rewatched: number
+      views: number
+      movies: number
+      episodes: number
+    }
   >()
   for (const row of watched) {
     const uid = row.user_id
     const rel = row.content_entries as ContentRef | null
-    const mins = rel?.runtime_minutes ?? 0
+    const mins = entryMinutes(rel)
     const cur =
-      agg.get(uid) ?? { count: 0, minutes: 0, rewatched: 0, views: 0, movies: 0 }
+      agg.get(uid) ?? {
+        count: 0,
+        minutes: 0,
+        rewatched: 0,
+        views: 0,
+        movies: 0,
+        episodes: 0,
+      }
     cur.count += 1
-    cur.minutes += mins
+    // Rewatches are time spent twice: the same floor-of-one view rule the
+    // tracker, /analytics and /profile use, so one user's watch time reads the
+    // same on every surface.
+    cur.minutes += mins * Math.max(row.watch_count ?? 0, 1)
     if (row.status === "rewatched") cur.rewatched += 1
     cur.views += row.watch_count ?? 0
     if (rel?.type === MOVIE_TYPE) cur.movies += 1
+    if (rel?.type === EPISODE_TYPE) cur.episodes += 1
     agg.set(uid, cur)
   }
 
@@ -149,7 +188,14 @@ export async function getRankings(limit = 100): Promise<RankingRow[]> {
   const rows: RankingRow[] = (profiles ?? [])
     .map((p) => {
       const a =
-        agg.get(p.user_id) ?? { count: 0, minutes: 0, rewatched: 0, views: 0, movies: 0 }
+        agg.get(p.user_id) ?? {
+          count: 0,
+          minutes: 0,
+          rewatched: 0,
+          views: 0,
+          movies: 0,
+          episodes: 0,
+        }
       const period = periods.get(p.user_id) ?? zeroPeriodTotals()
       const detectiveRank = getDetectiveRank(a.count)
       return {
@@ -162,12 +208,15 @@ export async function getRankings(limit = 100): Promise<RankingRow[]> {
         rewatched_count: a.rewatched,
         total_views: a.views,
         movie_count: a.movies,
+        episode_count: a.episodes,
         month_count: period.month.count,
         month_minutes: period.month.minutes,
         month_movie_count: period.month.movieCount,
+        month_episode_count: period.month.episodeCount,
         week_count: period.week.count,
         week_minutes: period.week.minutes,
         week_movie_count: period.week.movieCount,
+        week_episode_count: period.week.episodeCount,
         detectiveRank: { title: detectiveRank.title, level: detectiveRank.level },
         rank: 0,
       }
@@ -222,14 +271,16 @@ export async function getUserGlobalRank(
   const supabase = createAdminClient() ?? (await createClient())
 
   // PostgREST caps each request at 1,000 rows; paginate so the global rank
-  // stays correct once the community has more than 1,000 watch rows.
+  // stays correct once the community has more than 1,000 watch rows. Ordered by
+  // the primary key for the same reason as getRankings above.
   const PAGE_SIZE = 1000
   const watched: WatchCountRow[] = []
   for (let from = 0; ; from += PAGE_SIZE) {
     const { data: chunk, error } = await supabase
       .from("watch_status")
-      .select("user_id, content_entries(runtime_minutes)")
+      .select("user_id, watch_count, content_entries(runtime_minutes, type)")
       .in("status", ["watched", "rewatched"])
+      .order("id")
       .range(from, from + PAGE_SIZE - 1)
     if (error) throw error
     if (!chunk || chunk.length === 0) break
@@ -242,8 +293,8 @@ export async function getUserGlobalRank(
   const minutesByUser = new Map<string, number>()
   for (const row of watched) {
     const uid = row.user_id
-    const rel = row.content_entries as { runtime_minutes: number | null } | null
-    const mins = rel?.runtime_minutes ?? 0
+    // Rewatch multiplier, so the tie-break sums match the board's totals.
+    const mins = entryMinutes(row.content_entries) * Math.max(row.watch_count ?? 0, 1)
     counts.set(uid, (counts.get(uid) ?? 0) + 1)
     minutesByUser.set(uid, (minutesByUser.get(uid) ?? 0) + mins)
   }

@@ -106,6 +106,10 @@ async function runSource(
  * The secret is NEVER accepted via query string — that leaks into logs.
  */
 export async function POST(request: NextRequest) {
+  return runSync(request)
+}
+
+async function runSync(request: NextRequest) {
   const searchParams = request.nextUrl.searchParams
   const dryRun = searchParams.get("dry_run") === "true"
   const limitParam = searchParams.get("limit")
@@ -1064,9 +1068,21 @@ async function syncDcwContent(
 
 /**
  * GET /api/sync
- * Returns current sync status (how many entries exist by type)
+ * Vercel Cron issues GET, so this is the entry point the schedules in
+ * vercel.json actually reach: with a valid `Authorization: Bearer $CRON_SECRET`
+ * it runs the same sync POST does (mode from ?mode=). Without that header it
+ * falls back to the admin status read the admin panel uses — which is why the
+ * crons used to 401 every night while the sync never ran.
  */
-export async function GET() {
+export async function GET(request: NextRequest) {
+  if (headerMatchesSecret(request.headers.get("authorization"), process.env.CRON_SECRET)) {
+    return runSync(request)
+  }
+  return syncStatus()
+}
+
+/** Admin-only: entry counts by type. */
+async function syncStatus() {
   try {
     const supabase = await createClient()
 
