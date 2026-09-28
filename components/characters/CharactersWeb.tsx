@@ -33,7 +33,7 @@
   SVG paint values are JS strings, not CSS custom properties — `fill="rgb(var(--x))"`
   does not resolve on a presentation attribute. So the palette below mirrors the
   token hexes from app/globals.css by hand; if a token changes there, change it
-  here too. The DOM chrome (search, dock, badge) uses the real tokens.
+  here too. The DOM chrome (dock, badge) uses the real tokens.
 
   `theme` defaults to "dark" because dark is the app default. It must still match
   the `dark` class on <html>, since the container uses token classes (bg-page)
@@ -55,7 +55,6 @@ import { useReducedMotion } from "framer-motion";
 import {
   type Character,
   type Relationship,
-  type RelationshipType,
 } from "@/lib/characters-guide";
 import type { QualityTier } from "@/lib/device-tier";
 import {
@@ -75,7 +74,7 @@ import {
   resolveFaction,
   type FactionTheme,
 } from "@/components/characters/graph-theme";
-import { RotateCcw, Search, Sparkles, Target, X, ZoomIn, ZoomOut } from "lucide-react";
+import { RotateCcw, Sparkles, Target, ZoomIn, ZoomOut } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 export { FACTION_THEMES, getFactionTheme } from "@/components/characters/graph-theme";
@@ -114,12 +113,12 @@ const PAN_INERTIA_MS = 140;
  * Every frame-by-frame cost in this file is read from the visitor's
  * quality tier (see graph-quality.ts) rather than from a one-shot guess
  * at load. The tier the visitor's device earned decides how far nodes
- * drift, how many particles float, how often the 153 strings are
- * re-pathed, and whether the 95 breathing rings animate at all.
+ * drift, how many particles float, how often the 216 strings are
+ * re-pathed, and whether the 103 breathing rings animate at all.
  *
  * The `low` tier is a STILL graph: with no drift, node positions and
  * string paths never change between frames, so the loop stops rewriting
- * 95 transforms and 153 `d` attributes and only reacts to pan/zoom —
+ * 103 transforms and 216 `d` attributes and only reacts to pan/zoom —
  * one transform on the world <g>, written once per frame.
  * ---------------------------------------------------------------- */
 
@@ -147,10 +146,6 @@ const IDLE_PARK_MS = 4000;
 const EDGE_STYLE: CSSProperties = {
   transition: "opacity 180ms ease, stroke-width 180ms ease",
 };
-const EDGE_STYLE_HIDDEN: CSSProperties = {
-  transition: "opacity 180ms ease, stroke-width 180ms ease",
-  display: "none",
-};
 
 /* ── canvas palette (mirrors the CSS tokens; see header note) ────── */
 const CANVAS = {
@@ -164,7 +159,6 @@ const CANVAS = {
     strokeStrong: "#FFFFFF",
     particle: "#A1A1A1",                  // --ink-dim
     dotRadius: 1.1,
-    stringActive: 0.75,
     stringIdle: 0.26,
   },
   light: {
@@ -177,7 +171,6 @@ const CANVAS = {
     strokeStrong: "#171717",
     particle: "#64748B",
     dotRadius: 1.3,
-    stringActive: 0.62,
     stringIdle: 0.18,
   },
 } as const;
@@ -217,7 +210,7 @@ function usableRect(
   isMobile: boolean,
   panelOpen: boolean
 ): Rect {
-  const top = 100; // search + filter control column
+  const top = 100; // control column (host slot)
   const left = isMobile ? 16 : 28;
   const right = panelOpen && !isMobile ? 416 : isMobile ? 16 : 28;
   const bottom = panelOpen && isMobile ? Math.round(h * 0.48) + 20 : 92;
@@ -292,17 +285,16 @@ export interface CharactersWebProps {
   quality?: QualityTier;
   onSelectCharacter: (character: Character | null) => void;
   selectedCharacterId?: string | null;
-  activeFilter?: RelationshipType | null;
-  /** Rendered inside the top-left control column, below the search field. */
+  /** Rendered inside the top-left control column. */
   topLeftSlot?: React.ReactNode;
   theme?: "light" | "dark";
   className?: string;
 }
 
 /* ── memoized leaf components ────────────────────────────────────
- * The graph lives in one stateful parent; every hover, search keystroke,
- * selection and (debounced) resize used to reconcile the ENTIRE SVG tree
- * (~95 nodes × 12 elements + 153 paths). These leaves isolate that churn:
+ * The graph lives in one stateful parent; every hover, selection
+ * and (debounced) resize used to reconcile the ENTIRE SVG tree
+ * (~103 nodes × 12 elements + 216 paths). These leaves isolate that churn:
  * memo() bails out every node/edge whose live props did not change, so a
  * hover flips exactly two NodeViews and the strings whose dim state is real.
  *
@@ -318,7 +310,6 @@ type NodeViewProps = {
   pal: (typeof CANVAS)[keyof typeof CANVAS];
   isSelected: boolean;
   isHovered: boolean;
-  isSearchMatch: boolean;
   /** Tier gates: the breathing halo and the Conan ripple are the two
    *  infinitely-running keyframe animations in the graph, so cheap devices
    *  drop the elements entirely instead of animating them out of sight. */
@@ -347,7 +338,6 @@ const NodeView = memo(function NodeView({
   pal,
   isSelected,
   isHovered,
-  isSearchMatch,
   breathe,
   ripple,
   nodeEls,
@@ -426,10 +416,10 @@ const NodeView = memo(function NodeView({
         />
       )}
 
-      {/* State ring — the hover + selection/search highlight merged into one
-          element. Selected/search nodes pin opacity via inline style (inline
-          beats the utility class); otherwise the ring fades in on CSS
-          :hover, so plain hover costs zero React re-renders of this node. */}
+      {/* State ring — the hover + selection highlight merged into one element.
+          Selected nodes pin opacity via inline style (inline beats the utility
+          class); otherwise the ring fades in on CSS :hover, so plain hover
+          costs zero React re-renders of this node. */}
       <circle
         key="state-ring"
         r={n.r + 7}
@@ -437,7 +427,7 @@ const NodeView = memo(function NodeView({
         stroke={isSelected ? pal.strokeStrong : n.theme.border}
         strokeWidth={2}
         className="opacity-0 transition-opacity duration-200 group-hover:opacity-100"
-        style={isSelected || isSearchMatch ? { opacity: 1 } : undefined}
+        style={isSelected ? { opacity: 1 } : undefined}
         pointerEvents="none"
       />
 
@@ -510,14 +500,12 @@ const EdgeView = memo(function EdgeView({
   e,
   i,
   edgeEls,
-  hidden,
   isTarget,
   opacity,
 }: {
   e: EdgeSpec;
   i: number;
   edgeEls: { current: (SVGPathElement | null)[] };
-  hidden: boolean;
   isTarget: boolean;
   opacity: number;
 }) {
@@ -532,7 +520,7 @@ const EdgeView = memo(function EdgeView({
       strokeLinecap="round"
       strokeDasharray={e.dash}
       opacity={opacity}
-      style={hidden ? EDGE_STYLE_HIDDEN : EDGE_STYLE}
+      style={EDGE_STYLE}
     />
   );
 });
@@ -543,7 +531,6 @@ export default function CharactersWeb({
   quality = "balanced",
   onSelectCharacter,
   selectedCharacterId,
-  activeFilter,
   topLeftSlot,
   // Dark is the app default (see app/layout.tsx), so it is the default here too.
   theme = "dark",
@@ -559,8 +546,6 @@ export default function CharactersWeb({
   const labelLimit = labelTierLimit(q.labels);
 
   const [hoveredId, setHoveredId] = useState<string | null>(null);
-  const [searchQuery, setSearchQuery] = useState("");
-  const [searchFocused, setSearchFocused] = useState(false);
   const [size, setSize] = useState({ w: 0, h: 0 });
   const [ready, setReady] = useState(false);
 
@@ -584,12 +569,23 @@ export default function CharactersWeb({
   /** Per-node: is the label currently displayed? (display is written only on change) */
   const labelShownRef = useRef<boolean[]>([]);
   const isGrabbingRef = useRef(false);
+  /** A dossier is open: the graph holds still while it is (see `holdStill`). */
+  const focusedRef = useRef(Boolean(selectedCharacterId));
+  /** Set by the loop effect, so a camera command can restart a parked loop. */
+  const wakeRef = useRef<(() => void) | null>(null);
 
   useEffect(() => {
     isMobileRef.current = isMobile;
   }, [isMobile]);
   useEffect(() => {
-    panelOpenRef.current = Boolean(selectedCharacterId);
+    const open = Boolean(selectedCharacterId);
+    panelOpenRef.current = open;
+    // An open dossier stops the ambient motion and lets the loop park, so this
+    // transition is exactly where the loop has to be woken back up: whatever
+    // closed the panel (a tap, Escape, the dock) already poked, but the loop
+    // must not depend on that.
+    focusedRef.current = open;
+    wakeRef.current?.();
   }, [selectedCharacterId]);
   useEffect(() => {
     reduceRef.current = Boolean(reduce);
@@ -735,29 +731,13 @@ export default function CharactersWeb({
   const edgeEls = useRef<(SVGPathElement | null)[]>([]);
   const particleEls = useRef<(SVGCircleElement | null)[]>([]);
 
-  /* ── search / highlight ────────────────────────────────────────── */
-  const searchLower = searchQuery.trim().toLowerCase();
-  const searchMatches = useMemo(() => {
-    if (!searchLower) return new Set<string>();
-    const set = new Set<string>();
-    for (const c of characters) {
-      if (
-        c.name.toLowerCase().includes(searchLower) ||
-        c.role.toLowerCase().includes(searchLower) ||
-        c.affiliation.toLowerCase().includes(searchLower) ||
-        c.aliases?.some((a) => a.toLowerCase().includes(searchLower))
-      ) {
-        set.add(c.id);
-      }
-    }
-    return set;
-  }, [searchLower, characters]);
+  /* ── highlight ─────────────────────────────────────────────────── */
 
   /**
    * One label's full live style: opacity from the zoom tier, and visibility
    * from the quality policy. Labels the policy suppresses while zoomed out are
    * `display:none`d rather than faded to 0, so the renderer can skip them — but
-   * a forced label (hover, selection, search hit) is exempt at any zoom.
+   * a forced label (hover, selection) is exempt at any zoom.
    * Display is written only when it flips, since style writes on 95 elements
    * are the expensive part.
    */
@@ -794,11 +774,10 @@ export default function CharactersWeb({
     };
     add(hoveredId);
     add(selectedCharacterId ?? null);
-    searchMatches.forEach(add);
     forcedLabelsRef.current = forced;
     labelsDirtyRef.current = true;
     updateLabelOpacities(camRef.current.k || 1);
-  }, [hoveredId, selectedCharacterId, searchMatches, indexById, updateLabelOpacities]);
+  }, [hoveredId, selectedCharacterId, indexById, updateLabelOpacities]);
 
   /* ── camera commands ──────────────────────────────────────────── */
 
@@ -822,6 +801,10 @@ export default function CharactersWeb({
       targetRef.current = next;
       if (instant || reduceRef.current) camRef.current = { ...next };
       userAdjustedRef.current = false;
+      // A parked loop would otherwise never see the new target: at the low tier
+      // the loop parks the moment the camera settles, so without this a tap on a
+      // character can do nothing at all.
+      if (!instant) wakeRef.current?.();
     },
     [bbox]
   );
@@ -851,6 +834,7 @@ export default function CharactersWeb({
       targetRef.current = next;
       if (instant || reduceRef.current) camRef.current = { ...next };
       userAdjustedRef.current = !instant;
+      if (!instant) wakeRef.current?.();
     },
     []
   );
@@ -871,6 +855,7 @@ export default function CharactersWeb({
     };
     if (reduceRef.current) camRef.current = { ...targetRef.current };
     userAdjustedRef.current = true;
+    wakeRef.current?.();
   }, []);
 
   const centerOnConan = useCallback(
@@ -997,6 +982,8 @@ export default function CharactersWeb({
 
     let hasActiveOffsets = false;
     let frameCount = 0;
+    /** Is the world <g> currently on its own compositor layer? */
+    let camLayer = false;
 
     const loop = (now: number) => {
       if (parked) return;
@@ -1009,9 +996,20 @@ export default function CharactersWeb({
       last = now;
       const t = now - t0;
 
-      /* 1 — camera */
+      /* 1 — camera.
+         A glide promotes the world <g> to its own compositor layer and writes
+         nothing but that layer's transform, so the zoom is a GPU move of the
+         raster the graph already painted. Without the layer, every frame of a
+         zoom re-rasterizes the whole viewport — 103 nodes, 216 strings, 103 labels,
+         at up to 4x scale — which is what made zooming, and switching while
+         zoomed in, the most expensive things on this page.
+
+         Nothing inside the layer may be written while it moves: one content write
+         invalidates exactly the raster the layer exists to reuse. `holdStill`
+         below enforces that, and everything catches up on the settle frame. */
       const cam = camRef.current;
       const tgt = targetRef.current;
+      const world = worldRef.current;
       const a = reduceRef.current ? 1 : 1 - Math.exp(-dt / CAM_TAU);
       cam.x += (tgt.x - cam.x) * a;
       cam.y += (tgt.y - cam.y) * a;
@@ -1020,7 +1018,21 @@ export default function CharactersWeb({
       if (Math.abs(tgt.y - cam.y) < 0.04) cam.y = tgt.y;
       if (Math.abs(tgt.k - cam.k) < 0.0004) cam.k = tgt.k;
 
+      const camMoving =
+        Math.abs(tgt.x - cam.x) > 0.04 ||
+        Math.abs(tgt.y - cam.y) > 0.04 ||
+        Math.abs(tgt.k - cam.k) > 0.0004;
+
+      if (camMoving !== camLayer && world) {
+        camLayer = camMoving;
+        world.style.willChange = camMoving ? "transform" : "";
+        // Paint the labels once, for the zoom this glide is heading to, so the
+        // glide itself writes nothing (see step 4).
+        if (camMoving) labelsDirtyRef.current = true;
+      }
+
       if (
+        camMoving ||
         Math.abs(cam.x - lastCamX) > 0.01 ||
         Math.abs(cam.y - lastCamY) > 0.01 ||
         Math.abs(cam.k - lastCamK) > 0.0002
@@ -1028,16 +1040,25 @@ export default function CharactersWeb({
         lastCamX = cam.x;
         lastCamY = cam.y;
         lastCamK = cam.k;
-        worldRef.current?.setAttribute(
-          "transform",
-          `translate(${cam.x.toFixed(2)} ${cam.y.toFixed(2)}) scale(${cam.k.toFixed(4)})`
-        );
+        if (world) {
+          world.style.transform = `translate(${cam.x.toFixed(2)}px, ${cam.y.toFixed(
+            2
+          )}px) scale(${cam.k.toFixed(4)})`;
+        }
       }
 
       /* 2 — node drift + anti-collision (positions feed BOTH nodes and strings) */
-      const amp = reduceRef.current ? 0 : q.driftAmp;
-      const { base, curX, curY } = geom;
       const dragIdx = dragNodeRef.current?.index ?? -1;
+      /* Everything inside the world layer holds still while the camera glides —
+         and also while a dossier is open: an open dossier means the reader is
+         looking at the panel, not at the ambient motion, and a still graph lets
+         the loop park instead of repainting 103 nodes behind a sheet. A node drag
+         or a separation offset that is still settling outranks both: those need
+         their positions to keep moving. */
+      const holdStill =
+        (camMoving || focusedRef.current) && dragIdx === -1 && !hasActiveOffsets;
+      const amp = holdStill || reduceRef.current ? 0 : q.driftAmp;
+      const { base, curX, curY } = geom;
 
       /* 2a — drifted home positions, plus separation offsets */
       const decay = Math.exp(-dt / COLLIDE_RELAX_TAU);
@@ -1238,17 +1259,26 @@ export default function CharactersWeb({
         }
       }
 
-      /* 4 — zoom-dependent label opacity + policy culling */
-      if (labelsDirtyRef.current || Math.abs(cam.k - lastLabelK) > 0.003) {
+      /* 4 — zoom-dependent label opacity + policy culling.
+         While the camera glides this is a no-op: the labels were already painted
+         for the destination zoom when the glide started, so a zoom costs one
+         label pass instead of one per frame (103 nodes x a style write each). */
+      const labelK = camMoving ? tgt.k : cam.k;
+      if (labelsDirtyRef.current || Math.abs(labelK - lastLabelK) > 0.003) {
         labelsDirtyRef.current = false;
-        lastLabelK = cam.k;
+        lastLabelK = labelK;
         const forced = forcedLabelsRef.current;
-        for (let i = 0; i < N; i++) styleLabel(i, cam.k, forced);
+        for (let i = 0; i < N; i++) styleLabel(i, labelK, forced);
       }
 
       /* 5 — ambient particles (screen space, behind the world — throttled by the
          tier; the low tier has none at all) */
-      if (!reduceRef.current && particles.length > 0 && frameCount % q.particleCadence === 0) {
+      if (
+        !reduceRef.current &&
+        !holdStill &&
+        particles.length > 0 &&
+        frameCount % q.particleCadence === 0
+      ) {
         const { w, h } = sizeRef.current;
         if (w && h) {
           for (let i = 0; i < particles.length; i++) {
@@ -1277,10 +1307,12 @@ export default function CharactersWeb({
         zoomLabelRef.current.textContent = `${pct}%`;
       }
 
-      /* 7 — a tier with no ambient motion has nothing left to animate once the
-         camera settles, so park straight away instead of waiting out the idle
-         timer. (tryPark re-checks gestures and the camera itself.) */
-      if (q.driftAmp === 0 && particles.length === 0) tryPark();
+      /* 7 — nothing left to animate: either the tier has no ambient motion, or a
+         dossier is holding the graph still. Park straight away instead of
+         waiting out the idle timer — a parked loop is what makes "zoomed in with
+         a dossier open" cost zero frames, at every tier. (tryPark re-checks
+         gestures and the camera itself.) */
+      if (amp === 0 && !hasActiveOffsets && (particles.length === 0 || holdStill)) tryPark();
     };
 
     /* ── idle / hidden-tab park ────────────────────────────────────
@@ -1299,16 +1331,25 @@ export default function CharactersWeb({
       if (parked) return;
       // Never park mid-gesture (node drag / pan inertia / pinch)…
       if (dragNodeRef.current || pinchRef.current || panRef.current) return;
-      // …or while the camera is still gliding to its target.
+      // …or while the camera is still gliding to its target. These thresholds
+      // are the loop's own snap thresholds (step 1), never looser: parking at a
+      // delta the loop still calls "moving" would freeze the world layer with
+      // `will-change` still on, leaving the graph permanently on a composited
+      // (and therefore blurry) raster.
       const cam = camRef.current;
       const tgt = targetRef.current;
       if (
-        Math.abs(tgt.x - cam.x) > 0.05 ||
-        Math.abs(tgt.y - cam.y) > 0.05 ||
-        Math.abs(tgt.k - cam.k) > 0.0005
+        Math.abs(tgt.x - cam.x) > 0.04 ||
+        Math.abs(tgt.y - cam.y) > 0.04 ||
+        Math.abs(tgt.k - cam.k) > 0.0004
       )
         return;
       parked = true;
+      // Drop the compositor layer with the loop: a parked graph must be a crisp,
+      // un-promoted raster again (and the layer must not leak into the next wake).
+      const world = worldRef.current;
+      if (world) world.style.willChange = "";
+      camLayer = false;
       container?.classList.add("dcph-parked");
       cancelAnimationFrame(raf);
     };
@@ -1329,6 +1370,8 @@ export default function CharactersWeb({
       window.clearTimeout(idleTimer);
       idleTimer = window.setTimeout(tryPark, IDLE_PARK_MS);
     };
+
+    wakeRef.current = poke;
 
     const onVisibility = () => {
       if (document.hidden) {
@@ -1361,6 +1404,7 @@ export default function CharactersWeb({
       window.removeEventListener("keydown", poke);
       document.removeEventListener("visibilitychange", onVisibility);
       container?.classList.remove("dcph-parked");
+      if (wakeRef.current === poke) wakeRef.current = null;
     };
   }, [nodes, edges, geom, particles, q, styleLabel]);
 
@@ -1665,7 +1709,7 @@ export default function CharactersWeb({
 
   /* ── selection ────────────────────────────────────────────────── */
   // Stable identities so memoized NodeViews never see a fresh function on
-  // unrelated parent re-renders (hover, search typing, resize commits).
+  // unrelated parent re-renders (hover, selection, resize commits).
   const handleSelectNode = useCallback(
     (index: number) => {
       const n = nodes[index];
@@ -1766,37 +1810,30 @@ export default function CharactersWeb({
           </g>
         )}
 
-        {/* World layer — transform written by the rAF loop, never by CSS */}
+        {/* World layer — the rAF loop owns its transform (as a CSS transform, so
+            it can be composited while the camera glides), never React. */}
         <g ref={worldRef} style={{ transformOrigin: "0px 0px" }}>
           <g>
             {/* Strings — `d` is owned by the rAF loop; React owns paint + state.
                 Memoized EdgeViews bail unless THIS edge's live state changed,
-                so hover/search/size churn reconciles only the affected paths. */}
+                so hover/size churn reconciles only the affected paths. */}
             {edges.map((e, i) => {
-              const hidden = Boolean(activeFilter && e.rel.type !== activeFilter);
               const isTarget =
                 hoveredId === e.rel.source ||
                 hoveredId === e.rel.target ||
                 selectedCharacterId === e.rel.source ||
                 selectedCharacterId === e.rel.target;
-              const matchesSearch =
-                searchMatches.size === 0 ||
-                searchMatches.has(e.rel.source) ||
-                searchMatches.has(e.rel.target);
               const opacity = dimmed
                 ? isTarget
                   ? 1
                   : DIM_OPACITY
-                : matchesSearch
-                  ? pal.stringActive
-                  : pal.stringIdle;
+                : pal.stringIdle;
               return (
                 <EdgeView
                   key={e.rel.id}
                   e={e}
                   i={i}
                   edgeEls={edgeEls}
-                  hidden={hidden}
                   isTarget={isTarget}
                   opacity={opacity}
                 />
@@ -1805,8 +1842,8 @@ export default function CharactersWeb({
 
             {/* Nodes — one <g> per node: the rAF loop repositions it via the
                 nodeEls ref; React paints structure + state. Memoized NodeViews
-                bail unless THIS node's visual state changed, so a hover or a
-                search match re-renders ~2 subtrees, not the whole graph. */}
+                bail unless THIS node's visual state changed, so a hover
+                re-renders ~2 subtrees, not the whole graph. */}
             {nodes.map((n, i) => (
               <NodeView
                 key={n.c.id}
@@ -1816,7 +1853,6 @@ export default function CharactersWeb({
                 pal={pal}
                 isSelected={selectedCharacterId === n.c.id}
                 isHovered={hoveredId === n.c.id}
-                isSearchMatch={searchMatches.has(n.c.id)}
                 breathe={q.breathe}
                 ripple={q.ripple}
                 nodeEls={nodeEls}
@@ -1832,78 +1868,10 @@ export default function CharactersWeb({
         </g>
       </svg>
 
-      {/* ── top-left control column: search → host slot → results ──
+      {/* ── top-left control column: host slot only ──
            One flex column of flow siblings, so nothing can overlap. */}
       <div className="pointer-events-none absolute left-3 top-4 z-40 flex w-[16rem] flex-col gap-2 sm:left-4 sm:w-[18rem] md:top-5">
-        <div
-          className={cn(
-            "pointer-events-auto flex items-center gap-2 rounded-full border py-1.5 pl-3 pr-1.5 shadow-lift transition-all duration-300",
-            "border-line bg-surface text-ink",
-            searchFocused && "border-accent/70 ring-2 ring-accent/40"
-          )}
-        >
-          <Search className="h-4 w-4 shrink-0 text-ink-faint" />
-          <input
-            type="text"
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            onFocus={() => setSearchFocused(true)}
-            onBlur={() => setSearchFocused(false)}
-            onKeyDown={(e) => {
-              if (e.key === "Escape") {
-                setSearchQuery("");
-                e.currentTarget.blur();
-              }
-            }}
-            placeholder="Search characters"
-            aria-label="Search characters"
-            className="w-full min-w-0 select-text bg-transparent text-sm text-ink outline-none placeholder:text-ink-faint"
-          />
-          {searchQuery && (
-            <button
-              type="button"
-              onClick={() => setSearchQuery("")}
-              aria-label="Clear search"
-              className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full text-ink-faint transition-colors hover:bg-surface-muted hover:text-ink"
-            >
-              <X className="h-4 w-4" />
-            </button>
-          )}
-        </div>
-
         {topLeftSlot && <div className="pointer-events-auto">{topLeftSlot}</div>}
-
-        {searchQuery && searchMatches.size > 0 && (
-          <div className="pointer-events-auto max-h-[46vh] overflow-y-auto rounded-xl border border-line bg-surface p-2 text-ink shadow-lift">
-            {Array.from(searchMatches).map((id) => {
-              const idx = indexById.get(id);
-              if (idx === undefined) return null;
-              const n = nodes[idx];
-              return (
-                <button
-                  key={id}
-                  type="button"
-                  onClick={() => {
-                    handleSelectNode(idx);
-                    setSearchQuery("");
-                  }}
-                  className="flex w-full items-center gap-2.5 rounded-lg px-2.5 py-1.5 text-left transition-colors hover:bg-surface-muted"
-                >
-                  <span
-                    className="h-2.5 w-2.5 shrink-0 rounded-full"
-                    style={{ backgroundColor: n.theme.primary }}
-                  />
-                  <span className="min-w-0 flex-1">
-                    <span className="block truncate text-xs font-semibold">{n.c.name}</span>
-                    <span className="block truncate text-[10px] text-ink-dim">
-                      {n.c.role}
-                    </span>
-                  </span>
-                </button>
-              );
-            })}
-          </div>
-        )}
       </div>
 
       {/* ── bottom-left dock ─────────────────────────────────────── */}

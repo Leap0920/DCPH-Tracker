@@ -3,9 +3,8 @@
 /*
   CharactersExplorer — orchestrator for /characters.
 
-  The relationship filter chip and legend popover are handed to the graph as
-  `topLeftSlot`, so they live in the SAME flex column as the search field and
-  can no longer overlap it.
+  The Graphics chip is handed to the graph as `topLeftSlot`, so it lives in
+  the same flex column the graph owns and cannot overlap it.
 
   What loads when:
 
@@ -24,11 +23,9 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react"
 import dynamic from "next/dynamic"
-import { RelationshipLegend } from "@/components/characters/RelationshipLegend"
-import type { RelationshipMeta } from "@/components/characters/RelationshipLegend"
+import type { RelationshipMeta } from "@/lib/characters-guide"
 import { useTheme } from "@/components/theme-provider"
-import { getRelationshipColor } from "@/components/characters/graph-theme"
-import { ChevronDown, Filter, Gauge } from "lucide-react"
+import { Gauge } from "lucide-react"
 import { cn } from "@/lib/utils"
 import {
   TIER_COPY,
@@ -43,7 +40,7 @@ import {
   type QualityTier,
   type TierSuggestion,
 } from "@/lib/device-tier"
-import type { Character, Relationship, RelationshipType } from "@/lib/characters-guide"
+import type { Character, Relationship } from "@/lib/characters-guide"
 
 export interface CharactersExplorerProps {
   characters: Character[]
@@ -95,8 +92,6 @@ export default function CharactersExplorer({
   relationshipMeta,
 }: CharactersExplorerProps) {
   const [selection, setSelection] = useState<Character | null>(null)
-  const [filter, setFilter] = useState<RelationshipType | null>(null)
-  const [legendOpen, setLegendOpen] = useState(false)
 
   /* ── graphics quality ──────────────────────────────────────────── */
   /** null until the client resolves detection + storage (see the effect). */
@@ -112,7 +107,6 @@ export default function CharactersExplorer({
   const probedRef = useRef(false)
 
   const { theme } = useTheme()
-  const isDark = theme === "dark"
 
   // Detection and storage are client-only reads, so they cannot run during the
   // server render: the graph paints once the tier is known.
@@ -194,82 +188,29 @@ export default function CharactersExplorer({
     setSelection(character)
   }, [])
 
-  const filterControls = useMemo(
+  const topLeftControls = useMemo(
     () => (
-      <div className="flex flex-col gap-2">
-        <button
-          type="button"
-          onClick={() => setLegendOpen((v) => !v)}
-          aria-expanded={legendOpen}
-          className={cn(
-            "group flex w-full items-center gap-1.5 rounded-full border px-3.5 py-1.5 text-xs font-semibold shadow-lift transition-all",
-            "border-line bg-surface text-ink hover:border-ink-faint/40 hover:bg-surface-muted",
-          )}
-        >
-          <Filter className="h-3.5 w-3.5 shrink-0 text-accent-bright transition-transform duration-300 group-hover:rotate-12" />
-          <span className="min-w-0 flex-1 truncate text-left">
-            {filter ? relationshipMeta[filter].label : "All Relationships"}
-          </span>
-          {filter && (
-            <span
-              className="h-2 w-2 shrink-0 rounded-full"
-              style={{ backgroundColor: getRelationshipColor(filter, isDark) }}
-            />
-          )}
-          <ChevronDown
-            className={cn(
-              "h-3.5 w-3.5 shrink-0 opacity-60 transition-transform duration-300",
-              legendOpen && "rotate-180",
-            )}
-          />
-        </button>
-
-        {/* CSS grid-rows disclosure instead of AnimatePresence: the filter chip
-            is part of the first paint, and keeping framer-motion out of this
-            component keeps ~37 kB (gzipped) out of the page's first load. */}
-        <div
-          className={cn(
-            "grid transition-all duration-300 ease-out",
-            legendOpen ? "grid-rows-[1fr] opacity-100" : "grid-rows-[0fr] opacity-0",
-          )}
-        >
-          <div className="overflow-hidden" inert={!legendOpen}>
-            <div className="max-h-[52vh] overflow-y-auto rounded-2xl border border-line bg-surface p-3 text-ink shadow-lift">
-              <div className="mb-2.5 font-mono text-[10px] font-semibold uppercase tracking-wider text-ink-faint">
-                Filter by relationship
-              </div>
-              <RelationshipLegend
-                meta={relationshipMeta}
-                activeFilter={filter}
-                onFilterType={setFilter}
-                compact
-              />
-            </div>
-          </div>
-        </div>
-
-        {/* Graphics tier — always reachable, so a wrong first guess (or a device
-            that behaves unlike its specs) is never a dead end. */}
-        <button
-          type="button"
-          onClick={() => setQualityOpen(true)}
-          aria-label={`Graphics quality: ${quality ? TIER_COPY[quality].label : "detecting"}`}
-          className={cn(
-            "group flex w-full items-center gap-1.5 rounded-full border px-3.5 py-1.5 text-xs font-semibold shadow-lift transition-all",
-            "border-line bg-surface text-ink hover:border-ink-faint/40 hover:bg-surface-muted",
-          )}
-        >
-          <Gauge className="h-3.5 w-3.5 shrink-0 text-accent-bright" />
-          <span className="min-w-0 flex-1 truncate text-left">
-            {quality ? `Graphics · ${TIER_COPY[quality].label}` : "Graphics"}
-          </span>
-          {qualityNotice && (
-            <span className="h-2 w-2 shrink-0 rounded-full bg-accent-bright" aria-hidden />
-          )}
-        </button>
-      </div>
+      /* Graphics tier — always reachable, so a wrong first guess (or a device
+         that behaves unlike its specs) is never a dead end. */
+      <button
+        type="button"
+        onClick={() => setQualityOpen(true)}
+        aria-label={`Graphics quality: ${quality ? TIER_COPY[quality].label : "detecting"}`}
+        className={cn(
+          "group flex w-full items-center gap-1.5 rounded-full border px-3.5 py-1.5 text-xs font-semibold shadow-lift transition-all",
+          "border-line bg-surface text-ink hover:border-ink-faint/40 hover:bg-surface-muted",
+        )}
+      >
+        <Gauge className="h-3.5 w-3.5 shrink-0 text-accent-bright" />
+        <span className="min-w-0 flex-1 truncate text-left">
+          {quality ? `Graphics · ${TIER_COPY[quality].label}` : "Graphics"}
+        </span>
+        {qualityNotice && (
+          <span className="h-2 w-2 shrink-0 rounded-full bg-accent-bright" aria-hidden />
+        )}
+      </button>
     ),
-    [legendOpen, filter, relationshipMeta, isDark, quality, qualityNotice],
+    [quality, qualityNotice],
   )
 
   return (
@@ -281,8 +222,7 @@ export default function CharactersExplorer({
           quality={quality}
           onSelectCharacter={handleSelect}
           selectedCharacterId={selection?.id}
-          activeFilter={filter}
-          topLeftSlot={filterControls}
+          topLeftSlot={topLeftControls}
           theme={theme}
           className="h-full w-full rounded-none border-none shadow-none"
         />
@@ -296,7 +236,6 @@ export default function CharactersExplorer({
         <CharacterDossier
           character={selection}
           meta={relationshipMeta}
-          filter={filter}
           onClose={() => setSelection(null)}
         />
       )}

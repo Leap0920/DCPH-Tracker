@@ -125,20 +125,32 @@ export const SPOILER_DATA: Record<string, SpoilerMeta> = {
     debut: { episode: 301, volume: 36 },
     spoiler: "reveal",
   },
+  "wataru-date": {
+    debut: { episode: 681, volume: 76 },
+    spoiler: "reveal",
+    lockedHint: "A name from Takagi's past keeps coming up.",
+  },
+  "kenji-hagiwara": {
+    debut: { episode: 304, volume: 36 },
+    spoiler: "reveal",
+  },
+  "chihaya-hagiwara": {
+    debut: { episode: 1098 },
+    spoiler: "reveal",
+    lockedHint: "A Kanagawa officer has a score to settle with the past.",
+  },
   "hyoue-kuroda": { debut: { episode: 810, volume: 86 } },
 
   "makoto-kyogoku": { debut: { episode: 153, volume: 22 } },
   "yoko-okino": { debut: { episode: 6 } },
 
   // ——— Minor police / recurring investigators —————————————————————————
-  // TODO(verify): all episode numbers below are canon-approximate. They exist
-  // to keep these ids gated; correct them against Section 22 before release.
   "shintaro-chaki": {
     debut: { episode: 134 },
     spoiler: "reveal",
   },
   "detective-tamura": {
-    debut: { episode: 358 },
+    debut: { episode: 144 },
     spoiler: "reveal",
   },
   "detective-kurumazaki": {
@@ -146,11 +158,11 @@ export const SPOILER_DATA: Record<string, SpoilerMeta> = {
     spoiler: "reveal",
   },
   "tsuyoshi-shikatsuno": {
-    debut: { episode: 467 },
+    debut: { movie: 14 },
     spoiler: "reveal",
   },
   "shoji-terabayashi": {
-    debut: { episode: 468 },
+    debut: { episode: 153, movie: 13 },
     spoiler: "reveal",
   },
   "yuzo-tomizawa": {
@@ -197,6 +209,11 @@ export const SPOILER_DATA: Record<string, SpoilerMeta> = {
     debut: { episode: 425, volume: 48 },
     spoiler: "major",
   },
+  "ethan-hondo": {
+    debut: { episode: 485, volume: 57 },
+    spoiler: "reveal",
+    lockedHint: "A buried CIA connection reaches back one generation.",
+  },
 
   // ——— Black Organization ————————————————————————————————————————————
   chianti: { debut: { episode: 425, volume: 48 }, spoiler: "reveal" },
@@ -209,6 +226,11 @@ export const SPOILER_DATA: Record<string, SpoilerMeta> = {
     debut: { episode: 54 },
     spoiler: "reveal",
     lockedHint: "Another codename surfaces early, and does not last long.",
+  },
+  "kenzo-masuyama": {
+    debut: { episode: 176, volume: 24 },
+    spoiler: "reveal",
+    lockedHint: "A respected old industrialist keeps dangerous company.",
   },
   calvados: {
     debut: { episode: 345 },
@@ -257,13 +279,16 @@ export const SPOILER_DATA: Record<string, SpoilerMeta> = {
     reveal: { episode: 836, volume: 88 },
     spoiler: "major",
   },
+  "yuya-kazami": { debut: { movie: 20, volume: 89 } },
 
   // ——— Regional police ————————————————————————————————————————————————
   "kansuke-yamato": { debut: { episode: 516, volume: 59 } },
   "yui-uehara": { debut: { episode: 516, volume: 59 } },
   "jugo-yokomizo": { debut: { episode: 284, volume: 34 } },
-  "tamekichi-matsushiro": { debut: { episode: 516 } },
-  "kyohei-nishimura": { debut: { episode: 284 } },
+  "takaaki-morofushi": { debut: { episode: 558, volume: 65 } },
+  "inspector-yuminaga": { debut: { episode: 325, volume: 39 } },
+  "tamekichi-matsushiro": { debut: { episode: 349 } },
+  "kyohei-nishimura": { debut: { episode: 144 } },
 
   // ——— Miyano family ————————————————————————————————————————————————
   "elena-miyano": {
