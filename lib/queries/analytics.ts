@@ -1,7 +1,7 @@
 import { createClient } from "@/utils/supabase/server"
 import { CONTENT_TYPE_LABELS, type ContentType } from "@/lib/constants"
 import { getDefaultRuntime } from "@/lib/utils"
-import { isOtherMovie, MAINLINE_MOVIES } from "@/lib/movies-guide"
+import { isNonMainlineMovie, MAINLINE_MOVIES } from "@/lib/movies-guide"
 import { getDetectiveRank, type DetectiveRank } from "@/lib/ranks"
 
 export interface PerTypeAnalytics {
@@ -84,9 +84,11 @@ export interface SelfAnalytics {
   /** Entries sitting in the "rewatched" state — a row count, like watchedCount. */
   rewatchedCount: number
   /**
-   * Sum of watch_count across rewatched entries — how many rewatch views were
-   * logged, not how many entries were rewatched. Matches getUserStats
-   * (lib/queries/profile.ts) and drives the "Total Rewatches" tiles.
+   * Times the user hit rewatch: passes beyond the first, so views = cases solved
+   * + rewatches. Counting rewatched rows instead gives the board's "rewatched"
+   * figure (a different number), and summing watch_count over them gives a third
+   * — this is the reading the "Times you hit rewatch" label promises. Matches
+   * getUserStats (lib/queries/profile.ts).
    */
   totalRewatchViews: number
   /** Sum of every watch_count — a rewatch counts as an extra view. */
@@ -127,6 +129,7 @@ interface WatchStatusRow {
   content_entries:
     | {
         id: string
+        slug: string | null
         title: string
         type: string
         episode_number: number | null
@@ -138,6 +141,7 @@ interface WatchStatusRow {
       }
     | {
         id: string
+        slug: string | null
         title: string
         type: string
         episode_number: number | null
@@ -155,6 +159,7 @@ interface CatalogRow {
   type: string
   slug: string | null
   episode_number: number | null
+  movie_number: number | null
 }
 
 interface ArcRow {
@@ -183,9 +188,12 @@ async function fetchWatchStatusRows(
     const { data: chunk, error } = await supabase
       .from("watch_status")
       .select(
-        "status, watch_count, favorite, rating, updated_at, content_entries(id, title, type, episode_number, movie_number, release_order, runtime_minutes, air_date, image_url)"
+        "status, watch_count, favorite, rating, updated_at, content_entries(id, slug, title, type, episode_number, movie_number, release_order, runtime_minutes, air_date, image_url)"
       )
       .eq("user_id", userId)
+      // Total order for the paging: without it, LIMIT/OFFSET can repeat or skip
+      // rows and the stats silently go wrong past 1,000 watch rows.
+      .order("id")
       .range(from, from + PAGE_SIZE - 1)
     if (error) throw error
     if (!chunk || chunk.length === 0) break
@@ -204,7 +212,8 @@ async function fetchCatalogRows(supabase: ServerClient): Promise<CatalogRow[]> {
   for (let offset = 0; ; offset += PAGE_SIZE) {
     const { data: page, error: pageError } = await supabase
       .from("content_entries")
-      .select("id, type, slug, episode_number")
+      .select("id, type, slug, episode_number, movie_number")
+      .order("id")
       .range(offset, offset + PAGE_SIZE - 1)
     if (pageError) throw pageError
     if (!page || page.length === 0) break
@@ -236,11 +245,12 @@ export async function getSelfAnalytics(userId: string): Promise<SelfAnalytics> {
   // Non-mainline movies (Lupin III crossover, TV specials, manner short) live in
   // the catalog but do not count toward the mainline movie totals (29 films).
   const catalogEntriesExcludingOtherMovies = catalogEntries.filter(
-    (e) => !(e.type === "movie" && isOtherMovie(e.slug))
+    (e) => !isNonMainlineMovie(e)
   )
 
-  // 29 canonical mainline films: 27 rows in the DB + 2 upcoming films
-  // (One-eyed Flashback 2025, Fallen Angel of the Highway 2026).
+  // The catalog carries one row per numbered film (1-29) and MAINLINE_MOVIES is
+  // the canonical list the totals are expressed in; keeping the substitution
+  // means a deleted film row cannot silently shrink the denominator below 29.
   const mainlineMovieCount = catalogEntriesExcludingOtherMovies.filter(
     (e) => e.type === "movie"
   ).length
@@ -291,6 +301,11 @@ export async function getSelfAnalytics(userId: string): Promise<SelfAnalytics> {
   let totalViews = 0
   let minutesWatched = 0
   let totalRewatchViews = 0
+  // Watched rows that belong to the counted catalog. Non-mainline movies are
+  // excluded from totalCatalogCount below, so letting them into this numerator
+  // would let completion reach 100% without watching everything — the reason the
+  // counter exists separately from watchedCount.
+  let catalogWatchedRows = 0
 
   const favorites: FavoriteEntry[] = []
   const topRated: TopRatedEntry[] = []
@@ -328,15 +343,23 @@ export async function getSelfAnalytics(userId: string): Promise<SelfAnalytics> {
     const isSeen = status === "watched" || status === "rewatched"
     if (status === "watched") watchedCount++
     else if (status === "rewatched") rewatchedCount++
+    // The crossover/compilation/manner movies sit in the catalog but are not part
+    // of the 29-film mainline total, so they are outside every completion ratio.
+    const isUncountedMovie = isNonMainlineMovie(entry)
+    if (isSeen && !isUncountedMovie) catalogWatchedRows++
 
     const views = row.watch_count ?? 0
-    // Total rewatch views = sum of watch_count for rewatched items
-    if (status === "rewatched" && views > 0) totalRewatchViews += views
+    // A seen row is at least one view, so the minutes and the view total floor at
+    // one: a missing/zero watch_count must not erase time the row proves was
+    // spent, and the tracker's "spent" figure uses the same floor.
+    const seenViews = Math.max(views, 1)
+    // Every pass past the first is a rewatch, whatever state the row is in now.
+    if (isSeen) totalRewatchViews += seenViews - 1
     // Only watched/rewatched rows count as views; an "unwatched" row keeps its
     // historical watch_count but must not inflate stats (matches leaderboard).
-    if (isSeen && views > 0) {
-      totalViews += views
-      minutesWatched += (entry.runtime_minutes ?? getDefaultRuntime(entry.type)) * views
+    if (isSeen) {
+      totalViews += seenViews
+      minutesWatched += (entry.runtime_minutes ?? getDefaultRuntime(entry.type)) * seenViews
     }
 
     const type = entry.type as ContentType
@@ -349,9 +372,9 @@ export async function getSelfAnalytics(userId: string): Promise<SelfAnalytics> {
       totalInCatalog: catalogTypeCounts.get(type) ?? 0,
       completionProgress: 0,
     }
-    if (status === "watched") cur.watched++
-    else if (status === "rewatched") cur.rewatched++
-    if (isSeen && views > 0) cur.totalViews += views
+    if (status === "watched" && !isUncountedMovie) cur.watched++
+    else if (status === "rewatched" && !isUncountedMovie) cur.rewatched++
+    if (isSeen) cur.totalViews += seenViews
     cur.completionProgress = cur.totalInCatalog > 0
       ? Math.min(100, Math.round(((cur.watched + cur.rewatched) / cur.totalInCatalog) * 100))
       : 0
@@ -508,7 +531,7 @@ export async function getSelfAnalytics(userId: string): Promise<SelfAnalytics> {
       : `${mins}m`
 
   const catalogCompletionProgress = totalCatalogCount > 0
-    ? Math.min(100, Math.round(((watchedCount + rewatchedCount) / totalCatalogCount) * 100))
+    ? Math.min(100, Math.round((catalogWatchedRows / totalCatalogCount) * 100))
     : 0
 
   const detectiveRank = getDetectiveRank(watchedCount + rewatchedCount)

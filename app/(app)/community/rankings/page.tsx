@@ -3,6 +3,7 @@ import { Trophy, LogIn, ArrowRight } from "lucide-react"
 import { createClient } from "@/utils/supabase/server"
 import { getRankings, getUserGlobalRank } from "@/lib/queries/leaderboard"
 import { getDetectiveRank } from "@/lib/ranks"
+import { defaultRuntimeMinutes } from "@/lib/runtime-defaults"
 import { RankingsBoardLoader } from "@/components/community/RankingsBoardLoader"
 import { Button } from "@/components/ui/button"
 import { AuthModalButton } from "@/components/auth/AuthModalButton"
@@ -51,14 +52,26 @@ export default async function RankingsPage() {
       const count = watched.length
       const rewatched = watched.filter((w) => w.status === "rewatched").length
       const views = watched.reduce((acc, w) => acc + (w.watch_count ?? 0), 0)
-      const minutes = watched.reduce(
-        (acc, w) => acc + ((w.content_entries as { runtime_minutes: number | null } | null)?.runtime_minutes ?? 0),
-        0
+      const entries = watched.map(
+        (w) => w.content_entries as { runtime_minutes: number | null; type: string | null } | null
       )
-      // Real movie count from content type — mirrors getRankings' aggregation.
-      const movieCount = watched.filter(
-        (w) => (w.content_entries as { type: string | null } | null)?.type === "movie"
-      ).length
+      // Same fallback and the same floor-of-one view rule getRankings uses, so
+      // the rank this compares against is the rank the board would give the same
+      // numbers — including the rewatch multiplier.
+      const minutes = watched.reduce((acc, w) => {
+        const entry = w.content_entries as {
+          runtime_minutes: number | null
+          type: string | null
+        } | null
+        const mins =
+          typeof entry?.runtime_minutes === "number" && entry.runtime_minutes > 0
+            ? entry.runtime_minutes
+            : defaultRuntimeMinutes(entry?.type ?? "")
+        return acc + mins * Math.max(w.watch_count ?? 0, 1)
+      }, 0)
+      // Real per-type counts — mirrors getRankings' aggregation.
+      const movieCount = entries.filter((entry) => entry?.type === "movie").length
+      const episodeCount = entries.filter((entry) => entry?.type === "episode").length
       const profile = profileResult.data
       if (profile) {
         const globalRank = await getUserGlobalRank(currentUserId, count, minutes)
@@ -73,14 +86,17 @@ export default async function RankingsPage() {
           rewatched_count: rewatched,
           total_views: views,
           movie_count: movieCount,
+          episode_count: episodeCount,
           // The standing card is all-time only; period figures come from the
           // watch_events log and are not fetched on this fallback path.
           month_count: 0,
           month_minutes: 0,
           month_movie_count: 0,
+          month_episode_count: 0,
           week_count: 0,
           week_minutes: 0,
           week_movie_count: 0,
+          week_episode_count: 0,
           detectiveRank: { title: detectiveRank.title, level: detectiveRank.level },
           rank: globalRank ?? 0,
         }

@@ -40,6 +40,7 @@ type DisplayRow = RankingRow & {
   stat_count: number
   stat_minutes: number
   stat_movies: number
+  stat_episodes: number
 }
 
 function project(row: RankingRow, timeframe: Timeframe): DisplayRow {
@@ -49,6 +50,7 @@ function project(row: RankingRow, timeframe: Timeframe): DisplayRow {
       stat_count: row.week_count,
       stat_minutes: row.week_minutes,
       stat_movies: row.week_movie_count,
+      stat_episodes: row.week_episode_count,
     }
   }
   if (timeframe === "month") {
@@ -57,6 +59,7 @@ function project(row: RankingRow, timeframe: Timeframe): DisplayRow {
       stat_count: row.month_count,
       stat_minutes: row.month_minutes,
       stat_movies: row.month_movie_count,
+      stat_episodes: row.month_episode_count,
     }
   }
   return {
@@ -64,13 +67,14 @@ function project(row: RankingRow, timeframe: Timeframe): DisplayRow {
     stat_count: row.watched_count,
     stat_minutes: row.total_minutes,
     stat_movies: row.movie_count,
+    stat_episodes: row.episode_count,
   }
 }
 
 function statFor(row: DisplayRow, category: Category): number {
   if (category === "hours") return row.stat_minutes
   if (category === "movies") return row.stat_movies
-  return row.stat_count
+  return row.stat_episodes
 }
 
 function RankBadge({ watchedCount }: { watchedCount: number }) {
@@ -129,7 +133,12 @@ function PodiumCard({
         label: row.stat_movies === 1 ? "movie solved" : "movies solved",
       }
     }
-    return { val: `${row.stat_count}`, label: "episodes" }
+    // Real count of type='episode' entries: OVAs, specials and films are not
+    // episodes and must not inflate this number.
+    return {
+      val: `${row.stat_episodes}`,
+      label: row.stat_episodes === 1 ? "episode" : "episodes",
+    }
   }, [category, row])
 
   return (
@@ -221,7 +230,13 @@ export function RankingsBoard({
   // selected category. The previous version multiplied all-time numbers by
   // invented fractions (0.28 / 0.08) — that block is gone.
   const processedRankings = useMemo(() => {
-    const list = rankings.map((row) => project(row, timeframe))
+    // Period tabs list only participants. The underlying row set is the union of
+    // all-time rows and window events — it has to be, so someone who watched and
+    // then reset a case to unwatched still counts — but that union would put every
+    // registered user on the Last 7 Days board with zeros.
+    const list = rankings
+      .map((row) => project(row, timeframe))
+      .filter((row) => timeframe === "all" || statFor(row, category) > 0)
 
     list.sort((a, b) => {
       if (category === "hours") {
@@ -230,20 +245,16 @@ export function RankingsBoard({
       if (category === "movies") {
         return b.stat_movies - a.stat_movies || b.stat_minutes - a.stat_minutes
       }
-      return b.stat_count - a.stat_count || b.stat_minutes - a.stat_minutes
+      return b.stat_episodes - a.stat_episodes || b.stat_minutes - a.stat_minutes
     })
 
     return list.map((r, idx) => ({ ...r, rank: idx + 1 }))
   }, [rankings, category, timeframe])
 
-  // A period with no logged activity must say so rather than show a board of
-  // zeros. watch_events only accrues from the migration onward.
-  const hasPeriodActivity = useMemo(
-    () =>
-      timeframe === "all" ||
-      processedRankings.some((r) => r.stat_count > 0 || r.stat_minutes > 0),
-    [timeframe, processedRankings]
-  )
+  // Period tabs list only participants, and a window with no logged activity
+  // must say so rather than show a board of zeros. watch_events only accrues from
+  // the migration onward.
+  const hasPeriodActivity = timeframe === "all" || processedRankings.length > 0
 
   // Filter by search query
   const filteredRankings = useMemo(() => {
@@ -273,7 +284,9 @@ export function RankingsBoard({
   const top3 = processedRankings.slice(0, 3)
   // Scale the bars to the leader in the CURRENT category and timeframe, not to
   // all-time episodes — otherwise every bar collapses to 4% on the Movies tab.
-  const topStat = Math.max(1, statFor(processedRankings[0], category) || 0)
+  // An empty period board is reachable (nobody watched that category in the
+  // window), so the leader may not exist.
+  const topStat = Math.max(1, (top3[0] && statFor(top3[0], category)) || 0)
   const podium = top3.length === 3 ? [top3[1], top3[0], top3[2]] : top3
 
   const scrollToYou = () => {
@@ -401,7 +414,8 @@ export function RankingsBoard({
             <div className="p-8 sm:p-12 text-center">
               <Clock className="mx-auto h-7 w-7 text-ink-faint" />
               <p className="mt-3 font-display text-sm font-semibold text-ink-dim">
-                No activity in the {timeframe === "week" ? "last 7 days" : "last 30 days"}
+                No {category === "hours" ? "watch time" : category} logged in the{" "}
+                {timeframe === "week" ? "last 7 days" : "last 30 days"}
               </p>
               <p className="mt-1 text-xs text-ink-faint">
                 Period rankings are built from watch activity as it happens. Mark something
@@ -473,7 +487,7 @@ export function RankingsBoard({
                       ? formatHours(row.stat_minutes)
                       : category === "movies"
                         ? row.stat_movies
-                        : row.stat_count}
+                        : row.stat_episodes}
                   </p>
                   <p className="font-mono text-[9px] sm:text-[10px] uppercase text-ink-faint">
                     {category === "hours" ? "time" : category === "movies" ? "movies" : "eps"}
