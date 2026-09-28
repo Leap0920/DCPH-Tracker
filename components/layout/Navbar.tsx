@@ -231,7 +231,7 @@ export function Navbar() {
         {/* Logo */}
         <Link href="/" className="flex items-center gap-2 group shrink-0">
           <Image
-            src="/img/logo_DCPH.png"
+            src="/tab-icon.png"
             alt="Detective Conan PH Logo"
             width={32}
             height={32}
