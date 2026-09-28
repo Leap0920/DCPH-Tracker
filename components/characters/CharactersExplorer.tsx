@@ -191,22 +191,25 @@ export default function CharactersExplorer({
   const topLeftControls = useMemo(
     () => (
       /* Graphics tier — always reachable, so a wrong first guess (or a device
-         that behaves unlike its specs) is never a dead end. */
+         that behaves unlike its specs) is never a dead end. Icon only: the tier
+         name lives in the tooltip and the dialog, and the label used to stretch
+         across the top of a phone screen. */
       <button
         type="button"
         onClick={() => setQualityOpen(true)}
         aria-label={`Graphics quality: ${quality ? TIER_COPY[quality].label : "detecting"}`}
+        title={quality ? `Graphics · ${TIER_COPY[quality].label}` : "Graphics quality"}
         className={cn(
-          "group flex w-full items-center gap-1.5 rounded-full border px-3.5 py-1.5 text-xs font-semibold shadow-lift transition-all",
+          "relative flex h-9 w-9 items-center justify-center rounded-full border shadow-lift transition-all",
           "border-line bg-surface text-ink hover:border-ink-faint/40 hover:bg-surface-muted",
         )}
       >
-        <Gauge className="h-3.5 w-3.5 shrink-0 text-accent-bright" />
-        <span className="min-w-0 flex-1 truncate text-left">
-          {quality ? `Graphics · ${TIER_COPY[quality].label}` : "Graphics"}
-        </span>
+        <Gauge className="h-4 w-4 text-accent-bright" />
         {qualityNotice && (
-          <span className="h-2 w-2 shrink-0 rounded-full bg-accent-bright" aria-hidden />
+          <span
+            className="absolute right-1 top-1 h-2 w-2 rounded-full bg-accent-bright"
+            aria-hidden
+          />
         )}
       </button>
     ),

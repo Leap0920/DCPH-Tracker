@@ -104,7 +104,7 @@ export function CharacterDetailPanel({
         animate={{ opacity: 1, y: 0, scale: 1 }}
         exit={{ opacity: 0, y: 40, scale: 0.985 }}
         transition={{ type: "spring", stiffness: 320, damping: 30 }}
-        className="dossier-card relative flex max-h-[48vh] w-full flex-col overflow-hidden rounded-t-2xl border-t border-line bg-surface p-0 shadow-card outline-none sm:max-h-[85vh] sm:rounded-2xl sm:border"
+        className="dossier-card relative flex max-h-[56vh] w-full flex-col overflow-hidden rounded-t-2xl border-t border-line bg-surface p-0 shadow-card outline-none sm:max-h-[85vh] sm:rounded-2xl sm:border"
       >
         {/* Accent hairline that sweeps in on open */}
         <span
@@ -112,8 +112,22 @@ export function CharacterDetailPanel({
           className="dcph-underline-sweep absolute left-0 right-0 top-0 z-30 h-[2px] bg-gradient-to-r from-accent via-accent-bright to-transparent"
         />
 
-        <div className="sticky top-0 z-20 flex shrink-0 items-start justify-between gap-3 border-b border-line bg-surface px-4 py-3 sm:p-5">
-          <div className="min-w-0 pr-4">
+        {/* Close stays pinned over the scrolling body: the header below it
+            scrolls away on purpose, and a sheet whose only exit scrolls out of
+            view is a trap on a phone. */}
+        <button
+          type="button"
+          onClick={handleClose}
+          aria-label="Close dossier"
+          className="absolute right-3 top-3 z-30 flex h-8 w-8 shrink-0 items-center justify-center rounded-lg border border-line bg-surface text-ink-dim shadow-sm transition-all hover:rotate-90 hover:border-accent/40 hover:bg-accent-soft hover:text-accent-bright sm:right-4 sm:top-4"
+        >
+          <X className="h-4 w-4" />
+        </button>
+
+        {/* One scroll surface: the role/name/aka block leaves with the rest of
+            the details instead of holding a strip at the top of the card. */}
+        <div className="flex-1 space-y-4 overflow-y-auto p-4 text-left sm:p-5">
+          <div className="border-b border-line pb-3 pr-12 sm:pb-4">
             <div className="flex flex-wrap items-center gap-1.5">
               <span className="rounded-md bg-accent/10 px-2 py-0.5 font-mono text-[10px] font-semibold uppercase tracking-wide text-accent-bright">
                 {character.role}
@@ -139,17 +153,6 @@ export function CharacterDetailPanel({
             )}
           </div>
 
-          <button
-            type="button"
-            onClick={handleClose}
-            aria-label="Close dossier"
-            className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg border border-line bg-surface text-ink-dim shadow-sm transition-all hover:rotate-90 hover:border-accent/40 hover:bg-accent-soft hover:text-accent-bright"
-          >
-            <X className="h-4 w-4" />
-          </button>
-        </div>
-
-        <div className="flex-1 space-y-4 overflow-y-auto p-4 text-left sm:p-5">
           {/* Character portrait — its path rides along with the lightweight
               character, so the fetch starts on the tap itself. */}
           {character.image && (

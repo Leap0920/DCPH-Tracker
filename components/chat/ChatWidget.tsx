@@ -16,6 +16,7 @@ import {
   Minimize2,
 } from "lucide-react"
 import Image from "next/image"
+import { usePathname } from "next/navigation"
 import { cn } from "@/lib/utils"
 import { ChatInput } from "@/components/chat/ChatInput"
 import { ChatMessage, type ChatMessageData } from "@/components/chat/ChatMessage"
@@ -84,6 +85,13 @@ export function ChatWidget() {
   const [error, setError] = React.useState<string | null>(null)
   const [user, setUser] = React.useState<SupabaseUser | null>(null)
   const [authLoading, setAuthLoading] = React.useState(true)
+
+  // The graph owns the whole viewport there and the launcher sat on top of the
+  // dossier sheet, so /characters gets no launcher. The widget stays mounted
+  // (see ChatWidgetLoader), which is what keeps a conversation alive across a
+  // trip through the graph and back.
+  const pathname = usePathname()
+  const hideLauncher = pathname?.startsWith("/characters") ?? false
 
   const scrollRef = React.useRef<HTMLDivElement>(null)
   const panelRef = React.useRef<HTMLDivElement>(null)
@@ -295,22 +303,24 @@ export function ChatWidget() {
   return (
     <>
       {/* Floating launcher */}
-      <button
-        type="button"
-        onClick={() => setOpen((prev) => !prev)}
-        aria-label={open ? "Close DCPH Bot" : "Open DCPH Bot"}
-        aria-expanded={open}
-        className={cn(
-          "fixed bottom-5 right-5 z-40 flex items-center justify-center rounded-full",
-          "bg-accent text-white shadow-lg shadow-black/50 ring-1 ring-white/10",
-          "transition-transform duration-200 hover:scale-105 hover:bg-accent-bright",
-          "focus:outline-none focus-visible:ring-2 focus-visible:ring-accent-bright focus-visible:ring-offset-2 focus-visible:ring-offset-black",
-          open && "scale-90 opacity-0 pointer-events-none"
-        )}
-        style={{ height: "3.25rem", width: "3.25rem" }}
-      >
-        <MessageSquare className="size-5" />
-      </button>
+      {!hideLauncher && (
+        <button
+          type="button"
+          onClick={() => setOpen((prev) => !prev)}
+          aria-label={open ? "Close DCPH Bot" : "Open DCPH Bot"}
+          aria-expanded={open}
+          className={cn(
+            "fixed bottom-5 right-5 z-40 flex items-center justify-center rounded-full",
+            "bg-accent text-white shadow-lg shadow-black/50 ring-1 ring-white/10",
+            "transition-transform duration-200 hover:scale-105 hover:bg-accent-bright",
+            "focus:outline-none focus-visible:ring-2 focus-visible:ring-accent-bright focus-visible:ring-offset-2 focus-visible:ring-offset-black",
+            open && "scale-90 opacity-0 pointer-events-none"
+          )}
+          style={{ height: "3.25rem", width: "3.25rem" }}
+        >
+          <MessageSquare className="size-5" />
+        </button>
+      )}
 
       {/* Full-screen backdrop. Rendered as a sibling so the panel below keeps its
           DOM identity across the size change — a wrapper would remount it and
