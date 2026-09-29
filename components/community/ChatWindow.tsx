@@ -9,7 +9,7 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { createClient } from "@/utils/supabase/client"
 import { openAuthModal } from "@/lib/auth-modal"
 import { avatarUrl } from "@/lib/constants"
-import { cn } from "@/lib/utils"
+import { cn, randomId } from "@/lib/utils"
 import { queryKeys } from "@/lib/queries/keys"
 import {
   fetchChatMessages,
@@ -369,7 +369,7 @@ export function ChatWindow({
     },
     onMutate: async ({ content }) => {
       await queryClient.cancelQueries({ queryKey: messagesKey })
-      const tempId = `temp-${crypto.randomUUID()}`
+      const tempId = `temp-${randomId()}`
       const optimistic: ChatMessage = {
         id: tempId,
         room_id: room.id,

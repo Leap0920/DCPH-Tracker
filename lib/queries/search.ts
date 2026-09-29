@@ -1,6 +1,7 @@
 import { createClient } from "@/utils/supabase/server"
 import type { Database } from "@/types/database.types"
 import { PUBLIC_PROFILE_COLUMNS } from "@/lib/queries/profile"
+import { ilikeOr } from "@/lib/postgrest-filter"
 
 type ContentType = Database["public"]["Tables"]["content_entries"]["Row"]["type"]
 
@@ -28,15 +29,6 @@ export interface SearchResults {
   profiles: SearchUser[]
 }
 
-/**
- * Escapes LIKE/ILKE metacharacters so a literal `%` or `_` in a search query
- * is treated as text instead of widening the match (ilike injection guard).
- * The backslash itself is escaped first so the pattern stays unambiguous.
- */
-function escapeLike(input: string): string {
-  return input.replace(/[\\%_]/g, "\\$&")
-}
-
 const SEARCH_LIMIT = 20
 
 /**
@@ -46,13 +38,19 @@ const SEARCH_LIMIT = 20
  * public_profiles security-definer view (safe columns only) and falls back to
  * the base table when the migration has not been applied yet — the same
  * view→table pattern as getRankings in lib/queries/leaderboard.ts.
+ *
+ * The pattern goes through ilikeOr() rather than string interpolation: a query
+ * containing a comma or a bracket ("The Movie (1997)") is a PostgREST parse
+ * error unquoted, and the search box would return nothing at all.
  */
 export async function searchAll(q: string): Promise<SearchResults> {
   const supabase = await createClient()
   const query = q.trim()
   if (!query) return { entries: [], arcs: [], profiles: [] }
 
-  const pattern = `%${escapeLike(query)}%`
+  const entryFilter = ilikeOr(query, ["title", "synopsis"])
+  const arcFilter = ilikeOr(query, ["title", "description"])
+  const profileFilter = ilikeOr(query, ["username", "display_name"])
 
   // The three searches share only the pattern — run them concurrently so a
   // keystroke costs one round-trip latency, not three.
@@ -60,19 +58,19 @@ export async function searchAll(q: string): Promise<SearchResults> {
     supabase
       .from("content_entries")
       .select("slug, title, type, image_url")
-      .or(`title.ilike.${pattern},synopsis.ilike.${pattern}`)
+      .or(entryFilter)
       .order("canon_order", { ascending: true })
       .limit(SEARCH_LIMIT),
     supabase
       .from("arcs")
       .select("slug, title")
-      .or(`title.ilike.${pattern},description.ilike.${pattern}`)
+      .or(arcFilter)
       .order("title", { ascending: true })
       .limit(SEARCH_LIMIT),
     supabase
       .from("public_profiles")
       .select(PUBLIC_PROFILE_COLUMNS)
-      .or(`username.ilike.${pattern},display_name.ilike.${pattern}`)
+      .or(profileFilter)
       .limit(SEARCH_LIMIT),
   ])
 
@@ -89,7 +87,7 @@ export async function searchAll(q: string): Promise<SearchResults> {
     const baseQuery = await supabase
       .from("profiles")
       .select(PUBLIC_PROFILE_COLUMNS)
-      .or(`username.ilike.${pattern},display_name.ilike.${pattern}`)
+      .or(profileFilter)
       .limit(SEARCH_LIMIT)
     if (baseQuery.error) throw baseQuery.error
     profiles = (baseQuery.data ?? []).map((p) => ({

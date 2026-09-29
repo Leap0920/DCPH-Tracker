@@ -18,7 +18,7 @@ import {
 import { createClient } from "@/utils/supabase/client"
 import { openAuthModal } from "@/lib/auth-modal"
 import { avatarUrl } from "@/lib/constants"
-import { cn } from "@/lib/utils"
+import { cn, randomId } from "@/lib/utils"
 import { queryKeys } from "@/lib/queries/keys"
 import { MAX_COMMENT_LENGTH } from "@/lib/comment-constants"
 import { redactForbiddenWords } from "@/lib/profanity"
@@ -148,7 +148,7 @@ export function CommentSection({ contentId }: { contentId: string }) {
     onMutate: async (body) => {
       await queryClient.cancelQueries({ queryKey: commentsKey })
       const prev = queryClient.getQueryData<EpisodeCommentsResult>(commentsKey)
-      const tempId = `temp-${crypto.randomUUID()}`
+      const tempId = `temp-${randomId()}`
       const temp: EpisodeCommentRow = {
         id: tempId,
         content_id: contentId,

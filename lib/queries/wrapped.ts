@@ -72,7 +72,7 @@ export async function getWrappedStats(userId: string): Promise<WrappedStats> {
 
   return {
     casesSolved,
-    totalRewatchViews: analytics.rewatchedCount,
+    totalRewatchViews: analytics.totalRewatchViews,
     totalViews: analytics.totalViews,
     totalMinutes: analytics.minutesWatched,
     timeFormatted: analytics.timeFormatted.formatted,

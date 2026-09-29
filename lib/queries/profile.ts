@@ -1,6 +1,7 @@
 import { createClient } from "@/utils/supabase/server"
 import { createAdminClient } from "@/utils/supabase/admin"
 import { getDefaultRuntime } from "@/lib/utils"
+import { MAINLINE_MOVIES } from "@/lib/movies-guide"
 import type { Database } from "@/types/database.types"
 
 type Profile = Database["public"]["Tables"]["profiles"]["Row"]
@@ -96,6 +97,9 @@ export async function getProfileStats(userId: string) {
       .from("watch_status")
       .select("status, watch_count, content_entries(runtime_minutes, type)")
       .eq("user_id", userId)
+      // Total order for the paging: without it a user past 1,000 watch rows can
+      // be shown a wrong case count and watch time.
+      .order("id")
       .range(from, from + PAGE_SIZE - 1)
 
     if (watchError) throw watchError
@@ -111,17 +115,23 @@ export async function getProfileStats(userId: string) {
   // Cases solved = unique entries seen at least once (matches analytics)
   const casesSolved = watched.length + rewatched.length
 
-  // Total rewatch views = sum of watch_count for rewatched items.
-  // e.g. ep1 rewatched 5x + ep23 rewatched 2x = 7 total rewatch views
-  const totalRewatchViews = rewatched.reduce((sum, ws) => sum + (ws.watch_count ?? 0), 0)
+  // Times the user hit rewatch = passes beyond the first. Same reading as
+  // /analytics, where views - cases solved = rewatches.
+  const totalRewatchViews = seen.reduce(
+    (sum, ws) => sum + Math.max((ws.watch_count ?? 0) - 1, 0),
+    0
+  )
 
   // Total minutes with runtime fallback (matches analytics)
   let totalMinutes = 0
   for (const ws of seen) {
     const entry = Array.isArray(ws.content_entries) ? ws.content_entries[0] : ws.content_entries
     const minutes = entry?.runtime_minutes ?? getDefaultRuntime(entry?.type ?? "")
-    const views = ws.watch_count ?? 0
-    if (views > 0) totalMinutes += minutes * views
+    // A seen row is at least one view: a missing or zero watch_count must not
+    // erase minutes the row itself proves were spent. Same floor in analytics
+    // and in the tracker's "spent" figure.
+    const views = Math.max(ws.watch_count ?? 0, 1)
+    totalMinutes += minutes * views
   }
 
   // Format time as "Xd Yh Zm"
@@ -134,10 +144,15 @@ export async function getProfileStats(userId: string) {
       ? `${hours}h ${mins}m`
       : `${mins}m`
 
-  // Total catalog count
-  const { count: totalCatalogCount } = await supabase
+  // Total catalog count, on the same footing as analytics and the tracker: every
+  // non-film row plus the canonical 29 films. Counting raw rows said 1,371 here
+  // while the tracker said 1,366 — the five extra rows are the crossover films,
+  // the manner short and the Haibara compilation, which are not mainline films.
+  const { count: nonMovieRows } = await supabase
     .from("content_entries")
     .select("*", { count: "exact", head: true })
+    .neq("type", "movie")
+  const totalCatalogCount = (nonMovieRows ?? 0) + MAINLINE_MOVIES.length
 
   // Badge count
   const { count: badgeCount, error: badgeError } = await supabase

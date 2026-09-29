@@ -16,6 +16,16 @@ export interface SlideData {
 
 const defaultSlides: SlideData[] = [
   {
+    title: 'Movie 29: Fallen Angel of the Highway',
+    subtitle: '2026 Cinema Block Screening • Same Day Edit',
+    description:
+      'Relive the unforgettable moments from the DCPH Block Screening 2026, featuring Detective Conan: Fallen Angel of the Highway. From the excitement and anticipation to the fun, laughter, friendships, and unforgettable memories shared by Conan fans from different parts of the country—this day was truly one to remember. Press play, relive the memories, and experience the DCPH Block Screening 2026 all over again! Case closed, but the memories remain. 🔍',
+    accent: '#C8102E',
+    videoUrl: '/videos/BS2026.mp4',
+    imageUrl: '/Bs2026.jpg',
+    location: 'SM North EDSA',
+  },
+  {
     title: 'Movie 28: One-eyed Flashback',
     subtitle: '2025 Cinema Block Screening',
     description:
@@ -430,8 +440,12 @@ export default function ElegantCarousel({ customSlides }: { customSlides?: Slide
         </div>
       </div>
 
-      {/* Bottom Slide Navigation Tabs */}
-      <div className="relative z-10 grid grid-cols-3 gap-1.5 sm:gap-3 border-t border-line bg-surface-muted p-2.5 sm:p-4">
+      {/* Bottom Slide Navigation Tabs — one column per slide, so the row stays
+          a single strip as screenings are added. */}
+      <div
+        className="relative z-10 grid gap-1.5 sm:gap-3 border-t border-line bg-surface-muted p-2.5 sm:p-4"
+        style={{ gridTemplateColumns: `repeat(${slides.length}, minmax(0, 1fr))` }}
+      >
         {slides.map((slide, index) => (
           <button
             key={index}

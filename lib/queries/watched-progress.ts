@@ -50,6 +50,7 @@ export async function getWatchedProgress(): Promise<WatchedProgressPayload> {
       )
       .eq("user_id", user.id)
       .in("status", ["watched", "rewatched"])
+      .order("id")
       .range(from, to)
 
     if (error) {

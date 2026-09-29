@@ -2,7 +2,6 @@ import { NextRequest, NextResponse } from "next/server"
 import { createClient } from "@/utils/supabase/server"
 import { createAdminClient } from "@/utils/supabase/admin"
 import { handleApiError } from "@/lib/api-utils"
-import { cronSecret, headerMatchesSecret } from "@/lib/cron-auth"
 import {
   getAllEpisodes,
   getAnimeFull,
@@ -13,35 +12,75 @@ import {
   DETECTIVE_CONAN_KITSU_ID,
 } from "@/lib/kitsu"
 import { getNextAiringEpisode } from "@/lib/anilist"
+import {
+  fetchDcwMovieItems,
+  fetchDcwOvaItems,
+  fetchDcwSeasonItems,
+  fetchDcwSpecialItems,
+  filterDcwItemsByYear,
+} from "@/lib/dcw-content"
 import { pickImageUrl, resolveDcwImagesBatch } from "@/lib/dcw-images"
 import type { Database } from "@/types/database.types"
-import { authRateLimitKey } from "@/lib/rate-limit"
+import { rateLimit, authRateLimitKey } from "@/lib/rate-limit"
 import { rateLimitPersistent } from "@/lib/rate-limit-db"
 import { isSameOrigin } from "@/lib/origin-check"
+import { secretMatches } from "@/lib/secret-compare"
 import { defaultRuntimeMinutes, isPlausibleRuntime } from "@/lib/runtime-defaults"
 
 export const maxDuration = 60
 
 type ContentInsert = Database["public"]["Tables"]["content_entries"]["Insert"]
 
-/**
- * The accepted `mode` values. `all` and `seed` both run the full pull — the
- * route has always treated them as one path — and `airing` is the AniList-driven
- * incremental one. This is the vocabulary the POST docblock documents.
- */
-const SYNC_MODES = ["all", "seed", "airing"] as const
-type SyncMode = (typeof SYNC_MODES)[number]
-
 /** Either the cookie-bound server client or the service-role admin client. */
 type SyncClient = Awaited<ReturnType<typeof createClient>>
 
+/**
+ * Constant-time comparison of `Authorization: Bearer <secret>` against the
+ * configured CRON_SECRET. Never accepts the secret via query string — that
+ * would leak it into Vercel/access logs.
+ */
+function headerMatchesSecret(
+  authorization: string | null,
+  secret: string | undefined
+): boolean {
+  if (!secret) return false
+  return secretMatches(authorization, `Bearer ${secret}`)
+}
+
 interface SyncResult {
-  type: "episodes" | "franchise" | "airing"
+  type: "episodes" | "franchise" | "airing" | "dcw"
   totalFetched: number
   inserted: number
   skipped: number
   errors: string[]
   note?: string
+}
+
+/**
+ * Run one sync source in isolation. A source that throws becomes a result
+ * carrying the failure, so the remaining sources still run and the admin panel
+ * can name the upstream that broke — previously a single failing source
+ * aborted the whole request before the healthy ones ran, and every failure
+ * surfaced as a bare "Internal server error".
+ */
+async function runSource(
+  type: SyncResult["type"],
+  run: () => Promise<SyncResult>
+): Promise<SyncResult> {
+  try {
+    return await run()
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error)
+    console.error("[sync] source failed", { source: type, message })
+    return {
+      type,
+      totalFetched: 0,
+      inserted: 0,
+      skipped: 0,
+      errors: [message],
+      note: `failed: ${message}`,
+    }
+  }
 }
 
 /**
@@ -56,13 +95,21 @@ interface SyncResult {
  * Query params:
  *   - dry_run=true            → fetch data but don't write to DB
  *   - limit=N                 → only sync first N items (testing)
- *   - mode=seed|airing|all    → seed = full pull; airing = AniList-triggered
+ *   - mode=seed|airing|dcw|latest → seed = full pull (episodes + franchise +
+ *                               current-year wiki content); latest = the fast
+ *                               pair the admin panel runs (airing + wiki);
+ *                               airing = AniList-triggered episode pull;
+ *                               dcw = wiki content for the current year only
  *
  * Cron: set CRON_SECRET and call with `Authorization: Bearer <CRON_SECRET>`
  * (Vercel Cron injects this header automatically when CRON_SECRET is set).
  * The secret is NEVER accepted via query string — that leaks into logs.
  */
 export async function POST(request: NextRequest) {
+  return runSync(request)
+}
+
+async function runSync(request: NextRequest) {
   const searchParams = request.nextUrl.searchParams
   const dryRun = searchParams.get("dry_run") === "true"
   const limitParam = searchParams.get("limit")
@@ -86,7 +133,8 @@ export async function POST(request: NextRequest) {
     const supabase = await createClient()
 
     // 0. Authorize: cron secret (header-only, timing-safe) OR admin user session.
-    const isCron = headerMatchesSecret(request.headers.get("authorization"), cronSecret())
+    const cronSecret = process.env.CRON_SECRET
+    const isCron = headerMatchesSecret(request.headers.get("authorization"), cronSecret)
 
     if (!isCron) {
       const { data: { user } } = await supabase.auth.getUser()
@@ -118,32 +166,38 @@ export async function POST(request: NextRequest) {
       writeClient = admin as unknown as SyncClient
     }
 
-    // A typo in `mode` must not silently run the expensive seed: everything
-    // unrecognized used to fall through to the two full paginated pulls, so a
-    // mistyped cron path or a stray curl cost a wasted invocation rather than
-    // an error. Validated after the guards, so an unauthenticated caller still
-    // gets its 401 rather than learning the vocabulary.
-    if (!SYNC_MODES.includes(mode as SyncMode)) {
-      return NextResponse.json(
-        { error: `Unknown mode. Expected one of: ${SYNC_MODES.join(", ")}.` },
-        { status: 400 }
-      )
-    }
-
     // ── Airing mode: AniList detects new episode → Jikan pulls its detail ──
     if (mode === "airing") {
-      const result = await syncAiring(writeClient, dryRun)
+      const result = await runSource("airing", () => syncAiring(writeClient, dryRun))
       return NextResponse.json({ mode: "airing", results: [result] })
     }
 
-    // ── Seed mode (default): episodes (Jikan) + franchise (Kitsu) ──
-    const episodeResult = await syncSeedEpisodes(writeClient, limit, dryRun)
-    const franchiseResult = await syncSeedFranchise(writeClient, limit, dryRun)
+    // ── Latest mode: what the admin panel runs — AniList airing check plus
+    //    the wiki's current-year content (episodes, movies, specials, OVAs) ──
+    if (mode === "latest") {
+      const results = [
+        await runSource("airing", () => syncAiring(writeClient, dryRun)),
+        await runSource("dcw", () => syncDcwContent(writeClient, dryRun)),
+      ]
+      return NextResponse.json({ mode: "latest", results })
+    }
 
-    return NextResponse.json({
-      mode: "seed",
-      results: [episodeResult, franchiseResult],
-    })
+    // ── DCW mode: wiki content for the current year only ──
+    if (mode === "dcw") {
+      const result = await runSource("dcw", () => syncDcwContent(writeClient, dryRun))
+      return NextResponse.json({ mode: "dcw", results: [result] })
+    }
+
+    // ── Seed mode (default): episodes (Jikan) + franchise (Kitsu) + wiki ──
+    // Sequential so the sources don't fight over the same upstream rate limits,
+    // but isolated: an upstream outage in one no longer aborts the others.
+    const results = [
+      await runSource("episodes", () => syncSeedEpisodes(writeClient, limit, dryRun)),
+      await runSource("franchise", () => syncSeedFranchise(writeClient, limit, dryRun)),
+      await runSource("dcw", () => syncDcwContent(writeClient, dryRun)),
+    ]
+
+    return NextResponse.json({ mode: "seed", results })
   } catch (error) {
     return handleApiError(error, "sync")
   }
@@ -161,7 +215,7 @@ function kitsuContentSlug(type: "movie" | "special" | "ova", idx: number): strin
 async function stageBatch(
   supabase: SyncClient,
   rows: ContentInsert[],
-  source: "jikan" | "kitsu" | "anilist"
+  source: "jikan" | "kitsu" | "anilist" | "dcw"
 ): Promise<{ totalFetched: number; inserted: number; skipped: number; errors: string[] }> {
   let staged = 0
   let skipped = 0
@@ -180,6 +234,7 @@ async function stageBatch(
     const { data: chunk } = await supabase
       .from("content_entries")
       .select("slug, type, episode_number, movie_number")
+      .order("slug")
       .range(from, from + PAGE_SIZE - 1)
     if (!chunk || chunk.length === 0) break
     for (const c of chunk) {
@@ -196,6 +251,7 @@ async function stageBatch(
       const { data: chunk } = await supabase
         .from("sync_staging")
         .select("slug")
+        .order("slug")
         .range(from, from + PAGE_SIZE - 1)
       if (!chunk || chunk.length === 0) break
       for (const s of chunk) {
@@ -258,7 +314,84 @@ async function stageBatch(
   return { totalFetched: rows.length, inserted: staged, skipped, errors }
 }
 
-type SyncRow = ContentInsert & { dcw_title?: string | null; image_source?: string | null };
+type SyncRow = ContentInsert & { dcw_title?: string | null; image_source?: string | null }
+
+/**
+ * Slugs already queued for review. A pending row owns its slug just as much as a
+ * published one: two sources in the same run both start allocating at `-01`, so
+ * without this the second item to claim a number is dropped by stageBatch's
+ * dedup and silently never reaches the review queue.
+ */
+async function readStagingSlugs(supabase: SyncClient): Promise<Set<string>> {
+  const slugs = new Set<string>()
+  const PAGE_SIZE = 1000
+  try {
+    for (let from = 0; ; from += PAGE_SIZE) {
+      const { data: chunk } = await supabase
+        .from("sync_staging")
+        .select("slug")
+        .order("slug")
+        .range(from, from + PAGE_SIZE - 1)
+      if (!chunk || chunk.length === 0) break
+      for (const row of chunk) {
+        if (row.slug) slugs.add(row.slug)
+      }
+      if (chunk.length < PAGE_SIZE) break
+    }
+  } catch {
+    // Table not migrated yet — nothing to avoid.
+  }
+  return slugs
+}
+
+/**
+ * What the catalog already knows about episode numbering.
+ *
+ * `canon_order` is deliberately not the episode number: films and TV specials are
+ * interleaved into the run, so the tail carries an offset (episode 1209 sits at
+ * 1321). A new episode numbered with its own episode number would sort *before*
+ * the episodes preceding it in every story-order view, so new rows continue the
+ * offset the catalog is already using.
+ */
+async function readEpisodeNumbering(supabase: SyncClient): Promise<{
+  slugs: Set<string>
+  numbers: Set<number>
+  maxEpisodeNumber: number
+  maxCanonOrder: number
+}> {
+  const slugs = new Set<string>()
+  const numbers = new Set<number>()
+  let maxEpisodeNumber = 0
+  let maxCanonOrder = 0
+  const PAGE_SIZE = 1000
+  for (let from = 0; ; from += PAGE_SIZE) {
+    const { data: chunk, error } = await supabase
+      .from("content_entries")
+      .select("slug, episode_number, canon_order")
+      .eq("type", "episode")
+      .order("slug")
+      .range(from, from + PAGE_SIZE - 1)
+    if (error) throw error
+    if (!chunk || chunk.length === 0) break
+    for (const row of chunk) {
+      if (row.slug) slugs.add(row.slug)
+      if (row.episode_number != null) {
+        numbers.add(row.episode_number)
+        if (row.episode_number > maxEpisodeNumber) maxEpisodeNumber = row.episode_number
+      }
+      if (row.canon_order != null && row.canon_order > maxCanonOrder) {
+        maxCanonOrder = row.canon_order
+      }
+    }
+    if (chunk.length < PAGE_SIZE) break
+  }
+  return { slugs, numbers, maxEpisodeNumber, maxCanonOrder }
+}
+
+/** Story-order offset new episodes must continue (see readEpisodeNumbering). */
+function episodeCanonOffset(maxCanonOrder: number, maxEpisodeNumber: number): number {
+  return Math.max(0, maxCanonOrder - maxEpisodeNumber)
+}
 
 async function enrichRowsWithDcwImages<T extends SyncRow>(rows: T[]): Promise<T[]> {
   if (!rows.length) return rows;
@@ -304,10 +437,18 @@ async function syncSeedEpisodes(
   let episodes = await getAllEpisodes(DETECTIVE_CONAN_MAL_ID)
   if (limit) episodes = episodes.slice(0, limit)
 
-  const rows: ContentInsert[] = episodes.map((ep) => {
-    const airDate = ep.aired
-      ? new Date(ep.aired).toISOString().split("T")[0]
-      : "1996-01-08"
+  // An episode with no air date is left out rather than dated with the series
+  // premiere: a fabricated 1996-01-08 files an unaired episode under 1996 in the
+  // year view and invents history the source does not claim.
+  const dated = episodes.filter((ep) => ep.aired)
+
+  const numbering = dryRun ? null : await readEpisodeNumbering(supabase)
+  const canonOffset = numbering
+    ? episodeCanonOffset(numbering.maxCanonOrder, numbering.maxEpisodeNumber)
+    : 0
+
+  const rows: ContentInsert[] = dated.map((ep) => {
+    const airDate = new Date(ep.aired as string).toISOString().split("T")[0]
     return {
       slug: `ep-${String(ep.mal_id).padStart(3, "0")}`,
       title: ep.title,
@@ -315,7 +456,7 @@ async function syncSeedEpisodes(
       episode_number: ep.mal_id,
       movie_number: null,
       air_date: airDate,
-      canon_order: ep.mal_id,
+      canon_order: ep.mal_id + canonOffset,
       arc_id: null,
       synopsis: null,
       image_url: seriesImageUrl,
@@ -335,15 +476,37 @@ async function syncSeedEpisodes(
     }
   }
 
-  const enriched = await enrichRowsWithDcwImages(rows as SyncRow[]);
+  // Drop rows the catalog already has before enrichment: a re-seed otherwise
+  // re-resolves wiki images for ~1,200 unchanged episodes, which can push the
+  // run past the 60s budget to stage rows stageBatch would discard anyway. Rows
+  // already waiting for review count as present — slug and episode number share
+  // the same `ep-NNN` numbering, so the slug set covers both.
+  const stagingSlugs = await readStagingSlugs(supabase)
+  const pending = rows.filter(
+    (row) =>
+      !numbering!.numbers.has(row.episode_number as number) &&
+      !numbering!.slugs.has(row.slug) &&
+      !stagingSlugs.has(row.slug)
+  )
+  const alreadyPresent = rows.length - pending.length
+
+  const enriched = await enrichRowsWithDcwImages(pending as SyncRow[]);
   const { inserted, skipped, errors } = await stageBatch(supabase, enriched as ContentInsert[], "jikan")
+  const undatedNote =
+    episodes.length > dated.length
+      ? ` ${episodes.length - dated.length} episode(s) skipped for having no air date.`
+      : ""
+  const failedNote = errors.length > 0 ? ` ${errors.length} staging error(s): ${errors.join(" | ")}` : ""
   return {
     type: "episodes",
     totalFetched: rows.length,
     inserted,
-    skipped,
+    skipped: skipped + alreadyPresent,
     errors,
-    note: inserted > 0 ? `${inserted} new episodes queued for Admin Approval in /admin/sync` : "All episodes already up to date.",
+    note:
+      inserted > 0
+        ? `${inserted} new episodes queued for Admin Approval in /admin/sync.${undatedNote}${failedNote}`
+        : `All episodes already up to date.${undatedNote}${failedNote}`,
   }
 }
 
@@ -365,6 +528,7 @@ async function syncSeedFranchise(
 ): Promise<SyncResult> {
   const franchise = await kitsuGetFranchise()
   const rows: ContentInsert[] = []
+  let undatedCount = 0
 
   const groups: { subtype: string; ctype: "movie" | "special" | "ova"; base: number }[] = [
     { subtype: "movie", ctype: "movie", base: 1000 },
@@ -393,6 +557,7 @@ async function syncSeedFranchise(
         .from("content_entries")
         .select("slug, title, type, movie_number, canon_order")
         .in("type", ["movie", "special", "ova"])
+        .order("slug")
         .range(from, from + PAGE_SIZE - 1)
       if (!chunk || chunk.length === 0) break
       existing.push(...(chunk as typeof existing))
@@ -409,6 +574,10 @@ async function syncSeedFranchise(
     usedSlugs.add(row.slug)
     movieNumberBySlug.set(row.slug, row.movie_number ?? null)
     canonOrderBySlug.set(row.slug, row.canon_order ?? null)
+  }
+  if (!dryRun) {
+    // A row still awaiting review in the DCW path already owns its slug.
+    for (const slug of await readStagingSlugs(supabase)) usedSlugs.add(slug)
   }
 
   for (const g of groups) {
@@ -458,10 +627,24 @@ async function syncSeedFranchise(
       const titleKey = normalizeTitleForDedup(title)
       const reusedSlug = slugByKey.get(`${g.ctype}|${titleKey}`)
 
+      // content_entries.air_date is NOT NULL and a fabricated 2000-01-01 would
+      // file the entry under year 2000. Kitsu dates the films and specials it
+      // lists, so an undated entry is an upstream gap we report, not one we paper
+      // over with a date the source never claimed.
+      const startDate = a.attributes.startDate
+      if (!startDate) {
+        undatedCount++
+        return
+      }
+
       const slug = reusedSlug ?? allocateSlug()
       const slugNum = Number(slug.split("-")[1]) || 1
+      // A newly allocated film takes its number from the slug it just got, and a
+      // known film whose number was never stored is repaired on the next seed:
+      // movie_number is the key the DCW path dedups films on, so leaving it null
+      // makes the next wiki run stage the same film a second time.
       const movie_number =
-        g.ctype === "movie" ? movieNumberBySlug.get(slug) ?? null : null
+        g.ctype === "movie" ? movieNumberBySlug.get(slug) ?? slugNum : null
       const canon_order = canonOrderBySlug.get(slug) ?? g.base + slugNum
 
       rows.push({
@@ -470,7 +653,7 @@ async function syncSeedFranchise(
         type: g.ctype,
         episode_number: null,
         movie_number,
-        air_date: a.attributes.startDate ?? "2000-01-01",
+        air_date: startDate,
         canon_order,
         arc_id: null,
         synopsis: a.attributes.synopsis ?? null,
@@ -495,13 +678,19 @@ async function syncSeedFranchise(
 
   const enrichedFranchise = await enrichRowsWithDcwImages(rows as SyncRow[]);
   const { inserted, skipped, errors } = await stageBatch(supabase, enrichedFranchise as ContentInsert[], "kitsu")
+  const failedNote = errors.length > 0 ? ` ${errors.length} staging error(s): ${errors.join(" | ")}` : ""
+  const undatedNote =
+    undatedCount > 0 ? ` ${undatedCount} entr${undatedCount === 1 ? "y" : "ies"} skipped for having no start date.` : ""
   return {
     type: "franchise",
     totalFetched: rows.length,
     inserted,
     skipped,
     errors,
-    note: inserted > 0 ? `${inserted} new franchise items queued for Admin Approval in /admin/sync` : "All franchise items already up to date.",
+    note:
+      inserted > 0
+        ? `${inserted} new franchise items queued for Admin Approval in /admin/sync.${undatedNote}${failedNote}`
+        : `All franchise items already up to date.${undatedNote}${failedNote}`,
   }
 }
 
@@ -511,25 +700,10 @@ async function syncAiring(
   supabase: SyncClient,
   dryRun: boolean
 ): Promise<SyncResult> {
-  // Current max episode we have. PostgREST caps each request at 1,000 rows,
-  // so paginate to avoid a truncated dbMax once DC has 1,000+ episodes.
-  const PAGE_SIZE = 1000
-  const nums: number[] = []
-  for (let from = 0; ; from += PAGE_SIZE) {
-    const { data: chunk, error: chunkErr } = await supabase
-      .from("content_entries")
-      .select("episode_number")
-      .eq("type", "episode")
-      .range(from, from + PAGE_SIZE - 1)
-    if (chunkErr) throw chunkErr
-    if (!chunk || chunk.length === 0) break
-    for (const d of chunk) {
-      if (typeof d.episode_number === "number") nums.push(d.episode_number)
-    }
-    if (chunk.length < PAGE_SIZE) break
-  }
-  let dbMax = 0
-  for (const n of nums) if (n > dbMax) dbMax = n
+  // Current max episode we have (and the story-order offset the run uses).
+  const numbering = await readEpisodeNumbering(supabase)
+  const dbMax = numbering.maxEpisodeNumber
+  const canonOffset = episodeCanonOffset(numbering.maxCanonOrder, dbMax)
 
   // AniList: next scheduled episode; everything before it has aired.
   let latestAired = Number.MAX_SAFE_INTEGER
@@ -559,7 +733,9 @@ async function syncAiring(
 
   // Pull the most recent Jikan episodes (new ones live at the tail).
   const all = await getAllEpisodes(DETECTIVE_CONAN_MAL_ID)
-  const newEps = all.filter((ep) => ep.mal_id > dbMax).slice(0, 10)
+  const newEps = all
+    .filter((ep) => ep.mal_id > dbMax && ep.aired)
+    .slice(0, 10)
 
   const animeFull = await getAnimeFull(DETECTIVE_CONAN_MAL_ID)
   const seriesImageUrl =
@@ -568,9 +744,7 @@ async function syncAiring(
     ""
 
   const rows: ContentInsert[] = newEps.map((ep) => {
-    const airDate = ep.aired
-      ? new Date(ep.aired).toISOString().split("T")[0]
-      : "1996-01-08"
+    const airDate = new Date(ep.aired as string).toISOString().split("T")[0]
     return {
       slug: `ep-${String(ep.mal_id).padStart(3, "0")}`,
       title: ep.title,
@@ -578,7 +752,7 @@ async function syncAiring(
       episode_number: ep.mal_id,
       movie_number: null,
       air_date: airDate,
-      canon_order: ep.mal_id,
+      canon_order: ep.mal_id + canonOffset,
       arc_id: null,
       synopsis: null,
       image_url: seriesImageUrl,
@@ -600,33 +774,315 @@ async function syncAiring(
 
   const enrichedAiring = await enrichRowsWithDcwImages(rows as SyncRow[]);
   const { inserted, skipped, errors } = await stageBatch(supabase, enrichedAiring as ContentInsert[], "anilist")
+  const failedNote = errors.length > 0 ? ` ${errors.length} staging error(s): ${errors.join(" | ")}` : ""
   return {
     type: "airing",
     totalFetched: rows.length,
     inserted,
     skipped,
     errors,
-    note: inserted > 0 ? `${anilistNote} ${inserted} new airing episode(s) queued for Admin Approval in /admin/sync.` : `${anilistNote} No new airing episodes to queue.`,
+    note:
+      inserted > 0
+        ? `${anilistNote} ${inserted} new airing episode(s) queued for Admin Approval in /admin/sync.${failedNote}`
+        : `${anilistNote} No new airing episodes to queue.${failedNote}`,
+  }
+}
+
+// ─── DCW mode: wiki-listed content for the current year ─────────
+
+/** Fetch one wiki list, recording a failure instead of losing the other lists. */
+async function pullDcwList<T>(
+  label: string,
+  fetchList: () => Promise<T[]>,
+  errors: string[]
+): Promise<T[]> {
+  try {
+    return await fetchList()
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error)
+    console.error("[sync] DCW list failed", { list: label, message })
+    errors.push(`${label}: ${message}`)
+    return []
+  }
+}
+
+function countLabel(count: number, noun: string): string {
+  return `${count} ${noun}${count === 1 ? "" : "s"}`
+}
+
+/**
+ * Narrows a list to the items that carry an air date. The year filter already
+ * guarantees one; this keeps that promise in the type so no caller has to invent
+ * a placeholder date to satisfy it.
+ */
+function requireAirDate<T extends { airDate: string | null }>(
+  items: T[]
+): (T & { airDate: string })[] {
+  return items.filter((item): item is T & { airDate: string } => item.airDate !== null)
+}
+
+/**
+ * Stage everything the wiki lists for the current year that the tracker is
+ * missing: episodes, movies, TV specials and OVAs.
+ *
+ * The wiki is the fastest source for this franchise — it dates an episode the
+ * day it airs, and it carried the 9th TV special while AniList, Jikan and Kitsu
+ * still ended at the 8th. Only the current year is pulled: older content is the
+ * API sources' job, and re-staging it would only add rows to review.
+ */
+async function syncDcwContent(
+  supabase: SyncClient,
+  dryRun: boolean
+): Promise<SyncResult> {
+  const year = new Date().getFullYear()
+  const errors: string[] = []
+
+  // Sequential: the wiki is a public service we keep to a handful of requests
+  // per run, and lib/dcw.ts spaces those requests out.
+  const specials = await pullDcwList("TV specials", fetchDcwSpecialItems, errors)
+  const movies = await pullDcwList("Movies", fetchDcwMovieItems, errors)
+  const ovas = await pullDcwList("OVAs", fetchDcwOvaItems, errors)
+  const episodes = await pullDcwList("Episodes", fetchDcwSeasonItems, errors)
+
+  const yearEpisodes = filterDcwItemsByYear(episodes, year)
+  // Rebroadcasts are dated by their rebroadcast, so a current-year remaster of a
+  // 2010 episode must never be staged as a new episode.
+  const newEpisodes = requireAirDate(yearEpisodes.filter((episode) => !episode.remastered))
+  const yearSpecials = requireAirDate(filterDcwItemsByYear(specials, year))
+  const yearMovies = requireAirDate(filterDcwItemsByYear(movies, year))
+  const yearOvas = requireAirDate(filterDcwItemsByYear(ovas, year))
+
+  const listed =
+    newEpisodes.length + yearSpecials.length + yearMovies.length + yearOvas.length
+  const breakdown = [
+    countLabel(newEpisodes.length, "episode"),
+    countLabel(yearMovies.length, "movie"),
+    countLabel(yearSpecials.length, "special"),
+    countLabel(yearOvas.length, "OVA"),
+  ].join(", ")
+  const remasters = yearEpisodes.length - newEpisodes.length
+  const remasterNote =
+    remasters > 0 ? ` (${countLabel(remasters, "rebroadcast")} skipped)` : ""
+
+  const knownSlugs = new Set<string>()
+  const knownTitles = new Set<string>() // `${type}|${normalized title}`
+  const knownDates = new Set<string>() // `${type}|${ISO date}`
+  const knownEpisodeNumbers = new Set<number>()
+  const knownMovieNumbers = new Set<number>()
+  let maxEpisodeCanonOrder = 0
+
+  if (!dryRun) {
+    // PostgREST caps each request at 1,000 rows, so paginate to avoid a
+    // truncated dedup set once the DB has 1,000+ episodes.
+    const PAGE_SIZE = 1000
+    for (let from = 0; ; from += PAGE_SIZE) {
+      const { data: chunk } = await supabase
+        .from("content_entries")
+        .select("slug, title, type, episode_number, movie_number, air_date, canon_order")
+        .in("type", ["episode", "movie", "special", "ova"])
+        .order("slug")
+        .range(from, from + PAGE_SIZE - 1)
+      if (!chunk || chunk.length === 0) break
+      for (const row of chunk) {
+        if (row.slug) knownSlugs.add(row.slug)
+        if (row.title) knownTitles.add(`${row.type}|${normalizeTitleForDedup(row.title)}`)
+        if (row.air_date) knownDates.add(`${row.type}|${row.air_date}`)
+        if (row.type === "episode") {
+          if (row.episode_number != null) {
+            knownEpisodeNumbers.add(row.episode_number)
+          }
+          if (row.canon_order != null && row.canon_order > maxEpisodeCanonOrder) {
+            maxEpisodeCanonOrder = row.canon_order
+          }
+        }
+        if (row.type === "movie" && row.movie_number != null) {
+          knownMovieNumbers.add(row.movie_number)
+        }
+      }
+      if (chunk.length < PAGE_SIZE) break
+    }
+    // Rows already waiting in the review queue own their slugs too, otherwise
+    // this run allocates a slug a pending row already claimed and stageBatch
+    // silently drops the new one.
+    for (const slug of await readStagingSlugs(supabase)) knownSlugs.add(slug)
+  }
+
+  const maxKnownEpisode = knownEpisodeNumbers.size
+    ? Math.max(...knownEpisodeNumbers)
+    : 0
+  const canonOffset = episodeCanonOffset(maxEpisodeCanonOrder, maxKnownEpisode)
+
+  // Same slug conventions as the franchise seeder, lowest free number per type,
+  // so a wiki-first row keeps its slug when Kitsu eventually adds the same entry.
+  const nextFree = { movie: 1, special: 1, ova: 1 }
+  const allocateSlug = (type: "movie" | "special" | "ova"): string => {
+    let candidate = kitsuContentSlug(type, nextFree[type])
+    while (knownSlugs.has(candidate)) {
+      nextFree[type] += 1
+      candidate = kitsuContentSlug(type, nextFree[type])
+    }
+    nextFree[type] += 1
+    knownSlugs.add(candidate)
+    return candidate
+  }
+
+  const rows: ContentInsert[] = []
+
+  // Episodes are keyed by number, which is what Jikan seeds on too — a truncated
+  // or 504-ing Jikan pull is exactly the gap this source exists to fill.
+  for (const episode of newEpisodes) {
+    if (knownEpisodeNumbers.has(episode.number)) continue
+    const slug = `ep-${String(episode.number).padStart(3, "0")}`
+    if (knownSlugs.has(slug)) continue
+    knownEpisodeNumbers.add(episode.number)
+    knownSlugs.add(slug)
+    rows.push({
+      slug,
+      title: episode.title,
+      type: "episode",
+      episode_number: episode.number,
+      movie_number: null,
+      air_date: episode.airDate,
+      canon_order: episode.number + canonOffset,
+      arc_id: null,
+      synopsis: null,
+      image_url: "",
+      runtime_minutes: defaultRuntimeMinutes("episode"),
+    })
+  }
+
+  // Movies dedup on their number: the wiki's English title rarely matches the
+  // API title for the same film, but the number is stable.
+  for (const movie of yearMovies) {
+    const titleKey = `movie|${normalizeTitleForDedup(movie.title)}`
+    if (knownMovieNumbers.has(movie.number) || knownTitles.has(titleKey)) continue
+    const slug = allocateSlug("movie")
+    const slugNum = Number(slug.split("-")[1]) || 1
+    knownMovieNumbers.add(movie.number)
+    knownTitles.add(titleKey)
+    rows.push({
+      slug,
+      title: movie.title,
+      type: "movie",
+      episode_number: null,
+      movie_number: movie.number,
+      air_date: movie.airDate,
+      canon_order: 1000 + slugNum, // matches the franchise seeder's movie base
+      arc_id: null,
+      synopsis: null,
+      image_url: "",
+      runtime_minutes: defaultRuntimeMinutes("movie"),
+    })
+  }
+
+  // Specials and OVAs match on title OR air date: the wiki's English title is a
+  // translation the API sources may render differently for the same release.
+  const stageUnnumbered = (
+    items: typeof yearSpecials,
+    type: "special" | "ova",
+    base: number
+  ) => {
+    for (const item of items) {
+      const titleKey = `${type}|${normalizeTitleForDedup(item.title)}`
+      const dateKey = `${type}|${item.airDate}`
+      if (knownTitles.has(titleKey)) continue
+      if (knownDates.has(dateKey)) continue
+      const slug = allocateSlug(type)
+      const slugNum = Number(slug.split("-")[1]) || 1
+      knownTitles.add(titleKey)
+      knownDates.add(dateKey)
+      rows.push({
+        slug,
+        title: item.title,
+        type,
+        episode_number: null,
+        movie_number: null,
+        air_date: item.airDate,
+        canon_order: base + slugNum,
+        arc_id: null,
+        synopsis: null,
+        image_url: "",
+        runtime_minutes: defaultRuntimeMinutes(type),
+      })
+    }
+  }
+
+  stageUnnumbered(yearSpecials, "special", 2000)
+  stageUnnumbered(yearOvas, "ova", 3000)
+
+  const skipped = listed - rows.length
+
+  if (dryRun) {
+    return {
+      type: "dcw",
+      totalFetched: listed,
+      inserted: rows.length,
+      skipped: 0,
+      errors,
+      note: `dry run — DCW lists ${listed} ${year} entr${listed === 1 ? "y" : "ies"}: ${breakdown}${remasterNote}; no DB read for dedup`,
+    }
+  }
+
+  if (listed === 0) {
+    return {
+      type: "dcw",
+      totalFetched: 0,
+      inserted: 0,
+      skipped: 0,
+      errors,
+      note:
+        errors.length > 0
+          ? `DCW: no ${year} entries read — ${errors.length} list(s) failed: ${errors.join(" | ")}`
+          : `DCW lists nothing yet for ${year}${remasterNote}.`,
+    }
+  }
+
+  if (rows.length === 0) {
+    return {
+      type: "dcw",
+      totalFetched: listed,
+      inserted: 0,
+      skipped,
+      errors,
+      note: `DCW: all ${listed} ${year} entr${listed === 1 ? "y" : "ies"} already tracked${remasterNote}.${
+        errors.length > 0 ? ` ${errors.length} list(s) failed: ${errors.join(" | ")}` : ""
+      }`,
+    }
+  }
+
+  const enriched = await enrichRowsWithDcwImages(rows as SyncRow[])
+  const staged = await stageBatch(supabase, enriched as ContentInsert[], "dcw")
+  const failedNote = errors.length > 0 ? ` ${errors.length} list(s) failed: ${errors.join(" | ")}` : ""
+  return {
+    type: "dcw",
+    totalFetched: listed,
+    inserted: staged.inserted,
+    skipped: skipped + staged.skipped,
+    errors,
+    note:
+      staged.inserted > 0
+        ? `DCW: ${staged.inserted} new ${year} entr${staged.inserted === 1 ? "y" : "ies"} queued for Admin Approval in /admin/sync (${breakdown}).${failedNote}`
+        : `DCW: nothing new to queue for ${year}.${failedNote}`,
   }
 }
 
 /**
  * GET /api/sync
- * Returns current sync status (how many entries exist by type)
- *
- * Vercel Cron also calls this path — with GET, and `Authorization: Bearer
- * $CRON_SECRET` when that env var is set. The status body below takes no request
- * argument and ignores `?mode=`, so a cron call is delegated to POST, which owns
- * the whole sync implementation. A request without the secret falls through to
- * the byte-identical status response.
+ * Vercel Cron issues GET, so this is the entry point the schedules in
+ * vercel.json actually reach: with a valid `Authorization: Bearer $CRON_SECRET`
+ * it runs the same sync POST does (mode from ?mode=). Without that header it
+ * falls back to the admin status read the admin panel uses — which is why the
+ * crons used to 401 every night while the sync never ran.
  */
 export async function GET(request: NextRequest) {
-  // A cron sends no Origin, so POST's `isSameOrigin` passes; and POST reads its
-  // params from `request.nextUrl.searchParams`, which a GET request has too.
-  if (headerMatchesSecret(request.headers.get("authorization"), cronSecret())) {
-    return POST(request)
+  if (headerMatchesSecret(request.headers.get("authorization"), process.env.CRON_SECRET)) {
+    return runSync(request)
   }
+  return syncStatus()
+}
 
+/** Admin-only: entry counts by type. */
+async function syncStatus() {
   try {
     const supabase = await createClient()
 
@@ -660,7 +1116,7 @@ export async function GET(request: NextRequest) {
         (moviesCount.count ?? 0) +
         (specialsCount.count ?? 0) +
         (ovasCount.count ?? 0),
-      message: "POST to sync. mode=seed|airing.",
+      message: "POST to sync. mode=seed|airing|dcw|latest.",
     })
   } catch (error) {
     return handleApiError(error, "sync")

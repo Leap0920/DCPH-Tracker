@@ -100,7 +100,7 @@ export async function approveStagedEntry(id: string): Promise<ActionResult> {
   const wasSkipped = (published?.length ?? 0) === 0
 
   // 2. Mark staging entry as approved
-  await admin
+  const { error: statusErr } = await admin
     .from("sync_staging")
     .update({ status: "approved" })
     .eq("id", id)
@@ -108,6 +108,18 @@ export async function approveStagedEntry(id: string): Promise<ActionResult> {
   revalidatePath("/admin/sync")
   revalidatePath("/admin/content")
   revalidatePath("/tracker")
+
+  if (statusErr) {
+    // The publish landed, so the tracker is correct; the row simply stays in the
+    // queue. Saying so beats reporting a clean success the admin cannot see.
+    return {
+      ok: false,
+      error: `${staged.title}: ${
+        wasSkipped ? "left untouched (already existed)" : "published"
+      }, but marking the queue row approved failed: ${statusErr.message}`,
+    }
+  }
+
   return {
     ok: true,
     message: wasSkipped
@@ -137,6 +149,28 @@ export async function rejectStagedEntry(id: string): Promise<ActionResult> {
 }
 
 /**
+ * Marks staged rows approved, in id batches.
+ *
+ * Batched because the ids travel in the query string: a full seed queues 1,200+
+ * rows, and one `.in()` with every id is an ~45KB URL that a proxy can reject.
+ * Returns the first error message, or null when every batch landed.
+ */
+async function markApproved(
+  admin: NonNullable<ReturnType<typeof createAdminClient>>,
+  ids: string[]
+): Promise<string | null> {
+  const ID_BATCH = 100
+  for (let i = 0; i < ids.length; i += ID_BATCH) {
+    const { error } = await admin
+      .from("sync_staging")
+      .update({ status: "approved" })
+      .in("id", ids.slice(i, i + ID_BATCH))
+    if (error) return error.message
+  }
+  return null
+}
+
+/**
  * Approves all pending staged entries in bulk.
  */
 export async function approveAllStagedEntries(): Promise<ActionResult> {
@@ -144,34 +178,67 @@ export async function approveAllStagedEntries(): Promise<ActionResult> {
   const admin = createAdminClient()
   if (!admin) return { ok: false, error: "Service role key not configured." }
 
-  const { data: pendingEntries, error: fetchErr } = await admin
-    .from("sync_staging")
-    .select("*")
-    .eq("status", "pending")
+  // Paginated: a full seed queues 1,200+ rows and PostgREST caps each response
+  // at 1,000, so the unpaginated read silently left the rest of the queue
+  // pending while reporting that it had approved everything.
+  const pendingEntries: StagedRow[] = []
+  const PAGE_SIZE = 1000
+  for (let from = 0; ; from += PAGE_SIZE) {
+    const { data: chunk, error: fetchErr } = await admin
+      .from("sync_staging")
+      .select("*")
+      .eq("status", "pending")
+      .order("created_at")
+      .order("id")
+      .range(from, from + PAGE_SIZE - 1)
+    if (fetchErr) return { ok: false, error: fetchErr.message }
+    if (!chunk || chunk.length === 0) break
+    pendingEntries.push(...chunk)
+    if (chunk.length < PAGE_SIZE) break
+  }
 
-  if (fetchErr) return { ok: false, error: fetchErr.message }
-  if (!pendingEntries || pendingEntries.length === 0) {
+  if (pendingEntries.length === 0) {
     return { ok: true, message: "No pending entries to approve." }
   }
 
-  const contentRows: ContentInsert[] = pendingEntries.map(toContentRow)
-
   // Same DO NOTHING semantics as approveStagedEntry — see the note there.
-  const { data: published, error: upsertErr } = await admin
-    .from("content_entries")
-    .upsert(contentRows, { onConflict: "slug", ignoreDuplicates: true })
-    .select("slug")
+  // Batched so one oversized payload cannot fail the whole approval.
+  const BATCH_SIZE = 500
+  let publishedCount = 0
+  const processedIds: string[] = []
+  for (let i = 0; i < pendingEntries.length; i += BATCH_SIZE) {
+    const batch = pendingEntries.slice(i, i + BATCH_SIZE)
+    const { data: published, error: upsertErr } = await admin
+      .from("content_entries")
+      .upsert(batch.map(toContentRow), { onConflict: "slug", ignoreDuplicates: true })
+      .select("slug")
 
-  if (upsertErr) return { ok: false, error: upsertErr.message }
+    if (upsertErr) {
+      // Keep the batches that landed out of the queue: leaving them pending
+      // invites approving the same rows twice.
+      const markErr = await markApproved(admin, processedIds)
+      revalidatePath("/admin/sync")
+      return {
+        ok: false,
+        error: `Publishing failed after ${publishedCount} entr${publishedCount === 1 ? "y" : "ies"}: ${upsertErr.message}${
+          markErr ? ` (those rows could not be marked approved either: ${markErr})` : " — those rows were marked approved."
+        }`,
+      }
+    }
 
-  const publishedCount = published?.length ?? 0
+    publishedCount += published?.length ?? 0
+    processedIds.push(...batch.map((e) => e.id))
+  }
+
+  const statusErr = await markApproved(admin, processedIds)
+  if (statusErr) {
+    return {
+      ok: false,
+      error: `Published ${publishedCount} entries, but marking them approved failed: ${statusErr}. Run Approve All again to finish.`,
+    }
+  }
+
   const skippedCount = pendingEntries.length - publishedCount
-
-  const pendingIds = pendingEntries.map((e) => e.id)
-  await admin
-    .from("sync_staging")
-    .update({ status: "approved" })
-    .in("id", pendingIds)
 
   revalidatePath("/admin/sync")
   revalidatePath("/admin/content")

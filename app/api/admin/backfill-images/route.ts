@@ -5,6 +5,7 @@ import { NextResponse } from "next/server";
 import { getDcwEpisodeDetails } from "@/lib/dcw-episode";
 import { fetchDcwImageForTitle } from "@/lib/dcw-image-for-title";
 import { pickImageUrl, resolveDcwImagesBatch } from "@/lib/dcw-images";
+import { secretMatches } from "@/lib/secret-compare";
 
 export const runtime = "nodejs";
 export const maxDuration = 300;
@@ -97,7 +98,8 @@ async function deepResolve(row: Row): Promise<Resolved> {
 
 export async function POST(request: Request) {
   const secret = process.env.ADMIN_TASK_SECRET || process.env.CRON_SECRET;
-  if (!secret || request.headers.get("x-admin-secret") !== secret) {
+  // Constant-time compare: this secret authorizes service-role writes.
+  if (!secretMatches(request.headers.get("x-admin-secret"), secret)) {
     return NextResponse.json({ error: "unauthorized" }, { status: 401 });
   }
 

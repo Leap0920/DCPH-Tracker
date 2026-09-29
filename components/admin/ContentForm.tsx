@@ -21,6 +21,7 @@ import { CONTENT_TYPE_LABELS, type ContentType } from "@/lib/constants"
 import { cleanImageUrl } from "@/lib/utils/image-url"
 import type { Database } from "@/types/database.types"
 import { resolveWikiImageUrl, type ActionResult } from "@/lib/actions/admin-content"
+import { useInvalidateContentCache } from "@/lib/queries/client/content-cache"
 
 type ContentEntry = Database["public"]["Tables"]["content_entries"]["Row"]
 type CopyKey = "raw" | "clean"
@@ -160,6 +161,7 @@ export function ContentForm({
 }) {
   const router = useRouter()
   const searchParams = useSearchParams()
+  const invalidateContent = useInvalidateContentCache()
   const [pending, startTransition] = useTransition()
 
   // Preserve the list-page filters (q, type, page) that were forwarded in the URL.
@@ -329,6 +331,7 @@ export function ContentForm({
     startTransition(async () => {
       const result = await action(formData)
       if (result.ok) {
+        invalidateContent()
         router.push(returnHref)
         router.refresh()
       } else {

@@ -4,9 +4,11 @@ import { useState, useTransition } from "react"
 import { useRouter } from "next/navigation"
 import { Trash2, Loader2 } from "lucide-react"
 import { deleteContentEntry } from "@/lib/actions/admin-content"
+import { useInvalidateContentCache } from "@/lib/queries/client/content-cache"
 
 export function DeleteContentButton({ id, title }: { id: string; title: string }) {
   const router = useRouter()
+  const invalidateContent = useInvalidateContentCache()
   const [confirming, setConfirming] = useState(false)
   const [pending, startTransition] = useTransition()
 
@@ -14,6 +16,7 @@ export function DeleteContentButton({ id, title }: { id: string; title: string }
     startTransition(async () => {
       const result = await deleteContentEntry(id)
       if (result.ok) {
+        invalidateContent()
         router.refresh()
       } else {
         alert(result.error)

@@ -4,16 +4,32 @@ import {
   buildWikiQueries,
   dedupeById,
   expandAliases,
+  extractCulpritName,
   extractNumbers,
+  firstWikiLinkTarget,
+  isAppearancesTitle,
+  isGalleryTitle,
+  isJunkWikiExtract,
   isRelevantTitle,
+  isSoftRedirect,
+  matchCrimeMethod,
+  matchSpecialKind,
   normalizeText,
   prefersEarliest,
+  prefersList,
   prefersRecent,
+  prioritizeResolution,
+  queryWords,
   rankEntries,
   rankingTerms,
   scoreEntry,
+  scoreWikiTitle,
   searchTermGroups,
+  searchTerms,
   tokenize,
+  translateTerms,
+  wantsAppearances,
+  wantsCulprit,
 } from "@/lib/chat/query"
 
 describe("normalizeText", () => {
@@ -47,26 +63,20 @@ describe("tokenize", () => {
     expect(tokenize("ep 42 recap")).not.toContain("ep")
   })
 
-  it("still cuts by specificity, so the longest terms survive the cap", () => {
-    // The cut is what maxKeywords is for: "resort" and "murder" discriminate
-    // this question and "ski" is the term to drop.
-    const keywords = tokenize("which episode has the ski resort murder case", 2)
-    expect(keywords).toHaveLength(2)
-    expect(keywords).toContain("resort")
-    expect(keywords).toContain("murder")
-    expect(keywords).not.toContain("ski")
+  it("keeps the keywords in the order the question asked for", () => {
+    // The survivors are chosen by specificity but returned in QUERY order:
+    // `keywords.join(" ")` is read as a phrase by scoreEntry() and
+    // buildWikiQueries(), and the length-sorted run turned "Who is Heiji
+    // Hattori?" into ["hattori", "heiji"] — a contiguous substring of six
+    // episode titles ("Hattori Heiji …") but not of the character's own title,
+    // so the episodes outranked the answer.
+    expect(tokenize("Who is Heiji Hattori?")).toEqual(["heiji", "hattori"])
   })
 
-  it("returns the survivors in the order the user asked them", () => {
-    // The cut no longer reorders: scoreEntry and buildWikiQueries read the run
-    // as a phrase, so "heiji hattori" has to come back as it was typed.
-    expect(tokenize("Who is Heiji Hattori?")).toEqual(["heiji", "hattori"])
-    expect(tokenize("Tell me about Kaitou Kid's Teleportation Magic")).toEqual([
-      "kaitou",
-      "kid",
-      "teleportation",
-      "magic",
-    ])
+  it("still cuts by specificity, so the selective terms survive the cut", () => {
+    const keywords = tokenize("which episode has the ski resort murder case")
+    expect(keywords).toContain("resort")
+    expect(keywords).toContain("murder")
   })
 })
 
@@ -132,16 +142,18 @@ describe("searchTermGroups", () => {
     expect(groups.some((g) => g.includes("shiho"))).toBe(true)
   })
 
-  it("keeps its selective group by specificity, not by query order", () => {
-    // This group is a SQL recall strategy ("fetch the two most selective
-    // terms"), not a phrase, so it sorts for itself now that tokenize()
-    // returns query order.
-    const groups = searchTermGroups(["ski", "resort", "murder", "case"])
-    expect(groups[0]).toEqual(["resort", "murder"])
-  })
-
   it("always returns at least one group", () => {
     expect(searchTermGroups([]).length).toBeGreaterThan(0)
+  })
+
+  it("sorts the selective group by specificity, not by the order asked", () => {
+    // `tokenize` returns query order now, so the small SQL probe has to sort for
+    // itself: "the two most selective terms" is a different question from "the
+    // two the user said first".
+    expect(searchTermGroups(["ep", "murder", "skyscraper", "case"])[0]).toEqual([
+      "skyscraper",
+      "murder",
+    ])
   })
 })
 
@@ -173,7 +185,7 @@ describe("rankEntries with chronological intent", () => {
     { id: "mid", title: "Heiji Hattori's Desperate Situation!", air_date: "2003-06-09" },
   ]
 
-  // Hand-built terms: the chronological rules must not depend on their order.
+  // tokenize() emits longest-first, so "hattori" precedes "heiji".
   const terms = ["hattori", "heiji"]
 
   it("puts the loudest title first by default", () => {
@@ -245,10 +257,12 @@ describe("scoreEntry", () => {
   it("counts whole words only, so a term inside a longer word does not qualify", () => {
     // "ran" is a substring of "brand" but not a word of it. Neither title holds
     // the run "ran brand", so the difference is the all-terms bonus (2) plus
-    // the coverage the buried title loses for a word it never spelled (5/3).
+    // the coverage the buried title loses for a word it never spelled. "day" is
+    // a stopword in the tracker's own vocabulary, so both titles are two
+    // substantive words: buried covers 1/2, spelled 2/2, over a 5-wide bonus.
     const buried = scoreEntry({ title: "Brand New Day" }, ["ran", "brand"])
     const spelled = scoreEntry({ title: "Brand Ran Day" }, ["ran", "brand"])
-    expect(spelled - buried).toBeCloseTo(2 + 5 / 3)
+    expect(spelled - buried).toBeCloseTo(2 + 5 / 2)
   })
 
   it("prefers the document a title names over a record that only carries it", () => {
@@ -273,7 +287,8 @@ describe("scoreEntry", () => {
     expect(episode).toBeGreaterThan(remake)
   })
 
-  it("gets the golden miss's order from tokenize, not from a hand-built array", () => {    // "Who is Heiji Hattori?" used to arrive as ["hattori", "heiji"], so the
+  it("gets the golden miss's order from tokenize, not from a hand-built array", () => {
+    // "Who is Heiji Hattori?" used to arrive as ["hattori", "heiji"], so the
     // character's own title fell to the all-terms bonus while six episodes
     // titled "Hattori Heiji ..." took the phrase one.
     const entry = { title: "Heiji Hattori" }
@@ -348,14 +363,6 @@ describe("isRelevantTitle", () => {
 })
 
 describe("buildWikiQueries", () => {
-  it("builds the user's own phrases now that keywords keep query order", () => {
-    // The run used to be length-sorted ("teleportation kaitou kid magic"),
-    // which is nobody's phrase on the wiki either.
-    const queries = buildWikiQueries("Tell me about Kaitou Kid's Teleportation Magic")
-    expect(queries).toContain("kaitou kid teleportation magic")
-    expect(queries).toContain("kaitou kid")
-  })
-
   it("falls back to single keywords, because MediaWiki ANDs every term", () => {
     const queries = buildWikiQueries(
       "whats the movie where kaito kid appeared with the sunflower painting"
@@ -374,5 +381,318 @@ describe("buildWikiQueries", () => {
     for (const q of buildWikiQueries("??? !!")) {
       expect(q.trim()).not.toBe("")
     }
+  })
+})
+
+describe("scoreWikiTitle", () => {
+  const words = queryWords("Who is Ai Haibara?")
+
+  it("ranks the entity the question is about above pages that merely mention it", () => {
+    // MediaWiki put the "List of characters who know…" page first.
+    expect(scoreWikiTitle("Ai Haibara", words)).toBeGreaterThan(
+      scoreWikiTitle("List of characters who know Ai Haibara's identity", words)
+    )
+  })
+
+  it("demotes galleries, appearances and timelines", () => {
+    expect(scoreWikiTitle("Vermouth", queryWords("Who is Vermouth?"))).toBeGreaterThan(
+      scoreWikiTitle("Vermouth Appearances", queryWords("Who is Vermouth?"))
+    )
+    expect(scoreWikiTitle("Rum", queryWords("Who is Rum?"))).toBeGreaterThan(
+      scoreWikiTitle("Rum/Gallery", queryWords("Who is Rum?"))
+    )
+  })
+
+  it("still orders pages that match no full title", () => {
+    const gadgetWords = queryWords("What does Conan's skateboard do?")
+    expect(scoreWikiTitle("Turbo Engine Skateboard", gadgetWords)).toBeGreaterThan(
+      scoreWikiTitle("Turbo Engine Skateboard Appearances", gadgetWords)
+    )
+  })
+
+  it("scores an exact entity title highest", () => {
+    expect(scoreWikiTitle("Gadgets", queryWords("What are Conan's gadgets?"))).toBe(10)
+  })
+})
+
+describe("isGalleryTitle / isJunkWikiExtract / isSoftRedirect", () => {
+  it("recognises gallery subpages", () => {
+    expect(isGalleryTitle("The Black Organization's Scheme/Gallery")).toBe(true)
+    expect(isGalleryTitle("Rum/Images")).toBe(true)
+    expect(isGalleryTitle("Rum")).toBe(false)
+    expect(isGalleryTitle("Gallery")).toBe(false)
+  })
+
+  it("recognises gallery blurbs", () => {
+    expect(isJunkWikiExtract("This is a gallery of images for the episode: X.")).toBe(true)
+    expect(isJunkWikiExtract("Vermouth is an actress and member of the Black Organization.")).toBe(false)
+  })
+
+  it("recognises spoiler soft redirects", () => {
+    expect(isSoftRedirect("This soft redirect is meant to reduce the number of people who spoil themselves.")).toBe(true)
+    expect(isSoftRedirect("Rum is the Black Organization's number two.")).toBe(false)
+  })
+})
+
+describe("firstWikiLinkTarget", () => {
+  it("skips the notice icon and returns the article", () => {
+    const html = `<td><a href="/wiki/File:Ambox_content.png"><img src="x" /></a></td>
+      <td><a href="/wiki/Kanenori_Wakita" title="Kanenori Wakita">Click to continue</a></td>`
+    expect(firstWikiLinkTarget(html)).toBe("Kanenori Wakita")
+  })
+
+  it("returns null when there is no article link", () => {
+    expect(firstWikiLinkTarget(`<p><a href="/wiki/File:Logo.png">logo</a></p>`)).toBe(null)
+    expect(firstWikiLinkTarget("<p>no links here</p>")).toBe(null)
+  })
+})
+
+describe("isAppearancesTitle", () => {
+  it("matches the wiki's per-character appearance indexes", () => {
+    expect(isAppearancesTitle("Vermouth Appearances")).toBe(true)
+    expect(isAppearancesTitle("Ai Haibara Appearances")).toBe(true)
+    expect(isAppearancesTitle("Vermouth")).toBe(false)
+    expect(isAppearancesTitle("Appearances")).toBe(false)
+  })
+})
+
+/**
+ * The wiki's own "X Appearances" index is the answer to an appearance
+ * question, so the wording of the question flips its ranking.
+ */
+describe("scoreWikiTitle with appearance questions", () => {
+  const words = queryWords("list all of Vermouth's appearances")
+
+  it("prefers the index when the user asked for appearances", () => {
+    expect(scoreWikiTitle("Vermouth Appearances", words, { wantsAppearances: true })).toBeGreaterThan(
+      scoreWikiTitle("Vermouth Appearances", words)
+    )
+  })
+
+  it("still demotes non-appearance list pages", () => {
+    expect(
+      scoreWikiTitle("List of characters who know Ai Haibara's identity", words, {
+        wantsAppearances: true,
+      })
+    ).toBeLessThan(0)
+  })
+})
+
+describe("prefersList", () => {
+  it("recognises list requests", () => {
+    expect(prefersList("give me eps that have stabbing")).toBe(true)
+    expect(prefersList("list all episodes with drowning")).toBe(true)
+    expect(prefersList("which episodes have a locked room trick")).toBe(true)
+    expect(prefersList("episodes where someone is poisoned")).toBe(true)
+    expect(prefersList("how many episodes are there")).toBe(true)
+  })
+
+  it("does not fire on ordinary questions", () => {
+    expect(prefersList("who is Ai Haibara")).toBe(false)
+    expect(prefersList("summarise episode 141")).toBe(false)
+    expect(prefersList("what happens in the ski lodge murder")).toBe(false)
+  })
+})
+
+describe("matchCrimeMethod", () => {
+  it("maps the user's wording onto the /cases filter slugs", () => {
+    expect(matchCrimeMethod("give me eps that have stabbing")).toEqual({
+      kind: "cause",
+      slug: "stabbing",
+      label: "Stabbing",
+    })
+    expect(matchCrimeMethod("episodes where someone was poisoned")).toEqual({
+      kind: "cause",
+      slug: "poisoning",
+      label: "Poisoning",
+    })
+    expect(matchCrimeMethod("list all kidnapping cases")).toEqual({
+      kind: "crime",
+      slug: "kidnapping",
+      label: "Kidnapping & Hostage",
+    })
+    expect(matchCrimeMethod("which episodes have a hangman's noose")).toBe(null)
+  })
+
+  it("ignores a generic crime without an explicit list request", () => {
+    expect(matchCrimeMethod("what happened in the ski lodge murder")).toBe(null)
+    expect(matchCrimeMethod("list all murder cases")?.slug).toBe("murder")
+    expect(matchCrimeMethod("how many murder episodes are there")?.slug).toBe("murder")
+  })
+})
+
+describe("matchSpecialKind", () => {
+  it("recognises long-format requests", () => {
+    expect(matchSpecialKind("list the 2-hour specials")).toBe("two-hour")
+    expect(matchSpecialKind("which two hour episodes are there")).toBe("two-hour")
+    expect(matchSpecialKind("what are the one-hour specials")).toBe("one-hour")
+    expect(matchSpecialKind("list every special episode")).toBe("specials")
+    expect(matchSpecialKind("which OVA episodes exist")).toBe("specials")
+  })
+
+  it("stays quiet on normal questions", () => {
+    expect(matchSpecialKind("who is Rum")).toBe(null)
+    expect(matchSpecialKind("summarise episode 141")).toBe(null)
+  })
+
+  it("ignores a named entry that merely calls itself special", () => {
+    // Every one of these used to attach the 103-row long-format listing to an
+    // answer about a single episode.
+    expect(matchSpecialKind("what is the special episode 1209 about")).toBe(null)
+    expect(matchSpecialKind("tell me about the 2-hour special episode 129")).toBe(null)
+    expect(matchSpecialKind("summarise OVA 2")).toBe(null)
+  })
+
+  it("still recognises a set request even when an entry is named", () => {
+    expect(matchSpecialKind("list all the 2-hour specials")).toBe("two-hour")
+    expect(matchSpecialKind("give me all special episodes after episode 129")).toBe("specials")
+    expect(matchSpecialKind("how many specials are there")).toBe("specials")
+  })
+})
+
+describe("wantsCulprit / wantsAppearances", () => {
+  it("recognises resolution questions", () => {
+    expect(wantsCulprit("who is the murderer in episode 141")).toBe(true)
+    expect(wantsCulprit("who killed the victim in the wedding case")).toBe(true)
+    expect(wantsCulprit("how was the locked room trick done")).toBe(true)
+    expect(wantsCulprit("what is episode 141 about")).toBe(false)
+  })
+
+  it("recognises appearance questions", () => {
+    expect(wantsAppearances("all of Vermouth's appearances")).toBe(true)
+    expect(wantsAppearances("when does Heiji first appear")).toBe(true)
+    expect(wantsAppearances("who is Vermouth")).toBe(false)
+  })
+})
+
+/**
+ * The live failure these pin: asked "who is the murderer in episode 141", the
+ * bot answered "Yuji Sakuraba" — the suspect the resolution's narrative accuses
+ * first — while the same paragraph reveals Kikuhito Morizono as the real
+ * culprit five sentences later.
+ */
+describe("prioritizeResolution / extractCulpritName", () => {
+  const DCW_RESOLUTION =
+    "Continuing the investigation, Heiji proclaims the family servant was the murderer and he is taken away, screaming his innocence. Heiji and Conan start their deduction. They revealed that the culprit is Sakuraba. Sakuraba is soon arrested. However, the murder weapon is still missing. The real culprit is revealed to be Kikuhito Morizono. Heiji and Conan fake him out by stating Sakuraba is the criminal."
+
+  it("moves the reveal in front of the false accusation", () => {
+    const ordered = prioritizeResolution(DCW_RESOLUTION)
+    expect(ordered.startsWith("The real culprit is revealed to be Kikuhito Morizono.")).toBe(true)
+    expect(ordered).toContain("They revealed that the culprit is Sakuraba")
+  })
+
+  it("reads the real culprit's name, not the first accused suspect", () => {
+    expect(extractCulpritName(prioritizeResolution(DCW_RESOLUTION))).toBe("Kikuhito Morizono")
+    expect(extractCulpritName("They revealed that the culprit is Sakuraba.")).not.toBe("Sakuraba")
+  })
+
+  it("handles the other reveal phrasings DCW uses", () => {
+    expect(extractCulpritName("The true culprit was revealed to be Akemi Miyano.")).toBe("Akemi Miyano")
+    expect(extractCulpritName("The culprit turned out to be Shinichi Kudo.")).toBe("Shinichi Kudo")
+    expect(extractCulpritName("The murderer is revealed to be Kogoro Mouri.")).toBe("Kogoro Mouri")
+  })
+
+  it("returns null when the text never names a culprit", () => {
+    expect(extractCulpritName("The episode ends with the Detective Boys going home.")).toBe(null)
+  })
+
+  it("keeps the whole text, only reordered", () => {
+    const ordered = prioritizeResolution(DCW_RESOLUTION)
+    expect(ordered).toContain("the murder weapon is still missing")
+    expect(ordered).toContain("screaming his innocence")
+  })
+})
+
+/**
+ * These two questions were answered wrongly in production: the impostor one
+ * named Ep 219 instead of "Murderer, Shinichi Kudo" (Ep 521), and the APTX one
+ * reached the model with no APTX context at all because the tokenizer spent its
+ * whole keyword budget on Tagalog filler.
+ */
+describe("Tagalog questions", () => {
+  const IMPOSTOR =
+    "Hi ano pong episode yung kung saan si shinichi yung naging kriminal? may nag disguise as shinichi at nag paretoke sya para makagawa ng mga krimen at isisi kay shinichi"
+  const APTX =
+    "GOOD DAY PO. Tanong ko lang po sana kung may list po kayo ng episodes kung sino sino po ang mga napaliit ng APTX-4869. Maraming salamat po."
+
+  it("keeps the subject of the question as a keyword", () => {
+    const keywords = tokenize(APTX)
+    expect(keywords).toContain("aptx")
+    expect(keywords).toContain("napaliit")
+    // Filler must never crowd the real subject out of the budget.
+    expect(keywords).not.toContain("maraming")
+    expect(keywords).not.toContain("salamat")
+    expect(keywords).not.toContain("tanong")
+  })
+
+  it("drops Tagalog function words from the impostor question", () => {
+    const keywords = tokenize(IMPOSTOR)
+    expect(keywords).toContain("shinichi")
+    expect(keywords).toContain("kriminal")
+    expect(keywords).toContain("isisi")
+    expect(keywords).not.toContain("yung")
+    expect(keywords).not.toContain("makagawa")
+  })
+
+  it("translates Tagalog content words, including affixed forms", () => {
+    expect(translateTerms(["kriminal"])).toContain("murderer")
+    expect(translateTerms(["krimen"])).toContain("crime")
+    expect(translateTerms(["nagparetoke"])).toContain("surgery")
+    expect(translateTerms(["isisi"])).toContain("frame")
+    expect(translateTerms(["napaliit"])).toContain("shrink")
+    expect(translateTerms(["saksak"])).toContain("stabbing")
+    expect(translateTerms(["lasong"])).toContain("poisoning")
+    // Nothing to add for an English question.
+    expect(translateTerms(["haibara", "debut"])).toEqual([])
+  })
+
+  it("searches the translated terms as their own recall group", () => {
+    const groups = searchTermGroups(tokenize(IMPOSTOR))
+    const flat = groups.map((g) => g.join(" "))
+    expect(flat.some((g) => g.includes("murderer"))).toBe(true)
+    // The user's own words are still tried first.
+    expect(groups[0]).toEqual(["shinichi", "kriminal"])
+  })
+
+  it("scores translated terms, so the right episode outranks a lookalike", () => {
+    const terms = rankingTerms(tokenize(IMPOSTOR))
+    const correct = scoreEntry(
+      { title: "Murderer, Shinichi Kudo", dcw_title: "Murderer, Shinichi Kudo", episode_number: 521 },
+      terms
+    )
+    const lookalike = scoreEntry(
+      {
+        title: "The Gathering of the Detectives! Shinichi Kudo vs. Kaitou Kid",
+        episode_number: 219,
+      },
+      terms
+    )
+    const movie = scoreEntry({ title: "Detective Conan Movie 07: Crossroad in the Ancient Capital" }, terms)
+
+    expect(correct).toBeGreaterThan(lookalike)
+    expect(correct).toBeGreaterThan(movie)
+  })
+
+  it("accepts the English page title for a Tagalog question", () => {
+    expect(isRelevantTitle("Murderer, Shinichi Kudo", searchTerms(tokenize(IMPOSTOR)))).toBe(true)
+    expect(isRelevantTitle("APTX 4869", searchTerms(tokenize(APTX)))).toBe(true)
+  })
+
+  it("recognises a culprit question asked in Tagalog", () => {
+    expect(wantsCulprit(IMPOSTOR)).toBe(true)
+    expect(wantsCulprit("Sino po ang kriminal sa episode na iyon?")).toBe(true)
+    expect(wantsCulprit("Sino po si Conan?")).toBe(false)
+  })
+
+  it("recognises a crime-method list asked in Tagalog", () => {
+    expect(matchCrimeMethod("pwede po ba makita ang mga episode na may saksak?")).toEqual({
+      kind: "cause",
+      slug: "stabbing",
+      label: "Stabbing",
+    })
+    expect(prefersList("pwede po ba makita ang mga episode na may saksak?")).toBe(true)
+    // The APTX question is a list request too, but not a crime-method one.
+    expect(prefersList(APTX)).toBe(true)
+    expect(matchCrimeMethod(APTX)).toBe(null)
   })
 })

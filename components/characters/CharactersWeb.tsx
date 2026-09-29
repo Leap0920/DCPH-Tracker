@@ -33,20 +33,16 @@
   SVG paint values are JS strings, not CSS custom properties — `fill="rgb(var(--x))"`
   does not resolve on a presentation attribute. So the palette below mirrors the
   token hexes from app/globals.css by hand; if a token changes there, change it
-  here too. The DOM chrome (search, dock, badge) uses the real tokens.
+  here too. The DOM chrome (dock, badge) uses the real tokens.
 
   `theme` defaults to "dark" because dark is the app default. It must still match
   the `dark` class on <html>, since the container uses token classes (bg-page)
   while the canvas uses this prop — pass the live theme from the parent.
-
-  `useMediaQuery` lives in lib/use-media-query.ts (shared with the dossier
-  panel).
 */
 
 import {
   memo,
   useCallback,
-  useDeferredValue,
   useEffect,
   useLayoutEffect,
   useMemo,
@@ -55,15 +51,17 @@ import {
   type CSSProperties,
   type PointerEvent as ReactPointerEvent,
 } from "react";
-import { useMediaQuery } from "@/lib/use-media-query";
 import { useReducedMotion } from "framer-motion";
 import {
-  CHARACTERS,
-  RELATIONSHIPS,
   type Character,
   type Relationship,
-  type RelationshipType,
 } from "@/lib/characters-guide";
+import type { QualityTier } from "@/lib/device-tier";
+import {
+  GRAPH_QUALITY,
+  labelTierLimit,
+  type GraphQuality,
+} from "@/components/characters/graph-quality";
 import {
   FACTION_THEMES,
   LOCKED_EDGE_COLOR,
@@ -86,9 +84,18 @@ export { FACTION_THEMES, getFactionTheme } from "@/components/characters/graph-t
 const useIsoLayoutEffect =
   typeof window !== "undefined" ? useLayoutEffect : useEffect;
 
-// The matchMedia hook lives in lib/use-media-query.ts so CharacterDetailPanel
-// can share it (sync client read via useSyncExternalStore — no first-frame
-// false→true flash that made the sheet flash its desktop layout on phones).
+/** Hydration-safe matchMedia hook. */
+export function useMediaQuery(query: string): boolean {
+  const [matches, setMatches] = useState(false);
+  useEffect(() => {
+    const mql = window.matchMedia(query);
+    const onChange = () => setMatches(mql.matches);
+    onChange();
+    mql.addEventListener("change", onChange);
+    return () => mql.removeEventListener("change", onChange);
+  }, [query]);
+  return matches;
+}
 
 /* ── tuning ───────────────────────────────────────────────────────── */
 const MAX_ZOOM = 4;
@@ -96,26 +103,33 @@ const ZOOM_STEP = 1.35;
 const ZOOM_TO_NODE = 1.9;
 const FIT_MIN_K = 0.6;
 const FIT_MAX_K = 1.6;
+/**
+ * Absolute zoom-out floor. The cast is ~1430x830 world px wide, so a phone
+ * needs ~0.25 to hold all of it: a higher floor meant the whole graph could
+ * never be seen on a phone, no matter how far the visitor zoomed out.
+ */
+const MIN_FIT_K = 0.2;
+
+/** Phone breakpoint: the media query and the pre-hydration probe both read it. */
+const MOBILE_QUERY = "(max-width: 767px)";
 
 /** Camera smoothing time constant (ms). Lower = snappier. */
 const CAM_TAU = 85;
 /** Inertia applied to the pan target on release (ms of projected travel). */
 const PAN_INERTIA_MS = 140;
 
-const DRIFT_AMP = 3.5;
-
-/* ── low-end device detection ──────────────────────────────────
- * Heuristic: navigator.deviceMemory (Chrome, ≤2 GB) or
- * navigator.hardwareConcurrency (≤2 cores). Drives collision
- * passes, particle count, and frame budget so the graph stays
- * usable on budget phones. */
-const isLowEndDevice = (() => {
-  if (typeof navigator === "undefined") return false;
-  const n = navigator as any;
-  if (n.deviceMemory !== undefined && n.deviceMemory <= 2) return true;
-  if (n.hardwareConcurrency !== undefined && n.hardwareConcurrency <= 2) return true;
-  return false;
-})();
+/* ── quality tiers ────────────────────────────────────────────────
+ * Every frame-by-frame cost in this file is read from the visitor's
+ * quality tier (see graph-quality.ts) rather than from a one-shot guess
+ * at load. The tier the visitor's device earned decides how far nodes
+ * drift, how many particles float, how often the 216 strings are
+ * re-pathed, and whether the 103 breathing rings animate at all.
+ *
+ * The `low` tier is a STILL graph: with no drift, node positions and
+ * string paths never change between frames, so the loop stops rewriting
+ * 103 transforms and 216 `d` attributes and only reacts to pan/zoom —
+ * one transform on the world <g>, written once per frame.
+ * ---------------------------------------------------------------- */
 
 /* ── anti-collision ───────────────────────────────────────────────
  * Circles push each other apart when their radii overlap. The push is
@@ -125,7 +139,6 @@ const isLowEndDevice = (() => {
  * zoomToConan keep reading the untouched authored layout.
  * ---------------------------------------------------------------- */
 const COLLIDE_PAD = 2;          // world px of breathing room beyond r_i + r_j — tight packing per user request
-const COLLIDE_ITERS = isLowEndDevice ? 2 : 4;  // Gauss-Seidel relaxation passes per frame
 const COLLIDE_STIFF = 0.8;      // fraction of each overlap resolved per pass — snappier settle
 const COLLIDE_MAX_OFFSET = 16;  // hard cap on displacement from home (world px) — keep close to authored layout
 const COLLIDE_RELAX_TAU = 260;  // ms; how fast a pushed circle drifts back home
@@ -133,23 +146,16 @@ const BASE_BOW = 6;
 const PARALLEL_GAP = 22;
 const STRING_WIDTH = 2;
 const DIM_OPACITY = 0.1;
-const PARTICLE_COUNT = isLowEndDevice ? 8 : 30;
-/** Throttle window-level idle-park pokes to ~1Hz while already awake. */
-const POKE_MIN_INTERVAL_MS = 1000;
-/** Idle seconds before the animation loop parks (drift + CSS keyframes stop). */
-const IDLE_PARK_MS = isLowEndDevice ? 2000 : 4000;
-/** Minimum ms between frames. Set >16 on low-end to target ~30 fps. */
-const FRAME_BUDGET_MS = isLowEndDevice ? 32 : 0;
+/** Label halo width in SCREEN px — held constant across zoom (see styleLabel). */
+const LABEL_HALO = 3;
+/** Idle ms before the animation loop parks (drift + CSS keyframes stop). */
+const IDLE_PARK_MS = 4000;
 
 /* ── stable style objects ──────────────────────────────────────
  * Module-scope so re-rendered edges/nodes never hand React a fresh object
  * identity (which would force a DOM style write) for an unchanged transition. */
 const EDGE_STYLE: CSSProperties = {
   transition: "opacity 180ms ease, stroke-width 180ms ease",
-};
-const EDGE_STYLE_HIDDEN: CSSProperties = {
-  transition: "opacity 180ms ease, stroke-width 180ms ease",
-  display: "none",
 };
 
 /* ── canvas palette (mirrors the CSS tokens; see header note) ────── */
@@ -215,19 +221,12 @@ function usableRect(
   w: number,
   h: number,
   isMobile: boolean,
-  panelOpen: boolean,
-  sheetInsetVh: number
+  panelOpen: boolean
 ): Rect {
-  const top = 100; // search + filter control column
+  const top = 100; // control row (graphics + search)
   const left = isMobile ? 16 : 28;
   const right = panelOpen && !isMobile ? 416 : isMobile ? 16 : 28;
-  // Mobile dossier sheet height (svh fraction of the viewport), published by
-  // CharacterDetailPanel through sheetInsetVh. Falls back to the static
-  // 48vh default when no live value is set (sheet closed).
-  const bottom =
-    panelOpen && isMobile
-      ? Math.round(h * (sheetInsetVh > 0 ? sheetInsetVh / 100 : 0.48)) + 20
-      : 92;
+  const bottom = panelOpen && isMobile ? Math.round(h * SHEET_VH) + 20 : 92;
   return {
     x: left,
     y: top,
@@ -235,6 +234,13 @@ function usableRect(
     h: Math.max(140, h - top - bottom),
   };
 }
+
+/**
+ * Share of the viewport the mobile dossier sheet may take. It is also what the
+ * graph reserves above it and what the dock clears, so the three stay in step;
+ * the sheet is tallest where the phone has the least room to waste.
+ */
+const SHEET_VH = 0.56;
 
 function labelOpacityFor(k: number, tier: 0 | 1 | 2): number {
   if (tier === 0) return 1;
@@ -293,28 +299,22 @@ function pairKey(r: Relationship): string {
 }
 
 export interface CharactersWebProps {
-  characters?: Character[];
-  relationships?: Relationship[];
+  characters: Character[];
+  relationships: Relationship[];
+  /** Device tier driving the frame-by-frame cost. See graph-quality.ts. */
+  quality?: QualityTier;
   onSelectCharacter: (character: Character | null) => void;
   selectedCharacterId?: string | null;
-  activeFilter?: RelationshipType | null;
-  /** Rendered inside the top-left control column, below the search field. */
+  /** Rendered inside the top-left control column. */
   topLeftSlot?: React.ReactNode;
-  /** Mobile-only: hide search/filter controls while a dossier is open. */
-  hideControls?: boolean;
-  /**
-   * Height (vh) reserved at the bottom for the mobile dossier sheet.
-   * 0 = no sheet (desktop / closed). Drives usableRect + the dock offset.
-   */
-  sheetInsetVh?: number;
   theme?: "light" | "dark";
   className?: string;
 }
 
 /* ── memoized leaf components ────────────────────────────────────
- * The graph lives in one stateful parent; every hover, search keystroke,
- * selection and (debounced) resize used to reconcile the ENTIRE SVG tree
- * (~95 nodes × 12 elements + 153 paths). These leaves isolate that churn:
+ * The graph lives in one stateful parent; every hover, selection
+ * and (debounced) resize used to reconcile the ENTIRE SVG tree
+ * (~103 nodes × 12 elements + 216 paths). These leaves isolate that churn:
  * memo() bails out every node/edge whose live props did not change, so a
  * hover flips exactly two NodeViews and the strings whose dim state is real.
  *
@@ -330,7 +330,13 @@ type NodeViewProps = {
   pal: (typeof CANVAS)[keyof typeof CANVAS];
   isSelected: boolean;
   isHovered: boolean;
+  /** A live search hit: the ring pins on, so matches read at any zoom. */
   isSearchMatch: boolean;
+  /** Tier gates: the breathing halo and the Conan ripple are the two
+   *  infinitely-running keyframe animations in the graph, so cheap devices
+   *  drop the elements entirely instead of animating them out of sight. */
+  breathe: boolean;
+  ripple: boolean;
   nodeEls: { current: (SVGGElement | null)[] };
   labelEls: { current: (SVGGElement | null)[] };
   grabbingRef: { current: boolean };
@@ -355,6 +361,8 @@ const NodeView = memo(function NodeView({
   isSelected,
   isHovered,
   isSearchMatch,
+  breathe,
+  ripple,
   nodeEls,
   labelEls,
   grabbingRef,
@@ -398,7 +406,7 @@ const NodeView = memo(function NodeView({
       onFocus={() => onHoverChange(n.c.id)}
       onBlur={() => onHoverChange(null)}
     >
-      {isConan && (
+      {isConan && ripple && (
         <circle
           key="conan-ripple"
           className="dcph-ripple"
@@ -410,27 +418,31 @@ const NodeView = memo(function NodeView({
         />
       )}
 
-      {/* Breathing ring — pure opacity keyframes, zero layout overhead */}
-      <circle
-        key="breathe-ring"
-        className="dcph-breathe"
-        r={n.r + 3}
-        fill="none"
-        stroke={n.theme.border}
-        strokeWidth={1}
-        pointerEvents="none"
-        style={
-          {
-            "--dcph-dur": `${n.breatheDur}s`,
-            "--dcph-delay": `${n.breatheDelay}s`,
-          } as CSSProperties
-        }
-      />
+      {/* Breathing ring — pure opacity keyframes, zero layout overhead. Dropped
+          on the low tier: 95 infinite SVG keyframe animations are 95 repaint
+          sources per frame, and SVG opacity is not composited. */}
+      {breathe && (
+        <circle
+          key="breathe-ring"
+          className="dcph-breathe"
+          r={n.r + 3}
+          fill="none"
+          stroke={n.theme.border}
+          strokeWidth={1}
+          pointerEvents="none"
+          style={
+            {
+              "--dcph-dur": `${n.breatheDur}s`,
+              "--dcph-delay": `${n.breatheDelay}s`,
+            } as CSSProperties
+          }
+        />
+      )}
 
-      {/* State ring — the hover + selection/search highlight merged into one
-          element. Selected/search nodes pin opacity via inline style (inline
-          beats the utility class); otherwise the ring fades in on CSS
-          :hover, so plain hover costs zero React re-renders of this node. */}
+      {/* State ring — the hover + selection highlight merged into one element.
+          Selected nodes pin opacity via inline style (inline beats the utility
+          class); otherwise the ring fades in on CSS :hover, so plain hover
+          costs zero React re-renders of this node. */}
       <circle
         key="state-ring"
         r={n.r + 7}
@@ -467,13 +479,18 @@ const NodeView = memo(function NodeView({
         pointerEvents="none"
       />
 
-      {/* Label — stable key and ref, never unmounted */}
+      {/* Label — stable key and ref, never unmounted. The halo width is a
+          presentation attribute rather than an inline style: the loop rewrites
+          it per zoom (see styleLabel) to keep the halo a constant 3 SCREEN px
+          now that the camera is a CSS transform on the world box instead of an
+          SVG transform — `non-scaling-stroke` cannot see past it. */}
       <g
         key="node-label"
         ref={(el) => {
           labelEls.current[i] = el;
         }}
         transform={`translate(0, ${n.r + 15})`}
+        strokeWidth={LABEL_HALO}
         pointerEvents="none"
       >
         <text
@@ -490,7 +507,6 @@ const NodeView = memo(function NodeView({
             fill: emphasised ? pal.labelStrong : pal.label,
             paintOrder: "stroke",
             stroke: pal.labelHalo,
-            strokeWidth: 3,
             strokeLinejoin: "round",
             vectorEffect: "non-scaling-stroke",
           }}
@@ -504,27 +520,21 @@ const NodeView = memo(function NodeView({
 
 /**
  * One relationship string. Static paint (color, locked dash, fill mode) is
- * hoisted into EdgeSpec at graph-build time; `d` is owned by the rAF loop.
- *
- * OPACITY IS NOT A PROP: dim/search state changes would break memo on all
- * ~153 edges and reconcile every path in one commit (the measured 137ms tap
- * spike on dev). Instead the parent writes opacities imperatively in a
- * useLayoutEffect (same formula as before — exact same values, zero visual
- * change), so a selection/hover/search flip re-renders only the few edges
- * whose isTarget (stroke width) actually changed.
+ * hoisted into EdgeSpec at graph-build time; only display/dim state arrives
+ * as live props. `d` is owned by the rAF loop — never a React prop.
  */
 const EdgeView = memo(function EdgeView({
   e,
   i,
   edgeEls,
-  hidden,
   isTarget,
+  opacity,
 }: {
   e: EdgeSpec;
   i: number;
   edgeEls: { current: (SVGPathElement | null)[] };
-  hidden: boolean;
   isTarget: boolean;
+  opacity: number;
 }) {
   return (
     <path
@@ -536,65 +546,84 @@ const EdgeView = memo(function EdgeView({
       strokeWidth={isTarget ? STRING_WIDTH + 1.8 : STRING_WIDTH}
       strokeLinecap="round"
       strokeDasharray={e.dash}
-      style={hidden ? EDGE_STYLE_HIDDEN : EDGE_STYLE}
+      opacity={opacity}
+      style={EDGE_STYLE}
     />
   );
 });
 
 export default function CharactersWeb({
-  characters = CHARACTERS,
-  relationships = RELATIONSHIPS,
+  characters,
+  relationships,
+  quality = "balanced",
   onSelectCharacter,
   selectedCharacterId,
-  activeFilter,
   topLeftSlot,
-  hideControls = false,
-  sheetInsetVh = 0,
   // Dark is the app default (see app/layout.tsx), so it is the default here too.
   theme = "dark",
   className = "",
 }: CharactersWebProps) {
   const reduce = useReducedMotion();
-  const isMobile = useMediaQuery("(max-width: 767px)");
+  const isMobile = useMediaQuery(MOBILE_QUERY);
   const isDark = theme === "dark";
+  /** The tier's budget for this graph. Module-level objects, so identity is
+   *  stable across renders and the memos below only rebuild on a real change. */
+  const q: GraphQuality = GRAPH_QUALITY[quality];
+  /** Weakest node tier whose label is painted while zoomed out (null = all). */
+  const labelLimit = labelTierLimit(q.labels);
 
   const [hoveredId, setHoveredId] = useState<string | null>(null);
+  const [searchOpen, setSearchOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
-  const [searchFocused, setSearchFocused] = useState(false);
   const [size, setSize] = useState({ w: 0, h: 0 });
   const [ready, setReady] = useState(false);
 
   /* ── refs the rAF loop reads ───────────────────────────────────── */
   const containerRef = useRef<HTMLDivElement>(null);
   const svgRef = useRef<SVGSVGElement>(null);
-  const worldRef = useRef<SVGGElement>(null);
+  const worldRef = useRef<SVGSVGElement>(null);
   const zoomLabelRef = useRef<HTMLSpanElement>(null);
 
   const camRef = useRef({ x: 0, y: 0, k: 1 });
   const targetRef = useRef({ x: 0, y: 0, k: 1 });
   const minZoomRef = useRef(FIT_MIN_K);
   const sizeRef = useRef({ w: 0, h: 0 });
-  const isMobileRef = useRef(isMobile);
+  /** `isMobile` only settles in a passive effect, which runs after the layout
+   *  effect that measures and fits the graph. On a phone that first fit would
+   *  take the desktop path — centered on Conan at 1.35x, most of the cast
+   *  off-screen — so the ref asks matchMedia directly from the start. */
+  const isMobileRef = useRef(
+    typeof window === "undefined" ? isMobile : window.matchMedia(MOBILE_QUERY).matches
+  );
   const panelOpenRef = useRef(Boolean(selectedCharacterId));
-  const sheetInsetVhRef = useRef(sheetInsetVh);
   const reduceRef = useRef(Boolean(reduce));
   const userAdjustedRef = useRef(false);
   const didFitRef = useRef(false);
   const forcedLabelsRef = useRef<Set<number>>(new Set());
   const labelsDirtyRef = useRef(true);
+  /** Per-node: is the label currently displayed? (display is written only on change) */
+  const labelShownRef = useRef<boolean[]>([]);
+  /** Last halo width written to the label groups (zoom-compensated, see styleLabel). */
+  const lastHaloRef = useRef("");
   const isGrabbingRef = useRef(false);
-  /** True from pointerdown until all pointers lift — freezes particles. */
-  const gestureActiveRef = useRef(false);
+  /** A dossier is open: the graph holds still while it is (see `holdStill`). */
+  const focusedRef = useRef(Boolean(selectedCharacterId));
+  /** Set by the loop effect, so a camera command can restart a parked loop. */
+  const wakeRef = useRef<(() => void) | null>(null);
 
   useEffect(() => {
     isMobileRef.current = isMobile;
   }, [isMobile]);
   useEffect(() => {
-    panelOpenRef.current = Boolean(selectedCharacterId);
+    const open = Boolean(selectedCharacterId);
+    panelOpenRef.current = open;
+    // An open dossier stops the ambient motion and lets the loop park, so this
+    // transition is exactly where the loop has to be woken back up: whatever
+    // closed the panel (a tap, Escape, the dock) already poked, but the loop
+    // must not depend on that.
+    focusedRef.current = open;
+    wakeRef.current?.();
   }, [selectedCharacterId]);
-  useEffect(() => {
-    sheetInsetVhRef.current = sheetInsetVh;
-  }, [sheetInsetVh]);
   useEffect(() => {
     reduceRef.current = Boolean(reduce);
   }, [reduce]);
@@ -706,18 +735,18 @@ export default function CharactersWeb({
     if (!Number.isFinite(minX) || !Number.isFinite(minY)) {
       return { minX: -500, minY: -500, w: 1000, h: 1000 };
     }
-    const m = DRIFT_AMP + 6;
+    const m = q.driftAmp + 6;
     return {
       minX: minX - m,
       minY: minY - m,
       w: maxX - minX + m * 2,
       h: maxY - minY + m * 2,
     };
-  }, [nodes]);
+  }, [nodes, q.driftAmp]);
 
   const particles = useMemo<Particle[]>(() => {
     const out: Particle[] = [];
-    for (let i = 0; i < PARTICLE_COUNT; i++) {
+    for (let i = 0; i < q.particles; i++) {
       out.push({
         x0: rand01(9176, i * 4 + 1),
         y0: rand01(9176, i * 4 + 2),
@@ -731,7 +760,7 @@ export default function CharactersWeb({
       });
     }
     return out;
-  }, []);
+  }, [q.particles]);
 
   /* ── element refs ──────────────────────────────────────────────── */
   const nodeEls = useRef<(SVGGElement | null)[]>([]);
@@ -739,13 +768,13 @@ export default function CharactersWeb({
   const edgeEls = useRef<(SVGPathElement | null)[]>([]);
   const particleEls = useRef<(SVGCircleElement | null)[]>([]);
 
-  /* ── search / highlight ────────────────────────────────────────── */
-  // Search matching (and everything downstream: matches Set, results list,
-  // forced labels) renders at deferred priority, so fast typing on a phone
-  // updates the input instantly while the graph highlight catches up without
-  // blocking the frame. The input itself stays on the raw value.
-  const deferredQuery = useDeferredValue(searchQuery);
-  const searchLower = deferredQuery.trim().toLowerCase();
+  /* ── highlight ─────────────────────────────────────────────────── */
+
+  /* Search matches drive three things at once: the results list, the pinned
+     ring on each hit, and a label that stays legible while the camera is zoomed
+     out. The match set is small and the graph is 103 nodes, so it is rebuilt
+     per keystroke rather than indexed. */
+  const searchLower = searchQuery.trim().toLowerCase();
   const searchMatches = useMemo(() => {
     if (!searchLower) return new Set<string>();
     const set = new Set<string>();
@@ -762,17 +791,50 @@ export default function CharactersWeb({
     return set;
   }, [searchLower, characters]);
 
+  /** Matches in graph order, so the results list reads like the roster. */
+  const searchResults = useMemo(
+    () => nodes.map((n, i) => ({ n, i })).filter(({ n }) => searchMatches.has(n.c.id)),
+    [nodes, searchMatches]
+  );
+
+  /**
+   * One label's full live style: opacity from the zoom tier, and visibility
+   * from the quality policy. Labels the policy suppresses while zoomed out are
+   * `display:none`d rather than faded to 0, so the renderer can skip them — but
+   * a forced label (hover, selection, search hit) is exempt at any zoom.
+   * Display is written only when it flips, since style writes on 95 elements
+   * are the expensive part.
+   */
+  const styleLabel = useCallback(
+    (i: number, k: number, forced: Set<number>) => {
+      const el = labelEls.current[i];
+      if (!el) return;
+      /* The halo has to stay LABEL_HALO screen px wide. `non-scaling-stroke`
+         holds it against the SVG's own viewBox mapping, but the camera is now
+         a CSS transform outside the SVG, which that property cannot see — so
+         the width is divided by the zoom here. */
+      const halo = (LABEL_HALO / Math.max(k, 0.02)).toFixed(2);
+      if (lastHaloRef.current !== halo) {
+        lastHaloRef.current = halo;
+        el.setAttribute("stroke-width", halo);
+      }
+      const o = forced.has(i) ? 1 : labelOpacityFor(k, nodes[i].tier);
+      el.style.opacity = o.toFixed(2);
+      const show = labelLimit === null || nodes[i].tier <= labelLimit || o > 0.01;
+      if (labelShownRef.current[i] !== show) {
+        labelShownRef.current[i] = show;
+        el.style.display = show ? "" : "none";
+      }
+    },
+    [nodes, labelLimit]
+  );
+
   const updateLabelOpacities = useCallback(
     (k: number) => {
       const forced = forcedLabelsRef.current;
-      for (let i = 0; i < nodes.length; i++) {
-        const el = labelEls.current[i];
-        if (!el) continue;
-        const o = forced.has(i) ? 1 : labelOpacityFor(k, nodes[i].tier);
-        el.style.opacity = o.toFixed(2);
-      }
+      for (let i = 0; i < nodes.length; i++) styleLabel(i, k, forced);
     },
-    [nodes]
+    [nodes, styleLabel]
   );
 
   // Labels that must stay fully legible regardless of zoom.
@@ -797,20 +859,15 @@ export default function CharactersWeb({
     (instant = false) => {
       const { w, h } = sizeRef.current;
       if (!w || !h) return;
-      const vp = usableRect(
-        w,
-        h,
-        isMobileRef.current,
-        panelOpenRef.current,
-        sheetInsetVhRef.current
-      );
-      const minFit = isMobileRef.current ? 0.75 : 0.6;
+      const vp = usableRect(w, h, isMobileRef.current, panelOpenRef.current);
       const k = clamp(
         Math.min(vp.w / bbox.w, vp.h / bbox.h),
-        minFit,
+        MIN_FIT_K,
         FIT_MAX_K
       );
-      minZoomRef.current = FIT_MIN_K;
+      // Zooming out is always allowed at least as far as the fit, or a phone
+      // could never reach the view that holds the whole cast.
+      minZoomRef.current = Math.min(FIT_MIN_K, k);
       const next = {
         k,
         x: vp.x + (vp.w - bbox.w * k) / 2 - bbox.minX * k,
@@ -819,23 +876,21 @@ export default function CharactersWeb({
       targetRef.current = next;
       if (instant || reduceRef.current) camRef.current = { ...next };
       userAdjustedRef.current = false;
+      // A parked loop would otherwise never see the new target: at the low tier
+      // the loop parks the moment the camera settles, so without this a tap on a
+      // character can do nothing at all.
+      if (!instant) wakeRef.current?.();
     },
     [bbox]
   );
 
-  /**
-   * Zoom to a world point. `sheetInsetVh` (when provided) lets the caller
-   * refit against the CURRENT sheet height in the same commit — used when
-   * the dossier changes snap size so the focused node stays visible above it.
-   */
   const zoomToPoint = useCallback(
     (
       wx: number,
       wy: number,
       k = ZOOM_TO_NODE,
       panelOpen?: boolean,
-      instant = false,
-      sheetInsetVh?: number
+      instant = false
     ) => {
       const { w, h } = sizeRef.current;
       if (!w || !h) return;
@@ -843,8 +898,7 @@ export default function CharactersWeb({
         w,
         h,
         isMobileRef.current,
-        panelOpen ?? panelOpenRef.current,
-        sheetInsetVh ?? sheetInsetVhRef.current
+        panelOpen ?? panelOpenRef.current
       );
       const kk = clamp(k, minZoomRef.current, MAX_ZOOM);
       const next = {
@@ -855,6 +909,7 @@ export default function CharactersWeb({
       targetRef.current = next;
       if (instant || reduceRef.current) camRef.current = { ...next };
       userAdjustedRef.current = !instant;
+      if (!instant) wakeRef.current?.();
     },
     []
   );
@@ -862,13 +917,7 @@ export default function CharactersWeb({
   const zoomBy = useCallback((factor: number) => {
     const { w, h } = sizeRef.current;
     if (!w || !h) return;
-    const vp = usableRect(
-      w,
-      h,
-      isMobileRef.current,
-      panelOpenRef.current,
-      sheetInsetVhRef.current
-    );
+    const vp = usableRect(w, h, isMobileRef.current, panelOpenRef.current);
     const t = targetRef.current;
     const cx = vp.x + vp.w / 2;
     const cy = vp.y + vp.h / 2;
@@ -881,6 +930,7 @@ export default function CharactersWeb({
     };
     if (reduceRef.current) camRef.current = { ...targetRef.current };
     userAdjustedRef.current = true;
+    wakeRef.current?.();
   }, []);
 
   const centerOnConan = useCallback(
@@ -893,7 +943,7 @@ export default function CharactersWeb({
       const wx = geom.curX[i] || geom.base[i * 2];
       const wy = geom.curY[i] || geom.base[i * 2 + 1];
       const k = isMobileRef.current ? 1.05 : 1.35;
-      zoomToPoint(wx, wy, k, undefined, instant, sheetInsetVhRef.current);
+      zoomToPoint(wx, wy, k, undefined, instant);
       if (instant) {
         userAdjustedRef.current = false;
       }
@@ -901,33 +951,13 @@ export default function CharactersWeb({
     [indexById, geom, zoomToPoint, fitToContent]
   );
 
-  /* ── refit when the mobile dossier sheet changes snap size ──────
-     The sheet publishes its height (peek/half/full) via sheetInsetVh.
-     autoRefitRef is ARMED when a node is selected (zoomToPoint would
-     otherwise immediately set userAdjustedRef and make this effect dead)
-     and DISARMED by any manual pan/pinch — so a user-adjusted camera is
-     never overridden, while programmatic selection-driven reflows stay
-     live. */
-  const autoRefitRef = useRef(false);
-  const lastSheetInsetRef = useRef(sheetInsetVh);
-  useEffect(() => {
-    const prev = lastSheetInsetRef.current;
-    lastSheetInsetRef.current = sheetInsetVh;
-    if (prev === sheetInsetVh) return;
-    if (!selectedCharacterId || sheetInsetVh === 0) return;
-    if (!autoRefitRef.current) return;
-    const idx = indexById.get(selectedCharacterId);
-    if (idx === undefined) return;
-    const wx = geom.curX[idx] || geom.base[idx * 2];
-    const wy = geom.curY[idx] || geom.base[idx * 2 + 1];
-    zoomToPoint(wx, wy, Math.max(camRef.current.k, 1), true, false, sheetInsetVh);
-  }, [sheetInsetVh, selectedCharacterId, indexById, geom, zoomToPoint]);
-
   /* ── synchronous node / edge / label layout setup ─────────────── */
   useIsoLayoutEffect(() => {
     nodeEls.current.length = nodes.length;
     labelEls.current.length = nodes.length;
     edgeEls.current.length = edges.length;
+    // Freshly rendered labels carry no inline display, i.e. they are shown.
+    labelShownRef.current = new Array(nodes.length).fill(true);
 
     const forced = forcedLabelsRef.current;
     const currentK = camRef.current.k || 1;
@@ -940,10 +970,7 @@ export default function CharactersWeb({
         );
       }
       const lbl = labelEls.current[i];
-      if (lbl) {
-        const o = forced.has(i) ? 1 : labelOpacityFor(currentK, nodes[i].tier);
-        lbl.style.opacity = o.toFixed(2);
-      }
+      if (lbl) styleLabel(i, currentK, forced);
     }
     for (let i = 0; i < edges.length; i++) {
       const el = edgeEls.current[i];
@@ -955,7 +982,7 @@ export default function CharactersWeb({
         );
       }
     }
-  }, [nodes, edges, geom]);
+  }, [nodes, edges, geom, styleLabel]);
 
   /* ── size observation + initial fit ───────────────────────────── */
   useIsoLayoutEffect(() => {
@@ -970,35 +997,62 @@ export default function CharactersWeb({
     let sizeTimer = 0;
     const commitSize = () => {
       sizeRaf = 0;
+      sizeTimer = 0;
       const { w: curW, h: curH } = sizeRef.current;
       setSize((prev) => (prev.w === curW && prev.h === curH ? prev : { w: curW, h: curH }));
     };
 
-    const ro = new ResizeObserver((entries) => {
-      const cr = entries[0]?.contentRect;
-      if (!cr || cr.width < 1 || cr.height < 1) return;
-      const w = Math.round(cr.width);
-      const h = Math.round(cr.height);
+    const applySize = (w: number, h: number) => {
+      if (w < 1 || h < 1) return;
       if (w === sizeRef.current.w && h === sizeRef.current.h) return;
       sizeRef.current = { w, h };
-      if (!sizeRaf) sizeRaf = requestAnimationFrame(commitSize);
-      if (sizeTimer) window.clearTimeout(sizeTimer);
-      sizeTimer = window.setTimeout(commitSize, 120);
       if (!didFitRef.current) {
         didFitRef.current = true;
-        centerOnConan(true);
+        /* The first measurement commits straight away: the SVG cannot lay out
+           until React has the size (it falls back to a 1x1 viewBox, which draws
+           the whole graph at one unit per pixel — an empty canvas), and a
+           debounced commit can still be cancelled by this effect re-running
+           before it fires. Later resizes stay debounced. */
+        commitSize();
+        // A phone opens on the whole cast: centered on Conan it showed a handful
+        // of nodes, and the rest sat off-screen. The dock still centers Conan on
+        // request, and a tap zooms to that character.
+        if (isMobileRef.current) fitToContent(true);
+        else centerOnConan(true);
         setReady(true);
-      } else if (!userAdjustedRef.current) {
-        centerOnConan();
+      } else {
+        if (!sizeRaf) sizeRaf = requestAnimationFrame(commitSize);
+        if (sizeTimer) window.clearTimeout(sizeTimer);
+        sizeTimer = window.setTimeout(commitSize, 120);
+        if (!userAdjustedRef.current) centerOnConan();
       }
+    };
+
+    const ro = new ResizeObserver((entries) => {
+      const cr = entries[0]?.contentRect;
+      if (!cr) return;
+      applySize(Math.round(cr.width), Math.round(cr.height));
     });
     ro.observe(el);
+    /* Measure once now rather than waiting for the observer's first delivery:
+       without it the SVG renders with the 1x1 fallback viewBox — everything
+       laid out at 1 unit per pixel, the camera unscaled — until the browser
+       gets round to notifying, which on a phone can be a while. */
+    const box = el.getBoundingClientRect();
+    applySize(Math.round(box.width), Math.round(box.height));
     return () => {
       ro.disconnect();
-      if (sizeRaf) cancelAnimationFrame(sizeRaf);
-      if (sizeTimer) window.clearTimeout(sizeTimer);
+      /* A pending commit must land, not evaporate: this effect re-runs when the
+         callbacks above change identity, and dropping the trailing commit left
+         React with a stale size while sizeRef had moved on — and the guard in
+         applySize then kept any later measurement from scheduling another. */
+      if (sizeRaf || sizeTimer) {
+        if (sizeRaf) cancelAnimationFrame(sizeRaf);
+        if (sizeTimer) window.clearTimeout(sizeTimer);
+        commitSize();
+      }
     };
-  }, [centerOnConan]);
+  }, [centerOnConan, fitToContent]);
 
   /* ── the single animation loop ────────────────────────────────── */
   useEffect(() => {
@@ -1030,32 +1084,34 @@ export default function CharactersWeb({
 
     let hasActiveOffsets = false;
     let frameCount = 0;
+    /** Is the world <g> currently on its own compositor layer? */
+    let camLayer = false;
 
     const loop = (now: number) => {
       if (parked) return;
       raf = requestAnimationFrame(loop);
-      // Frame rate limiter: on low-end devices, skip frames that arrive
-      // before the budget elapses so we target ~30 fps instead of 60.
-      if (FRAME_BUDGET_MS > 0 && now - last < FRAME_BUDGET_MS) return;
+      // Frame rate limiter: a tier may cap the rate (skip frames that arrive
+      // before the budget elapses) instead of rendering every vsync.
+      if (q.frameBudgetMs > 0 && now - last < q.frameBudgetMs) return;
       frameCount++;
       const dt = Math.min(50, now - last);
       last = now;
       const t = now - t0;
 
-      /* 0 — consume the latest pointermove FIRST, so input, camera math and
-         the transform write all happen in this frame. (The old design applied
-         moves in a separate rAF callback that ran AFTER this loop each frame,
-         rendering every gesture frame with last frame's input — measured
-         median 17ms trailing lag.) */
-      const pendingMove = latestMoveRef.current;
-      if (pendingMove) {
-        latestMoveRef.current = null;
-        applyMoveRef.current?.(pendingMove);
-      }
+      /* 1 — camera.
+         A glide promotes the world <g> to its own compositor layer and writes
+         nothing but that layer's transform, so the zoom is a GPU move of the
+         raster the graph already painted. Without the layer, every frame of a
+         zoom re-rasterizes the whole viewport — 103 nodes, 216 strings, 103 labels,
+         at up to 4x scale — which is what made zooming, and switching while
+         zoomed in, the most expensive things on this page.
 
-      /* 1 — camera */
+         Nothing inside the layer may be written while it moves: one content write
+         invalidates exactly the raster the layer exists to reuse. `holdStill`
+         below enforces that, and everything catches up on the settle frame. */
       const cam = camRef.current;
       const tgt = targetRef.current;
+      const world = worldRef.current;
       const a = reduceRef.current ? 1 : 1 - Math.exp(-dt / CAM_TAU);
       cam.x += (tgt.x - cam.x) * a;
       cam.y += (tgt.y - cam.y) * a;
@@ -1064,7 +1120,21 @@ export default function CharactersWeb({
       if (Math.abs(tgt.y - cam.y) < 0.04) cam.y = tgt.y;
       if (Math.abs(tgt.k - cam.k) < 0.0004) cam.k = tgt.k;
 
+      const camMoving =
+        Math.abs(tgt.x - cam.x) > 0.04 ||
+        Math.abs(tgt.y - cam.y) > 0.04 ||
+        Math.abs(tgt.k - cam.k) > 0.0004;
+
+      if (camMoving !== camLayer && world) {
+        camLayer = camMoving;
+        world.style.willChange = camMoving ? "transform" : "";
+        // Paint the labels once, for the zoom this glide is heading to, so the
+        // glide itself writes nothing (see step 4).
+        if (camMoving) labelsDirtyRef.current = true;
+      }
+
       if (
+        camMoving ||
         Math.abs(cam.x - lastCamX) > 0.01 ||
         Math.abs(cam.y - lastCamY) > 0.01 ||
         Math.abs(cam.k - lastCamK) > 0.0002
@@ -1072,23 +1142,35 @@ export default function CharactersWeb({
         lastCamX = cam.x;
         lastCamY = cam.y;
         lastCamK = cam.k;
-        worldRef.current?.setAttribute(
-          "transform",
-          `translate(${cam.x.toFixed(2)} ${cam.y.toFixed(2)}) scale(${cam.k.toFixed(4)})`
-        );
+        if (world) {
+          /* The world is an <svg> ELEMENT whose own viewBox is the content
+             box, so the camera lands on it as a CSS transform: an HTML-level
+             box Chromium composites, unlike the SVG <g> it used to sit on.
+             It has to, because an SVG transform is not composited — every
+             frame of a glide re-laid-out and re-painted all 103 nodes, 216
+             strings and 103 labels on the main thread (55ms frames against a
+             7ms vsync). Its local origin is the content box corner, so the
+             camera's world translation carries that offset. */
+          world.style.transform = `translate(${(cam.x + cam.k * bbox.minX).toFixed(
+            2
+          )}px, ${(cam.y + cam.k * bbox.minY).toFixed(2)}px) scale(${cam.k.toFixed(
+            4
+          )})`;
+        }
       }
 
-      /* 2 — node drift + anti-collision (positions feed BOTH nodes and strings).
-         While the canvas is being panned the whole world translates under the
-         finger — 3.5px per-node drift is imperceptible there, but recomputing
-         drifted positions + every edge path each frame is the dominant mobile
-         pan cost (measured: 4× throttle, 390px viewport). Freezing drift
-         during pan makes pan frames a single camera-transform write. */
-      const panFrozen = panRef.current !== null && dragNodeRef.current === null;
-      const amp =
-        reduceRef.current || panFrozen ? 0 : DRIFT_AMP;
-      const { base, curX, curY } = geom;
+      /* 2 — node drift + anti-collision (positions feed BOTH nodes and strings) */
       const dragIdx = dragNodeRef.current?.index ?? -1;
+      /* Everything inside the world layer holds still while the camera glides —
+         and also while a dossier is open: an open dossier means the reader is
+         looking at the panel, not at the ambient motion, and a still graph lets
+         the loop park instead of repainting 103 nodes behind a sheet. A node drag
+         or a separation offset that is still settling outranks both: those need
+         their positions to keep moving. */
+      const holdStill =
+        (camMoving || focusedRef.current) && dragIdx === -1 && !hasActiveOffsets;
+      const amp = holdStill || reduceRef.current ? 0 : q.driftAmp;
+      const { base, curX, curY } = geom;
 
       /* 2a — drifted home positions, plus separation offsets */
       const decay = Math.exp(-dt / COLLIDE_RELAX_TAU);
@@ -1132,7 +1214,7 @@ export default function CharactersWeb({
 
       /* 2b — pairwise separation (only run Gauss-Seidel when dragging or settling) */
       if (dragIdx !== -1 || hasActiveOffsets) {
-        for (let iter = 0; iter < COLLIDE_ITERS; iter++) {
+        for (let iter = 0; iter < q.collideIters; iter++) {
           for (let i = 0; i < N; i++) {
             const ri = nodes[i].r;
             const iFixed = i === dragIdx;
@@ -1242,15 +1324,17 @@ export default function CharactersWeb({
       }
 
       /* 3 — strings follow the same drifted coordinates.
-         Update cadence: edge `d` strings are recomputed at HALF cadence when the
-         graph is idle and at FULL cadence only while a node is being dragged.
-         Drift is sub-pixel per frame (≤3.5px over 12–30s periods) and pan/zoom
-         only rewrites the world <g> transform — world-space endpoints never move
-         from the camera — so 30fps path updates are visually identical to 60fps.
+         Update cadence: edge `d` strings are recomputed every Nth frame while
+         the graph is idle (the tier decides N) and EVERY frame only while a
+         node is being dragged. Drift is sub-pixel per frame (≤3.5px over 12–30s
+         periods) and pan/zoom only rewrites the world <g> transform — world-space
+         endpoints never move from the camera — so a lower path cadence is
+         visually identical, and on a still (`low`) graph the endpoints never
+         change at all, making the whole block a no-op after the first frame.
          Edges whose endpoints are both off-screen are skipped entirely; their `d`
          is recomputed when the camera brings them back into view. */
       const edgeEveryFrame = dragIdx !== -1;
-      if (edgeEveryFrame || frameCount % 2 === 0) {
+      if (edgeEveryFrame || frameCount % q.edgeFrameDivisor === 0) {
         const { w: vwPx, h: vhPx } = sizeRef.current;
         const cull = vwPx > 0 && vhPx > 0 && cam.k > 0;
         const cullMargin = COLLIDE_MAX_OFFSET + 64;
@@ -1287,28 +1371,26 @@ export default function CharactersWeb({
         }
       }
 
-      /* 4 — zoom-dependent label opacity */
-      if (labelsDirtyRef.current || Math.abs(cam.k - lastLabelK) > 0.003) {
+      /* 4 — zoom-dependent label opacity + policy culling.
+         While the camera glides this is a no-op: the labels were already painted
+         for the destination zoom when the glide started, so a zoom costs one
+         label pass instead of one per frame (103 nodes x a style write each). */
+      const labelK = camMoving ? tgt.k : cam.k;
+      if (labelsDirtyRef.current || Math.abs(labelK - lastLabelK) > 0.003) {
         labelsDirtyRef.current = false;
-        lastLabelK = cam.k;
+        lastLabelK = labelK;
         const forced = forcedLabelsRef.current;
-        for (let i = 0; i < N; i++) {
-          const el = labelEls.current[i];
-          if (!el) continue;
-          const o = forced.has(i) ? 1 : labelOpacityFor(cam.k, nodes[i].tier);
-          el.style.opacity = o.toFixed(2);
-        }
+        for (let i = 0; i < N; i++) styleLabel(i, labelK, forced);
       }
 
-      /* 5 — ambient particles (screen space, behind the world — throttled to every 2nd frame,
-         every 4th on low-end to further reduce DOM writes).
-         Also frozen while a pan/pinch/node-drag gesture is active: the world is
-         moving under the finger, ambient motes are imperceptible, and skipping
-         them removes a transform+opacity write per particle per gesture frame.
-         The count is device-dependent but otherwise unchanged — they resume the
-         instant the gesture ends. */
-      const particleCadence = isLowEndDevice ? 4 : 2;
-      if (!reduceRef.current && frameCount % particleCadence === 0 && !gestureActiveRef.current) {
+      /* 5 — ambient particles (screen space, behind the world — throttled by the
+         tier; the low tier has none at all) */
+      if (
+        !reduceRef.current &&
+        !holdStill &&
+        particles.length > 0 &&
+        frameCount % q.particleCadence === 0
+      ) {
         const { w, h } = sizeRef.current;
         if (w && h) {
           for (let i = 0; i < particles.length; i++) {
@@ -1336,6 +1418,13 @@ export default function CharactersWeb({
         lastZoomLabel = pct;
         zoomLabelRef.current.textContent = `${pct}%`;
       }
+
+      /* 7 — nothing left to animate: either the tier has no ambient motion, or a
+         dossier is holding the graph still. Park straight away instead of
+         waiting out the idle timer — a parked loop is what makes "zoomed in with
+         a dossier open" cost zero frames, at every tier. (tryPark re-checks
+         gestures and the camera itself.) */
+      if (amp === 0 && !hasActiveOffsets && (particles.length === 0 || holdStill)) tryPark();
     };
 
     /* ── idle / hidden-tab park ────────────────────────────────────
@@ -1354,16 +1443,25 @@ export default function CharactersWeb({
       if (parked) return;
       // Never park mid-gesture (node drag / pan inertia / pinch)…
       if (dragNodeRef.current || pinchRef.current || panRef.current) return;
-      // …or while the camera is still gliding to its target.
+      // …or while the camera is still gliding to its target. These thresholds
+      // are the loop's own snap thresholds (step 1), never looser: parking at a
+      // delta the loop still calls "moving" would freeze the world layer with
+      // `will-change` still on, leaving the graph permanently on a composited
+      // (and therefore blurry) raster.
       const cam = camRef.current;
       const tgt = targetRef.current;
       if (
-        Math.abs(tgt.x - cam.x) > 0.05 ||
-        Math.abs(tgt.y - cam.y) > 0.05 ||
-        Math.abs(tgt.k - cam.k) > 0.0005
+        Math.abs(tgt.x - cam.x) > 0.04 ||
+        Math.abs(tgt.y - cam.y) > 0.04 ||
+        Math.abs(tgt.k - cam.k) > 0.0004
       )
         return;
       parked = true;
+      // Drop the compositor layer with the loop: a parked graph must be a crisp,
+      // un-promoted raster again (and the layer must not leak into the next wake).
+      const world = worldRef.current;
+      if (world) world.style.willChange = "";
+      camLayer = false;
       container?.classList.add("dcph-parked");
       cancelAnimationFrame(raf);
     };
@@ -1379,20 +1477,13 @@ export default function CharactersWeb({
       raf = requestAnimationFrame(loop);
     };
 
-    let lastPoke = 0;
-
     const poke = () => {
       unpark();
-      // Re-arming the idle timer at pointer-event rate (120Hz touch panels)
-      // is 120 clearTimeout/setTimeout pairs per second. Throttle re-arms to
-      // ~1Hz while already awake; unpark itself stays unconditional and
-      // instant. Worst case the loop parks ~1s early after a burst — invisible.
-      const now = performance.now();
-      if (now - lastPoke < POKE_MIN_INTERVAL_MS) return;
-      lastPoke = now;
       window.clearTimeout(idleTimer);
       idleTimer = window.setTimeout(tryPark, IDLE_PARK_MS);
     };
+
+    wakeRef.current = poke;
 
     const onVisibility = () => {
       if (document.hidden) {
@@ -1425,10 +1516,19 @@ export default function CharactersWeb({
       window.removeEventListener("keydown", poke);
       document.removeEventListener("visibilitychange", onVisibility);
       container?.classList.remove("dcph-parked");
+      if (wakeRef.current === poke) wakeRef.current = null;
     };
-  }, [nodes, edges, geom, particles]);
+  }, [nodes, edges, geom, particles, q, styleLabel, bbox]);
 
   /* ── pointer gestures: pan, node drag, pinch ─────────────────── */
+
+  /** Is this event target part of the graph itself (rather than the control
+   *  chrome or the search panel sharing the same box)? */
+  const inCanvas = useCallback((target: EventTarget | null) => {
+    const t = target as Element | null;
+    if (!t || typeof t.nodeType !== "number") return false;
+    return Boolean(svgRef.current?.contains(t) || worldRef.current?.contains(t));
+  }, []);
 
   const pointersRef = useRef(new Map<number, { x: number; y: number }>());
   const rectRef = useRef<DOMRect | null>(null);
@@ -1453,21 +1553,6 @@ export default function CharactersWeb({
     wx: number;
     wy: number;
   } | null>(null);
-  /** Scratch pair for pinch reads — avoids Array.from allocation per event. */
-  const pinchScratchRef = useRef<{ x: number; y: number }[]>([
-    { x: 0, y: 0 },
-    { x: 0, y: 0 },
-  ]);
-  /** Touch pointerId whose tap should select on pointerup (click-synthesis skip). */
-  const touchSelectRef = useRef<number | null>(null);
-  /** Set when pointerup already handled selection; swallows the trailing click. */
-  const tapConsumedRef = useRef(false);
-  /** Latest stable selectNode for use inside window-level event handlers. */
-  const selectNodeRef = useRef<(index: number) => void>(() => {});
-  /** Latest pointermove — consumed at the top of the rAF loop (same-frame input). */
-  const latestMoveRef = useRef<PointerEvent | null>(null);
-  /** Pointer-move applier, kept fresh by the gesture effect, invoked by the loop. */
-  const applyMoveRef = useRef<((e: PointerEvent) => void) | null>(null);
 
   const localPoint = useCallback((clientX: number, clientY: number) => {
     const r = rectRef.current ?? svgRef.current?.getBoundingClientRect();
@@ -1476,22 +1561,13 @@ export default function CharactersWeb({
   }, []);
 
   const beginPinch = useCallback(() => {
-    const pts = pointersRef.current.values();
-    if (pointersRef.current.size < 2) return;
+    const pts = Array.from(pointersRef.current.values());
+    if (pts.length < 2) return;
     panRef.current = null;
     dragNodeRef.current = null;
-    // Copy the first two pointers into the reusable scratch pair — no
-    // Array.from allocation on every pointermove during a pinch.
-    const scratch = pinchScratchRef.current;
-    let n = 0;
-    for (const p of pts) {
-      scratch[n].x = p.x;
-      scratch[n].y = p.y;
-      if (++n === 2) break;
-    }
-    const dist = Math.hypot(scratch[0].x - scratch[1].x, scratch[0].y - scratch[1].y) || 1;
-    const midX = (scratch[0].x + scratch[1].x) / 2;
-    const midY = (scratch[0].y + scratch[1].y) / 2;
+    const dist = Math.hypot(pts[0].x - pts[1].x, pts[0].y - pts[1].y) || 1;
+    const midX = (pts[0].x + pts[1].x) / 2;
+    const midY = (pts[0].y + pts[1].y) / 2;
     const { sx, sy } = localPoint(midX, midY);
     const cam = camRef.current;
     pinchRef.current = {
@@ -1504,15 +1580,18 @@ export default function CharactersWeb({
 
   /** Capture phase: every pointer that touches the canvas is registered here,
    *  including ones that land on a node, so pinch works anywhere. */
-  const handleCapturePointerDown = (e: ReactPointerEvent<SVGSVGElement>) => {
+  const handleCapturePointerDown = (e: ReactPointerEvent<HTMLDivElement>) => {
+    if (!inCanvas(e.target)) return;
     rectRef.current = svgRef.current?.getBoundingClientRect() ?? null;
-    // Deselect bookkeeping: a new gesture invalidates any pending tap-select.
-    tapConsumedRef.current = false;
     pointersRef.current.set(e.pointerId, { x: e.clientX, y: e.clientY });
     if (pointersRef.current.size === 2) beginPinch();
   };
 
-  const handleCanvasPointerDown = (e: ReactPointerEvent<SVGSVGElement>) => {
+  const handleCanvasPointerDown = (e: ReactPointerEvent<HTMLDivElement>) => {
+    // Gestures belong to the canvas only. This box also hosts the control
+    // chrome and the search results, and a drag that starts on those must not
+    // drag the graph out from under them.
+    if (!inCanvas(e.target)) return;
     if (pointersRef.current.size > 1) return;
     didDragRef.current = false;
     pinchRef.current = null;
@@ -1524,10 +1603,8 @@ export default function CharactersWeb({
       lastT: performance.now(),
     };
     isGrabbingRef.current = true;
-    gestureActiveRef.current = true;
-    if (svgRef.current) svgRef.current.style.cursor = "grabbing";
+    if (containerRef.current) containerRef.current.style.cursor = "grabbing";
     userAdjustedRef.current = true;
-    autoRefitRef.current = false;
   };
 
   const handleNodePointerDown = useCallback(
@@ -1549,26 +1626,18 @@ export default function CharactersWeb({
         offY: wy - geom.base[index * 2 + 1],
       };
       isGrabbingRef.current = true;
-      gestureActiveRef.current = true;
-      // Touch optimization: remember the pointer so pointerup can select
-      // without waiting for the browser to synthesize a click (saves a hop
-      // and its associated main-thread work on mid-range Android).
-      touchSelectRef.current = e.pointerType === "touch" ? e.pointerId : null;
-      tapConsumedRef.current = false;
-      if (svgRef.current) svgRef.current.style.cursor = "grabbing";
+      if (containerRef.current) containerRef.current.style.cursor = "grabbing";
     },
     [localPoint, geom]
   );
 
   useEffect(() => {
     /* Coalesce window pointermove: browsers can fire several events per frame
-       (240Hz mice, touch). Events only RECORD the latest pointer position here;
-       the CONSUMPTION moved to the top of the main rAF loop (via applyMoveRef),
-       so input is applied and the camera transform is written in the SAME
-       frame. The previous design applied moves in a SEPARATE rAF callback:
-       callback order put the main loop first each frame, so every pan/pinch
-       tick rendered with last frame's input — a constant one-frame trailing
-       lag behind the finger (measured median 17ms on 390x844). */
+       (240Hz mice, touch). Each one used to rewrite camRef/targetRef — wasted
+       work, since the rAF loop can only apply one camera state per frame. Events
+       now only record the latest pointer position; the pinch / drag / pan math
+       runs at most once per animation frame. */
+    let moveRaf = 0;
     let latestMove: PointerEvent | null = null;
 
     const applyPointerMove = (e: PointerEvent) => {
@@ -1577,14 +1646,7 @@ export default function CharactersWeb({
       // Pinch zoom — anchored on the pinch midpoint, applied directly for 1:1 feel.
       const pinch = pinchRef.current;
       if (pinch && pts.size >= 2) {
-        // Copy the two pointers into the reusable scratch pair (no allocation).
-        const p = pinchScratchRef.current;
-        let n = 0;
-        for (const pt of pts.values()) {
-          p[n].x = pt.x;
-          p[n].y = pt.y;
-          if (++n === 2) break;
-        }
+        const p = Array.from(pts.values());
         const dist = Math.hypot(p[0].x - p[1].x, p[0].y - p[1].y) || 1;
         const { sx, sy } = localPoint((p[0].x + p[1].x) / 2, (p[0].y + p[1].y) / 2);
         const nk = clamp(
@@ -1592,19 +1654,11 @@ export default function CharactersWeb({
           minZoomRef.current,
           MAX_ZOOM
         );
-        // Mutate camera + target in place: the loop reads fields, so replacing
-        // the objects each event is pure garbage at 60–120Hz.
-        const cam = camRef.current;
-        const tgt = targetRef.current;
-        cam.k = nk;
-        cam.x = sx - pinch.wx * nk;
-        cam.y = sy - pinch.wy * nk;
-        tgt.k = nk;
-        tgt.x = cam.x;
-        tgt.y = cam.y;
+        const next = { k: nk, x: sx - pinch.wx * nk, y: sy - pinch.wy * nk };
+        camRef.current = { ...next };
+        targetRef.current = { ...next };
         didDragRef.current = true;
         userAdjustedRef.current = true;
-        autoRefitRef.current = false; // manual pinch disarms auto-refit
         return;
       }
 
@@ -1647,37 +1701,36 @@ export default function CharactersWeb({
         pan.lastT = now;
         pan.cx = e.clientX;
         pan.cy = e.clientY;
-        if (Math.abs(dx) + Math.abs(dy) > 1) {
-          didDragRef.current = true;
-          autoRefitRef.current = false; // manual pan disarms auto-refit
-        }
-        // Direct 1:1 pan — mutate in place, no object churn per event.
+        if (Math.abs(dx) + Math.abs(dy) > 1) didDragRef.current = true;
         const cam = camRef.current;
-        const tgt = targetRef.current;
-        tgt.k = cam.k;
-        tgt.x = cam.x + dx;
-        tgt.y = cam.y + dy;
-        cam.x = tgt.x;
-        cam.y = tgt.y;
+        const next = { k: cam.k, x: cam.x + dx, y: cam.y + dy };
+        camRef.current = { ...next };
+        targetRef.current = { ...next };
       }
     };
 
     const onMove = (e: PointerEvent) => {
       const pts = pointersRef.current;
       if (pts.has(e.pointerId)) pts.set(e.pointerId, { x: e.clientX, y: e.clientY });
-      // Record only. The main rAF loop consumes latestMoveRef at the top of
-      // each frame (see loop section 0), so input and the transform write
-      // land in the SAME frame — no one-frame trailing lag.
       latestMove = e;
-      latestMoveRef.current = e;
+      if (moveRaf) return;
+      moveRaf = requestAnimationFrame(() => {
+        moveRaf = 0;
+        const evt = latestMove;
+        latestMove = null;
+        if (evt) applyPointerMove(evt);
+      });
     };
 
     const onUp = (e: PointerEvent) => {
       pointersRef.current.delete(e.pointerId);
       if (pointersRef.current.size === 0) {
         rectRef.current = null;
-        latestMove = null;
-        latestMoveRef.current = null;
+        if (moveRaf) {
+          cancelAnimationFrame(moveRaf);
+          moveRaf = 0;
+          latestMove = null;
+        }
       }
       if (pointersRef.current.size >= 2) {
         beginPinch();
@@ -1685,45 +1738,22 @@ export default function CharactersWeb({
         pinchRef.current = null;
       }
 
-      // Touch tap-to-select: a touch pointer that went down on a node and
-      // never moved past the drag threshold selects on pointerup, skipping
-      // the browser's synthetic click (one less main-thread hop on Android).
-      const drag = dragNodeRef.current;
-      if (
-        drag &&
-        touchSelectRef.current === e.pointerId &&
-        !didDragRef.current &&
-        pointersRef.current.size === 0
-      ) {
-        tapConsumedRef.current = true;
-        selectNodeRef.current(drag.index);
-      }
-      // Whether or not the tap selected, the synthetic click must not select
-      // again — the consumed flag (checked in NodeView's onClick and the SVG
-      // root onClick) handles both cases and self-clears there.
-      if (touchSelectRef.current !== null) {
-        tapConsumedRef.current = true;
-      }
-      touchSelectRef.current = null;
-
       const pan = panRef.current;
       if (pan && !reduceRef.current) {
         const speed = Math.hypot(pan.vx, pan.vy);
         if (speed > 0.25) {
-          // Fling inertia — project the release velocity onto the target,
-          // mutated in place (no per-event object allocation).
           const t = targetRef.current;
-          t.x += clamp(pan.vx, -4, 4) * PAN_INERTIA_MS;
-          t.y += clamp(pan.vy, -4, 4) * PAN_INERTIA_MS;
+          targetRef.current = {
+            k: t.k,
+            x: t.x + clamp(pan.vx, -4, 4) * PAN_INERTIA_MS,
+            y: t.y + clamp(pan.vy, -4, 4) * PAN_INERTIA_MS,
+          };
         }
       }
       panRef.current = null;
       dragNodeRef.current = null;
       isGrabbingRef.current = false;
-      if (pointersRef.current.size === 0) {
-        gestureActiveRef.current = false;
-      }
-      if (svgRef.current) svgRef.current.style.cursor = "";
+      if (containerRef.current) containerRef.current.style.cursor = "";
     };
 
     const onBlur = () => {
@@ -1733,25 +1763,24 @@ export default function CharactersWeb({
       panRef.current = null;
       dragNodeRef.current = null;
       isGrabbingRef.current = false;
-      gestureActiveRef.current = false;
-      touchSelectRef.current = null;
-      if (svgRef.current) svgRef.current.style.cursor = "";
-      latestMove = null;
-      latestMoveRef.current = null;
+      if (containerRef.current) containerRef.current.style.cursor = "";
+      if (moveRaf) {
+        cancelAnimationFrame(moveRaf);
+        moveRaf = 0;
+        latestMove = null;
+      }
     };
-
-    /* Publish the move applier to the main loop (section 0 consumes it at
-       the top of every frame — same-frame input rendering). */
-    applyMoveRef.current = applyPointerMove;
 
     window.addEventListener("pointermove", onMove);
     window.addEventListener("pointerup", onUp);
     window.addEventListener("pointercancel", onUp);
     window.addEventListener("blur", onBlur);
     return () => {
-      applyMoveRef.current = null;
-      latestMove = null;
-      latestMoveRef.current = null;
+      if (moveRaf) {
+        cancelAnimationFrame(moveRaf);
+        moveRaf = 0;
+        latestMove = null;
+      }
       window.removeEventListener("pointermove", onMove);
       window.removeEventListener("pointerup", onUp);
       window.removeEventListener("pointercancel", onUp);
@@ -1761,8 +1790,10 @@ export default function CharactersWeb({
 
   /* ── wheel zoom: accumulates into the target, loop glides there ── */
   useEffect(() => {
-    const svg = svgRef.current;
-    if (!svg) return;
+    // On the container, not the backdrop SVG: the world layer is its sibling,
+    // so a wheel over a node never reaches the backdrop.
+    const el = containerRef.current;
+    if (!el) return;
     const onWheel = (e: WheelEvent) => {
       e.preventDefault();
       const { sx, sy } = localPoint(e.clientX, e.clientY);
@@ -1780,10 +1811,9 @@ export default function CharactersWeb({
       targetRef.current = { k: nk, x: sx - targetWx * nk, y: sy - targetWy * nk };
       if (reduceRef.current) camRef.current = { ...targetRef.current };
       userAdjustedRef.current = true;
-      autoRefitRef.current = false; // manual wheel zoom disarms auto-refit
     };
-    svg.addEventListener("wheel", onWheel, { passive: false });
-    return () => svg.removeEventListener("wheel", onWheel);
+    el.addEventListener("wheel", onWheel, { passive: false });
+    return () => el.removeEventListener("wheel", onWheel);
   }, [localPoint]);
 
   /* ── keyboard shortcuts ───────────────────────────────────────── */
@@ -1806,14 +1836,13 @@ export default function CharactersWeb({
 
   /* ── selection ────────────────────────────────────────────────── */
   // Stable identities so memoized NodeViews never see a fresh function on
-  // unrelated parent re-renders (hover, search typing, resize commits).
+  // unrelated parent re-renders (hover, selection, resize commits).
   const handleSelectNode = useCallback(
     (index: number) => {
       const n = nodes[index];
       const wx = geom.curX[index] || geom.base[index * 2];
       const wy = geom.curY[index] || geom.base[index * 2 + 1];
       zoomToPoint(wx, wy, ZOOM_TO_NODE, true);
-      autoRefitRef.current = true; // selection-driven refits stay live
       onSelectCharacter(n.c);
     },
     [nodes, geom, zoomToPoint, onSelectCharacter]
@@ -1821,73 +1850,22 @@ export default function CharactersWeb({
 
   // Click variant: swallows the click that terminates a node drag. Drag
   // detection lives in pointer-move handling (didDragRef), so a plain click
-  // that never moved still selects. tapConsumedRef swallows the browser's
-  // synthetic click after a touch tap was already selected on pointerup.
+  // that never moved still selects.
   const selectNode = useCallback(
     (index: number) => {
-      if (tapConsumedRef.current) {
-        tapConsumedRef.current = false;
-        return;
-      }
       if (didDragRef.current) {
         didDragRef.current = false;
         return;
       }
       handleSelectNode(index);
-      // If this call came from the touch pointerup path (touchSelectRef still
-      // holds the pointer id — it is cleared by onUp right after), mark the
-      // trailing synthetic click as consumed.
-      if (touchSelectRef.current !== null) {
-        tapConsumedRef.current = true;
-      }
     },
     [handleSelectNode]
   );
-
-  // Bridge the LATEST unguarded selection into window-level gesture handlers
-  // without re-subscribing them on every render. Note: this must be the raw
-  // selection (not the click-guarded selectNode) — the touch pointerup path
-  // has already validated !didDragRef and sets tapConsumedRef itself to
-  // swallow the trailing synthetic click.
-  useEffect(() => {
-    selectNodeRef.current = handleSelectNode;
-  }, [handleSelectNode]);
 
   /* ── theme-derived palette ────────────────────────────────────── */
   const pal = isDark ? CANVAS.dark : CANVAS.light;
 
   const dimmed = hoveredId !== null || Boolean(selectedCharacterId);
-  /* ── imperative edge opacity pass (replaces per-edge opacity props) ──
-     Runs before paint on every dim-state change. Same values as the old
-     render-time computation (dimmed → target 1 / others DIM_OPACITY; idle →
-     search-active stringActive / others stringIdle), so visuals are
-     identical — but it skips React reconciliation of ~153 memoized paths.
-     Cheap on mount too: ~153 setAttribute calls ≈ 1–2ms. */
-  useLayoutEffect(() => {
-    for (let i = 0; i < edges.length; i++) {
-      const el = edgeEls.current[i];
-      if (!el) continue;
-      const e = edges[i];
-      const isTarget =
-        hoveredId === e.rel.source ||
-        hoveredId === e.rel.target ||
-        selectedCharacterId === e.rel.source ||
-        selectedCharacterId === e.rel.target;
-      const matchesSearch =
-        searchMatches.size === 0 ||
-        searchMatches.has(e.rel.source) ||
-        searchMatches.has(e.rel.target);
-      const o = dimmed
-        ? isTarget
-          ? 1
-          : DIM_OPACITY
-        : matchesSearch
-          ? pal.stringActive
-          : pal.stringIdle;
-      el.setAttribute("opacity", o.toFixed(2));
-    }
-  }, [edges, hoveredId, selectedCharacterId, searchMatches, dimmed, pal, edgeEls]);
-
   const vw = Math.max(1, size.w);
   const vh = Math.max(1, size.h);
 
@@ -1895,42 +1873,45 @@ export default function CharactersWeb({
     <div
       ref={containerRef}
       className={cn(
-        "relative h-full w-full select-none overflow-hidden rounded-2xl border transition-colors duration-300",
+        "relative h-full w-full select-none touch-none overflow-hidden rounded-2xl border transition-colors duration-300",
         // One token recipe for both themes — the hairline does the separation
         // work that the old theme-specific drop shadows did.
         "border-line bg-page text-ink shadow-card",
+        // Gestures live on this box (not on the backdrop SVG): the world layer
+        // is a sibling of it, so a tap on a node has to reach the same handler
+        // as a tap on the background.
+        "cursor-grab active:cursor-grabbing",
         className
       )}
+      onPointerDownCapture={handleCapturePointerDown}
+      onPointerDown={handleCanvasPointerDown}
+      onClick={(e) => {
+        if (didDragRef.current) {
+          didDragRef.current = false;
+          return;
+        }
+        if (
+          selectedCharacterId &&
+          (e.target === svgRef.current ||
+            e.target === worldRef.current ||
+            (e.target as Element)?.tagName === "rect" ||
+            (e.target as Element)?.tagName === "ellipse")
+        ) {
+          onSelectCharacter(null);
+        }
+      }}
     >
+      {/* Screen-space backdrop: vignette, dot matrix, ambient motes. Everything
+          the camera must NOT move. Purely decorative, so it takes no pointers. */}
       <svg
         ref={svgRef}
         viewBox={`0 0 ${vw} ${vh}`}
         preserveAspectRatio="xMidYMid meet"
+        aria-hidden
         className={cn(
-          "h-full w-full touch-none select-none cursor-grab active:cursor-grabbing transition-opacity duration-500",
+          "pointer-events-none absolute inset-0 h-full w-full transition-opacity duration-500",
           ready ? "opacity-100" : "opacity-0"
         )}
-        aria-label="Detective Conan character relationship graph"
-        onPointerDownCapture={handleCapturePointerDown}
-        onPointerDown={handleCanvasPointerDown}
-        onClick={(e) => {
-          if (tapConsumedRef.current) {
-            tapConsumedRef.current = false;
-            return;
-          }
-          if (didDragRef.current) {
-            didDragRef.current = false;
-            return;
-          }
-          if (
-            selectedCharacterId &&
-            (e.target === svgRef.current ||
-              (e.target as Element)?.tagName === "rect" ||
-              (e.target as Element)?.tagName === "ellipse")
-          ) {
-            onSelectCharacter(null);
-          }
-        }}
       >
         <defs>
           <radialGradient id="dcph-bg" cx="50%" cy="42%" r="78%">
@@ -1943,179 +1924,213 @@ export default function CharactersWeb({
           </pattern>
         </defs>
 
-        {/* Background stack: crisp clean dark vignette → dot matrix */}
+        {/* Background stack: crisp clean dark vignette → dot matrix. The dot
+            pattern is a full-viewport pattern fill, so the low tier drops it. */}
         <rect width={vw} height={vh} fill="url(#dcph-bg)" />
-        <rect width={vw} height={vh} fill="url(#dcph-dots)" />
+        {q.dotGrid && <rect width={vw} height={vh} fill="url(#dcph-dots)" />}
 
-        <g aria-hidden pointerEvents="none" className="pointer-events-none">
-          {particles.map((p, i) => (
-            <circle
-              key={i}
-              ref={(el) => {
-                particleEls.current[i] = el;
-              }}
-              r={p.r}
-              fill={pal.particle}
-            />
-          ))}
-        </g>
-
-        {/* World layer — transform written by the rAF loop, never by CSS.
-            NOTE: do NOT add will-change/layer promotion here — SVG groups are
-            re-rasterized wholesale when promoted, which made pan FPS worse
-            (measured). Pan smoothness comes from freezing drift below. */}
-        <g ref={worldRef} style={{ transformOrigin: "0px 0px" }}>
-          <g>
-            {/* Strings — `d` is owned by the rAF loop; React owns paint + state.
-                Memoized EdgeViews bail unless THIS edge's live state changed,
-                so hover/search/size churn reconciles only the affected paths. */}
-            {/* Strings — `d` is owned by the rAF loop; React owns paint + state.
-                Memoized EdgeViews bail unless THIS edge's live state changed.
-                Opacity (dim/search) is written imperatively by the effect above
-                instead of as a prop, so a selection flip re-renders only edges
-                whose stroke width changed — not all ~153 paths. */}
-            {edges.map((e, i) => {
-              const hidden = Boolean(activeFilter && e.rel.type !== activeFilter);
-              const isTarget =
-                hoveredId === e.rel.source ||
-                hoveredId === e.rel.target ||
-                selectedCharacterId === e.rel.source ||
-                selectedCharacterId === e.rel.target;
-              return (
-                <EdgeView
-                  key={e.rel.id}
-                  e={e}
-                  i={i}
-                  edgeEls={edgeEls}
-                  hidden={hidden}
-                  isTarget={isTarget}
-                />
-              );
-            })}
-
-            {/* Nodes — one <g> per node: the rAF loop repositions it via the
-                nodeEls ref; React paints structure + state. Memoized NodeViews
-                bail unless THIS node's visual state changed, so a hover or a
-                search match re-renders ~2 subtrees, not the whole graph. */}
-            {nodes.map((n, i) => (
-              <NodeView
-                key={n.c.id}
-                n={n}
-                i={i}
-                isDark={isDark}
-                pal={pal}
-                isSelected={selectedCharacterId === n.c.id}
-                isHovered={hoveredId === n.c.id}
-                isSearchMatch={searchMatches.has(n.c.id)}
-                nodeEls={nodeEls}
-                labelEls={labelEls}
-                grabbingRef={isGrabbingRef}
-                didDragRef={didDragRef}
-                onSelectNode={selectNode}
-                onNodePointerDown={handleNodePointerDown}
-                onHoverChange={setHoveredId}
+        {particles.length > 0 && (
+          <g aria-hidden pointerEvents="none" className="pointer-events-none">
+            {particles.map((p, i) => (
+              <circle
+                key={i}
+                ref={(el) => {
+                  particleEls.current[i] = el;
+                }}
+                r={p.r}
+                fill={pal.particle}
               />
             ))}
           </g>
+        )}
+      </svg>
+
+      {/* World layer — the rAF loop owns its transform, never React. It is a
+          separate <svg> ELEMENT (not a <g>) with the content box as its own
+          viewBox, so the camera is a CSS transform on an HTML-level box that
+          Chromium can composite: an SVG <g> transform is not composited, and
+          every frame of a glide re-laid-out and re-painted the whole graph on
+          the main thread. `overflow: visible` keeps labels that hang past the
+          content box from being clipped by that viewBox; the container's
+          overflow hidden does the real clipping. */}
+      <svg
+        ref={worldRef}
+        width={bbox.w}
+        height={bbox.h}
+        viewBox={`${bbox.minX} ${bbox.minY} ${bbox.w} ${bbox.h}`}
+        aria-label="Detective Conan character relationship graph"
+        style={{ transformOrigin: "0px 0px", overflow: "visible" }}
+        className={cn(
+          "absolute left-0 top-0 transition-opacity duration-500",
+          ready ? "opacity-100" : "opacity-0"
+        )}
+      >
+        <g>
+          {/* Strings — `d` is owned by the rAF loop; React owns paint + state.
+              Memoized EdgeViews bail unless THIS edge's live state changed,
+              so hover/size churn reconciles only the affected paths. */}
+          {edges.map((e, i) => {
+            const isTarget =
+              hoveredId === e.rel.source ||
+              hoveredId === e.rel.target ||
+              selectedCharacterId === e.rel.source ||
+              selectedCharacterId === e.rel.target;
+            const matchesSearch =
+              searchMatches.size === 0 ||
+              searchMatches.has(e.rel.source) ||
+              searchMatches.has(e.rel.target);
+            const opacity = dimmed
+              ? isTarget
+                ? 1
+                : DIM_OPACITY
+              : matchesSearch
+                ? pal.stringActive
+                : pal.stringIdle;
+            return (
+              <EdgeView
+                key={e.rel.id}
+                e={e}
+                i={i}
+                edgeEls={edgeEls}
+                isTarget={isTarget}
+                opacity={opacity}
+              />
+            );
+          })}
+
+          {/* Nodes — one <g> per node: the rAF loop repositions it via the
+              nodeEls ref; React paints structure + state. Memoized NodeViews
+              bail unless THIS node's visual state changed, so a hover
+              re-renders ~2 subtrees, not the whole graph. */}
+          {nodes.map((n, i) => (
+            <NodeView
+              key={n.c.id}
+              n={n}
+              i={i}
+              isDark={isDark}
+              pal={pal}
+              isSelected={selectedCharacterId === n.c.id}
+              isHovered={hoveredId === n.c.id}
+              isSearchMatch={searchMatches.has(n.c.id)}
+              breathe={q.breathe}
+              ripple={q.ripple}
+              nodeEls={nodeEls}
+              labelEls={labelEls}
+              grabbingRef={isGrabbingRef}
+              didDragRef={didDragRef}
+              onSelectNode={selectNode}
+              onNodePointerDown={handleNodePointerDown}
+              onHoverChange={setHoveredId}
+            />
+          ))}
         </g>
       </svg>
 
-      {/* ── top-left control column: search → host slot → results ──
-           One flex column of flow siblings, so nothing can overlap.
-           Mobile-only: hidden (not unmounted — search/filter state survives)
-           while a dossier sheet is open on phones. */}
-      <div
-        className={cn(
-          "pointer-events-none absolute left-3 top-4 z-40 flex w-[16rem] flex-col gap-2 sm:left-4 sm:w-[18rem] md:top-5",
-          hideControls && "hidden"
-        )}
-      >
-        <div
-          className={cn(
-            "pointer-events-auto flex items-center gap-2 rounded-full border py-1.5 pl-3 pr-1.5 shadow-lift transition-all duration-300",
-            "border-line bg-surface text-ink",
-            searchFocused && "border-accent/70 ring-2 ring-accent/40"
-          )}
-        >
-          <Search className="h-4 w-4 shrink-0 text-ink-faint" />
-          <input
-            type="text"
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            onFocus={() => setSearchFocused(true)}
-            onBlur={() => setSearchFocused(false)}
-            onKeyDown={(e) => {
-              if (e.key === "Escape") {
-                setSearchQuery("");
-                e.currentTarget.blur();
-              }
+      {/* ── top-left control row: host slot (graphics) + search ──
+           One flow row, so the two icons line up and neither can overlap the
+           other or the graph. The field itself only exists once search is on. */}
+      <div className="pointer-events-none absolute left-3 top-4 z-40 flex flex-col gap-2 sm:left-4 md:top-5">
+        <div className="pointer-events-auto flex items-center gap-2">
+          {topLeftSlot}
+          <button
+            type="button"
+            onClick={() => {
+              if (searchOpen) setSearchQuery("");
+              setSearchOpen(!searchOpen);
             }}
-            placeholder="Search characters"
             aria-label="Search characters"
-            className="w-full min-w-0 select-text bg-transparent text-sm text-ink outline-none placeholder:text-ink-faint"
-          />
-          {searchQuery && (
-            <button
-              type="button"
-              onClick={() => setSearchQuery("")}
-              aria-label="Clear search"
-              className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full text-ink-faint transition-colors hover:bg-surface-muted hover:text-ink"
-            >
-              <X className="h-4 w-4" />
-            </button>
-          )}
+            aria-expanded={searchOpen}
+            title="Search characters"
+            className={cn(
+              "flex h-9 w-9 items-center justify-center rounded-full border shadow-lift transition-all",
+              "border-line bg-surface text-ink hover:border-ink-faint/40 hover:bg-surface-muted",
+              searchOpen && "border-accent/70 ring-2 ring-accent/40",
+            )}
+          >
+            <Search className="h-4 w-4" />
+          </button>
         </div>
 
-        {topLeftSlot && <div className="pointer-events-auto">{topLeftSlot}</div>}
-
-        {deferredQuery.trim() && searchMatches.size > 0 && (
-          <div className="pointer-events-auto max-h-[46vh] overflow-y-auto rounded-xl border border-line bg-surface p-2 text-ink shadow-lift">
-            {Array.from(searchMatches).map((id) => {
-              const idx = indexById.get(id);
-              if (idx === undefined) return null;
-              const n = nodes[idx];
-              return (
-                <button
-                  key={id}
-                  type="button"
-                  onClick={() => {
-                    handleSelectNode(idx);
+        {searchOpen && (
+          <div className="pointer-events-auto w-[15rem] space-y-1.5 rounded-xl border border-line bg-surface p-2 text-ink shadow-lift sm:w-[17rem]">
+            <div className="flex items-center gap-2 rounded-lg bg-surface-muted px-2.5 py-1.5">
+              <Search className="h-3.5 w-3.5 shrink-0 text-ink-faint" aria-hidden />
+              <input
+                autoFocus
+                type="text"
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === "Escape") {
                     setSearchQuery("");
-                  }}
-                  className="flex w-full items-center gap-2.5 rounded-lg px-2.5 py-1.5 text-left transition-colors hover:bg-surface-muted"
+                    setSearchOpen(false);
+                    e.stopPropagation();
+                  }
+                }}
+                placeholder="Search characters"
+                aria-label="Search characters"
+                className="w-full min-w-0 select-text bg-transparent text-sm text-ink outline-none placeholder:text-ink-faint"
+              />
+              {searchQuery && (
+                <button
+                  type="button"
+                  onClick={() => setSearchQuery("")}
+                  aria-label="Clear search"
+                  className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full text-ink-faint transition-colors hover:bg-surface hover:text-ink"
                 >
-                  <span
-                    className="h-2.5 w-2.5 shrink-0 rounded-full"
-                    style={{ backgroundColor: n.theme.primary }}
-                  />
-                  <span className="min-w-0 flex-1">
-                    <span className="block truncate text-xs font-semibold">{n.c.name}</span>
-                    <span className="block truncate text-[10px] text-ink-dim">
-                      {n.c.role}
-                    </span>
-                  </span>
+                  <X className="h-3.5 w-3.5" />
                 </button>
-              );
-            })}
+              )}
+            </div>
+
+            {searchQuery && (
+              <div className="max-h-[42vh] overflow-y-auto">
+                {searchResults.length === 0 ? (
+                  <p className="px-2.5 py-2 text-xs text-ink-faint">
+                    No characters match that.
+                  </p>
+                ) : (
+                  searchResults.map(({ n, i }) => (
+                    <button
+                      key={n.c.id}
+                      type="button"
+                      onClick={() => {
+                        handleSelectNode(i);
+                        setSearchQuery("");
+                        setSearchOpen(false);
+                      }}
+                      className="flex w-full items-center gap-2.5 rounded-lg px-2.5 py-1.5 text-left transition-colors hover:bg-surface-muted"
+                    >
+                      <span
+                        className="h-2.5 w-2.5 shrink-0 rounded-full"
+                        style={{ backgroundColor: n.theme.primary }}
+                      />
+                      <span className="min-w-0 flex-1">
+                        <span className="block truncate text-xs font-semibold">
+                          {n.c.name}
+                        </span>
+                        <span className="block truncate text-[10px] text-ink-dim">
+                          {n.c.role}
+                        </span>
+                      </span>
+                    </button>
+                  ))
+                )}
+              </div>
+            )}
           </div>
         )}
       </div>
 
       {/* ── bottom-left dock ─────────────────────────────────────── */}
-      {/* While the mobile dossier is open the dock rides ABOVE the sheet; the
-          inset comes from sheetInsetVh via inline style so all three snap
-          heights work without dynamic Tailwind class names. */}
       <div
         className={cn(
           "absolute z-30 flex items-center gap-1 rounded-full border p-1.5 shadow-lift transition-all duration-300",
           "border-line bg-surface",
-          selectedCharacterId && isMobile ? "left-3" : "bottom-6 left-4 sm:left-6"
-        )}
-        style={
           selectedCharacterId && isMobile
-            ? { bottom: `calc(${sheetInsetVh > 0 ? sheetInsetVh : 48}vh + 12px)` }
-            : undefined
-        }
+            ? "bottom-[calc(56vh+12px)] left-3"
+            : "bottom-6 left-4 sm:left-6"
+        )}
       >
         {/* The one accent-tinted control in the dock: it is the primary action,
             not a decorative highlight. accent-bright for the label because

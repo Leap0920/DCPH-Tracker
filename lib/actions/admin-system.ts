@@ -12,7 +12,13 @@ export type ActionResult = { ok: true; message?: string } | { ok: false; error: 
 // API sync triggers (reuse the existing /api/sync route logic).
 // ─────────────────────────────────────────────────────────────
 
-type SyncMode = "seed" | "airing"
+type SyncMode = "seed" | "airing" | "dcw" | "latest"
+
+/** Shape of /api/sync's JSON body, as consumed by triggerSync. */
+type SyncResponseBody = {
+  error?: string
+  results?: { type: string; inserted: number; note?: string }[]
+}
 
 export async function triggerSync(mode: SyncMode): Promise<ActionResult> {
   await requireAdmin()
@@ -26,10 +32,18 @@ export async function triggerSync(mode: SyncMode): Promise<ActionResult> {
   }
 
   // Build an absolute URL to our own /api/sync endpoint.
+  // Prefer the host the admin is actually on: NEXT_PUBLIC_SITE_URL points at the
+  // production alias, so using it first sent every local "Run" click to
+  // production — a full seed there can outlive the function budget and answer
+  // with a platform error page, which surfaced only as a JSON parse error.
   const h = await headers()
   const host = h.get("host")
-  const proto = h.get("x-forwarded-proto") ?? "https"
-  const base = process.env.NEXT_PUBLIC_SITE_URL || (host ? `${proto}://${host}` : "")
+  const forwardedProto = h.get("x-forwarded-proto")
+  const isLocalHost = !!host && /^(localhost|127\.0\.0\.1|\[::1\])(:\d+)?$/.test(host)
+  const proto = forwardedProto ?? (isLocalHost ? "http" : "https")
+  const base = host
+    ? `${proto}://${host}`
+    : (process.env.NEXT_PUBLIC_SITE_URL ?? "")
   if (!base) return { ok: false, error: "Could not determine site URL for sync request." }
 
   try {
@@ -38,18 +52,33 @@ export async function triggerSync(mode: SyncMode): Promise<ActionResult> {
       headers: { Authorization: `Bearer ${cronSecret}` },
       cache: "no-store",
     })
-    const json = await res.json()
-    if (!res.ok) {
-      return { ok: false, error: json?.error || `Sync failed (${res.status}).` }
+
+    // A platform-level failure (function timeout, crashed invocation, missing
+    // env on the deployment) answers with HTML/text rather than the route's own
+    // JSON, so read text first and parse defensively — a bare "Unexpected
+    // token '<'" hides both the status and which host was called.
+    const body = await res.text()
+    let json: SyncResponseBody | null = null
+    try {
+      json = JSON.parse(body) as SyncResponseBody
+    } catch {
+      json = null
+    }
+
+    if (!res.ok || !json) {
+      return {
+        ok: false,
+        error: json?.error ?? `Sync failed (${res.status}) — ${base} answered with a non-JSON response.`,
+      }
     }
 
     revalidatePath("/admin")
     revalidatePath("/admin/sync")
     revalidatePath("/tracker")
 
-    const results = Array.isArray(json?.results) ? json.results : []
+    const results = Array.isArray(json.results) ? json.results : []
     const summary = results
-      .map((r: { type: string; inserted: number; note?: string }) =>
+      .map((r) =>
         r.note ? `${r.type}: ${r.note}` : `${r.type}: ${r.inserted} synced`
       )
       .join(" · ")

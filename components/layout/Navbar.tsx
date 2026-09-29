@@ -231,7 +231,7 @@ export function Navbar() {
         {/* Logo */}
         <Link href="/" className="flex items-center gap-2 group shrink-0">
           <Image
-            src="/img/logo_DCPH.png"
+            src="/tab-icon.png"
             alt="Detective Conan PH Logo"
             width={32}
             height={32}
@@ -361,7 +361,7 @@ export function Navbar() {
             </Button>
           </Link>
 
-          <NotificationBell className="hidden md:block" />
+          <NotificationBell signedIn={!!user} className="hidden md:block" />
 
           {!loading && (
             <>
@@ -550,7 +550,7 @@ export function Navbar() {
 
             {/* Section: Account / Auth */}
             <div className="pt-3 border-t border-line">
-              <NotificationBell mobile />
+              <NotificationBell signedIn={!!user} mobile />
               {!loading && (
                 <>
                   {user ? (

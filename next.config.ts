@@ -8,27 +8,34 @@ const nextConfig: NextConfig = {
       { protocol: "http", hostname: "**" },
     ],
   },
-  // Security headers applied to every response.
-  // NOTE: Content-Security-Policy is intentionally NOT set here — the
-  // middleware (lib/security-headers.ts -> buildCsp) is the single source of
-  // truth, because the policy is nonce-based and must be per-request.
-  //
-  // NOTE: Strict-Transport-Security is ALSO set by the middleware
-  // (applySecurityHeaders) — conditionally, only over HTTPS. It must NOT be
-  // declared here: static headers are unconditional, and HSTS from a
-  // plain-HTTP host (e.g. http://<tailscale-ip>:3210) poisons browser HSTS
-  // state and breaks all asset loading on that host (the "works on
-  // localhost, broken via IP" bug). Middleware output overrides these
-  // same-named headers, but only when it actually runs — keep both in sync.
+  /*
+    Security headers.
+
+    Split by reach, not by topic:
+
+    * Content-Security-Policy, X-Frame-Options, Referrer-Policy,
+      Permissions-Policy, Cross-Origin-Opener-Policy and (production-only)
+      Strict-Transport-Security are set by the middleware
+      (lib/security-headers.ts) — the CSP is nonce-based and per-request, so it
+      cannot live here. Setting any of them in BOTH places is a trap: the
+      config's copy is applied after the middleware's and wins, which is how
+      HSTS ended up emitted in development and how the weaker
+      Permissions-Policy in this file silently replaced the middleware's.
+
+    * The three below are here because they must also cover static assets, which
+      the middleware matcher deliberately skips.
+
+    CORP closes hotlinking of the video/image assets and stops another origin
+    from reading our API responses; nosniff stops MIME-sniffing of the JS/CSS
+    chunks served straight from /_next/static.
+  */
   async headers() {
     return [
       {
         source: "/(.*)",
         headers: [
-          { key: "X-Frame-Options", value: "DENY" },
           { key: "X-Content-Type-Options", value: "nosniff" },
-          { key: "Referrer-Policy", value: "strict-origin-when-cross-origin" },
-          { key: "Permissions-Policy", value: "camera=(), microphone=(), geolocation=(), payment=(), usb=()" },
+          { key: "Cross-Origin-Resource-Policy", value: "same-origin" },
           { key: "X-DNS-Prefetch-Control", value: "off" },
         ],
       },

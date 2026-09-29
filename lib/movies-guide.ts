@@ -62,3 +62,22 @@ export function isOtherMovie(slug: string | null | undefined): boolean {
   if (!slug) return false;
   return (OTHER_MOVIE_SLUGS as readonly string[]).includes(slug);
 }
+
+/**
+ * True when a content_entries movie row is OUTSIDE the 29-film mainline run:
+ * the crossover, the two TV-special compilations, and the manner short — the
+ * rows with no mainline movie number, grouped under "Other movies" on /movies
+ * (lib/subcategories.ts).
+ *
+ * These rows are watchable and stay in /tracker, but they must not enter any
+ * mainline completion ratio. Counting them there is how "30 of 29 films" and a
+ * finished tracker with films still unwatched happened.
+ */
+export function isNonMainlineMovie(row: {
+  type?: string | null;
+  slug?: string | null;
+  movie_number?: number | null;
+}): boolean {
+  if (row.type !== "movie") return false;
+  return isOtherMovie(row.slug) || row.movie_number == null;
+}

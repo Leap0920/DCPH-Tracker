@@ -30,6 +30,8 @@ export interface WatchOrderEntryLike {
   air_date: string | null
   release_order?: number | null
   dcw_title?: string | null
+  /** Fallback source for the number when the column is null (see `numberFor`). */
+  slug?: string | null
 }
 
 export type WatchOrderStep =
@@ -51,6 +53,10 @@ export type WatchOrderStep =
   | { kind: "mk1412"; nums: number[] }
   /** Spin-off entries whose title ends in an index (Zero's Tea Time, Hanzawa). */
   | { kind: "titleNums"; type: string; nums: number[] }
+  /** Tail sweep: every numbered (mainline) movie no earlier step claimed. */
+  | { kind: "remainingMovies" }
+  /** Tail sweep: every TV special no earlier step claimed, in air-date order. */
+  | { kind: "remainingSpecials" }
 
 export interface WatchOrderItem<T> {
   entry: T
@@ -77,6 +83,9 @@ const ZTT = (...nums: number[]): WatchOrderStep => ({
   nums,
 })
 const HZ = (...nums: number[]): WatchOrderStep => ({ kind: "titleNums", type: "hanzawa", nums })
+/** Tail sweep so a new film can't fall out of the run when the list isn't extended. */
+const REST_MOVIES: WatchOrderStep = { kind: "remainingMovies" }
+const REST_SPECIALS: WatchOrderStep = { kind: "remainingSpecials" }
 
 /* ───────────────────────── The order ───────────────────────── */
 
@@ -272,6 +281,13 @@ export const WATCH_ORDER_STEPS: readonly WatchOrderStep[] = [
   E(1121, 1160),
   M(28),
   E(1161), // open-ended: everything from 1161 on
+  // Self-healing tail. The curated steps above name each film and special
+  // explicitly, so a release added after this list was written (movie 29, the
+  // 2026 TV specials) would otherwise be invisible in this view. These two
+  // sweeps hand the leftovers to the end of the run: numbered films only, so the
+  // unnumbered crossovers/compilations stay out of the curated path.
+  REST_MOVIES,
+  REST_SPECIALS,
 ]
 
 /* ───────────────────────── Matching helpers ───────────────────────── */
@@ -287,6 +303,22 @@ function trailingNumber(title: string): number | null {
   if (!match || match[1] === undefined) return null
   const n = Number.parseInt(match[1], 10)
   return Number.isInteger(n) ? n : null
+}
+
+/**
+ * Trailing index in a slug: "mk-magic-kaito-1412-09" -> 9, "drama-episode-11" -> 11.
+ * Rows imported by different scripts disagree about which column carries the
+ * number (the Magic Kaito 1412 batch has episode_number only for its first six
+ * episodes, for instance), and the slug always has it, so it is the fallback.
+ */
+function slugNumber(slug: string | null | undefined): number | null {
+  if (!slug) return null
+  return trailingNumber(slug.replace(/-/g, " "))
+}
+
+/** The entry's own ordinal, from the column when set and the slug when not. */
+function numberFor(entry: WatchOrderEntryLike): number | null {
+  return entry.episode_number ?? entry.movie_number ?? slugNumber(entry.slug)
 }
 
 /** Matches "Magic File: 01", "Magic File 2: ...", "Magic File3". */
@@ -324,6 +356,10 @@ export function describeStep(step: WatchOrderStep): string {
       return `Magic Kaito 1412 ep ${step.nums.join(", ")}`
     case "titleNums":
       return `${step.type} #${step.nums.join(", ")}`
+    case "remainingMovies":
+      return "Remaining numbered films"
+    case "remainingSpecials":
+      return "Remaining TV specials"
   }
 }
 
@@ -378,6 +414,9 @@ function resolveInternal<T extends WatchOrderEntryLike>(entries: T[]): ResolveRe
         // Title-only: "Detective Conan Magic File" is unambiguous across types.
         return entries.filter((e) => magicFileNumber(e.title) === step.n)
       case "specialSeq": {
+        // Air-date ordinal — SP(6) is the sixth special, not "whatever is left".
+        // A special an earlier step already claimed resolves to nothing here and
+        // is dropped by the claim filter below; the tail sweep picks up the rest.
         const hit = specials[step.n - 1]
         return hit ? [hit] : []
       }
@@ -386,20 +425,31 @@ function resolveInternal<T extends WatchOrderEntryLike>(entries: T[]): ResolveRe
         return ofType(step.type).filter((e) => norm(e.dcw_title) === needle)
       }
       case "mk1412":
-        return ofType("magic_kaito").filter(
-          (e) => e.episode_number !== null && step.nums.includes(e.episode_number)
-        )
-      case "titleNums":
-        return ofType(step.type).filter((e) => {
-          const n = trailingNumber(e.title)
+        return ofType("magic_kaito").filter((e) => {
+          const n = numberFor(e)
           return n !== null && step.nums.includes(n)
         })
+      case "titleNums":
+        return ofType(step.type).filter((e) => {
+          const n = trailingNumber(e.title) ?? slugNumber(e.slug)
+          return n !== null && step.nums.includes(n)
+        })
+      case "remainingMovies":
+        // Numbered films only: the unnumbered crossovers/compilations are a
+        // deliberate omission of the curated path, not missing content.
+        return movies.filter((e) => e.movie_number !== null)
+      case "remainingSpecials":
+        return specials
     }
   }
 
   /** Sort key inside a multi-entry step. */
   const seq = (entry: T): number =>
-    entry.episode_number ?? trailingNumber(entry.title) ?? entry.release_order ?? 0
+    entry.episode_number ??
+    entry.movie_number ??
+    trailingNumber(entry.title) ??
+    entry.release_order ??
+    0
 
   const claimed = new Set<string>()
   const items: WatchOrderItem<T>[] = []

@@ -1,10 +1,9 @@
 "use client"
 
-import { useMemo, useState } from "react"
+import { useState } from "react"
 import Image from "next/image"
-import { Check, Search } from "lucide-react"
+import { Check } from "lucide-react"
 import { Button } from "@/components/ui/button"
-import { Input } from "@/components/ui/input"
 import {
   Dialog,
   DialogContent,
@@ -71,13 +70,6 @@ function Thumb({
 
 export function CharacterPicker({ value, onChange }: Props) {
   const [open, setOpen] = useState(false)
-  const [query, setQuery] = useState("")
-
-  const filtered = useMemo(() => {
-    const q = query.trim().toLowerCase()
-    if (!q) return WRAPPED_BACKGROUNDS
-    return WRAPPED_BACKGROUNDS.filter((b) => b.name.toLowerCase().includes(q))
-  }, [query])
 
   return (
     <div className="flex flex-col gap-3">
@@ -96,35 +88,20 @@ export function CharacterPicker({ value, onChange }: Props) {
               <DialogTitle className="text-base font-semibold text-white">Choose a background</DialogTitle>
             </DialogHeader>
 
-            <div className="relative my-2">
-              <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-ink-faint" />
-              <Input
-                value={query}
-                onChange={(e) => setQuery(e.target.value)}
-                placeholder="Search characters by name (e.g. Conan, Akai, Kid...)"
-                aria-label="Search characters by name"
-                className="h-10 border-white/15 bg-white/[0.04] pl-9 text-sm text-white placeholder:text-white/40 focus-visible:border-accent"
-              />
-            </div>
-
             <div className="max-h-[60vh] overflow-y-auto pr-1">
-              {filtered.length === 0 ? (
-                <p className="py-12 text-center text-sm text-ink-dim">No characters found for &ldquo;{query}&rdquo;.</p>
-              ) : (
-                <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 md:grid-cols-4">
-                  {filtered.map((bg) => (
-                    <Thumb
-                      key={bg.id}
-                      bg={bg}
-                      selected={bg.id === value}
-                      onSelect={() => {
-                        onChange(bg.id)
-                        setOpen(false)
-                      }}
-                    />
-                  ))}
-                </div>
-              )}
+              <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 md:grid-cols-4">
+                {WRAPPED_BACKGROUNDS.map((bg) => (
+                  <Thumb
+                    key={bg.id}
+                    bg={bg}
+                    selected={bg.id === value}
+                    onSelect={() => {
+                      onChange(bg.id)
+                      setOpen(false)
+                    }}
+                  />
+                ))}
+              </div>
             </div>
           </DialogContent>
         </Dialog>

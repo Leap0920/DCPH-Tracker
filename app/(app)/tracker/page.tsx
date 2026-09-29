@@ -22,6 +22,8 @@ import {
   type UserWatchStatuses,
 } from "@/lib/queries/client/watch-status"
 import { queryKeys } from "@/lib/queries/keys"
+import { useContentCacheSync } from "@/lib/queries/client/content-cache"
+import { lockPageScroll } from "@/lib/scroll-lock"
 import {
   WATCH_STATUSES,
   VIEW_MODES,
@@ -166,6 +168,9 @@ function TrackerPageContent() {
   }, [supabase])
 
   // ── Queries ──
+  // Admin edits happen in the /admin tab; the broadcast that follows is the only
+  // way this tab learns its hour-long content cache is stale.
+  useContentCacheSync()
   const contentQuery = useQuery({
     queryKey: queryKeys.content.all(),
     queryFn: fetchContentEntries,
@@ -185,18 +190,17 @@ function TrackerPageContent() {
     })
   }
 
-  // Modal lifecycle: ESC closes, body scroll locked, focus moves into the panel.
+  // Modal lifecycle: ESC closes, page scroll locked, focus moves into the panel.
   useEffect(() => {
     if (!selectedEntry) return
-    const prevOverflow = document.body.style.overflow
-    document.body.style.overflow = "hidden"
+    const unlock = lockPageScroll()
     panelRef.current?.focus()
     const onKeyDown = (e: KeyboardEvent) => {
       if (e.key === "Escape") setSelectedEntry(null)
     }
     document.addEventListener("keydown", onKeyDown)
     return () => {
-      document.body.style.overflow = prevOverflow
+      unlock()
       document.removeEventListener("keydown", onKeyDown)
     }
   }, [selectedEntry])
@@ -262,9 +266,9 @@ function TrackerPageContent() {
       setMutationError("Couldn't update your progress. Please try again.")
     },
     onSuccess: () => setMutationError(null),
-    onSettled: () => {
-      queryClient.invalidateQueries({ queryKey: statusKey() })
-    },
+    // Nothing to refetch: the optimistic update above already holds the row the
+    // server writes (same count rules), so invalidating here only re-downloaded
+    // the whole watch_status table after every single click.
   })
 
   const rewatchMutation = useMutation({
@@ -293,9 +297,6 @@ function TrackerPageContent() {
       setMutationError("Couldn't update your rewatch count. Please try again.")
     },
     onSuccess: () => setMutationError(null),
-    onSettled: () => {
-      queryClient.invalidateQueries({ queryKey: statusKey() })
-    },
   })
 
   const toggleFavoriteMutation = useMutation({
@@ -317,9 +318,6 @@ function TrackerPageContent() {
       setMutationError("Couldn't update your favorites. Please try again.")
     },
     onSuccess: () => setMutationError(null),
-    onSettled: () => {
-      queryClient.invalidateQueries({ queryKey: statusKey() })
-    },
   })
 
   const setRatingMutation = useMutation({
@@ -345,9 +343,6 @@ function TrackerPageContent() {
       setMutationError("Couldn't save your rating. Please try again.")
     },
     onSuccess: () => setMutationError(null),
-    onSettled: () => {
-      queryClient.invalidateQueries({ queryKey: statusKey() })
-    },
   })
 
   const markAllMutation = useMutation({
@@ -468,7 +463,12 @@ function TrackerPageContent() {
                 {error}
               </div>
             )}
-            <MotivationStats entries={entries} userStatuses={userStatuses} userName={user} />
+            <MotivationStats
+              entries={entries}
+              userStatuses={userStatuses}
+              userWatchCounts={watchCounts}
+              userName={user}
+            />
             {!user && (
               <div className="flex flex-wrap items-center gap-4 rounded-lg border border-line bg-surface p-5">
                 <div className="flex-1">

@@ -1,15 +1,9 @@
 "use client"
 
 import * as React from "react"
-import { Copy, Check, ExternalLink } from "lucide-react"
-import { cn } from "@/lib/utils"
-import { badgeVariants } from "@/components/ui/badge"
-import { SYNTHETIC_STATE_REASONS } from "@/lib/ai/stream/protocol"
-import { ActivityTrace, degradeWording } from "@/components/chat/ActivityTrace"
-import { CitationChips } from "@/components/chat/CitationChips"
-import { FeedbackControls } from "@/components/chat/FeedbackControls"
-import { SourcesPanel } from "@/components/chat/SourcesPanel"
-import type { ChatMessageView } from "@/components/chat/useChatStream"
+import Link from "next/link"
+import { ArrowRight, Copy, Check, ExternalLink } from "lucide-react"
+import { cn, safeExternalUrl } from "@/lib/utils"
 
 export interface ChatMessageData {
   id: string
@@ -17,31 +11,11 @@ export interface ChatMessageData {
   content: string
 }
 
-/** The bubble's shared chrome, so the legacy and parts paths cannot drift. */
-const BUBBLE_BASE =
-  "max-w-[88%] rounded-2xl border px-3.5 py-2.5 text-sm leading-relaxed break-words"
-const BUBBLE_USER = "border-accent/30 bg-accent/15 text-ink rounded-br-md"
-const BUBBLE_ASSISTANT = "border-line bg-surface-muted text-ink rounded-bl-md"
-
-/**
- * The synthetic tokens, as a set. `degraded` carries them (C14) and the trace
- * badges every reason it is given, so the parts path filters them out before
- * handing the trace its list — the D5 badge below says the state once (C24).
- */
-const SYNTHETIC_REASONS = new Set<string>(SYNTHETIC_STATE_REASONS)
-
 /**
  * Only http(s) is linkified. Anything else — `javascript:`, `data:` — is
  * rendered as plain text, because the bot echoes model output verbatim.
+ * Shared with the wiki source link in components/tracker/EpisodeWikiDetails.
  */
-function isSafeUrl(url: string): boolean {
-  try {
-    const parsed = new URL(url)
-    return parsed.protocol === "https:" || parsed.protocol === "http:"
-  } catch {
-    return false
-  }
-}
 
 /** Trims sentence punctuation that clings to the end of a bare URL. */
 function trimUrl(url: string): { href: string; trailing: string } {
@@ -61,6 +35,85 @@ function isTrackerUrl(url: string): boolean {
 
 const INLINE_PATTERN =
   /(\*\*[^*\n]+\*\*|`[^`\n]+`|\[[^\]\n]+\]\((?:https?:\/\/)[^)\s]+\)|https?:\/\/[^\s<>()]+)/g
+
+/**
+ * Tracker links stay in this tab and navigate in place: the widget lives in the
+ * root layout, so the route change is client-side and the conversation stays
+ * open behind the page. They also resolve to a path on whatever origin the
+ * reader is already on — the answers carry the canonical site URL, which is a
+ * different origin while running locally and a different host under a custom
+ * domain, and a cross-origin jump would reload the page and drop the chat.
+ *
+ * Outbound sources (DCW, Wikipedia) open in a new tab instead: they are
+ * somewhere to read alongside the tracker, and spending the chat tab on them
+ * would cost the conversation.
+ */
+function appPath(url: string): string | null {
+  try {
+    const { pathname, search, hash } = new URL(url)
+    return /^\/(?:tracker|cases|arcs)(?:\/|$)/.test(pathname) ? `${pathname}${search}${hash}` : null
+  } catch {
+    return null
+  }
+}
+
+function ChatLink({ href, label, isInternal }: { href: string; label: string; isInternal: boolean }) {
+  const inApp = isInternal ? appPath(href) : null
+  const Anchor: React.ElementType = inApp ? Link : "a"
+  return (
+    <Anchor
+      href={inApp ?? href}
+      {...(inApp ? {} : { target: "_blank", rel: "noopener noreferrer" })}
+      className={cn(
+        "inline-flex items-center gap-1 break-words font-medium transition-colors",
+        isInternal
+          ? "rounded-md border border-accent/30 bg-accent/10 px-1.5 py-0.5 text-xs text-accent-bright hover:bg-accent/20 hover:text-white"
+          : "text-accent-bright underline underline-offset-2 hover:text-accent"
+      )}
+    >
+      <span>{label}</span>
+      {inApp ? (
+        <ArrowRight className="inline size-3 shrink-0 opacity-70" />
+      ) : (
+        <ExternalLink className="inline size-3 shrink-0 opacity-70" />
+      )}
+    </Anchor>
+  )
+}
+
+/**
+ * One row of the sources list.
+ *
+ * The footer used to render as prose: bordered chips flowing in a paragraph,
+ * where a long label ("Specials, OVAs and long episodes (40+ minutes) case
+ * files (103)") broke mid-word across two lines and the "·" separators were
+ * left stranded at the line ends. A source is a list item, so it renders like
+ * one — one per line, no box, wrapping at word boundaries.
+ */
+function SourceRow({ label, href }: { label: string; href: string }) {
+  const inApp = href && isTrackerUrl(href) ? appPath(href) : null
+  const Anchor: React.ElementType = inApp ? Link : "a"
+
+  if (!href) return <span className="break-words text-ink-faint">{label}</span>
+
+  return (
+    <Anchor
+      href={inApp ?? href}
+      {...(inApp ? {} : { target: "_blank", rel: "noopener noreferrer" })}
+      className={cn(
+        "inline-flex min-w-0 items-start gap-1.5 break-words transition-colors",
+        inApp ? "text-accent-bright hover:text-accent" : "text-ink-dim hover:text-ink"
+      )}
+    >
+      <span className="min-w-0 break-words">{label}</span>
+      {inApp ? (
+        <ArrowRight className="mt-0.5 size-3 shrink-0 opacity-70" />
+      ) : (
+        <ExternalLink className="mt-0.5 size-3 shrink-0 opacity-70" />
+      )}
+    </Anchor>
+  )
+}
 
 /** Renders `**bold**`, `` `code` `` and links without dangerouslySetInnerHTML. */
 function renderInline(text: string, keyPrefix: string): React.ReactNode[] {
@@ -93,48 +146,17 @@ function renderInline(text: string, keyPrefix: string): React.ReactNode[] {
     if (mdLink) {
       const label = mdLink[1]!
       const href = mdLink[2]!
-      if (!isSafeUrl(href)) return <React.Fragment key={key}>{part}</React.Fragment>
-      const isInternal = isTrackerUrl(href)
-      return (
-        <a
-          key={key}
-          href={href}
-          target="_blank"
-          rel="noopener noreferrer"
-          className={cn(
-            "inline-flex items-center gap-1 break-all font-medium transition-colors",
-            isInternal
-              ? "rounded-md border border-accent/30 bg-accent/10 px-1.5 py-0.5 text-xs text-accent-bright hover:bg-accent/20 hover:text-white"
-              : "text-accent-bright underline underline-offset-2 hover:text-accent"
-          )}
-        >
-          <span>{label}</span>
-          <ExternalLink className="inline size-3 shrink-0 opacity-70" />
-        </a>
-      )
+      if (!safeExternalUrl(href)) return <React.Fragment key={key}>{part}</React.Fragment>
+      return <ChatLink key={key} href={href} label={label} isInternal={isTrackerUrl(href)} />
     }
 
     // Bare URL.
     if (/^https?:\/\//i.test(part)) {
       const { href, trailing } = trimUrl(part)
-      if (!isSafeUrl(href)) return <React.Fragment key={key}>{part}</React.Fragment>
-      const isInternal = isTrackerUrl(href)
+      if (!safeExternalUrl(href)) return <React.Fragment key={key}>{part}</React.Fragment>
       return (
         <React.Fragment key={key}>
-          <a
-            href={href}
-            target="_blank"
-            rel="noopener noreferrer"
-            className={cn(
-              "inline-flex items-center gap-1 break-all font-medium transition-colors",
-              isInternal
-                ? "rounded-md border border-accent/30 bg-accent/10 px-1.5 py-0.5 text-xs text-accent-bright hover:bg-accent/20 hover:text-white"
-                : "text-accent-bright underline underline-offset-2 hover:text-accent"
-            )}
-          >
-            <span>{href}</span>
-            <ExternalLink className="inline size-3 shrink-0 opacity-70" />
-          </a>
+          <ChatLink href={href} label={href} isInternal={isTrackerUrl(href)} />
           {trailing}
         </React.Fragment>
       )
@@ -144,8 +166,55 @@ function renderInline(text: string, keyPrefix: string): React.ReactNode[] {
   })
 }
 
-function renderContent(content: string): React.ReactNode {
+/**
+ * Splits the app-appended source list off the answer.
+ *
+ * The route appends "**Sources**" plus its lines after the model finishes. They
+ * are real citations, but reading them as part of the prose is what made an
+ * answer look like a wall of links, so they render smaller and set apart.
+ */
+function splitSources(content: string): { body: string; sources: string[] } {
   const lines = content.split("\n")
+  const index = lines.findIndex((line) => line.trim().startsWith("**Sources**"))
+  if (index === -1) return { body: content, sources: [] }
+
+  const sources = lines
+    .slice(index)
+    .map((line) =>
+      line
+        .replace(/^\s*\*\*Sources\*\*\s*/, "")
+        .replace(/^\s*(?:[-*•]|\d+\.)\s+/, "")
+        .trim()
+    )
+    .filter(Boolean)
+
+  return { body: lines.slice(0, index).join("\n").trimEnd(), sources }
+}
+
+/** One `[label](url)` as the footer joins them. */
+const SOURCE_LINK = /^\[([^\]\n]+)\]\(((?:https?:\/\/)[^)\s]+)\)$/
+
+/**
+ * Splits the joined sources line back into rows.
+ *
+ * The route joins its links with " · ", which reads as a sentence and wraps as
+ * one. Anything that is not a link is kept as plain text so a stored
+ * conversation from an older format still renders.
+ */
+function parseSources(sources: string[]): { label: string; href: string }[] {
+  return sources
+    .flatMap((line) => line.split("·"))
+    .map((part) => part.trim())
+    .filter(Boolean)
+    .map((part) => {
+      const match = part.match(SOURCE_LINK)
+      return match ? { label: match[1]!, href: match[2]! } : { label: part, href: "" }
+    })
+}
+
+function renderContent(content: string): React.ReactNode {
+  const { body, sources } = splitSources(content)
+  const lines = body.split("\n")
   const blocks: React.ReactNode[] = []
   let bullets: string[] = []
 
@@ -186,6 +255,26 @@ function renderContent(content: string): React.ReactNode {
   })
 
   flushBullets()
+
+  const items = parseSources(sources)
+
+  if (items.length > 0) {
+    blocks.push(
+      <div key="sources" className="mt-2.5 border-t border-line/60 pt-2">
+        <p className="text-[10px] font-semibold uppercase tracking-wider text-ink-faint">
+          Sources
+        </p>
+        <ul className="mt-1 space-y-0.5 text-[11px] leading-snug">
+          {items.map((item, index) => (
+            <li key={index} className="min-w-0">
+              <SourceRow label={item.label} href={item.href} />
+            </li>
+          ))}
+        </ul>
+      </div>
+    )
+  }
+
   return blocks
 }
 
@@ -239,43 +328,12 @@ function CopyButton({ text }: { text: string }) {
   )
 }
 
-/**
- * The v1 caller's shape: a plain `{ id, role, content }` message. `ChatWidget`
- * passes this today, and it must keep rendering exactly as it did.
- */
-export interface ChatMessageLegacyProps {
+interface ChatMessageProps {
   message: ChatMessageData
   isStreaming?: boolean
-  view?: undefined
 }
 
-/**
- * The remastered shape: the hook's view model, rendered as parts. Passing a
- * `view` is the only way to reach the chips, the trace, the sources panel and
- * the feedback controls; the legacy shape stays text-and-copy alone.
- */
-export interface ChatMessagePartsProps {
-  view: ChatMessageView
-  /** Legacy-only. The parts path reads `view.state` for streaming instead. */
-  isStreaming?: boolean
-  message?: undefined
-}
-
-export type ChatMessageProps = ChatMessageLegacyProps | ChatMessagePartsProps
-
-export function ChatMessage(props: ChatMessageProps) {
-  if (props.view) return <PartsMessage view={props.view} />
-  return <LegacyMessage message={props.message} isStreaming={props.isStreaming ?? false} />
-}
-
-/** The pre-remaster rendering, unchanged: text, markdown treatment, copy. */
-function LegacyMessage({
-  message,
-  isStreaming,
-}: {
-  message: ChatMessageData
-  isStreaming: boolean
-}) {
+export function ChatMessage({ message, isStreaming = false }: ChatMessageProps) {
   const isUser = message.role === "user"
   const showDots = !isUser && isStreaming && message.content.length === 0
 
@@ -283,8 +341,10 @@ function LegacyMessage({
     <div className={cn("group flex flex-col w-full", isUser ? "items-end" : "items-start")}>
       <div
         className={cn(
-          BUBBLE_BASE,
-          isUser ? BUBBLE_USER : BUBBLE_ASSISTANT
+          "max-w-[88%] rounded-2xl border px-3.5 py-2.5 text-sm leading-relaxed break-words",
+          isUser
+            ? "border-accent/30 bg-accent/15 text-ink rounded-br-md"
+            : "border-line bg-surface-muted text-ink rounded-bl-md"
         )}
       >
         {showDots ? <TypingDots /> : renderContent(message.content)}
@@ -293,90 +353,6 @@ function LegacyMessage({
       {!isUser && !isStreaming && message.content.length > 0 && (
         <div className="mt-1 flex items-center gap-1 pl-1 opacity-0 transition-opacity group-hover:opacity-100 focus-within:opacity-100">
           <CopyButton text={message.content} />
-        </div>
-      )}
-    </div>
-  )
-}
-
-/** The view-model rendering: the answer plus every part the server sent. */
-function PartsMessage({ view }: { view: ChatMessageView }) {
-  const isUser = view.role === "user"
-  const streaming = view.state.kind === "streaming"
-  const showDots = !isUser && streaming && view.text.length === 0
-
-  const [sourcesOpen, setSourcesOpen] = React.useState(false)
-  const [highlight, setHighlight] = React.useState<number | null>(null)
-
-  // C24: the trace badges every reason it is handed, so a synthetic token would
-  // be said twice — once by the trace and once by the D5 badge below.
-  const traceReasons = view.degraded.filter((reason) => !SYNTHETIC_REASONS.has(reason))
-
-  // Feedback is offered once the turn has ended with an answer. A stopped turn is
-  // a partial the reader did not finish reading, and a streaming one has not
-  // produced an answer yet, so neither is rated.
-  const endedWithAnswer =
-    view.state.kind === "complete" ||
-    view.state.kind === "degraded" ||
-    view.state.kind === "synthetic"
-
-  // Nothing below the bubble renders for a text-only turn (v1, or a hand-built
-  // stream), so that shape looks finished rather than like a stack of empty boxes.
-  const hasParts =
-    !isUser &&
-    (view.state.kind === "stopped" ||
-      view.state.kind === "synthetic" ||
-      view.citations !== null ||
-      view.activity !== null)
-
-  return (
-    <div className={cn("group flex flex-col w-full", isUser ? "items-end" : "items-start")}>
-      <div className={cn(BUBBLE_BASE, isUser ? BUBBLE_USER : BUBBLE_ASSISTANT)}>
-        {showDots ? <TypingDots /> : renderContent(view.text)}
-      </div>
-
-      {hasParts && (
-        <div className="mt-2 flex w-full max-w-[88%] flex-col gap-2">
-          {view.state.kind === "stopped" && (
-            <p className="pl-1 text-[11px] text-ink-faint">
-              Stopped — this answer may be incomplete.
-            </p>
-          )}
-          {view.state.kind === "synthetic" && (
-            <div className="pl-1">
-              <span
-                className={cn(
-                  badgeVariants({ variant: "outline" }),
-                  "px-1.5 py-0 text-[10px] leading-4"
-                )}
-              >
-                {degradeWording(view.state.reason)}
-              </span>
-            </div>
-          )}
-          <CitationChips
-            refs={view.refs}
-            citations={view.citations}
-            onSelect={(n) => {
-              setHighlight(n)
-              setSourcesOpen(true)
-            }}
-          />
-          <ActivityTrace activity={view.activity} degraded={traceReasons} />
-          <SourcesPanel
-            refs={view.refs}
-            citations={view.citations}
-            open={sourcesOpen}
-            onOpenChange={setSourcesOpen}
-            highlight={highlight}
-          />
-        </div>
-      )}
-
-      {!isUser && !streaming && view.text.length > 0 && (
-        <div className="mt-1 flex items-center gap-1 pl-1 opacity-0 transition-opacity group-hover:opacity-100 focus-within:opacity-100">
-          <CopyButton text={view.text} />
-          {endedWithAnswer && <FeedbackControls messageId={view.id} />}
         </div>
       )}
     </div>

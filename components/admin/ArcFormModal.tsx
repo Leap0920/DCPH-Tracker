@@ -4,6 +4,8 @@ import { useEffect, useId, useState, useTransition } from "react"
 import { useRouter } from "next/navigation"
 import { Plus, Edit2, X, Loader2 } from "lucide-react"
 import { Button } from "@/components/ui/button"
+import { lockPageScroll } from "@/lib/scroll-lock"
+import { useInvalidateContentCache } from "@/lib/queries/client/content-cache"
 import type { Database } from "@/types/database.types"
 import type { ActionResult } from "@/lib/actions/admin-arcs"
 
@@ -25,6 +27,7 @@ export function ArcFormModal({
   triggerLabel?: string
 }) {
   const router = useRouter()
+  const invalidateContent = useInvalidateContentCache()
   const [open, setOpen] = useState(false)
   const [pending, startTransition] = useTransition()
   const [error, setError] = useState<string | null>(null)
@@ -38,12 +41,11 @@ export function ArcFormModal({
     function onKeyDown(e: KeyboardEvent) {
       if (e.key === "Escape") setOpen(false)
     }
-    const prevOverflow = document.body.style.overflow
-    document.body.style.overflow = "hidden"
+    const unlock = lockPageScroll()
     document.addEventListener("keydown", onKeyDown)
     return () => {
       document.removeEventListener("keydown", onKeyDown)
-      document.body.style.overflow = prevOverflow
+      unlock()
     }
   }, [open])
 
@@ -55,6 +57,7 @@ export function ArcFormModal({
       const result = await action(formData)
       if (result.ok) {
         setOpen(false)
+        invalidateContent()
         router.refresh()
       } else {
         setError(result.error)

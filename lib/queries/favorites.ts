@@ -33,18 +33,44 @@ export interface FavoriteEntry {
 export async function getUserFavorites(userId: string): Promise<FavoriteEntry[]> {
   const supabase = await createClient()
 
-  const { data: rows, error } = await supabase
-    .from("watch_status")
-    .select(
-      "updated_at, content_entries(id, slug, title, type, episode_number, movie_number, image_url, runtime_minutes, synopsis)"
-    )
-    .eq("user_id", userId)
-    .eq("favorite", true)
-    .order("updated_at", { ascending: false })
+  // Paginated: PostgREST caps a response at 1,000 rows, and a completionist can
+  // favourite more than that. id is the tiebreaker so rows sharing an
+  // updated_at cannot shuffle between pages.
+  type Row = {
+    updated_at: string
+    content_entries: {
+      id: string
+      slug: string
+      title: string
+      type: ContentEntry["type"]
+      episode_number: number | null
+      movie_number: number | null
+      image_url: string | null
+      runtime_minutes: number | null
+      synopsis: string | null
+    } | null
+  }
+  const rows: Row[] = []
+  const PAGE_SIZE = 1000
+  for (let from = 0; ; from += PAGE_SIZE) {
+    const { data, error } = await supabase
+      .from("watch_status")
+      .select(
+        "updated_at, content_entries(id, slug, title, type, episode_number, movie_number, image_url, runtime_minutes, synopsis)"
+      )
+      .eq("user_id", userId)
+      .eq("favorite", true)
+      .order("updated_at", { ascending: false })
+      .order("id")
+      .range(from, from + PAGE_SIZE - 1)
 
-  if (error) throw error
+    if (error) throw error
+    if (!data || data.length === 0) break
+    rows.push(...(data as unknown as Row[]))
+    if (data.length < PAGE_SIZE) break
+  }
 
-  return (rows ?? []).flatMap((row) => {
+  return rows.flatMap((row) => {
     const entry = Array.isArray(row.content_entries)
       ? row.content_entries[0]
       : row.content_entries

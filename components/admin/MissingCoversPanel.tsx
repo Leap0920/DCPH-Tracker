@@ -4,6 +4,7 @@ import { useState, useTransition } from "react"
 import { useRouter } from "next/navigation"
 import { Upload, Check, Loader2, Link as LinkIcon } from "lucide-react"
 import { updateContentCover } from "@/lib/actions/admin-content"
+import { useInvalidateContentCache } from "@/lib/queries/client/content-cache"
 import { cleanImageUrl } from "@/lib/utils/image-url"
 import type { Database } from "@/types/database.types"
 
@@ -11,6 +12,7 @@ type ContentEntry = Database["public"]["Tables"]["content_entries"]["Row"]
 
 export function MissingCoversPanel({ entries }: { entries: ContentEntry[] }) {
   const router = useRouter()
+  const invalidateContent = useInvalidateContentCache()
   const [editingId, setEditingId] = useState<string | null>(null)
   const [urlInputs, setUrlInputs] = useState<Record<string, string>>({})
   const [pending, startTransition] = useTransition()
@@ -30,6 +32,7 @@ export function MissingCoversPanel({ entries }: { entries: ContentEntry[] }) {
       setEditingId(null)
       if (res.ok) {
         setUrlInputs((prev) => ({ ...prev, [id]: "" }))
+        invalidateContent()
         router.refresh()
       } else {
         alert(res.error)
@@ -46,6 +49,7 @@ export function MissingCoversPanel({ entries }: { entries: ContentEntry[] }) {
       const res = await updateContentCover(id, formData)
       setEditingId(null)
       if (res.ok) {
+        invalidateContent()
         router.refresh()
       } else {
         alert(res.error)

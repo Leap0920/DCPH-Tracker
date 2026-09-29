@@ -11,6 +11,7 @@ import {
 } from "@/lib/dcw-cases"
 import { CONTENT_TYPES, CONTENT_TYPE_LABELS, type ContentType } from "@/lib/constants"
 import { CaseFilterBar, type FilterOption } from "@/components/cases/CaseFilterBar"
+import { ilikeOr } from "@/lib/postgrest-filter"
 import { cn } from "@/lib/utils"
 
 export const dynamic = "force-dynamic"
@@ -257,7 +258,14 @@ type CaseFile = {
 const CASE_COLUMNS =
   "id, page_title, case_index, crime_type, crime_slug, cause_death, victim, victim_label, cause_death_label, suspects, suspects_label, location, description, date_text, entry_id, entry_slug, entry_type, entry_episode_number, entry_release_order, entry_title"
 
-type FacetRow = { crime_slug: string; cause_slug: string | null; entry_type: string | null }
+type FacetRow = {
+  crime_slug: string
+  cause_slug: string | null
+  entry_type: string | null
+  page_title: string | null
+  entry_id: string
+  case_index: number | null
+}
 type Facet = { slug: string; label: string; count: number }
 
 /**
@@ -281,6 +289,43 @@ function tally(rows: FacetRow[], kind: "crime" | "cause"): Facet[] {
 /** The server client is created per-request, so derive its type rather than naming it. */
 type SupabaseServerClient = Awaited<ReturnType<typeof createClient>>
 
+type CaseFilters = {
+  contentType: string
+  typeSlug: string
+  causeSlug: string
+  linkFilter: string
+  q: string
+}
+
+/**
+ * The predicates that define the result set.
+ *
+ * Shared by the page window and by the one-file lookup that finishes a file
+ * straddling a page boundary — that lookup must see exactly the same rows the
+ * window did, or it would pull in crimes the active filter excluded.
+ */
+function casesQuery(supabase: SupabaseServerClient, filters: CaseFilters) {
+  let query = supabase.from(CASES_VIEW).select(CASE_COLUMNS, { count: "exact" })
+
+  // Filters first, then ordering, then .range() strictly last.
+  if (filters.contentType) query = query.eq("entry_type", filters.contentType)
+  if (filters.typeSlug) query = query.eq("crime_slug", filters.typeSlug)
+  if (filters.causeSlug) query = query.eq("cause_slug", filters.causeSlug)
+  // linkFilter: "tracker" = has crime data, "wiki" = no crime data (wiki-only)
+  // With the new view, entry_id is always set, so filter by crime_slug presence
+  if (filters.linkFilter === "tracker") query = query.not("crime_slug", "is", null)
+  if (filters.linkFilter === "wiki") query = query.is("crime_slug", null)
+  if (filters.q)
+    query = query.or(ilikeOr(filters.q, ["victim", "page_title", "location", "entry_title"]))
+
+  return query
+}
+
+/** Files are keyed by DCW page title; a crime-less entry is a file of its own. */
+function fileKey(row: CaseRow): string {
+  return row.page_title || `entry-${row.entry_id}`
+}
+
 /**
  * Pulls the whole facet source in ≤1000-row windows.
  *
@@ -289,9 +334,9 @@ type SupabaseServerClient = Awaited<ReturnType<typeof createClient>>
  * made "Cases" read 1000 instead of 2010 and undercounted every tally built
  * from these rows.
  *
- * WHY `count: "exact"`: the total comes from the Content-Range header, which
- * the row cap does not touch. That keeps the hero count correct even if the
- * archive ever outgrows FACET_LIMIT and the tallies get clipped.
+ * WHY `count: "exact"`: it is the loop's stop condition. A range whose offset
+ * is past the last row is a 416, so the walk has to know when it has reached
+ * the end rather than discovering it with one more request.
  */
 async function fetchFacetRows(supabase: SupabaseServerClient): Promise<{
   rows: FacetRow[]
@@ -304,11 +349,23 @@ async function fetchFacetRows(supabase: SupabaseServerClient): Promise<{
   for (let offset = 0; offset < FACET_LIMIT; offset += FACET_PAGE_SIZE) {
     const { data, count, error } = await supabase
       .from(CASES_VIEW)
-      .select("crime_slug, cause_slug, entry_type", { count: "exact" })
+      .select("crime_slug, cause_slug, entry_type, page_title, entry_id, case_index", {
+        count: "exact",
+      })
       // A stable, unique sort is what makes window N+1 disjoint from window N.
       // Without ORDER BY, Postgres is free to reshuffle rows between requests,
       // which would double-count some cases and drop others.
-      .order("id", { ascending: true })
+      //
+      // ORDER BY id is NOT that sort here: the view mints a fresh
+      // gen_random_uuid() for every entry that has no crime data, so the key
+      // changes from one request to the next and the windows overlap anyway.
+      // (entry_id, case_index) is the view's real key — one row per crime,
+      // identical across requests. page_title is the third key so the sort is
+      // still total if the view ever returns crime rows with no entry (those
+      // have a NULL entry_id and can share a case_index).
+      .order("entry_id", { ascending: true })
+      .order("case_index", { ascending: true })
+      .order("page_title", { ascending: true })
       .range(offset, offset + FACET_PAGE_SIZE - 1)
 
     if (error) return { rows, total, error }
@@ -378,6 +435,13 @@ export default async function CasesPage({
   const from = (page - 1) * PAGE_SIZE
 
   const supabase = await createClient()
+  const filters: CaseFilters = { contentType, typeSlug, causeSlug, linkFilter, q }
+
+  // The window carries one row on each side of this page's range: the row
+  // before it shows which file the page starts inside, the row after it shows
+  // whether the page's last file continues. See the trim below.
+  const windowFrom = page > 1 ? from - 1 : 0
+  const windowTo = from + PAGE_SIZE
 
   // Facet tallies and the page rows are independent reads of the same view —
   // run them concurrently so /cases costs max(read), not the serial sum (each
@@ -385,17 +449,7 @@ export default async function CasesPage({
   const [facetResult, pageResult] = await Promise.all([
     fetchFacetRows(supabase),
     (async () => {
-      let query = supabase.from(CASES_VIEW).select(CASE_COLUMNS, { count: "exact" })
-
-      // Filters first, then ordering, then .range() strictly last.
-      if (contentType) query = query.eq("entry_type", contentType)
-      if (typeSlug) query = query.eq("crime_slug", typeSlug)
-      if (causeSlug) query = query.eq("cause_slug", causeSlug)
-      // linkFilter: "tracker" = has crime data, "wiki" = no crime data (wiki-only)
-      // With the new view, entry_id is always set, so filter by crime_slug presence
-      if (linkFilter === "tracker") query = query.not("crime_slug", "is", null)
-      if (linkFilter === "wiki") query = query.is("crime_slug", null)
-      if (q) query = query.or(`victim.ilike.%${q}%,page_title.ilike.%${q}%,location.ilike.%${q}%,entry_title.ilike.%${q}%`)
+      let query = casesQuery(supabase, filters)
 
       // entry_release_order is a real view column precisely so this is a plain
       // top-level order — ordering by an embedded column is a silent no-op.
@@ -410,14 +464,18 @@ export default async function CasesPage({
       query = query
         .order("page_title", { ascending: sort !== "za" })
         .order("case_index", { ascending: true })
-        .range(from, from + PAGE_SIZE - 1)
+        // Every entry without crime data is tied on both keys above (page_title
+        // and case_index are NULL), and a tie has no defined order across two
+        // requests — so paging over them could show one entry twice and skip
+        // another. entry_id is the view's real key; it makes the sort total.
+        .order("entry_id", { ascending: true })
+        .range(windowFrom, windowTo)
 
       return query
     })(),
   ])
 
-  const { rows: facetRows, total: facetTotal, error: facetError } = facetResult
-
+  const { rows: facetRows, error: facetError } = facetResult
   // The migration is applied by hand, so an unmigrated database is a real
   // state to render rather than a crash.
   if (facetError) {
@@ -438,7 +496,18 @@ export default async function CasesPage({
 
   const crimeFacets = tally(facetRows, "crime")
   const methodFacets = tally(facetRows, "cause")
-  const archiveTotal = facetTotal
+
+  // The view's rows are crime records AND entries that carry no crime data at
+  // all (a LEFT JOIN row with every crime column NULL), so neither header
+  // number can be read off the row count: a file with three crimes is three
+  // rows, and an entry with no crime data is a row that is nobody's crime.
+  // Both are exact while the archive stays under FACET_LIMIT — the same ceiling
+  // the tallies above live under.
+  const crimeRows = facetRows.reduce((n, row) => n + (row.crime_slug ? 1 : 0), 0)
+  const noCrimeRows = facetRows.length - crimeRows
+  const fileTitles = new Set<string>()
+  for (const row of facetRows) if (row.page_title) fileTitles.add(row.page_title)
+  const caseFileTotal = fileTitles.size + noCrimeRows
 
   // Content type options: real counts, domain order, zero-count types omitted.
   const typeCounts = new Map<string, number>()
@@ -456,17 +525,49 @@ export default async function CasesPage({
   const trackerLinked = [...typeCounts.values()].reduce((sum, n) => sum + n, 0)
 
   const { data: caseData, count } = pageResult
-  const cases = (caseData ?? []) as CaseRow[]
   const total = count ?? 0
   const totalPages = Math.max(1, Math.ceil(total / PAGE_SIZE))
-  const caseFiles = mergeCases(cases)
 
-  const firstShown = total === 0 ? 0 : from + 1
-  const lastShown = Math.min(from + cases.length, total)
+  const ownOffset = from - windowFrom
+  const windowRows = (caseData ?? []) as CaseRow[]
+  const ownRows = windowRows.slice(ownOffset, ownOffset + PAGE_SIZE)
+  const lookbehind = ownOffset > 0 ? windowRows[0] : undefined
+  const lookahead =
+    ownOffset + PAGE_SIZE < windowRows.length ? windowRows[ownOffset + PAGE_SIZE] : undefined
+
+  // Rows are paged but files are grouped in memory, so a file whose crimes
+  // straddle a page boundary would print twice — half its crimes at the foot of
+  // one page, the rest at the top of the next. Print whole files instead: drop
+  // the file the previous page already printed whole, and read in the rest of
+  // the file this page starts. That costs one query, and only on the pages where
+  // a boundary actually falls inside a file.
+  let lead = 0
+  if (lookbehind) {
+    const key = fileKey(lookbehind)
+    while (lead < ownRows.length && fileKey(ownRows[lead]) === key) lead++
+  }
+  let rows = ownRows.slice(lead)
+
+  const lastRow = rows.length > 0 ? rows[rows.length - 1] : undefined
+  if (lastRow?.page_title && lookahead && fileKey(lookahead) === fileKey(lastRow)) {
+    const { data: remainder } = await casesQuery(supabase, filters)
+      .eq("page_title", lastRow.page_title)
+      .order("case_index", { ascending: true })
+    const whole = (remainder ?? []) as CaseRow[]
+    const held = rows.filter((row) => row.page_title === lastRow.page_title).length
+    if (whole.length > held) {
+      rows = [...rows.filter((row) => row.page_title !== lastRow.page_title), ...whole]
+    }
+  }
+
+  const caseFiles = mergeCases(rows)
+
+  const firstShown = total === 0 ? 0 : from + lead + 1
+  const lastShown = Math.min(from + ownRows.length, total)
   const resultSummary =
     total === 0
       ? "No files"
-      : `${firstShown.toLocaleString()}–${lastShown.toLocaleString()} of ${total.toLocaleString()} crimes archived`
+      : `${firstShown.toLocaleString()}–${lastShown.toLocaleString()} of ${total.toLocaleString()} records archived`
 
   return (
     <div className="px-4 py-8 sm:px-6 sm:py-12">
@@ -493,8 +594,8 @@ export default async function CasesPage({
           </p>
 
           <dl className="mt-6 grid grid-cols-2 gap-4 border-y border-line py-4 sm:flex sm:flex-wrap sm:gap-x-10 sm:gap-y-3">
-            <Stat label="Crimes" value={archiveTotal} />
-            <Stat label="Files" value={caseFiles.length > 0 ? Math.ceil(total / PAGE_SIZE) : 0} />
+            <Stat label="Crimes" value={crimeRows} />
+            <Stat label="Files" value={caseFileTotal} />
             <Stat label="Categories" value={crimeFacets.length} />
             <Stat label="Methods" value={methodFacets.length} />
           </dl>

@@ -7,6 +7,7 @@ import {
   recordVisitAndGetStats,
   type SiteStats,
 } from "@/lib/queries/client/stats"
+import { randomId } from "@/lib/utils"
 
 const POLL_INTERVAL_MS = 60_000
 
@@ -35,7 +36,7 @@ export function LiveStats() {
     const supabase = createClient()
     // One anonymous id per browser tab — reused across visits so a reload
     // heartbeats instead of double-counting.
-    const sessionId = sessionStorage.getItem("dcph-session") ?? crypto.randomUUID()
+    const sessionId = sessionStorage.getItem("dcph-session") ?? randomId()
     sessionStorage.setItem("dcph-session", sessionId)
 
     let cancelled = false

@@ -24,6 +24,7 @@ import {
   rejectAllStagedEntries,
   clearStagingHistory,
 } from "@/lib/actions/admin-sync"
+import { useInvalidateContentCache } from "@/lib/queries/client/content-cache"
 
 type StagedRow = {
   id: string
@@ -46,6 +47,7 @@ type SortOption = "newest" | "oldest" | "a-z" | "z-a"
 
 export function SyncApprovalQueue({ items }: { items: StagedRow[] }) {
   const router = useRouter()
+  const invalidateContent = useInvalidateContentCache()
   const [pendingId, setPendingId] = useState<string | null>(null)
   const [bulkPending, startTransition] = useTransition()
 
@@ -99,8 +101,10 @@ export function SyncApprovalQueue({ items }: { items: StagedRow[] }) {
     setPendingId(id)
     approveStagedEntry(id).then((res) => {
       setPendingId(null)
-      if (res.ok) router.refresh()
-      else alert(res.error)
+      if (res.ok) {
+        invalidateContent()
+        router.refresh()
+      } else alert(res.error)
     })
   }
 
@@ -124,6 +128,7 @@ export function SyncApprovalQueue({ items }: { items: StagedRow[] }) {
       const res = await approveAllStagedEntries()
       if (res.ok) {
         setCurrentPage(1)
+        invalidateContent()
         router.refresh()
       } else {
         alert(res.error)

@@ -1,0 +1,20 @@
+version: 2
+updates:
+  # npm dependencies, weekly. The point is that a security release surfaces on
+  # its own instead of waiting for someone to remember to run `npm audit` —
+  # the CI audit step only catches what is already installed.
+  - package-ecosystem: "npm"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+    open-pull-requests-limit: 5
+    labels:
+      - "dependencies"
+
+  # The workflow actions are dependencies too (checkout, setup-node).
+  - package-ecosystem: "github-actions"
+    directory: "/"
+    schedule:
+      interval: "monthly"
+    labels:
+      - "dependencies"

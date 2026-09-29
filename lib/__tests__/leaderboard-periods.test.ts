@@ -28,16 +28,16 @@ describe("aggregatePeriods", () => {
   it("counts a recent event into both week and month", () => {
     const totals = aggregatePeriods([event()], { now: NOW })
     expect(totals.get("user-a")).toEqual({
-      week: { count: 1, minutes: 25, movieCount: 0 },
-      month: { count: 1, minutes: 25, movieCount: 0 },
+      week: { count: 1, minutes: 25, movieCount: 0, episodeCount: 1 },
+      month: { count: 1, minutes: 25, movieCount: 0, episodeCount: 1 },
     })
   })
 
   it("counts an event older than a week into month only", () => {
     const totals = aggregatePeriods([event({ created_at: daysAgo(10) })], { now: NOW })
     const bucket = totals.get("user-a")
-    expect(bucket?.week).toEqual({ count: 0, minutes: 0, movieCount: 0 })
-    expect(bucket?.month).toEqual({ count: 1, minutes: 25, movieCount: 0 })
+    expect(bucket?.week).toEqual({ count: 0, minutes: 0, movieCount: 0, episodeCount: 0 })
+    expect(bucket?.month).toEqual({ count: 1, minutes: 25, movieCount: 0, episodeCount: 1 })
   })
 
   it("excludes events outside the month window entirely", () => {
@@ -53,8 +53,8 @@ describe("aggregatePeriods", () => {
       event({ created_at: daysAgo(3) }),
     ]
     const totals = aggregatePeriods(events, { now: NOW })
-    expect(totals.get("user-a")?.week).toEqual({ count: 1, minutes: 25, movieCount: 0 })
-    expect(totals.get("user-a")?.month).toEqual({ count: 1, minutes: 25, movieCount: 0 })
+    expect(totals.get("user-a")?.week).toEqual({ count: 1, minutes: 25, movieCount: 0, episodeCount: 1 })
+    expect(totals.get("user-a")?.month).toEqual({ count: 1, minutes: 25, movieCount: 0, episodeCount: 1 })
   })
 
   it("keeps distinct content separate and sums their runtimes", () => {
@@ -63,7 +63,7 @@ describe("aggregatePeriods", () => {
       event({ content_id: "c2", runtime_minutes: 110, type: "movie" }),
     ]
     const totals = aggregatePeriods(events, { now: NOW })
-    expect(totals.get("user-a")?.week).toEqual({ count: 2, minutes: 135, movieCount: 1 })
+    expect(totals.get("user-a")?.week).toEqual({ count: 2, minutes: 135, movieCount: 1, episodeCount: 1 })
   })
 
   it("isolates movies from episodes in movieCount", () => {
@@ -74,7 +74,7 @@ describe("aggregatePeriods", () => {
       event({ content_id: "s1", type: "special", runtime_minutes: 46 }),
     ]
     const totals = aggregatePeriods(events, { now: NOW })
-    expect(totals.get("user-a")?.month).toEqual({ count: 4, minutes: 271, movieCount: 2 })
+    expect(totals.get("user-a")?.month).toEqual({ count: 4, minutes: 271, movieCount: 2, episodeCount: 1 })
   })
 
   it("keeps users independent, including identical content ids", () => {
@@ -85,12 +85,26 @@ describe("aggregatePeriods", () => {
     ]
     const totals = aggregatePeriods(events, { now: NOW })
     expect(totals.get("user-a")?.week.count).toBe(1)
-    expect(totals.get("user-b")?.week).toEqual({ count: 2, minutes: 71, movieCount: 0 })
+    expect(totals.get("user-b")?.week).toEqual({ count: 2, minutes: 71, movieCount: 0, episodeCount: 2 })
   })
 
-  it("treats null runtime as zero minutes but still counts the entry", () => {
-    const totals = aggregatePeriods([event({ runtime_minutes: null })], { now: NOW })
-    expect(totals.get("user-a")?.week).toEqual({ count: 1, minutes: 0, movieCount: 0 })
+  it("falls back to the entry's type default when runtime is missing", () => {
+    // 25 for an episode — and the movie below gets its own default, so a row
+    // without a runtime can never be worth fewer minutes here than on the
+    // all-time board.
+    const totals = aggregatePeriods(
+      [
+        event({ content_id: "e1", runtime_minutes: null, type: "episode" }),
+        event({ content_id: "m1", runtime_minutes: null, type: "movie" }),
+      ],
+      { now: NOW }
+    )
+    expect(totals.get("user-a")?.week).toEqual({
+      count: 2,
+      minutes: 135,
+      movieCount: 1,
+      episodeCount: 1,
+    })
   })
 
   it("honours an explicit runtime fallback", () => {
