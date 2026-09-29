@@ -73,6 +73,15 @@ logs/
 .pi/
 .pi-tasks/
 
+# agent instructions for this repo stay local
+AGENTS.md
+
+# local proof gate (gsd-bend: generated per machine, never part of a change)
+/LAWS.bend
+/PROOF.bend
+/src/chat_scoring.bend
+/.planning/
+
 # supabase CLI state
 supabase/.temp/
 supabase/.branches/
