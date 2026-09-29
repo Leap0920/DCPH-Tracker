@@ -76,6 +76,7 @@ export function downgrade(tier: QualityTier): QualityTier {
  *  - ≤2 GB or ≤2 cores         → low     (budget hardware)
  *  - ≤4 GB or ≤4 cores         → balanced
  *  - coarse pointer (phone)    → balanced (the request: prioritise mobile)
+ *  - coarse pointer AND ≤4GB/≤4cores → low (a modest phone needs the still graph)
  *  - ≥3x DPR on a big screen   → balanced (many pixels to repaint per frame)
  */
 export function classifyDevice(signals: DeviceSignals): TierSuggestion {
@@ -110,6 +111,19 @@ export function classifyDevice(signals: DeviceSignals): TierSuggestion {
   }
 
   if (signals.coarsePointer) cap("balanced", "Touch device")
+
+  /*
+   * A 4 GB phone is the tier the low budget was written for. Stopping it at
+   * `balanced` meant the heaviest phone could never reach the frame-capped
+   * still graph, so it kept paying for drift, particles and a 50fps loop on a
+   * device that most visibly struggles. Cores/memory only DOWNGRADE from here,
+   * so a fast 8 GB phone is untouched.
+   */
+  const modestPhone =
+    signals.coarsePointer === true &&
+    ((memoryGB !== undefined && memoryGB <= 4) ||
+      (cores !== undefined && cores <= 4))
+  if (modestPhone) cap("low", "Modest phone (4 GB / 4 cores or less)")
 
   const bigHiDpiScreen =
     signals.screenArea !== undefined &&

@@ -16,6 +16,14 @@
  *  - `labels` stops painting the small-character labels while zoomed out, where
  *    they are illegible anyway. Hidden labels are `display:none`d (not just
  *    faded to 0) so the renderer can skip them entirely.
+ *
+ *  - `frameBudgetMs` is the tier's hard ceiling on frame rate. This is the one
+ *    that matters most on a budget phone: with `driftAmp: 0` the positions are
+ *    already static, so skipping frames is visually free, whereas drawing them
+ *    costs a full pass of node/edge bookkeeping per vsync forever. `low` at 33ms
+ *    caps the loop near 30fps; `balanced` at 20ms still reads as smooth but
+ *    gives the GPU back a third of its frame budget; `high` stays uncapped
+ *    because it is only ever chosen deliberately on capable hardware.
  */
 
 import type { QualityTier } from "@/lib/device-tier"
@@ -70,7 +78,9 @@ export const GRAPH_QUALITY: Record<QualityTier, GraphQuality> = {
     breathe: false,
     ripple: false,
     collideIters: 2,
-    frameBudgetMs: 0,
+    // ~50fps. Ambient drift stays continuous, so dropping the last third of the
+    // vsyncs is invisible while returning real headroom on a mid-range phone.
+    frameBudgetMs: 20,
     edgeFrameDivisor: 3,
     particleCadence: 3,
     labels: "major",
@@ -82,7 +92,10 @@ export const GRAPH_QUALITY: Record<QualityTier, GraphQuality> = {
     breathe: false,
     ripple: false,
     collideIters: 2,
-    frameBudgetMs: 0,
+    // ~30fps. This tier is a STILL graph, so nothing is lost by skipping frames
+    // and a great deal is saved: the node/edge bookkeeping is the per-frame
+    // cost, and this is what actually bounds it.
+    frameBudgetMs: 33,
     edgeFrameDivisor: 4,
     particleCadence: 4,
     labels: "principal",
