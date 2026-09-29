@@ -4,7 +4,7 @@ import { fail, tooManyRequests, handleApiError } from "@/lib/api-utils"
 import { isSameOrigin } from "@/lib/origin-check"
 import { authRateLimitKey, identifierRateLimitKey } from "@/lib/rate-limit"
 import { rateLimitPersistent } from "@/lib/rate-limit-db"
-import { validateEmail, validateDisplayName, validateBirthday } from "@/lib/validation"
+import { validateEmail, validateDisplayName, validateBirthday, usernameBaseFrom } from "@/lib/validation"
 
 const SITE_URL = (
   process.env.NEXT_PUBLIC_SITE_URL ??
@@ -77,9 +77,7 @@ export async function POST(request: NextRequest) {
     // For signup, we need to generate username and include display_name/birthday
     if (mode === "signup") {
       // Generate username behind the scenes
-      const base =
-        (displayName || email.split("@")[0]).toLowerCase().replace(/[^a-z0-9_-]/g, "").slice(0, 15) ||
-        "detective"
+      const base = usernameBaseFrom(displayName || "", email)
       let username = base
       let attempts = 0
       while (attempts < 5) {

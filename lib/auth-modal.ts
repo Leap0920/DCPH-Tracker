@@ -11,6 +11,8 @@
  *   - Username generation for signup
  */
 
+import { usernameBaseFrom } from "./validation"
+
 export type AuthModalMode = "signin" | "signup"
 
 export type AuthMethod = "email"
@@ -67,9 +69,7 @@ export async function generateUniqueUsername(
   name: string,
   mail: string
 ): Promise<string> {
-  const base =
-    (name || mail.split("@")[0]).toLowerCase().replace(/[^a-z0-9_-]/g, "").slice(0, 15) ||
-    "detective"
+  const base = usernameBaseFrom(name || "", mail)
 
   let attempts = 0
   let candidate = base
