@@ -74,9 +74,11 @@ export default function ElegantCarousel({ customSlides }: { customSlides?: Slide
   const mediaContainerRef = useRef<HTMLDivElement>(null);
   const touchStartX = useRef(0);
   const touchEndX = useRef(0);
-  // Suppresses the swipe gesture while a tap is being disambiguated from a drag,
-  // so one touch can never both toggle playback and move the carousel.
-  const suppressSwipeUntil = useRef(0);
+  // A swipe is resolved in touchend, but the browser then fires a synthetic
+  // click on the surface underneath. This window turns that trailing click
+  // into a no-op, so one drag can never both move the carousel and pause the
+  // video. Set when the drag navigates, consumed by handleVideoSurfaceTap.
+  const suppressTapUntil = useRef(0);
 
   const TRANSITION_DURATION = 500;
   const currentSlide = slides[currentIndex];
@@ -276,29 +278,25 @@ export default function ElegantCarousel({ customSlides }: { customSlides?: Slide
   };
 
   const handleTouchEnd = () => {
-    // A tap that was used to toggle playback must not also navigate: the gesture
-    // window stays shut until it expires, so the same finger never does both.
-    if (Date.now() < suppressSwipeUntil.current) {
-      suppressSwipeUntil.current = 0;
-      return;
-    }
     const diff = touchStartX.current - touchEndX.current;
     if (Math.abs(diff) > 60) {
       if (diff > 0) goNext();
       else goPrev();
+      // Swallow the synthetic click that follows this drag.
+      suppressTapUntil.current = Date.now() + 700;
+      touchStartX.current = touchEndX.current;
     }
   };
 
   // Tapping the picture plays/pauses. It used to bubble to the carousel's own
   // touch handlers and register as a swipe, which swapped to another track.
   const handleVideoSurfaceTap = () => {
+    // A synthetic click trailing a swipe must not toggle playback.
+    if (Date.now() < suppressTapUntil.current) return;
     const video = videoRef.current;
     // Opening fullscreen and toggling playback on one tap would be surprising.
     if (video && document.fullscreenElement) return;
     togglePlay();
-    // Anything already in flight when the finger went down is stale now.
-    touchStartX.current = touchEndX.current;
-    suppressSwipeUntil.current = Date.now() + 700;
   };
 
   const toggleFullscreen = () => {
@@ -449,8 +447,18 @@ export default function ElegantCarousel({ customSlides }: { customSlides?: Slide
                   <track kind="captions" srcLang="en" label="No commentary" />
                 </video>
 
-                {/* Video Timeframe Seeker Bar & Audio Controls Overlay */}
-                <div className="absolute inset-x-0 bottom-0 z-20 bg-gradient-to-t from-black/85 via-black/40 to-transparent p-2.5 sm:p-4 flex flex-col gap-1.5 sm:gap-2">
+                {/* Video Timeframe Seeker Bar & Audio Controls Overlay.
+                    The play/mute/fullscreen buttons are interactive controls, not
+                    surface taps, so the whole overlay stops propagation — otherwise
+                    pressing Sound also fired the surface click, pausing playback,
+                    and on touch could register as a swipe and change slide. */}
+                <div
+                  onClick={(e) => e.stopPropagation()}
+                  onTouchStart={(e) => e.stopPropagation()}
+                  onTouchMove={(e) => e.stopPropagation()}
+                  onTouchEnd={(e) => e.stopPropagation()}
+                  className="absolute inset-x-0 bottom-0 z-20 bg-gradient-to-t from-black/85 via-black/40 to-transparent p-2.5 sm:p-4 flex flex-col gap-1.5 sm:gap-2"
+                >
                   {/* Interactive Timeframe Slider */}
                   <input
                     type="range"
