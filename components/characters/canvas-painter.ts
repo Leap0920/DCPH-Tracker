@@ -90,11 +90,35 @@ export interface PaintOptions {
   searchMatches: ReadonlySet<number> | null;
   /** Dim non-targets (a dossier is open or a search is active). */
   dimmed: boolean;
-  labelLimit: 0 | 1 | null;
   dotGrid: boolean;
   /** Selects the theme-appropriate node fill (see PaintedNode.darkFill). */
   isDark: boolean;
   viewport: { w: number; h: number };
+}
+
+
+type LabelBox = { x: number; y: number; w: number; h: number };
+
+/** Axis-aligned overlap test for label boxes. */
+function overlaps(box: LabelBox, placed: readonly LabelBox[]): boolean {
+  for (const p of placed) {
+    if (
+      box.x < p.x + p.w &&
+      box.x + box.w > p.x &&
+      box.y < p.y + p.h &&
+      box.y + box.h > p.y
+    ) {
+      return true;
+    }
+  }
+  return false;
+}
+
+/** Is this node drawn in its highlight state? */
+function emphasised(i: number, o: PaintOptions): boolean {
+  return (
+    i === o.selectedIndex || i === o.hoveredIndex || (o.searchMatches?.has(i) ?? false)
+  );
 }
 
 /**
@@ -235,33 +259,86 @@ export function paint(
       calls++;
     }
 
-    // Label, below the node. Font size is compensated so text stays a constant
-    // SCREEN size regardless of zoom — the same trick as the SVG halo width.
+  }
+
+
+  /* ── labels ───────────────────────────────────────────────────
+   * A dedicated pass AFTER every node body is down, so the label set is not
+   * biased by draw order.
+   *
+   * The tier policy used to gate names by node importance: on the `low` tier
+   * labelLimit = 0, so only the 20 largest of 319 nodes were ever named. That
+   * was inherited from the SVG renderer, where hiding a label costs nothing —
+   * here the name IS the content, and a graph of unnamed dots is useless. So
+   * every node is a candidate.
+   *
+   * What is still worth suppressing is TEXT THAT OVERLAPS TEXT. Labels are
+   * admitted in importance order (hub, then major, then cast) and each one that
+   * would collide with an already-placed box is dropped. Because a dropped name
+   * comes back the moment you zoom in, nothing is lost permanently.
+   *
+   * `measureText` is the only way to know a label's real width on canvas, so it
+   * is called once per candidate and cached for the frame.
+   */
+  const boxes: LabelBox[] = [];
+  const candidates: { n: PaintedNode; wx: number; wy: number }[] = [];
+
+  for (const n of o.nodes) {
+    const wx = o.positions[n.index * 2];
+    const wy = o.positions[n.index * 2 + 1];
+    if (wx < minWX || wx > maxWX || wy < minWY || wy > maxWY) continue;
+    candidates.push({ n, wx, wy });
+  }
+  // Most important first, so when two labels collide the one that survives is
+  // the one a reader is more likely to be looking for.
+  candidates.sort((a, b) => a.n.tier - b.n.tier || b.n.r - a.n.r);
+
+  ctx.textAlign = "center";
+  ctx.textBaseline = "middle";
+
+  for (const { n, wx, wy } of candidates) {
+    // Fade with zoom exactly as the SVG did, so a zoomed-out overview is not a
+    // wall of 11px text — but never to zero while the node itself is visible.
     const op = labelOpacityFor(k, n.tier);
-    if (op > 0 && (o.labelLimit === null || n.tier <= o.labelLimit)) {
-      const size = fontBase;
-      ctx.font = `600 ${size}px ui-sans-serif, system-ui, sans-serif`;
-      const ty2 = wy + n.r + 12 + size * 0.5;
+    if (op <= 0.02) continue;
 
-      // Halo first, so the label stays readable over any string behind it.
-      ctx.globalAlpha = op * 0.85;
-      ctx.lineWidth = 3;
-      ctx.strokeStyle = pal.labelHalo;
-      ctx.strokeText(n.name, wx, ty2);
-      ctx.globalAlpha = op;
-      ctx.fillStyle = emphasised ? pal.labelStrong : pal.label;
-      ctx.fillText(n.name, wx, ty2);
-      calls += 2;
+    const size = n.tier === 0 ? fontBase + 1 : fontBase;
+    ctx.font = `${n.tier === 0 ? 700 : 600} ${size}px ui-sans-serif, system-ui, sans-serif`;
 
-      if (n.sub) {
-        ctx.font = `400 ${Math.round(size * 0.78)}px ui-monospace, monospace`;
-        ctx.globalAlpha = op * 0.6;
-        ctx.fillStyle = pal.label;
-        ctx.fillText(n.sub, wx, ty2 + size * 1.05);
-        calls++;
-      }
+    const wpx = ctx.measureText(n.name).width;
+    const ty2 = wy + n.r + 12 + size * 0.5;
+
+    // Screen-space box for collision. Everything here is in CSS px because the
+    // context is still scaled by DPR, not by the camera.
+    const box: LabelBox = {
+      x: wx * k + cam.x - wpx / 2 - 2,
+      y: ty2 * k + cam.y - size * 0.62,
+      w: wpx + 4,
+      h: size * 1.24,
+    };
+    if (overlaps(box, boxes)) continue;
+    boxes.push(box);
+
+    // Halo first so the name stays readable over any string behind it.
+    ctx.globalAlpha = op * 0.9;
+    ctx.lineWidth = 3;
+    ctx.strokeStyle = pal.labelHalo;
+    ctx.strokeText(n.name, wx, ty2);
+    ctx.globalAlpha = op;
+    ctx.fillStyle = emphasised(n.index, o) ? pal.labelStrong : pal.label;
+    ctx.fillText(n.name, wx, ty2);
+    calls += 2;
+
+    if (n.sub) {
+      ctx.font = `400 ${Math.round(size * 0.78)}px ui-monospace, monospace`;
+      ctx.globalAlpha = op * 0.65;
+      ctx.fillStyle = pal.label;
+      ctx.fillText(n.sub, wx, ty2 + size * 1.05);
+      calls++;
     }
   }
+  ctx.globalAlpha = 1;
+
 
   ctx.restore();
   ctx.setTransform(1, 0, 0, 1, 0, 0);

@@ -277,7 +277,6 @@ describe("paint", () => {
       hoveredIndex: -1,
       searchMatches: null,
       dimmed: false,
-      labelLimit: null,
       dotGrid: false,
       isDark: true,
       viewport,
@@ -309,29 +308,96 @@ describe("paint", () => {
     expect(near).toBeLessThan(wide);
   });
 
-  it("paints only the label tiers the policy allows", () => {
-    // All nodes are tier 1, so a "principal only" policy (limit 0) must drop
-    // every label while still drawing every node — that is the low-tier rule.
-    const o = scene(60, 50);
-    o.labelLimit = 0;
-    const ctx = fakeCtx();
-    const calls = paint(ctx, o, PAL);
-    expect(ctx.calls).not.toContain("fillText");
-    // Nodes still drawn: 2 fills (body + core) each, plus 2 backdrop fills and
-    // one per edge stroke. culling means fewer than all 60 are visible here.
-    const fills = ctx.calls.filter((c) => c === "fill").length;
-    expect(fills).toBeGreaterThan(60);
-    expect(calls).toBeGreaterThan(0);
-  });
+  /*
+   * Labels are no longer gated by node importance. The tier policy meant only
+   * 20 of 319 nodes were ever named on the low tier — a graph of unnamed dots.
+   * Every node is now a candidate and TEXT-ON-TEXT collisions are what get
+   * dropped.
+   */
+  it("names every node when nothing overlaps", () => {
+    const o = scene(30, 20);
+    // Spread far apart so no two labels can collide.
+    for (let i = 0; i < 30; i++) {
+      o.positions[i * 2] = 40 + (i % 6) * 400;
+      o.positions[i * 2 + 1] = 40 + Math.floor(i / 6) * 400;
+    }
+    o.viewport = { w: 3000, h: 3000 };
+    o.cam = { x: 0, y: 0, k: 1 };
 
-  it("does paint labels once the policy admits the tier", () => {
-    const o = scene(10, 8);
-    o.labelLimit = 1;
     const ctx = fakeCtx();
     paint(ctx, o, PAL);
-    expect(ctx.calls).toContain("fillText");
-    // Each label is halo (strokeText) then fill, so both appear.
-    expect(ctx.calls).toContain("strokeText");
+    // Every node contributed a name.
+    expect(ctx.calls.filter((c) => c === "fillText").length).toBe(30);
+  });
+
+  it("drops only the labels that would overlap another label", () => {
+    const o = scene(6, 4);
+    // Stack all six on the SAME spot: at most one label survives.
+    for (let i = 0; i < 6; i++) {
+      o.positions[i * 2] = 100;
+      o.positions[i * 2 + 1] = 100;
+    }
+    o.viewport = { w: 400, h: 400 };
+    o.cam = { x: 0, y: 0, k: 1 };
+
+    const ctx = fakeCtx();
+    paint(ctx, o, PAL);
+    const labels = ctx.calls.filter((c) => c === "fillText").length;
+    expect(labels).toBeGreaterThan(0);
+    // Six nodes stacked on one point cannot all be legibly named.
+    expect(labels).toBeLessThan(6);
+  });
+
+  it("keeps the most important label when two collide", () => {
+    const o = scene(2, 1);
+    // Node 0 is tier 1, node 1 is the hub (tier 0) — they overlap exactly.
+    o.nodes[0].tier = 1;
+    o.nodes[1].tier = 0;
+    o.nodes[1].r = 26;
+    // Same label baseline: the hub's bigger radius pushes its own label DOWN by
+    // exactly that much, so it has to sit that much higher to line up.
+    o.positions[0] = 100;
+    o.positions[1] = 100;
+    // Hub sits HIGHER so its label band crosses the tier-1 node's band: a 26px
+    // radius pushes its own label ~32px further down than a 6px one.
+    o.positions[2] = 100;
+    o.positions[3] = 70;
+    o.viewport = { w: 400, h: 400 };
+    o.cam = { x: 0, y: 0, k: 1 };
+
+    const ctx = fakeCtx();
+    paint(ctx, o, PAL);
+    // Exactly one name painted, and it must be the hub's.
+    const names = ctx.calls.filter((c) => c === "fillText").length;
+    expect(names).toBe(1);
+  });
+
+  it("brings a suppressed name back once the graph is spread out", () => {
+    const tight = scene(4, 2);
+    for (let i = 0; i < 4; i++) {
+      tight.positions[i * 2] = 100;
+      tight.positions[i * 2 + 1] = 100;
+    }
+    tight.viewport = { w: 400, h: 400 };
+    tight.cam = { x: 0, y: 0, k: 1 };
+    const stacked = fakeCtx();
+    paint(stacked, tight, PAL);
+    const nStacked = stacked.calls.filter((c) => c === "fillText").length;
+
+    // Same four nodes, now far apart: all four are nameable again.
+    const spread = scene(4, 2);
+    for (let i = 0; i < 4; i++) {
+      spread.positions[i * 2] = 50 + i * 300;
+      spread.positions[i * 2 + 1] = 50;
+    }
+    spread.viewport = { w: 1200, h: 400 };
+    spread.cam = { x: 0, y: 0, k: 1 };
+    const apart = fakeCtx();
+    paint(apart, spread, PAL);
+    const nApart = apart.calls.filter((c) => c === "fillText").length;
+
+    expect(nApart).toBe(4);
+    expect(nApart).toBeGreaterThan(nStacked);
   });
 
   it("restores the transform so the next frame starts clean", () => {

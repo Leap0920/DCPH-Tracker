@@ -409,14 +409,13 @@ export default function CanvasGraph({
         hoveredIndex: hovered,
         searchMatches,
         dimmed: hovered >= 0 || selectedIndex >= 0 || searchMatches !== null,
-        labelLimit,
         dotGrid: q.dotGrid,
         isDark: theme === "dark",
         viewport: { w, h },
       },
       pal
     );
-  }, [nodes, edges, positions, hovered, selectedIndex, searchMatches, labelLimit, q.dotGrid, pal, theme]);
+  }, [nodes, edges, positions, hovered, selectedIndex, searchMatches, q.dotGrid, pal, theme]);
 
   // Publish the current draw so requestPaint() always repaints with fresh state.
   drawRef.current = draw;
