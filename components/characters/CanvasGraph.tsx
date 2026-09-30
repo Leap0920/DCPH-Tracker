@@ -78,6 +78,26 @@ const ZOOM_STEP = 1.35;
 const ZOOM_TO_NODE = 1.9;
 /** Matches the SVG renderer's phone breakpoint. */
 const MOBILE_QUERY = "(max-width: 767px)";
+
+/**
+ * Hydration-safe matchMedia hook.
+ *
+ * Deliberately local rather than imported from CharactersWeb: importing the SVG
+ * renderer — even for one hook — would drag its whole 2,200-line module into
+ * this chunk and defeat the point of having two renderers.
+ */
+function useMediaQuery(query: string): boolean {
+  const [matches, setMatches] = useState(false);
+  useEffect(() => {
+    if (typeof window === "undefined" || typeof window.matchMedia !== "function") return;
+    const mql = window.matchMedia(query);
+    const onChange = () => setMatches(mql.matches);
+    onChange();
+    mql.addEventListener("change", onChange);
+    return () => mql.removeEventListener("change", onChange);
+  }, [query]);
+  return matches;
+}
 /** Share of the viewport the mobile dossier sheet may take. */
 const SHEET_VH = 0.56;
 
@@ -228,6 +248,9 @@ export default function CanvasGraph({
       ? false
       : window.matchMedia(MOBILE_QUERY).matches
   );
+  /** React-level phone flag, for LAYOUT. The ref above stays the source of
+   *  truth for the fit, which has to be right on the very first measurement. */
+  const isMobile = useMediaQuery(MOBILE_QUERY);
   /** The chrome-free rectangle every camera fit centres on. */
   const fitRect = useCallback(() => {
     const { w, h } = sizeRef.current;
@@ -968,7 +991,7 @@ export default function CanvasGraph({
           <Search className="h-4 w-4" />
         </button>
         {searchOpen && (
-          <div className="mt-2 w-[15rem] space-y-1.5 rounded-xl border border-line bg-surface p-2 text-ink shadow-lift">
+          <div className="mt-2 w-[min(15rem,calc(100vw-2rem))] space-y-1.5 rounded-xl border border-line bg-surface p-2 text-ink shadow-lift">
             <div className="flex items-center gap-2 rounded-lg bg-surface-muted px-2.5 py-1.5">
               <Search className="h-3.5 w-3.5 shrink-0 text-ink-faint" aria-hidden />
               <input
@@ -1031,7 +1054,15 @@ export default function CanvasGraph({
       </div>
 
       {/* dock: center-Conan, zoom out, readout, zoom in, reset */}
-      <div className="absolute bottom-6 left-3 z-20 flex items-center gap-1 rounded-full border border-line bg-surface p-1.5 shadow-lift sm:left-4 sm:bottom-6">
+      <div
+        className={
+          // The sheet covers the lower ~56% of a phone, so the dock has to sit
+          // above it or it is unreachable exactly when a dossier is open.
+          selectedCharacterId && isMobile
+            ? "absolute bottom-[calc(56vh+12px)] left-3 z-20 flex items-center gap-1 rounded-full border border-line bg-surface p-1.5 shadow-lift"
+            : "absolute bottom-6 left-3 z-20 flex items-center gap-1 rounded-full border border-line bg-surface p-1.5 shadow-lift sm:left-4"
+        }
+      >
         <button
           type="button"
           onClick={centerOnConan}
