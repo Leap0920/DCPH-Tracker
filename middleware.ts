@@ -13,6 +13,9 @@ export const config = {
     // Everything except Next internals, static assets, and well-known files.
     // NOTE: /api/* IS matched, so API requests still get their session
     // refreshed — but updateSession skips the profile lookups for them.
-    "/((?!_next/static|_next/image|favicon\\.ico|robots\\.txt|sitemap\\.xml|manifest\\.webmanifest|.*\\.(?:svg|png|jpg|jpeg|gif|webp|avif|ico|woff|woff2|ttf|otf)$).*)",
+    // Media files (mp4/webm/…) are excluded too: the /videos masters are
+    // tens of megabytes and used to route every range request through the
+    // edge middleware for nothing.
+    "/((?!_next/static|_next/image|favicon\\.ico|robots\\.txt|sitemap\\.xml|manifest\\.webmanifest|.*\\.(?:svg|png|jpg|jpeg|gif|webp|avif|ico|woff|woff2|ttf|otf|mp4|webm|mov|m4v|mp3|m4a|ogg|wav|pdf|zip)$).*)",
   ],
 }

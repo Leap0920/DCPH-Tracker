@@ -9,23 +9,25 @@
  * These tests drive the real component in a real DOM: click the actual Sound
  * button and assert playback state and slide index are untouched.
  *
- * jsdom implements no media pipeline, so play/pause are stubbed and autoplay is
- * started by dispatching `loadeddata` (the component's own hook for that).
+ * jsdom implements no media pipeline, so play/pause are stubbed. Autoplay is
+ * deliberately off in the component (Vercel transfer quota — see
+ * AUTOPLAY_MUTED in elegant-carousel.tsx), so a "mount" here starts playback
+ * the way a visitor does: tap the surface, then fire the `play` event the
+ * real media pipeline would emit (jsdom never does).
  */
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest"
 import { render, screen, fireEvent, cleanup, act } from "@testing-library/react"
 import ElegantCarousel from "@/components/ui/elegant-carousel"
 
-/** Mounts the carousel and gets autoplay going, as a browser would. */
+/** Mounts the carousel and starts playback the way a visitor does. */
 async function mountCarousel() {
   const view = render(<ElegantCarousel />)
   const video = view.container.querySelector(
     "video"
   ) as HTMLVideoElement
-  // The component waits for `loadeddata` before calling play(); jsdom never
-  // fires it on its own, so fire it here to reach the playing state.
   await act(async () => {
-    video.dispatchEvent(new Event("loadeddata"))
+    fireEvent.click(surface())
+    video.dispatchEvent(new Event("play"))
     await Promise.resolve()
     await Promise.resolve()
   })
