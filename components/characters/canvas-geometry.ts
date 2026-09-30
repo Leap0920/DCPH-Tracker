@@ -86,10 +86,18 @@ export interface HitCircle {
 /**
  * Topmost node under the screen point, or -1.
  *
- * Scans BACKWARD so the last matching (highest-index) node wins, and returns the
- * smallest containing circle so a node drawn inside another is still reachable.
- * `slackPx` widens every radius in screen space, which is what makes a 6px
- * node tappable with a finger instead of a stylus.
+ * Two passes, NEAREST CENTRE first in each:
+ *  1. A disc the finger is actually on (distance <= drawn radius) wins outright.
+ *  2. Only if no disc was touched, `slackPx` (a finger-sized pad in screen px)
+ *     widens the search to the nearest centre within reach.
+ *
+ * This used to return the SMALLEST containing circle, and with a phone-sized
+ * slack that quietly re-mapped real taps: a small neighbour sitting ~16px away
+ * from the point counted as a "candidate", and being smaller it beat the big
+ * node whose disc the finger was on — tapping Amuro opened Karasuma. Nearest
+ * centre keeps the fat-finger tolerance without letting a bystander steal a
+ * direct hit. Exact ties keep the old preference for the smaller disc, so a
+ * node nested inside another stays reachable.
  */
 export function hitNode(
   sx: number,
@@ -99,10 +107,15 @@ export function hitNode(
   slackPx = 0
 ): number {
   const k = cam.k || 1;
+  const slackW = slackPx / k;
   let best = -1;
+  let bestD2 = Infinity;
   let bestR = Infinity;
+  let slack = -1;
+  let slackD2 = Infinity;
+  let slackR = Infinity;
 
-  for (let i = circles.length - 1; i >= 0; i--) {
+  for (let i = 0; i < circles.length; i++) {
     const c = circles[i];
     const p = toScreen(c.wx, c.wy, cam);
     // Measure in WORLD units: a node's radius is authored in world px, so the
@@ -110,16 +123,26 @@ export function hitNode(
     // one. Mixing the two would make every target wrong at high zoom.
     const dx = (p.x - sx) / k;
     const dy = (p.y - sy) / k;
-    // Slack stays in screen px (a finger-sized pad) and converts to world here.
-    const reach = c.r + slackPx / k;
     const d2 = dx * dx + dy * dy;
-    if (d2 > reach * reach) continue;
-    if (c.r < bestR) {
-      bestR = c.r;
-      best = i;
+    if (d2 <= c.r * c.r) {
+      if (d2 < bestD2 || (d2 === bestD2 && c.r < bestR)) {
+        bestD2 = d2;
+        bestR = c.r;
+        best = i;
+      }
+      continue;
+    }
+    // Slack stays in screen px (a finger-sized pad) and converts to world here.
+    const reach = c.r + slackW;
+    if (d2 <= reach * reach) {
+      if (d2 < slackD2 || (d2 === slackD2 && c.r < slackR)) {
+        slackD2 = d2;
+        slackR = c.r;
+        slack = i;
+      }
     }
   }
-  return best;
+  return best !== -1 ? best : slack;
 }
 
 /** Squared distance from p to segment ab. */
@@ -247,6 +270,48 @@ export function fitCamera(
   };
 }
 
+/** The SVG renderer opens desktops centred on the hub at this zoom. */
+const HOME_DESKTOP_K = 1.35;
+
+/**
+ * The camera a renderer OPENS with — the one framing both renderers share, so
+ * changing quality never changes where the graph sits on screen.
+ *
+ * Phones fill the width edge-to-edge: a portrait viewport has height to spare
+ * and the graph is judged against the width, so that is what the opening zoom
+ * is derived from (with the height as a hard cap, so nothing clips). Desktops
+ * mirror the SVG renderer exactly — centred on the hub at its opening zoom
+ * (CONAN at the centre of the screen), the view the highlight work is read in.
+ */
+export function homeCamera(
+  bounds: Bounds,
+  hub: { x: number; y: number },
+  viewport: { x: number; y: number; w: number; h: number },
+  isMobile: boolean,
+  minK: number,
+  maxK: number
+): Camera {
+  if (!isMobile) {
+    const k = clamp(HOME_DESKTOP_K, minK, maxK);
+    return {
+      k,
+      x: viewport.x + viewport.w / 2 - hub.x * k,
+      y: viewport.y + viewport.h / 2 - hub.y * k,
+    };
+  }
+  const screenW = viewport.w + viewport.x * 2;
+  const k = clamp(
+    Math.min(screenW / (bounds.w || 1), viewport.h / (bounds.h || 1)),
+    minK,
+    maxK
+  );
+  return {
+    k,
+    x: viewport.x + viewport.w / 2 - (bounds.minX + bounds.w / 2) * k,
+    y: viewport.y + viewport.h / 2 - (bounds.minY + bounds.h / 2) * k,
+  };
+}
+
 /**
  * Device pixel ratio to actually render at.
  *
@@ -267,6 +332,86 @@ export function labelOpacityFor(k: number, tier: 0 | 1 | 2): number {
   if (tier === 0) return 1;
   if (tier === 1) return clamp(k / 0.55, 0.75, 1);
   return clamp((k - 0.35) / 0.25, 0, 1);
+}
+
+/**
+ * Whether NAME TEXT is painted at this zoom, as a 0..1 strength.
+ *
+ * The reader's policy, from the phone: below 33% the map itself is the content
+ * and text is noise — nothing is drawn; from 47% up names read clearly; the
+ * short band between is a fade so names do not pop. This gates the whole
+ * renderer, tier included — the per-tier fade still decides emphasis inside the
+ * visible band, but no tier paints through the gate. A FORCED label (hover,
+ * selection, search hit) is exempt: one deliberate name is not clutter.
+ */
+export function labelVisibilityFor(k: number): number {
+  const pct = k * 100;
+  if (pct < 33) return 0;
+  if (pct >= 47) return 1;
+  return (pct - 33) / 14;
+}
+
+/**
+ * Visibility of one relationship string, given what the viewer is focused on.
+ *
+ * Three narrowing actions, deliberately different:
+ *
+ *  - A SELECTED CHARACTER is a request to read ONE person's relationships. Every
+ *    string that does not touch them is hidden outright. Dimming the rest to
+ *    0.42 still left ~200 threads crossing the one web being read — the same
+ *    "so messy" that selecting a character is supposed to answer. Hiding is the
+ *    deliberate difference between "less loud" and "gone".
+ *
+ *  - A SEARCH or faction spotlight DIMS what it excludes but keeps it on screen.
+ *    The set is the subject and the rest of the web is its context; hiding it
+ *    would make the matches read as the whole cast, which they are not.
+ *
+ *  - HOVER only brightens, and must never hide anything: sweeping the pointer
+ *    once blanked most of the graph, which on a phone reads as content
+ *    vanishing. Contact is not a narrowing action.
+ *
+ * A selection outranks a hover — while one character is being read, another
+ * character passing under the pointer does not reopen the web.
+ */
+/**
+ * How a picked character's strings relate to the rest of the graph.
+ *
+ * Strings that are NOT part of the selected character's own web do not vanish:
+ * they drop into the background as a desaturated ghost (gray, OUT_OF_WEB_OPACITY)
+ * so the shape of the whole cast stays readable behind the one web being read.
+ * Still MUCH fainter than the old 0.42 dim — the coloured leftovers were what
+ * crossed the web being read.
+ */
+export const OUT_OF_WEB_OPACITY = 0.1;
+export const OUT_OF_WEB_COLOR = "#94A3B8";
+
+export function edgeOpacityFor(
+  s: number,
+  t: number,
+  o: {
+    selectedIndex: number;
+    hoveredIndex: number;
+    searchMatches: ReadonlySet<number> | null;
+  }
+): number {
+  /*
+   * Selection is checked FIRST so it outranks an active search or spotlight:
+   * picking a character is the most specific thing the viewer can do, and the
+   * web being read must not be diluted by whatever filter happened to be on.
+   */
+  if (o.selectedIndex >= 0) {
+    return s === o.selectedIndex || t === o.selectedIndex
+      ? 1
+      : OUT_OF_WEB_OPACITY;
+  }
+  if (o.searchMatches !== null) {
+    const inSet = (i: number) => o.searchMatches?.has(i) ?? false;
+    if (inSet(s) && inSet(t)) return 1;
+    if (inSet(s) || inSet(t)) return 0.45;
+    return 0.1;
+  }
+  if (s === o.hoveredIndex || t === o.hoveredIndex) return 1;
+  return 0.5;
 }
 
 /** Nodes fully outside the viewport, given a world-space margin. */

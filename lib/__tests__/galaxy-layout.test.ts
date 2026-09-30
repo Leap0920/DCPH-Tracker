@@ -312,7 +312,7 @@ describe("galaxyLayout", () => {
       degree.set(r.source, (degree.get(r.source) ?? 0) + 1);
       degree.set(r.target, (degree.get(r.target) ?? 0) + 1);
     }
-    const radii = CHARACTERS.map((c) => getNodeRadius(c, degree.get(c.id) ?? 0));
+    const radii = CHARACTERS.map((c) => getNodeRadius(degree.get(c.id) ?? 0));
 
     let tightest = Infinity;
     for (let i = 0; i < CHARACTERS.length; i++) {

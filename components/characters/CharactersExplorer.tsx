@@ -139,8 +139,8 @@ export default function CharactersExplorer({
   /* ── renderer choice ───────────────────────────────────────────── */
   /** null = follow the tier default (see rendererForTier). */
   const [rendererOverride, setRendererOverride] = useState<Renderer | null>(null)
-  /** Globe by default; `?layout=` switches the arrangement on a real device. */
-  const [layout, setLayout] = useState<"globe" | "galaxy" | "authored">("globe")
+  /** Flat radial by default; `?layout=authored` restores the data-file x/y. */
+  const [layout, setLayout] = useState<"galaxy" | "authored">("galaxy")
 
   const { theme } = useTheme()
 
@@ -149,10 +149,7 @@ export default function CharactersExplorer({
   useEffect(() => {
     const params = new URLSearchParams(window.location.search)
     setRendererOverride(rendererFromParam(params.get("renderer")))
-    // `?layout=authored|galaxy|globe` picks the arrangement on a real device,
-    // so each can be judged against the others without a rebuild.
-    const lay = params.get("layout")
-    setLayout(lay === "authored" ? "authored" : lay === "galaxy" ? "galaxy" : "globe")
+    setLayout(params.get("layout") === "authored" ? "authored" : "galaxy")
   }, [])
 
   // Detection and storage are client-only reads, so they cannot run during the
@@ -220,6 +217,17 @@ export default function CharactersExplorer({
     return () => window.clearTimeout(timer)
   }, [quality])
 
+  /**
+   * While the chooser is open, fetch the canvas renderer's chunk too. Applying
+   * a tier that switches renderers must not open on a blank beat while the
+   * lazy chunk arrives — the frame a visitor liked should stay on screen until
+   * its replacement is ready.
+   */
+  useEffect(() => {
+    if (!qualityOpen) return
+    void import("@/components/characters/CanvasGraph")
+  }, [qualityOpen])
+
   const handleSelect = useCallback((character: Character | null) => {
     if (character) {
       setDossierReady(true)
@@ -274,6 +282,7 @@ export default function CharactersExplorer({
             quality={quality}
             onSelectCharacter={handleSelect}
             selectedCharacterId={selection?.id}
+            topLeftSlot={topLeftControls}
             theme={theme}
             className="h-full w-full"
           />
@@ -281,10 +290,7 @@ export default function CharactersExplorer({
           <CharactersWeb
             characters={characters}
             relationships={relationships}
-            /* No 3D path in the SVG renderer yet: fall back to the flat radial
-               layout rather than the authored scatter — same cast, same
-               ordering, minus the depth. */
-            layout={layout === "globe" ? "galaxy" : layout}
+            layout={layout}
             quality={quality}
             onSelectCharacter={handleSelect}
             selectedCharacterId={selection?.id}

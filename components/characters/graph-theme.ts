@@ -8,7 +8,7 @@
   invisible on the dark canvas).
 */
 
-import type { Character, RelationshipType } from "@/lib/characters-guide"
+import type { RelationshipType } from "@/lib/characters-guide"
 
 export interface FactionTheme {
   primary: string
@@ -205,37 +205,16 @@ export function getRelationshipColor(
   return isDark ? entry.dark : entry.light
 }
 
-/** Node sizing by narrative importance (unchanged rules). */
-export function getNodeRadius(c: Character, degree: number): number {
-  if (c.id === "conan-edogawa") return 26
-  if (
-    c.id === "ran-mouri" ||
-    c.id === "ai-haibara" ||
-    c.id === "kogoro-mouri" ||
-    c.id === "heiji-hattori" ||
-    c.id === "kaitou-kid" ||
-    c.id === "tooru-amuro" ||
-    c.id === "shuichi-akai" ||
-    c.id === "gin"
-  ) {
-    return 20
-  }
-  if (
-    c.id === "vermouth" ||
-    c.id === "inspector-megure" ||
-    c.id === "officer-sato" ||
-    c.id === "officer-takagi" ||
-    c.id === "kazuha-toyama" ||
-    c.id === "professor-agasa" ||
-    c.id === "yusaku-kudo" ||
-    c.id === "yukiko-kudo" ||
-    c.id === "vodka" ||
-    c.id === "jodie-starling" ||
-    c.id === "sonoko-suzuki"
-  ) {
-    return 16
-  }
-  return Math.min(11 + Math.min(degree * 0.6, 5), 15)
+/**
+ * Node sizing by connection count, and nothing else: the more relationships a
+ * character is connected by, the bigger the disc. `sqrt` keeps the difference
+ * between 1 and 4 links readable at a glance while stopping the 34-link hub
+ * from dwarfing the cast. The previous version ran off hand-kept importance
+ * lists, which drifted from the data — a 3-link character could be drawn the
+ * same size as a 7-link one. Derived from the graph, so size can never lie.
+ */
+export function getNodeRadius(degree: number): number {
+  return 6 + 4.2 * Math.sqrt(Math.max(degree, 1));
 }
 
 /** Deterministic 32-bit string hash — seeds per-node drift so the motion is

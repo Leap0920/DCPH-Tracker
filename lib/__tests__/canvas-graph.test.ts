@@ -17,11 +17,15 @@
 
 import { describe, expect, it } from "vitest";
 import {
+  edgeOpacityFor,
   effectiveDpr,
   fitCamera,
   hitEdge,
   hitNode,
+  homeCamera,
   labelOpacityFor,
+  labelVisibilityFor,
+  OUT_OF_WEB_OPACITY,
   quadControl,
   toScreen,
   toWorld,
@@ -51,7 +55,7 @@ const PAL: PaintPalette = {
 function fakeCtx() {
   const calls: string[] = [];
   const setTransformArgs: unknown[][] = [];
-  /** Radius of every arc, in draw order — used by the depth tests. */
+  /** Radius of every arc, in draw order. */
   const arcArgs: number[][] = [];
   /** Text of every fillText, so a test can assert WHICH name was painted. */
   const textArgs: string[] = [];
@@ -116,6 +120,58 @@ function fakeCtx() {
   };
 }
 
+describe("edgeOpacityFor", () => {
+  /*
+   * The rule behind "select one character and read only their web". Each state
+   * is a different KIND of narrowing, and the difference is the whole point:
+   * selecting pushes everything else into the gray background, searching dims,
+   * hovering merely brightens.
+   */
+  const base = { selectedIndex: -1, hoveredIndex: -1, searchMatches: null };
+
+  it("fades every string outside the picked web into the background", () => {
+    const o = { ...base, selectedIndex: 3 };
+    expect(edgeOpacityFor(3, 7, o)).toBe(1);
+    expect(edgeOpacityFor(7, 3, o)).toBe(1);
+    expect(edgeOpacityFor(0, 1, o)).toBe(OUT_OF_WEB_OPACITY);
+    expect(edgeOpacityFor(7, 9, o)).toBe(OUT_OF_WEB_OPACITY);
+    // A ghost, not a void: still drawn, but far under the web's weight.
+    expect(OUT_OF_WEB_OPACITY).toBeGreaterThan(0);
+    expect(OUT_OF_WEB_OPACITY).toBeLessThan(0.2);
+  });
+
+  it("keeps a selected character's web closed to a stray hover", () => {
+    // Selection outranks hover: a second character under the pointer must not
+    // reopen the graph around the one being read.
+    const o = { ...base, selectedIndex: 3, hoveredIndex: 5 };
+    expect(edgeOpacityFor(5, 9, o)).toBe(OUT_OF_WEB_OPACITY);
+    expect(edgeOpacityFor(3, 5, o)).toBe(1);
+  });
+
+  it("only brightens on hover, never hides", () => {
+    // On a phone a finger crossing the graph is incidental contact; content
+    // must not vanish under it.
+    const o = { ...base, hoveredIndex: 5 };
+    expect(edgeOpacityFor(5, 9, o)).toBe(1);
+    expect(edgeOpacityFor(0, 1, o)).toBe(0.5);
+  });
+
+  it("dims rather than hides for a search spotlight", () => {
+    const o = { ...base, searchMatches: new Set([1, 2]) };
+    expect(edgeOpacityFor(1, 2, o)).toBe(1);
+    expect(edgeOpacityFor(1, 5, o)).toBe(0.45);
+    expect(edgeOpacityFor(5, 6, o)).toBe(0.1);
+  });
+
+  it("lets a selection outrank an active search", () => {
+    // Picking a character is the most specific thing the viewer can do; the
+    // web being read must not be diluted by whatever filter happened to be on.
+    const o = { ...base, selectedIndex: 3, searchMatches: new Set([1, 2]) };
+    expect(edgeOpacityFor(3, 9, o)).toBe(1);
+    expect(edgeOpacityFor(1, 2, o)).toBe(OUT_OF_WEB_OPACITY);
+  });
+});
+
 describe("camera transforms", () => {
   it("round-trips world -> screen -> world", () => {
     const cam = { x: 37, y: -12, k: 1.7 };
@@ -179,6 +235,22 @@ describe("hitNode", () => {
     expect(hitNode(1, 1, { x: 0, y: 0, k: 1 }, nested)).toBe(1);
     // Outside the small one but inside the big one -> the big one.
     expect(hitNode(25, 0, { x: 0, y: 0, k: 1 }, nested)).toBe(0);
+  });
+
+  it("does not let a small neighbour steal a tap aimed at a big node", () => {
+    // The phone case at 23%: slack is ~62 world px, so a small node sitting
+    // ~76 world (17px screen) away used to be ruled a candidate — and being
+    // smaller it beat the node whose disc the finger was on (on the real
+    // cast, tapping Amuro opened Karasuma). The direct hit must win.
+    const pair: HitCircle[] = [
+      { index: 0, wx: 0, wy: 0, r: 21 },
+      { index: 1, wx: 76, wy: 0, r: 16 },
+    ];
+    const cam = { x: 0, y: 0, k: 0.227 };
+    expect(hitNode(0, 0, cam, pair, 14)).toBe(0); // dead centre of the big one
+    expect(hitNode(3, 0, cam, pair, 14)).toBe(0); // a finger's wobble off centre
+    expect(hitNode(17, 0, cam, pair, 14)).toBe(1); // really on the small disc
+    expect(hitNode(9, 0, cam, pair, 14)).toBe(1); // between: nearest centre wins
   });
 });
 
@@ -255,12 +327,69 @@ describe("fitCamera", () => {
   });
 });
 
+describe("homeCamera", () => {
+  /* The real cast's bounds, measured off the galaxy layout. */
+  const CAST = { minX: -865, minY: -838, w: 1730, h: 1691 };
+
+  it("fills the width on a phone — the opening zoom the reader asked for", () => {
+    // A 393x851 phone's usable rect (16px sides, 100px top, 92px bottom).
+    const vp = { x: 16, y: 100, w: 361, h: 659 };
+    const cam = homeCamera(CAST, { x: 0, y: 0 }, vp, true, 0.12, 1.6);
+    // 393 / 1730 ≈ 22.7% → the dock reads "23%", edge to edge.
+    expect(cam.k).toBeCloseTo(393 / 1730, 4);
+    // The graph is centred on the usable rect, so the chrome stays clear.
+    const centre = toScreen(CAST.minX + CAST.w / 2, CAST.minY + CAST.h / 2, cam);
+    expect(centre.x).toBeCloseTo(vp.x + vp.w / 2, 6);
+    expect(centre.y).toBeCloseTo(vp.y + vp.h / 2, 6);
+  });
+
+  it("never lets a phone clip vertically, however wide the screen", () => {
+    const tall = { minX: 0, minY: 0, w: 100, h: 100000 };
+    const cam = homeCamera(tall, { x: 0, y: 0 }, { x: 16, y: 100, w: 361, h: 500 }, true, 0.001, 1.6);
+    // Width would allow 3.93x; the height cap holds it to 500 / 100000.
+    expect(cam.k).toBeCloseTo(500 / 100000, 6);
+  });
+
+  it("opens desktops centred on the hub at the SVG renderer's zoom", () => {
+    const vp = { x: 28, y: 100, w: 1384, h: 808 };
+    const cam = homeCamera(CAST, { x: 10, y: 20 }, vp, false, 0.12, 1.6);
+    expect(cam.k).toBe(1.35);
+    const hubOnScreen = toScreen(10, 20, cam);
+    expect(hubOnScreen.x).toBeCloseTo(vp.x + vp.w / 2, 6);
+    expect(hubOnScreen.y).toBeCloseTo(vp.y + vp.h / 2, 6);
+  });
+});
+
 describe("labelOpacityFor", () => {
   it("matches the SVG thresholds so both renderers agree", () => {
     expect(labelOpacityFor(0.1, 0)).toBe(1);
     expect(labelOpacityFor(1, 1)).toBe(1);
     expect(labelOpacityFor(0.2, 2)).toBe(0);
     expect(labelOpacityFor(0.7, 2)).toBe(1);
+  });
+});
+
+describe("labelVisibilityFor", () => {
+  it("hides every ordinary name below 33% — the map is the content there", () => {
+    expect(labelVisibilityFor(0.1)).toBe(0);
+    expect(labelVisibilityFor(0.23)).toBe(0);
+    expect(labelVisibilityFor(0.32)).toBe(0);
+  });
+
+  it("reads names from 47% up", () => {
+    expect(labelVisibilityFor(0.47)).toBe(1);
+    expect(labelVisibilityFor(0.9)).toBe(1);
+    expect(labelVisibilityFor(4)).toBe(1);
+  });
+
+  it("fades between the two thresholds so names never pop", () => {
+    const a = labelVisibilityFor(0.35);
+    const b = labelVisibilityFor(0.4);
+    const c = labelVisibilityFor(0.45);
+    expect(a).toBeGreaterThan(0);
+    expect(c).toBeLessThan(1);
+    expect(b).toBeGreaterThan(a);
+    expect(c).toBeGreaterThan(b);
   });
 });
 
@@ -442,6 +571,57 @@ describe("paint", () => {
   });
 
   /*
+   * The zoom gate: the reader's policy is a flat "no text below 33%, names
+   * from 47%" — the map is the content while the view is wide. One deliberate
+   * name (a highlight) is exempt, because it is an answer, not clutter.
+   */
+  it("paints no ordinary name below 33%", () => {
+    const o = scene(30, 20);
+    for (let i = 0; i < 30; i++) {
+      o.positions[i * 2] = 40 + (i % 6) * 400;
+      o.positions[i * 2 + 1] = 40 + Math.floor(i / 6) * 400;
+    }
+    o.viewport = { w: 3000, h: 3000 };
+    o.cam = { x: 0, y: 0, k: 0.3 };
+
+    const ctx = fakeCtx();
+    paint(ctx, o, PAL);
+    expect(ctx.calls.filter((c) => c === "fillText").length).toBe(0);
+    expect(ctx.calls.filter((c) => c === "strokeText").length).toBe(0);
+  });
+
+  it("keeps one highlighted name alive below 33%", () => {
+    const o = scene(30, 20);
+    for (let i = 0; i < 30; i++) {
+      o.positions[i * 2] = 40 + (i % 6) * 400;
+      o.positions[i * 2 + 1] = 40 + Math.floor(i / 6) * 400;
+    }
+    o.viewport = { w: 3000, h: 3000 };
+    o.cam = { x: 0, y: 0, k: 0.3 };
+    o.searchMatches = new Set([2]);
+
+    const ctx = fakeCtx();
+    paint(ctx, o, PAL);
+    expect(ctx.textArgs).toContain("N2");
+  });
+
+  it("paints names again once the view clears 33%, however faintly", () => {
+    const o = scene(30, 20);
+    for (let i = 0; i < 30; i++) {
+      o.positions[i * 2] = 40 + (i % 6) * 400;
+      o.positions[i * 2 + 1] = 40 + Math.floor(i / 6) * 400;
+    }
+    o.viewport = { w: 3000, h: 3000 };
+    o.cam = { x: 0, y: 0, k: 0.4 };
+
+    const ctx = fakeCtx();
+    paint(ctx, o, PAL);
+    expect(ctx.calls.filter((c) => c === "fillText").length).toBe(30);
+    /* Faded in, not popped: the fill alpha carries the gate's 0.5 × 0.9. */
+    expect(ctx.alphas.some((a) => Math.abs(a - 0.45) < 1e-9)).toBe(true);
+  });
+
+  /*
    * Regression. Edge opacity was driven by the CALLER, so a hover dropped every
    * non-adjacent string to 0.1 — sweeping the pointer across the graph blanked
    * out most of it, which on a phone reads as content vanishing.
@@ -504,6 +684,26 @@ describe("paint", () => {
     // fakeCtx records only names, so assert on the scale arguments instead.
     const scales = ctx.setTransformArgs ?? [];
     expect(scales[scales.length - 1]).toEqual([3, 0, 0, 3, 0, 0]);
+  });
+
+  it("does not stroke a string the caller has hidden", () => {
+    /*
+     * Selecting a character hides most of the web; painting invisible paths
+     * would pay for exactly the frame the hide is meant to simplify.
+     */
+    const allShown = scene(4, 3);
+    const shownCtx = fakeCtx();
+    paint(shownCtx, allShown, PAL);
+    const curvesShown = shownCtx.calls.filter((c) => c === "quadraticCurveTo").length;
+    expect(curvesShown).toBe(3);
+
+    const hidden = scene(4, 3);
+    hidden.edges.forEach((e) => {
+      e.opacity = 0;
+    });
+    const hiddenCtx = fakeCtx();
+    paint(hiddenCtx, hidden, PAL);
+    expect(hiddenCtx.calls.filter((c) => c === "quadraticCurveTo")).toHaveLength(0);
   });
 
   it("marks the selected node without touching the others", () => {
@@ -600,133 +800,6 @@ describe("paint", () => {
     // 4 nodes x (glow + body + core) = 12
     expect(arcs).toBe(12);
   });
-
-  function withDepth(o: PaintOptions, depth: number[]): PaintOptions {
-    return { ...o, depth: Float64Array.from(depth) };
-  }
-
-  it("draws far nodes first so the near side occludes", () => {
-    /*
-     * Node 0 is placed nearest and node 1 farthest, and they are given
-     * identical geometry. The NEAREST must be drawn LAST.
-     */
-    const o = scene(2, 0);
-    o.positions[0] = 0;
-    o.positions[1] = 0;
-    o.positions[2] = 100;
-    o.positions[3] = 0;
-    const ctx = fakeCtx();
-    paint(ctx, withDepth(o, [1, -1]), PAL);
-
-    // Radii: far (smaller) then near (larger). The first arc of each node is
-    // its glow, so compare the first two arcs after the grid-less backdrop.
-    const radii = ctx.arcArgs.map((a) => a[2]);
-    expect(radii.length).toBeGreaterThanOrEqual(6);
-    // far node's glow  (6 - 0.22*6) + 12*0.78  ; near node's glow (6+1.32)+12*1.22
-    expect(radii[0]).toBeLessThan(radii[3]);
-  });
-
-  it("scales a node's radius by its depth", () => {
-    const near = scene(1, 0);
-    const far = scene(1, 0);
-    const cNear = fakeCtx();
-    const cFar = fakeCtx();
-    paint(cNear, withDepth(near, [1]), PAL);
-    paint(cFar, withDepth(far, [-1]), PAL);
-
-    // The body is the second arc of the single node (glow, then body).
-    const nearR = cNear.arcArgs[1][2];
-    const farR = cFar.arcArgs[1][2];
-    expect(nearR).toBeGreaterThan(farR);
-    // 1 + 0.22 and 1 - 0.22 about the authored radius.
-    expect(nearR).toBeCloseTo(6 * 1.22, 5);
-    expect(farR).toBeCloseTo(6 * 0.78, 5);
-  });
-
-  it("fades the far side without ever going fully transparent", () => {
-    const o = scene(1, 0);
-    const ctx = fakeCtx();
-    paint(ctx, withDepth(o, [-1]), PAL);
-    const alphas = ctx.alphas.filter((a) => a > 0 && a < 1);
-    expect(alphas.length).toBeGreaterThan(0);
-    /*
-     * The floor is what matters, not its exact value: a far node must stay
-     * clearly visible rather than dissolving into the background. Asserting the
-     * precise constant here would just re-state the source; asserting that it
-     * is meaningfully present is the property that keeps the far hemisphere
-     * from disappearing.
-     */
-    for (const a of alphas) expect(a).toBeGreaterThanOrEqual(0.35);
-  });
-
-  it("changes nothing when there is no depth buffer", () => {
-    /*
-     * The flat layouts must be byte-for-byte the behaviour they had before the
-     * globe existed: same call count, same radii. Anything else means adding
-     * the third dimension leaked into the 2D renderer.
-     */
-    const flat = scene(20, 12);
-    const a = fakeCtx();
-    const callsFlat = paint(a, flat, PAL);
-    const b = fakeCtx();
-    const callsDepth = paint(
-      b,
-      withDepth(flat, new Array(20).fill(0)),
-      PAL
-    );
-    expect(callsDepth).toBe(callsFlat);
-    expect(b.arcArgs.length).toBe(a.arcArgs.length);
-    // Zero depth is the neutral size, so every radius matches too.
-    for (let i = 0; i < a.arcArgs.length; i++) {
-      expect(b.arcArgs[i][2]).toBeCloseTo(a.arcArgs[i][2], 6);
-    }
-  });
-
-  it("keeps an emphasised node fully opaque even when it is far away", () => {
-    // The node being searched for or hovered is the thing the visitor is
-    // looking for; fading it out with the far side would hide the answer.
-    const o = scene(1, 0);
-    o.hoveredIndex = 0;
-    const ctx = fakeCtx();
-    paint(ctx, withDepth(o, [-1]), PAL);
-    expect(Math.max(...ctx.alphas)).toBe(1);
-  });
-
-  it("draws labels at a constant SCREEN size, whatever the zoom", () => {
-    /*
-     * The readability bug behind the report. Labels were drawn in world units,
-     * so the camera scaled them: at the zoom that fits the cast on a phone an
-     * 11px name rendered at ~2.5px — not small print, a grey smudge. The font
-     * must be divided by k, so that (font size set) x (zoom) is a constant:
-     * that product IS the size on screen.
-     *
-     * Each zoom is measured in its own scope. Collecting the font strings into
-     * one array and looking up which k produced each was the first attempt, and
-     * it silently passed against the broken code: when every zoom yields the
-     * SAME string, indexOf returns the first match for all of them and the test
-     * compares a value against itself.
-     */
-    const onScreen: number[] = [];
-    for (const k of [0.2, 1, 3]) {
-      const o = scene(1, 0);
-      o.cam = { x: 0, y: 0, k };
-      const ctx = fakeCtx();
-      let font = "";
-      Object.defineProperty(ctx, "font", {
-        get: () => font,
-        set: (v: string) => {
-          font = v;
-        },
-      });
-      paint(ctx, o, PAL);
-      const m = /([\d.]+)px/.exec(font);
-      expect(m).not.toBeNull();
-      onScreen.push(Number(m![1]) * k);
-    }
-    // A name is the same number of CSS px at every zoom.
-    for (const v of onScreen) expect(v).toBeCloseTo(11, 4);
-  });
-
   it("dims everything a spotlight is NOT about", () => {
     /*
      * Picking a faction (or searching) is a deliberate narrowing, so the chosen
@@ -755,7 +828,7 @@ describe("paint", () => {
   it("never draws a node below the legibility floor", () => {
     /*
      * The readability regression behind the "so messy" report: at the zoom that
-     * fits the whole globe on a phone, a 10px world radius renders under 4 CSS
+     * fits the whole cast on a phone, a 10px world radius renders under 4 CSS
      * px and the cast reads as scattered dust. The drawn radius must be clamped
      * to MIN_NODE_R_PX in screen terms — so the smallest node at a small zoom is
      * still a dot you can see and tap, not a speck.
@@ -770,50 +843,5 @@ describe("paint", () => {
     const bodyR = ctx.arcArgs[1][2];
     // The clamp is applied in world units as MIN_NODE_R_PX / k.
     expect(bodyR * o.cam.k).toBeGreaterThanOrEqual(MIN_NODE_R_PX - 1e-6);
-  });
-
-  it("fades a string by the depth of the nodes it joins", () => {
-    /*
-     * On a globe the far hemisphere's web used to draw at full strength over
-     * the near hemisphere, which is most of the hairball. An edge whose ends are
-     * both at the back must come out dimmer than one whose ends are at the
-     * front.
-     */
-    const back = scene(2, 1);
-    back.edges[0].s = 0;
-    back.edges[0].t = 1;
-    const frontO = { ...back, edges: [{ ...back.edges[0] }] };
-    const cBack = fakeCtx();
-    paint(cBack, withDepth(back, [-1, -1]), PAL);
-    const cFront = fakeCtx();
-    paint(cFront, withDepth(frontO, [1, 1]), PAL);
-
-    // Edge alpha is set before the node passes; take the first non-1 alpha.
-    const backEdgeAlpha = cBack.alphas[0];
-    const frontEdgeAlpha = cFront.alphas[0];
-    expect(frontEdgeAlpha).toBeGreaterThan(backEdgeAlpha);
-  });
-
-  it("labels only the front of the globe, so back names cannot overlay front nodes", () => {
-    /*
-     * This is the single biggest source of text overlap in the phone
-     * screenshot: names from the far side were printed over the near side's
-     * nodes. Only front-hemisphere nodes may be labelled.
-     */
-    const o = scene(2, 0);
-    o.positions[0] = 0;
-    o.positions[1] = 0;
-    o.positions[2] = 40;
-    o.positions[3] = 0;
-    // Node 0 near the viewer, node 1 far. Only node 0's name should be drawn.
-    const ctx = fakeCtx();
-    paint(ctx, withDepth(o, [1, -1]), PAL);
-    /*
-     * Two nodes, but only the front one may be named. `fakeCtx` records call
-     * names rather than arguments, so the assertion is on the COUNT: a second
-     * label would show up as another fillText.
-     */
-    const fillTexts = ctx.calls.filter((c) => c === "fillText").length;
-    expect(fillTexts).toBe(1);
   });
 });

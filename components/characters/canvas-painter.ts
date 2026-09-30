@@ -22,7 +22,7 @@ import {
   Camera,
   clamp,
   effectiveDpr,
-  labelOpacityFor,
+  labelVisibilityFor,
   quadControl,
   toScreen,
   type HitCircle,
@@ -53,14 +53,6 @@ export interface PaintedEdge {
   /** Opacity 0..1 resolved by the caller from hover/search/dim state. */
   opacity: number;
   width: number;
-  /**
-   * The two node indices this string joins. Only the globe needs them — to fade
-   * a string by the depth of its ends, so the web on the far side of the sphere
-   * recedes with its nodes instead of cutting across the front of the globe as
-   * a bright tangle.
-   */
-  s?: number;
-  t?: number;
 }
 
 export interface PaintPalette {
@@ -111,14 +103,6 @@ export interface PaintOptions {
    */
   ambientMs: number;
   viewport: { w: number; h: number };
-  /**
-   * Per-node depth, normalised -1 (farthest) .. +1 (nearest), or null for a
-   * flat layout. When present the painter sorts far-to-near, scales a node's
-   * radius with its depth and dims the far side of the globe — which is what
-   * makes the sphere read as a solid object instead of a flat scatter that
-   * happens to share the outline.
-   */
-  depth?: Float64Array | null;
 }
 
 
@@ -134,6 +118,15 @@ type LabelBox = { x: number; y: number; w: number; h: number };
  * collisions as no floor at all, with a guaranteed visible dot.
  */
 export const MIN_NODE_R_PX = 3;
+
+/**
+ * Opacity a NON-highlighted label paints at, inside the visible zoom band.
+ *
+ * Slightly under full on purpose: names must stay readable over any string, but
+ * they must not out-shout the graph they annotate. Highlighted labels (hover,
+ * selection, search) keep full strength.
+ */
+const LABEL_REST_ALPHA = 0.9;
 
 /** Axis-aligned overlap test for label boxes. */
 function overlaps(box: LabelBox, placed: readonly LabelBox[]): boolean {
@@ -170,7 +163,6 @@ export function paint(
   let calls = 0;
   const { cam, viewport } = o;
   const k = cam.k || 1;
-  const depth = o.depth ?? null;
   /** The scale the caller already applied; every transform here composes with
    *  it so drawing stays in CSS px while the backing store stays crisp. */
   const dpr = o.dpr;
@@ -225,6 +217,14 @@ export function paint(
   /* ── strings ── */
   ctx.lineCap = "round";
   for (const e of o.edges) {
+    /*
+     * A string at zero opacity is not drawn at all — no stroke, no cost. When a
+     * character is selected every unrelated thread is hidden, so this is the
+     * common case rather than a corner: on a phone it is most of the web, and
+     * stroking invisible paths would pay for exactly the frame the hide is
+     * meant to simplify.
+     */
+    if (e.opacity <= 0) continue;
     const sx = o.edgeFrom[e.index * 2];
     const sy = o.edgeFrom[e.index * 2 + 1];
     const tx = o.edgeTo[e.index * 2];
@@ -238,19 +238,7 @@ export function paint(
     if (bothLeft || bothRight || bothAbove || bothBelow) continue;
 
     const ctrl = quadControl(sx, sy, tx, ty, o.edgeOff[e.index]);
-    /*
-     * Depth fade for strings. Without it the far hemisphere's web is drawn at
-     * full strength straight over the near hemisphere, and since the cast is
-     * one dense component that is most of the visual noise in the view — the
-     * "so messy" of a hairball. Fading with the mean depth of the two ends
-     * makes each string belong to the side of the globe it actually connects.
-     */
-    let edgeAlpha = e.opacity;
-    if (depth && e.s !== undefined && e.t !== undefined) {
-      const dm = (depth[e.s] + depth[e.t]) / 2;
-      edgeAlpha *= 0.16 + 0.84 * ((dm + 1) / 2);
-    }
-    ctx.globalAlpha = edgeAlpha;
+    ctx.globalAlpha = e.opacity;
     ctx.strokeStyle = e.color;
     ctx.lineWidth = e.width / k;
     ctx.beginPath();
@@ -266,35 +254,13 @@ export function paint(
   ctx.textBaseline = "middle";
   const fontBase = pal.fontSize;
 
-  /*
-   * PAINTER'S ORDER.
-   *
-   * On a flat layout the array order is as good as any. On the globe it is not:
-   * drawing near nodes first lets the far side paint over them, which erases
-   * the depth cue entirely and makes the sphere look like a scrambled disc. Sort
-   * farthest-first so nearer nodes land on top, the way solid objects occlude.
-   *
-   * The sort is skipped when there is no depth — that keeps the flat renderers
-   * on exactly the draw order they had before this option existed.
-   */
-  const orderedNodes = depth
-    ? [...o.nodes].sort((a, b) => depth[a.index] - depth[b.index])
-    : o.nodes;
+  const orderedNodes = o.nodes;
 
   for (const n of orderedNodes) {
     const wx = o.positions[n.index * 2];
     const wy = o.positions[n.index * 2 + 1];
     if (wx < minWX || wx > maxWX || wy < minWY || wy > maxWY) continue;
 
-    /*
-     * Depth scaling. Near nodes grow and far nodes shrink, both about the
-     * neutral size, so the mid-shell of the globe is unchanged and only the
-     * front/back extremes move. Kept modest (22%) because the label sits under
-     * the node and an aggressive scale starts colliding with its neighbours.
-     */
-    const d = depth ? depth[n.index] : 0;
-    const dScale = depth ? 1 + d * 0.22 : 1;
-    const dAlpha = depth ? 0.4 + 0.6 * ((d + 1) / 2) : 1;
     /*
      * A minimum DRAWN radius, in screen px. A node's world radius is 10-24, so
      * at the zoom that fits a 103-node globe on a phone the smallest cast
@@ -303,7 +269,7 @@ export function paint(
      * visible dot at any zoom; the size hierarchy still reads when you zoom in
      * far enough for the real radii to exceed the floor.
      */
-    const nr = Math.max(n.r * dScale, MIN_NODE_R_PX / k);
+    const nr = Math.max(n.r, MIN_NODE_R_PX / k);
     if (nr < 1.5) continue;
 
     const isSel = n.index === o.selectedIndex;
@@ -320,7 +286,7 @@ export function paint(
      * An emphasised node is always opaque: it is the thing being looked for.
      */
     const dimmed = o.searchMatches !== null && !isMatch;
-    ctx.globalAlpha = emphasised ? 1 : dimmed ? 0.18 : dAlpha;
+    ctx.globalAlpha = emphasised ? 1 : dimmed ? 0.18 : 1;
 
     // Faction glow — the soft halo the SVG version got from a radial gradient.
     // Drawn first, in screen-compensated radius so it stays a constant visual
@@ -331,7 +297,7 @@ export function paint(
     // canvas equivalent of the SVG's breathing ring, and costs one multiplication
     // per node rather than 103 infinite CSS animations.
     const breathe = o.ambientMs > 0 ? breatheScale(o.ambientMs, 4200, n.index * 0.7, 0.16) : 1;
-    const glowR = (nr + 12 * dScale) * k * breathe;
+    const glowR = (nr + 12) * k * breathe;
     if (glowR > 2) {
       const g = ctx.createRadialGradient(wx, wy, nr * 0.6, wx, wy, glowR);
       g.addColorStop(0, n.glow);
@@ -357,7 +323,7 @@ export function paint(
 
     // Core dot
     ctx.beginPath();
-    ctx.arc(wx, wy, (nr > 16 ? 4.5 : 3.5) * dScale, 0, Math.PI * 2);
+    ctx.arc(wx, wy, nr > 16 ? 4.5 : 3.5, 0, Math.PI * 2);
     ctx.fillStyle = emphasised ? pal.strokeStrong : n.primary;
     ctx.fill();
     calls++;
@@ -410,31 +376,24 @@ export function paint(
   ctx.textAlign = "center";
   ctx.textBaseline = "middle";
 
+  /* The zoom gate below is a flat policy — the map is the content while the
+     view is wide, so no ordinary name is painted under 33%, however important
+     its node. A highlighted name is exempt: one deliberate name is not noise. */
+  const gate = labelVisibilityFor(k);
+
   for (const { n, wx, wy } of candidates) {
-    /*
-     * On the globe, a label belongs to the FRONT of the sphere.
-     *
-     * Everything behind the silhouette still projects into the view, so without
-     * this the far side's names are printed on top of the near side's nodes and
-     * the two sets interleave into unreadable overlap — most of the text in the
-     * "so messy" screenshot is far-side labels that should not have been drawn.
-     * Anything emphasised is exempt: a name you searched for or tapped is
-     * wanted even when it is round the back.
-     */
     const emph = emphasised(n.index, o);
-    if (depth && !emph && depth[n.index] < 0) continue;
+    if (!emph && gate <= 0) continue;
 
     /*
-     * Opacity. `labelOpacityFor` fades labels as you zoom OUT, which was right
-     * when text scaled with the camera and a zoomed-out view really was a wall
-     * of unreadable specks. Text is now a constant 11px on screen, so that fade
-     * would hide perfectly legible names for no reason; on the globe the
-     * collision test is what keeps the picture readable. The flat layouts keep
-     * the original policy, since their labels still scale.
+     * Opacity: the zoom gate decides WHETHER text is painted; the highlight
+     * decides how loud. Inside the band a name is drawn — a highlighted one at
+     * full strength, the rest a touch under it so text never out-shouts the
+     * graph — or dropped by the collision test below. No per-label fuzziness:
+     * the old per-tier fade would only dim names that are legible at a fixed
+     * screen size anyway.
      */
-    const opRaw = depth ? 1 : labelOpacityFor(k, n.tier);
-    const op = emph ? Math.max(opRaw, 1) : opRaw;
-    if (op <= 0.02) continue;
+    const op = emph ? 1 : gate * LABEL_REST_ALPHA;
 
     /*
      * LABELS DO NOT SCALE WITH THE CAMERA — and that was the readability bug.
@@ -455,12 +414,11 @@ export function paint(
     ctx.font = `${n.tier === 0 ? 700 : 600} ${worldSize}px ui-sans-serif, system-ui, sans-serif`;
 
     const wpx = ctx.measureText(n.name).width;
-    const labelScale = depth ? 1 + depth[n.index] * 0.22 : 1;
     const gapPx = 12;
     const screenW = wpx * k;
     const sx = wx * k + cam.x;
     const sy = wy * k + cam.y;
-    const nodeR = Math.max(n.r * labelScale, MIN_NODE_R_PX / k) * k;
+    const nodeR = Math.max(n.r, MIN_NODE_R_PX / k) * k;
 
     /*
      * TWO PLACEMENTS, NOT ONE.
@@ -500,19 +458,18 @@ export function paint(
     if (!placed) continue;
 
     // Halo first so the name stays readable over any string behind it.
-    const labelDepth = depth ? 0.45 + 0.55 * ((depth[n.index] + 1) / 2) : 1;
-    ctx.globalAlpha = op * 0.9 * labelDepth;
+    ctx.globalAlpha = op * 0.9;
     ctx.lineWidth = 3 / k;
     ctx.strokeStyle = pal.labelHalo;
     ctx.strokeText(n.name, wx, ty2);
-    ctx.globalAlpha = op * labelDepth;
+    ctx.globalAlpha = op;
     ctx.fillStyle = emph ? pal.labelStrong : pal.label;
     ctx.fillText(n.name, wx, ty2);
     calls += 2;
 
     if (n.sub) {
       ctx.font = `400 ${Math.round(worldSize * 0.78)}px ui-monospace, monospace`;
-      ctx.globalAlpha = op * 0.65 * labelDepth;
+      ctx.globalAlpha = op * 0.65;
       ctx.fillStyle = pal.label;
       ctx.fillText(n.sub, wx, ty2 + worldSize * 1.05 * dir);
       calls++;
