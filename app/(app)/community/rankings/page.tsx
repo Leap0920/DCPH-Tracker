@@ -116,8 +116,7 @@ export default async function RankingsPage() {
           Detective Rankings
         </h1>
         <p className="mt-1.5 max-w-xl text-xs sm:text-base text-ink-dim leading-relaxed">
-          See how many episodes fellow detectives have cracked. Climb the ranks by
-          logging every case you watch.
+          Log cases. Climb the ranks.
         </p>
 
         {/* Your standing */}
@@ -225,7 +224,7 @@ export default async function RankingsPage() {
                     Sign in to track your rank
                   </p>
                   <p className="text-xs sm:text-sm text-ink-dim">
-                    Log in to see how many episodes you&apos;ve watched.
+                    See your watched count and rank.
                   </p>
                 </div>
               </div>

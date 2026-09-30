@@ -49,7 +49,7 @@ export const metadata: Metadata = {
     template: "%s | Detective Conan PH",
   },
   description:
-    "The Filipino Detective Conan community: track episodes, join discussions, and prove your rank in the organization.",
+    "Track episodes, join discussions, and climb the ranks — the Filipino Detective Conan community.",
   openGraph: {
     title: "Detective Conan PH",
     description:

@@ -129,7 +129,7 @@ export default function ResetPasswordPage() {
           Reset Password
         </CardTitle>
         <CardDescription className="text-ink-dim text-sm mt-1.5">
-          Set a new password for your account to restore access.
+          Set a new password to restore access.
         </CardDescription>
       </CardHeader>
 

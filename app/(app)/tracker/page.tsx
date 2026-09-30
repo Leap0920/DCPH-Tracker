@@ -476,7 +476,7 @@ function TrackerPageContent() {
                     Sign in to track your progress
                   </p>
                   <p className="text-sm text-ink-dim">
-                    Log in to mark episodes watched and climb the rankings.
+                    Mark episodes watched and climb the ranks.
                   </p>
                 </div>
                 <Button size="sm" className="rounded-lg" onClick={() => openAuthModal("signin")}>

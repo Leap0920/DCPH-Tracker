@@ -20,7 +20,7 @@ export default async function ChatDirectoryPage() {
             Community Chat
           </h1>
           <p className="mt-2 text-sm text-ink-faint">
-            Drop into a room, talk cases, and connect with fellow detectives.
+            Talk cases with fellow detectives.
           </p>
         </div>
 

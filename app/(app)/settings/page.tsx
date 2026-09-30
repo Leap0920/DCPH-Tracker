@@ -499,7 +499,7 @@ export default function SettingsPage() {
                   />
                 </div>
                 <p className="text-xs text-ink-faint">
-                  Lowercase letters, numbers, and underscores only (3–30 chars). Used for your public URL handle.
+                  Lowercase letters, numbers, underscores. Also your profile URL.
                 </p>
               </div>
 
@@ -611,7 +611,7 @@ export default function SettingsPage() {
             Change Password
           </h2>
           <p className="mt-1 text-sm text-ink-dim">
-            Update your password with Gmail verification for security.
+            Protected with Gmail verification.
           </p>
 
           {passwordMessage && (
@@ -712,7 +712,7 @@ export default function SettingsPage() {
                 </Button>
               </div>
               <p className="text-xs text-ink-faint">
-                We&apos;ll send a 6-digit code to <span className="font-medium text-ink">{email}</span>. Check spam if not received. Code expires shortly.
+                A 6-digit code goes to <span className="font-medium text-ink">{email}</span>. Check spam if it doesn&apos;t arrive.
               </p>
             </div>
 

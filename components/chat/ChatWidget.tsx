@@ -28,7 +28,7 @@ const GREETING: ChatMessageData = {
   id: "greeting",
   role: "assistant",
   content:
-    "Hi! I'm **DCPH Bot**, your assistant for Detective Conan episodes, movies, characters, and tracker guides! How can I help you today?",
+    "Hi! I'm **DCPH Bot** — ask me about episodes, movies, characters, or the tracker.",
 }
 
 interface SuggestionChip {

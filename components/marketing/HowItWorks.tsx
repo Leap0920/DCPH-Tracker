@@ -34,7 +34,6 @@ export function HowItWorks() {
       <SectionHeading
         eyebrow="How it works"
         title="From zero to full detective"
-        subtitle="Three simple steps to start tracking, ranking, and chatting with the community."
       />
 
       <div className="mt-12 sm:mt-16 lg:mt-20 flex flex-col md:flex-row items-center justify-between gap-10 sm:gap-12 lg:gap-16">
@@ -91,7 +90,7 @@ export function HowItWorks() {
             <div className="space-y-1 pt-0.5 sm:pt-1">
               <h3 className="text-base sm:text-lg font-semibold font-display text-ink">Create your account</h3>
               <p className="text-xs sm:text-sm text-ink-dim leading-relaxed">
-                Sign up in under a minute with just an email, no credit card, no fuss.
+                Email only. Takes about a minute.
               </p>
               <button
                 type="button"
@@ -111,7 +110,7 @@ export function HowItWorks() {
             <div className="space-y-1 pt-0.5 sm:pt-1">
               <h3 className="text-base sm:text-lg font-semibold font-display text-ink">Track what you watch</h3>
               <p className="text-xs sm:text-sm text-ink-dim leading-relaxed">
-                Log every episode, movie, special and OVA as you go and watch your progress fill in.
+                Episodes, movies, specials, OVAs — tick them off as you go.
               </p>
               <Link
                 href="/tracker"
@@ -130,7 +129,7 @@ export function HowItWorks() {
             <div className="space-y-1 pt-0.5 sm:pt-1">
               <h3 className="text-base sm:text-lg font-semibold font-display text-ink">Compete with fellow detectives</h3>
               <p className="text-xs sm:text-sm text-ink-dim leading-relaxed">
-                Climb the detective rankings and talk cases with the community in themed chat rooms.
+                Climb the rankings. Talk cases in the chat rooms.
               </p>
               <Link
                 href="/community/rankings"
