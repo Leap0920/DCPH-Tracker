@@ -27,6 +27,7 @@ import {
   toScreen,
   type HitCircle,
 } from "./canvas-geometry";
+import { breatheScale } from "./canvas-motion";
 
 export interface PaintedNode {
   index: number;
@@ -96,6 +97,11 @@ export interface PaintOptions {
    * restores it on the way out, so the value has to travel with the options.
    */
   dpr: number;
+  /**
+   * Ambient clock in ms, advanced only by the idle animation loop. Drives the
+   * halo breathing; 0 means "no ambient motion" (reduced motion, or paused).
+   */
+  ambientMs: number;
   viewport: { w: number; h: number };
 }
 
@@ -220,7 +226,13 @@ export function paint(
     // Faction glow — the soft halo the SVG version got from a radial gradient.
     // Drawn first, in screen-compensated radius so it stays a constant visual
     // weight at any zoom.
-    const glowR = (n.r + 12) * k;
+    //
+    // It breathes: each node's halo swells and settles on its own period, phase
+    // offset by index so the whole cast never pulses in unison. This is the
+    // canvas equivalent of the SVG's breathing ring, and costs one multiplication
+    // per node rather than 103 infinite CSS animations.
+    const breathe = o.ambientMs > 0 ? breatheScale(o.ambientMs, 4200, n.index * 0.7, 0.16) : 1;
+    const glowR = (n.r + 12) * k * breathe;
     if (glowR > 2) {
       const g = ctx.createRadialGradient(wx, wy, n.r * 0.6, wx, wy, glowR);
       g.addColorStop(0, n.glow);

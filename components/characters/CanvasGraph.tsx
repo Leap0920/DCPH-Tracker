@@ -41,6 +41,7 @@ import {
   clamp,
   getNodeRadius,
   getRelationshipColor,
+  hash32,
   resolveFaction,
 } from "@/components/characters/graph-theme";
 import {
@@ -58,6 +59,17 @@ import {
   type PaintedEdge,
   type PaintedNode,
 } from "./canvas-painter";
+import {
+  DEFAULT_PROPAGATION,
+  buildAdjacency,
+  breatheScale,
+  composeRenderPositions,
+  decayPropagation,
+  driftParams,
+  fillDrift,
+  propagate,
+  type DriftParams,
+} from "./canvas-motion";
 
 const MAX_ZOOM = 4;
 const MIN_ZOOM = 0.12;
@@ -97,6 +109,21 @@ function usableRect(
 
 /** Slop added to node hit radius so a small node is finger-tappable. */
 const TOUCH_SLACK_PX = 14;
+
+/**
+ * Ambient drift amplitude in world px, for the canvas renderer.
+ *
+ * Deliberately NOT read from GRAPH_QUALITY.driftAmp: that field is 0 on the
+ * `low` tier because the SVG renderer paid a full DOM write per node per frame
+ * to move anything. Canvas pays one repaint, so a phone can afford gentle
+ * motion that the SVG path had to cut — which is exactly what was asked for.
+ * Reduced-motion still wins over all of it.
+ */
+const DRIFT_AMP = 2.4;
+/** Halo breathing amount, as a share of the halo radius. */
+const BREATHE_AMOUNT = 0.16;
+/** Per-frame decay for a released drag's propagated offsets (~0.4s settle). */
+const PROP_DECAY = 0.9;
 const STRING_WIDTH = 2;
 const DIM_OPACITY = 0.1;
 const STRING_IDLE = 0.42;
@@ -230,6 +257,27 @@ export default function CanvasGraph({
   /** Latest draw closure, so requestPaint can stay referentially stable. */
   const drawRef = useRef<(() => void) | null>(null);
 
+  /* ── motion buffers (allocated once, never per frame) ─────────────
+   * home   = the settled layout (dragged nodes rewrite their own entry)
+   * prop   = offsets a drag pushed onto neighbours, decaying back to zero
+   * drift  = ambient wander, rewritten every animated frame
+   * render = what the painter actually draws: home + prop + drift
+   */
+  const propBufRef = useRef<Float64Array | null>(null);
+  const driftBufRef = useRef<Float64Array | null>(null);
+  const renderBufRef = useRef<Float64Array | null>(null);
+  const scratchBufRef = useRef<Float64Array | null>(null);
+  const driftParamsRef = useRef<DriftParams[]>([]);
+  /** rAF id of the ambient loop; non-zero while it is running. */
+  const ambientRafRef = useRef(0);
+  /** True while a finger/mouse is down, so ambient motion stays paused. */
+  const interactingRef = useRef(false);
+  const reduceMotionRef = useRef(false);
+  /** Paint clock: ms since the ambient loop began its current run. */
+  const clockRef = useRef(0);
+  /** Set once the ambient loop exists, so an effect can start it. */
+  const runAmbientRef = useRef<(() => void) | null>(null);
+
   /* ── derived graph model (built once per data change) ── */
   const { nodes, edges, indexById, bbox, positions } = useMemo(() => {
     const indexById = new Map<string, number>();
@@ -313,6 +361,51 @@ export default function CanvasGraph({
     return { nodes, edges, indexById, bbox, positions };
   }, [characters, relationships, theme]);
 
+  /**
+   * Adjacency, built once per graph. This is what lets a dragged node pull its
+   * neighbours with it (Obsidian's behaviour) at a cost of O(edges) per pointer
+   * move rather than a pairwise pass.
+   */
+  const adjacency = useMemo(() => {
+    const edgeS = new Int32Array(edges.length);
+    const edgeT = new Int32Array(edges.length);
+    edges.forEach((e, i) => {
+      edgeS[i] = e.s;
+      edgeT[i] = e.t;
+    });
+    return buildAdjacency(edgeS, edgeT, edges.length, nodes.length);
+  }, [edges, nodes.length]);
+
+  /* Motion buffers + per-node drift seeds. Sized to the node count, so this
+     reallocates only when the cast actually changes. */
+  useEffect(() => {
+    const n = nodes.length;
+    propBufRef.current = new Float64Array(n * 2);
+    driftBufRef.current = new Float64Array(n * 2);
+    renderBufRef.current = new Float64Array(n * 2);
+    scratchBufRef.current = new Float64Array(n * 2);
+    driftParamsRef.current = nodes.map((node) => driftParams(hash32(node.c.id)));
+  }, [nodes]);
+
+  /* Kick off the ambient loop once buffered, and whenever it would otherwise be
+     idle. The loop parks itself when there is nothing to animate. */
+  useEffect(() => {
+    if (nodes.length === 0) return;
+    runAmbientRef.current?.();
+  }, [nodes.length]);
+
+  /* Reduced motion is a hard override: no ambient drift at all. */
+  useEffect(() => {
+    if (typeof window === "undefined" || typeof window.matchMedia !== "function") return;
+    const mq = window.matchMedia("(prefers-reduced-motion: reduce)");
+    reduceMotionRef.current = mq.matches;
+    const onChange = () => {
+      reduceMotionRef.current = mq.matches;
+    };
+    mq.addEventListener("change", onChange);
+    return () => mq.removeEventListener("change", onChange);
+  }, []);
+
   const selectedIndex = useMemo(
     () => (selectedCharacterId ? (indexById.get(selectedCharacterId) ?? -1) : -1),
     [selectedCharacterId, indexById]
@@ -353,6 +446,63 @@ export default function CanvasGraph({
     // would tear down and re-add every pointer listener on each hover.
   }, []);
 
+  /**
+   * Ambient motion loop.
+   *
+   * Drives drift and the settle after a released drag. Runs ONLY while idle:
+   * any pointer contact stops it immediately, so a finger on the graph never
+   * competes with an animation for the main thread, and the repaint budget is
+   * spent on the interaction instead. When there is nothing left to move —
+   * no drift allowed and no propagation settling — it parks.
+   */
+  const runAmbient = useCallback(() => {
+    if (ambientRafRef.current) return;
+    let last = performance.now();
+
+    const tick = (now: number) => {
+      ambientRafRef.current = 0;
+      if (interactingRef.current) return;
+
+      const dt = Math.min(48, now - last);
+      last = now;
+      clockRef.current += dt;
+
+      const n = nodes.length;
+      const drift = driftBufRef.current;
+      const prop = propBufRef.current;
+      const params = driftParamsRef.current;
+      const canDrift = !reduceMotionRef.current && DRIFT_AMP > 0;
+
+      if (canDrift && drift && params.length === n) {
+        fillDrift(params, drift, clockRef.current, DRIFT_AMP);
+      } else if (drift) {
+        drift.fill(0);
+      }
+
+      // Decay a released drag's propagated offsets until they vanish.
+      const settling = prop ? decayPropagation(prop, PROP_DECAY) > 0.05 : false;
+
+      drawRef.current?.();
+
+      if (canDrift || settling) {
+        ambientRafRef.current = requestAnimationFrame(tick);
+      }
+    };
+
+    ambientRafRef.current = requestAnimationFrame(tick);
+  }, [nodes.length]);
+
+  runAmbientRef.current = runAmbient;
+
+  const stopAmbient = useCallback(() => {
+    if (ambientRafRef.current) {
+      cancelAnimationFrame(ambientRafRef.current);
+      ambientRafRef.current = 0;
+    }
+  }, []);
+
+  useEffect(() => () => stopAmbient(), [stopAmbient]);
+
   const draw = useCallback(() => {
     const ctx = ctxRef.current;
     if (!ctx) return;
@@ -363,6 +513,28 @@ export default function CanvasGraph({
     const dpr = dprRef.current;
     // paint() works in CSS px; restore the DPR scale after setTransform.
     ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+
+    /*
+     * Compose what actually gets drawn: home + propagated + drift.
+     *
+     * `positions` stays the settled layout so a released drag always returns to
+     * the authored arrangement; the transient offsets live in their own buffers
+     * and are summed here, once per frame, into a reused buffer.
+     */
+    const render = renderBufRef.current;
+    const prop = propBufRef.current;
+    const drift = driftBufRef.current;
+    const drawPositions =
+      render && prop && drift ? render : positions;
+    if (render && prop && drift) {
+      composeRenderPositions(
+        positions,
+        render,
+        prop,
+        reduceMotionRef.current ? null : drift,
+        nodes.length
+      );
+    }
 
     const paintedNodes: PaintedNode[] = nodes.map((n, i) => ({
       index: i,
@@ -382,10 +554,10 @@ export default function CanvasGraph({
     const edgeTo = new Float64Array(edges.length * 2);
     const edgeOff = new Float64Array(edges.length);
     const paintedEdges: PaintedEdge[] = edges.map((e, i) => {
-      edgeFrom[i * 2] = positions[e.s * 2];
-      edgeFrom[i * 2 + 1] = positions[e.s * 2 + 1];
-      edgeTo[i * 2] = positions[e.t * 2];
-      edgeTo[i * 2 + 1] = positions[e.t * 2 + 1];
+      edgeFrom[i * 2] = drawPositions[e.s * 2];
+      edgeFrom[i * 2 + 1] = drawPositions[e.s * 2 + 1];
+      edgeTo[i * 2] = drawPositions[e.t * 2];
+      edgeTo[i * 2 + 1] = drawPositions[e.t * 2 + 1];
       edgeOff[i] = e.off;
 
       const isTarget =
@@ -422,13 +594,14 @@ export default function CanvasGraph({
         edgeFrom,
         edgeTo,
         edgeOff,
-        positions,
+        positions: drawPositions,
         selectedIndex,
         hoveredIndex: hovered,
         searchMatches,
         dotGrid: q.dotGrid,
         isDark: theme === "dark",
         dpr,
+        ambientMs: reduceMotionRef.current ? 0 : clockRef.current,
         viewport: { w, h },
       },
       pal
@@ -555,6 +728,10 @@ export default function CanvasGraph({
       }));
 
     const onDown = (e: PointerEvent) => {
+      // Ambient motion yields to the finger: stop it before any gesture work.
+      interactingRef.current = true;
+      ambientRafRef.current && cancelAnimationFrame(ambientRafRef.current);
+      ambientRafRef.current = 0;
       pointersRef.current.set(e.pointerId, { x: e.clientX, y: e.clientY });
       movedRef.current = false;
       const { sx, sy } = localPoint(e.clientX, e.clientY);
@@ -620,13 +797,41 @@ export default function CanvasGraph({
         return;
       }
 
-      // Node drag — write straight into the position buffer, one repaint.
+      // Node drag — move the node and pull its web along, then repaint once.
       const drag = dragRef.current;
       if (drag) {
         const { sx, sy } = localPoint(e.clientX, e.clientY);
         const w = toWorld(sx, sy, camRef.current);
-        positions[drag.index * 2] = w.x - drag.offX;
-        positions[drag.index * 2 + 1] = w.y - drag.offY;
+        const nx = w.x - drag.offX;
+        const ny = w.y - drag.offY;
+        const dx = nx - positions[drag.index * 2];
+        const dy = ny - positions[drag.index * 2 + 1];
+        positions[drag.index * 2] = nx;
+        positions[drag.index * 2 + 1] = ny;
+
+        /*
+         * Obsidian's feel: the neighbours are dragged along by the moved node,
+         * each hop attenuated, so you tug the web rather than pluck one dot out
+         * of it. Offsets accumulate into the propagation buffer, which the
+         * ambient loop then eases back to zero on release.
+         */
+        const scratch = scratchBufRef.current;
+        const prop = propBufRef.current;
+        if (scratch && prop) {
+          propagate(
+            drag.index,
+            dx,
+            dy,
+            nx,
+            ny,
+            adjacency,
+            nodes.length,
+            positions,
+            scratch,
+            DEFAULT_PROPAGATION
+          );
+          for (let i = 0; i < prop.length; i++) prop[i] += scratch[i] * 0.55;
+        }
         movedRef.current = true;
         requestPaint();
         return;
@@ -667,6 +872,9 @@ export default function CanvasGraph({
       dragRef.current = null;
       panRef.current = null;
       el.style.cursor = "";
+      // Resume ambient motion; the loop also eases any propagated offsets out.
+      interactingRef.current = false;
+      runAmbientRef.current?.();
       if (wasTap) {
         const { sx, sy } = localPoint(e.clientX, e.clientY);
         const idx = hitNode(sx, sy, camRef.current, circles(), TOUCH_SLACK_PX);
@@ -708,7 +916,7 @@ export default function CanvasGraph({
       el.removeEventListener("pointerleave", onLeave);
       el.removeEventListener("wheel", onWheel);
     };
-  }, [nodes, positions, localPoint, onSelectCharacter, requestPaint]);
+  }, [nodes, positions, adjacency, localPoint, onSelectCharacter, requestPaint]);
 
   /* Repaint whenever the painted inputs change. */
   useEffect(() => {

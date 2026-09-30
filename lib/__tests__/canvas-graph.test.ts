@@ -296,6 +296,7 @@ describe("paint", () => {
       dotGrid: false,
       isDark: true,
       dpr: 1,
+      ambientMs: 0,
       viewport,
     };
     return o;
