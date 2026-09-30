@@ -727,6 +727,31 @@ describe("paint", () => {
     for (const v of onScreen) expect(v).toBeCloseTo(11, 4);
   });
 
+  it("dims everything a spotlight is NOT about", () => {
+    /*
+     * Picking a faction (or searching) is a deliberate narrowing, so the chosen
+     * group has to stand out. Leaving the rest at full strength made the pick
+     * look like it did nothing. Hover is deliberately exempt — see the
+     * "hovering must never make anything disappear" tests — so this only applies
+     * when a match set is present.
+     */
+    const o = scene(4, 0);
+    const ctx = fakeCtx();
+    paint(ctx, { ...o, searchMatches: new Set([0]) }, PAL);
+    const dim = ctx.alphas.filter((a) => a > 0 && a < 0.3);
+    expect(dim.length).toBeGreaterThan(0);
+    expect(Math.max(...ctx.alphas)).toBe(1);
+  });
+
+  it("draws the whole cast at full strength when nothing is spotlighted", () => {
+    const o = scene(4, 0);
+    const ctx = fakeCtx();
+    paint(ctx, o, PAL);
+    // No match set, no dimming: only the label/glow passes may vary alpha.
+    const dim = ctx.alphas.filter((a) => a > 0 && a < 0.3);
+    expect(dim.length).toBe(0);
+  });
+
   it("never draws a node below the legibility floor", () => {
     /*
      * The readability regression behind the "so messy" report: at the zoom that

@@ -33,7 +33,8 @@
  */
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { RotateCcw, Search, Target, ZoomIn, ZoomOut } from "lucide-react";
+import { Layers, RotateCcw, Search, Target, X, ZoomIn, ZoomOut } from "lucide-react";
+import { cn } from "@/lib/utils";
 import type { Character, Relationship } from "@/lib/characters-guide";
 import type { QualityTier } from "@/lib/device-tier";
 import { GRAPH_QUALITY, labelTierLimit, type GraphQuality } from "./graph-quality";
@@ -41,6 +42,7 @@ import {
   clamp,
   getNodeRadius,
   getRelationshipColor,
+  FACTION_THEMES,
   hash32,
   resolveFaction,
 } from "@/components/characters/graph-theme";
@@ -605,11 +607,49 @@ export default function CanvasGraph({
     [selectedCharacterId, indexById]
   );
 
+  /** Which faction is spotlighted, or null for the whole cast. */
+  const [factionFocus, setFactionFocus] = useState<string | null>(null);
+  const [legendOpen, setLegendOpen] = useState(false);
+
+  /**
+   * The factions actually present, largest first.
+   *
+   * Derived from the data rather than from the theme table: the table lists 14
+   * factions and the cast uses a subset, so listing the table would offer filters
+   * that highlight nothing.
+   */
+  const factions = useMemo(() => {
+    const counts = new Map<string, number>();
+    for (const n of nodes) {
+      const { key } = resolveFaction(n.c.affiliation);
+      counts.set(key, (counts.get(key) ?? 0) + 1);
+    }
+    return [...counts.entries()]
+      .map(([key, count]) => ({
+        key,
+        count,
+        theme: FACTION_THEMES[key] ?? FACTION_THEMES.DEFAULT,
+        label: FACTION_THEMES[key]?.badge ?? key,
+      }))
+      .sort((a, b) => b.count - a.count || a.key.localeCompare(b.key));
+  }, [nodes]);
+
   const searchMatches = useMemo(() => {
     const qy = searchQuery.trim().toLowerCase();
-    if (!qy) return null;
+    const focus = factionFocus;
+    if (!qy && !focus) return null;
     const set = new Set<number>();
     nodes.forEach((n, i) => {
+      /*
+       * The faction spotlight and the text search narrow the SAME set, so they
+       * compose: pick a faction, then type to narrow within it. Two independent
+       * filters would need two dim rules and would fight over the paint.
+       */
+      if (focus && resolveFaction(n.c.affiliation).key !== focus) return;
+      if (!qy) {
+        set.add(i);
+        return;
+      }
       if (
         n.c.name.toLowerCase().includes(qy) ||
         n.c.role.toLowerCase().includes(qy) ||
@@ -620,7 +660,7 @@ export default function CanvasGraph({
       }
     });
     return set;
-  }, [searchQuery, nodes]);
+  }, [searchQuery, factionFocus, nodes]);
 
   /* ── painting ─────────────────────────────────────────────────── */
 
@@ -766,8 +806,25 @@ export default function CanvasGraph({
        */
       const isSearching = searchMatches !== null;
       const isFocused = selectedIndex >= 0;
+      /*
+       * A spotlight brightens the web INSIDE the set it selected.
+       *
+       * This used to key off `selectedIndex`, so a search dimmed everything —
+       * including the strings joining two matching characters, which are exactly
+       * the ones the search is about. The set is the thing that was chosen; the
+       * edges that belong to it are the ones with both ends in it. Boundary
+       * edges stay half-lit so the group still reads as connected to the rest,
+       * and everything else recedes.
+       */
+      const inSet = (i: number) => searchMatches?.has(i) ?? false;
       const opacity = isSearching
-        ? (e.s === selectedIndex || e.t === selectedIndex ? 1 : 0.22)
+        ? e.s === selectedIndex || e.t === selectedIndex
+          ? 1
+          : inSet(e.s) && inSet(e.t)
+            ? 1
+            : inSet(e.s) || inSet(e.t)
+              ? 0.45
+              : 0.1
         : isTarget
           ? 1
           : isFocused
@@ -1481,6 +1538,69 @@ export default function CanvasGraph({
                 )}
               </div>
             )}
+          </div>
+        )}
+      </div>
+
+      {/* legend, top-right: what the colours mean, and a faction spotlight */}
+      <div className="absolute right-3 top-4 z-20 flex flex-col items-end sm:right-4">
+        <button
+          type="button"
+          onClick={() => setLegendOpen(!legendOpen)}
+          aria-label="Legend and factions"
+          aria-expanded={legendOpen}
+          className={cn(
+            "flex h-9 items-center gap-1.5 rounded-full border border-line bg-surface px-3 text-ink shadow-lift",
+            factionFocus && "border-accent-bright/60 text-accent-bright"
+          )}
+        >
+          <Layers className="h-4 w-4" />
+          <span className="font-mono text-[10px] uppercase tracking-wider">
+            {factionFocus ? factions.find((f) => f.key === factionFocus)?.label ?? "Faction" : "Legend"}
+          </span>
+        </button>
+        {legendOpen && (
+          <div className="mt-2 max-h-[min(22rem,50vh)] w-[min(16rem,calc(100vw-1.5rem))] overflow-y-auto rounded-xl border border-line bg-surface p-1.5 shadow-lift">
+            <button
+              type="button"
+              onClick={() => setFactionFocus(null)}
+              className={cn(
+                "flex w-full items-center justify-between gap-2 rounded-lg px-2.5 py-2 text-left text-xs transition-colors",
+                factionFocus === null ? "bg-accent/10 text-accent-bright" : "text-ink hover:bg-surface-muted"
+              )}
+            >
+              <span className="font-medium">All factions</span>
+              <span className="font-mono text-[10px] tabular-nums text-ink-faint">
+                {nodes.length}
+              </span>
+            </button>
+            {factions.map((f) => {
+              const active = factionFocus === f.key;
+              return (
+                <button
+                  key={f.key}
+                  type="button"
+                  // Tapping the active faction clears it, so the row is its own
+                  // toggle and the spotlight never becomes a dead end.
+                  onClick={() => setFactionFocus(active ? null : f.key)}
+                  aria-pressed={active}
+                  className={cn(
+                    "flex w-full items-center gap-2.5 rounded-lg px-2.5 py-2 text-left text-xs transition-colors",
+                    active ? "bg-accent/10 text-accent-bright" : "text-ink hover:bg-surface-muted"
+                  )}
+                >
+                  <span
+                    className="h-2.5 w-2.5 shrink-0 rounded-full"
+                    style={{ background: f.theme.primary, boxShadow: `0 0 6px ${f.theme.glow}` }}
+                    aria-hidden
+                  />
+                  <span className="min-w-0 flex-1 truncate">{f.label}</span>
+                  <span className="font-mono text-[10px] tabular-nums text-ink-faint">
+                    {f.count}
+                  </span>
+                </button>
+              );
+            })}
           </div>
         )}
       </div>

@@ -310,8 +310,17 @@ export function paint(
     const isHov = n.index === o.hoveredIndex;
     const isMatch = o.searchMatches?.has(n.index) ?? false;
     const emphasised = isSel || isHov || isMatch;
-    // An emphasised node stays fully opaque: it is the thing being looked for.
-    ctx.globalAlpha = emphasised ? 1 : dAlpha;
+    /*
+     * A spotlight dims what it is NOT about. Hover deliberately does not — a
+     * pointer crossing the graph must never blank it out — but a search or a
+     * faction pick is a deliberate narrowing, and leaving the rest at full
+     * strength would mean the chosen group does not stand out at all, which is
+     * the only reason to pick it.
+     *
+     * An emphasised node is always opaque: it is the thing being looked for.
+     */
+    const dimmed = o.searchMatches !== null && !isMatch;
+    ctx.globalAlpha = emphasised ? 1 : dimmed ? 0.18 : dAlpha;
 
     // Faction glow — the soft halo the SVG version got from a radial gradient.
     // Drawn first, in screen-compensated radius so it stays a constant visual
