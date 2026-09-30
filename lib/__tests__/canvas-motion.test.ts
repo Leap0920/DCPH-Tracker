@@ -60,34 +60,89 @@ describe("buildAdjacency", () => {
 });
 
 describe("propagate", () => {
-  it("moves the dragged node fully and its neighbours by a share", () => {
+  it("does NOT write the dragged node — the caller owns its position", () => {
     const { adj, n, positions } = chain();
     const out = new Float64Array(n * 2);
     propagate(0, 10, 0, 0, 0, adj, n, positions, out, DEFAULT_PROPAGATION);
-
-    // The dragged node gets the full displacement.
-    expect(out[0]).toBe(10);
+    // Writing it here would double-apply the displacement once the buffers are
+    // summed for painting: home already moved by the full drag.
+    expect(out[0]).toBe(0);
     expect(out[1]).toBe(0);
-    // Its neighbour gets a fraction.
+  });
+
+  it("moves a direct neighbour by the configured share", () => {
+    const { adj, n, positions } = chain();
+    const out = new Float64Array(n * 2);
+    propagate(0, 10, 0, 0, 0, adj, n, positions, out, DEFAULT_PROPAGATION);
     expect(out[2]).toBeCloseTo(10 * DEFAULT_PROPAGATION.neighbourShare, 6);
-    // Two hops away is smaller still.
-    expect(Math.abs(out[4])).toBeLessThan(Math.abs(out[2]));
+  });
+
+  /*
+   * The reason this was rewritten. With hops: 2 and 0.42 / 0.34 attenuation, a
+   * great-grandchild moved 1.6% of the drag and anything past five hops did not
+   * move at all — the reported "only the head moves, children stay put".
+   */
+  it("carries the whole connected structure, not just two hops", () => {
+    // A longer chain: 0-1-2-3-4-5-6
+    const edgeS = new Int32Array([0, 1, 2, 3, 4, 5]);
+    const edgeT = new Int32Array([1, 2, 3, 4, 5, 6]);
+    const n = 7;
+    const adj = buildAdjacency(edgeS, edgeT, edgeS.length, n);
+    const positions = new Float64Array(n * 2);
+    for (let i = 0; i < n; i++) positions[i * 2] = i * 100;
+
+    const out = new Float64Array(n * 2);
+    propagate(0, 10, 0, 0, 0, adj, n, positions, out, DEFAULT_PROPAGATION);
+
+    // Hop 6 — a great-great-great-grandchild — must still visibly move. Under
+    // the old 2-hop rule this was exactly zero.
+    const deepest = out[12];
+    expect(deepest).toBeGreaterThan(0);
+    // It is still attenuating here (0.92 * 0.88^5 ≈ 48%), and the floor only
+    // takes over past that. Either way it must never fall below the floor.
+    expect(deepest).toBeGreaterThanOrEqual(10 * DEFAULT_PROPAGATION.minShare - 1e-9);
+  });
+
+  it("attenuates with distance rather than moving everything equally", () => {
+    const edgeS = new Int32Array([0, 1, 2, 3]);
+    const edgeT = new Int32Array([1, 2, 3, 4]);
+    const n = 5;
+    const adj = buildAdjacency(edgeS, edgeT, edgeS.length, n);
+    const positions = new Float64Array(n * 2);
+    for (let i = 0; i < n; i++) positions[i * 2] = i * 100;
+
+    const out = new Float64Array(n * 2);
+    propagate(0, 10, 0, 0, 0, adj, n, positions, out, DEFAULT_PROPAGATION);
+
+    const hop1 = out[2];
+    const hop4 = out[8];
+    expect(hop1).toBeGreaterThan(hop4);
+    expect(hop4).toBeGreaterThan(0);
   });
 
   it("never touches a node outside the connected component", () => {
-    const { adj, n, positions } = chain();
-    const out = new Float64Array(n * 2);
-    // Node 3 is a leaf off node 2: two hops from node 0.
-    propagate(0, 10, 0, 0, 0, adj, n, positions, out, DEFAULT_PROPAGATION);
-    // It MAY receive something at hop 2, but it must be tiny.
-    expect(Math.abs(out[6])).toBeLessThanOrEqual(Math.abs(out[2]));
-    // And a node with no path at all must be exactly zero.
     const dis = buildAdjacency(new Int32Array([]), new Int32Array([]), 0, 3);
-    const out2 = new Float64Array(3 * 2);
-    const pos2 = new Float64Array(3 * 2);
-    propagate(0, 10, 0, 0, 0, dis, 3, pos2, out2, DEFAULT_PROPAGATION);
-    expect(out2[2]).toBe(0);
-    expect(out2[4]).toBe(0);
+    const out = new Float64Array(3 * 2);
+    const pos = new Float64Array(3 * 2);
+    propagate(0, 10, 0, 0, 0, dis, 3, pos, out, DEFAULT_PROPAGATION);
+    expect(out[2]).toBe(0);
+    expect(out[4]).toBe(0);
+  });
+
+  it("visits each node once even when the graph has cycles", () => {
+    // A triangle plus a tail — the classic re-visit trap.
+    const edgeS = new Int32Array([0, 1, 0, 2]);
+    const edgeT = new Int32Array([1, 2, 2, 3]);
+    const n = 4;
+    const adj = buildAdjacency(edgeS, edgeT, edgeS.length, n);
+    const positions = new Float64Array(n * 2);
+    const out = new Float64Array(n * 2);
+    propagate(0, 10, 0, 0, 0, adj, n, positions, out, DEFAULT_PROPAGATION);
+    // Every connected node got exactly one value — none is a double-count.
+    for (const v of [out[2], out[4], out[6]]) {
+      expect(v).toBeLessThanOrEqual(10);
+      expect(v).toBeGreaterThan(0);
+    }
   });
 
   it("respects the hop cap", () => {
@@ -97,8 +152,10 @@ describe("propagate", () => {
       ...DEFAULT_PROPAGATION,
       hops: 1,
     });
-    // With one hop, node 2 (two away) must not move.
+    // With a single hop, node 2 (two away) must not move.
     expect(out[4]).toBe(0);
+    // But its direct neighbour still does.
+    expect(out[2]).toBeGreaterThan(0);
   });
 
   it("is bounded by maxDistance", () => {
@@ -110,14 +167,14 @@ describe("propagate", () => {
     });
     // Nothing is within 10 world px of node 0 except itself.
     expect(out[2]).toBe(0);
-    expect(out[0]).toBe(10);
   });
 
   it("clears the buffer first, so a previous drag cannot leak through", () => {
-    const { adj, n, positions } = chain();
-    const out = new Float64Array(n * 2).fill(999);
-    propagate(0, 10, 0, 0, 0, adj, n, positions, out, DEFAULT_PROPAGATION);
-    expect(out[8]).toBe(0);
+    const dis = buildAdjacency(new Int32Array([]), new Int32Array([]), 0, 5);
+    const out = new Float64Array(5 * 2).fill(999);
+    const pos = new Float64Array(5 * 2);
+    propagate(0, 10, 0, 0, 0, dis, 5, pos, out, DEFAULT_PROPAGATION);
+    expect(Array.from(out)).toEqual(new Array(10).fill(0));
   });
 });
 

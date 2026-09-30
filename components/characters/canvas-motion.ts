@@ -103,18 +103,28 @@ export function buildAdjacency(
 export interface PropagationOptions {
   /** Share of the drag a direct neighbour receives. */
   neighbourShare: number;
-  /** Share a second-hop node receives (of the neighbour's share). */
-  secondHopShare: number;
-  /** Hard cap on hops. 2 is plenty; 3+ is invisible. */
+  /** Multiplier applied for EACH further hop. */
+  hopFalloff: number;
+  /**
+   * Floor on the share, as a fraction of the drag.
+   *
+   * Without this the chain dies out: at 0.42 then 0.34 per hop, a
+   * great-grandchild moved 1.6% of the drag and anything past five hops did not
+   * move at all — which reads as "only the head moves". The floor keeps distant
+   * branches visibly following, so grabbing a hub carries the whole structure.
+   */
+  minShare: number;
+  /** Hard cap on hops. Deep enough to cross the whole cast. */
   hops: number;
   /** Stop spreading past this world distance from the dragged node. */
   maxDistance: number;
 }
 
 export const DEFAULT_PROPAGATION: PropagationOptions = {
-  neighbourShare: 0.42,
-  secondHopShare: 0.34,
-  hops: 2,
+  neighbourShare: 0.92,
+  hopFalloff: 0.88,
+  minShare: 0.3,
+  hops: 24,
   maxDistance: Number.POSITIVE_INFINITY,
 };
 
@@ -145,35 +155,44 @@ export function propagate(
   opts: PropagationOptions = DEFAULT_PROPAGATION
 ): void {
   out.fill(0);
-  out[dragIndex * 2] = dx;
-  out[dragIndex * 2 + 1] = dy;
 
-  let frontier = new Set<number>([dragIndex]);
+  /*
+   * The dragged node's own offset is deliberately NOT written here: the caller
+   * has already moved it in `home`, and writing it again would double-apply the
+   * displacement once the buffers are summed for painting.
+   *
+   * This is a breadth-first walk outward from the dragged node. Every reachable
+   * node is visited exactly once, so the cost is O(nodes + edges) regardless of
+   * how many hops it crosses — far cheaper than a per-frame pairwise pass, and
+   * it is what lets the whole structure move together.
+   */
+  const visited = new Uint8Array(nodeCount);
+  visited[dragIndex] = 1;
+  let frontier: number[] = [dragIndex];
   let share = 1;
+  const maxD2 = opts.maxDistance * opts.maxDistance;
 
-  for (let hop = 1; hop <= opts.hops; hop++) {
-    share *= hop === 1 ? opts.neighbourShare : opts.secondHopShare;
-    if (share < 0.01) return;
-    const next = new Set<number>();
+  for (let hop = 1; hop <= opts.hops && frontier.length > 0; hop++) {
+    share = Math.max(opts.minShare, share * (hop === 1 ? opts.neighbourShare : opts.hopFalloff));
+    const next: number[] = [];
 
     for (const node of frontier) {
       const from = adj.start[node];
       const to = adj.start[node + 1];
       for (let a = from; a < to; a++) {
         const nb = adj.neighbours[a];
-        if (out[nb * 2] !== 0 || out[nb * 2 + 1] !== 0) continue;
+        if (visited[nb]) continue;
+        visited[nb] = 1;
         const ddx = positions[nb * 2] - dragX;
         const ddy = positions[nb * 2 + 1] - dragY;
-        if (ddx * ddx + ddy * ddy > opts.maxDistance * opts.maxDistance) continue;
+        if (ddx * ddx + ddy * ddy > maxD2) continue;
         out[nb * 2] = dx * share;
         out[nb * 2 + 1] = dy * share;
-        next.add(nb);
+        next.push(nb);
       }
     }
-    if (next.size === 0) return;
     frontier = next;
   }
-  void nodeCount;
 }
 
 /**

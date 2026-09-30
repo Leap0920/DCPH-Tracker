@@ -64,7 +64,6 @@ import {
   buildAdjacency,
   breatheScale,
   composeRenderPositions,
-  decayPropagation,
   driftParams,
   fillDrift,
   propagate,
@@ -142,8 +141,7 @@ const TOUCH_SLACK_PX = 14;
 const DRIFT_AMP = 2.4;
 /** Halo breathing amount, as a share of the halo radius. */
 const BREATHE_AMOUNT = 0.16;
-/** Per-frame decay for a released drag's propagated offsets (~0.4s settle). */
-const PROP_DECAY = 0.9;
+
 const STRING_WIDTH = 2;
 const DIM_OPACITY = 0.1;
 const STRING_IDLE = 0.42;
@@ -389,6 +387,15 @@ export default function CanvasGraph({
    * neighbours with it (Obsidian's behaviour) at a cost of O(edges) per pointer
    * move rather than a pairwise pass.
    */
+  /**
+   * The authored layout, captured once and never mutated.
+   *
+   * Drag baking rewrites `positions`, so without this the only way back to the
+   * intended arrangement would be a page reload. `home` stays the working copy;
+   * this is the restore point.
+   */
+  const authoredRef = useRef<Float64Array | null>(null);
+
   const adjacency = useMemo(() => {
     const edgeS = new Int32Array(edges.length);
     const edgeT = new Int32Array(edges.length);
@@ -408,7 +415,10 @@ export default function CanvasGraph({
     renderBufRef.current = new Float64Array(n * 2);
     scratchBufRef.current = new Float64Array(n * 2);
     driftParamsRef.current = nodes.map((node) => driftParams(hash32(node.c.id)));
-  }, [nodes]);
+    if (!authoredRef.current || authoredRef.current.length !== positions.length) {
+      authoredRef.current = Float64Array.from(positions);
+    }
+  }, [nodes, positions]);
 
   /* Kick off the ambient loop once buffered, and whenever it would otherwise be
      idle. The loop parks itself when there is nothing to animate. */
@@ -502,12 +512,9 @@ export default function CanvasGraph({
         drift.fill(0);
       }
 
-      // Decay a released drag's propagated offsets until they vanish.
-      const settling = prop ? decayPropagation(prop, PROP_DECAY) > 0.05 : false;
-
       drawRef.current?.();
 
-      if (canDrift || settling) {
+      if (canDrift) {
         ambientRafRef.current = requestAnimationFrame(tick);
       }
     };
@@ -684,7 +691,7 @@ export default function CanvasGraph({
     requestPaint();
   }, [requestPaint]);
 
-  /** Fit the whole graph into the chrome-free area — what "reset" means. */
+  /** Fit the whole graph into the chrome-free area. */
   const centerOnConan = useCallback(() => {
     const { w, h } = sizeRef.current;
     if (w === 0 || h === 0) return;
@@ -692,6 +699,22 @@ export default function CanvasGraph({
     setZoomPct(Math.round(camRef.current.k * 100));
     requestPaint();
   }, [bbox, fitRect, requestPaint]);
+
+  /**
+   * True reset: restore the authored layout AND refit.
+   *
+   * A drag bakes its propagated offsets into `positions`, so without this the
+   * arrangement a visitor dragged the graph into would be permanent for the
+   * session — and there would be no way back to the layout the data intends.
+   */
+  const resetLayout = useCallback(() => {
+    const authored = authoredRef.current;
+    if (authored && authored.length === positions.length) {
+      positions.set(authored);
+    }
+    propBufRef.current?.fill(0);
+    centerOnConan();
+  }, [positions, centerOnConan]);
 
   /** Bring a node into view at a readable zoom. */
   const focusNode = useCallback(
@@ -853,7 +876,10 @@ export default function CanvasGraph({
             scratch,
             DEFAULT_PROPAGATION
           );
-          for (let i = 0; i < prop.length; i++) prop[i] += scratch[i] * 0.55;
+          // Accumulate at full strength: the shares already carry the
+          // hierarchy attenuation, and damping a second time here would leave
+          // direct children at half the drag again.
+          for (let i = 0; i < prop.length; i++) prop[i] += scratch[i];
         }
         movedRef.current = true;
         requestPaint();
@@ -895,7 +921,23 @@ export default function CanvasGraph({
       dragRef.current = null;
       panRef.current = null;
       el.style.cursor = "";
-      // Resume ambient motion; the loop also eases any propagated offsets out.
+      /*
+       * Bake the propagated offsets into the settled layout.
+       *
+       * Letting them decay instead would tear the group apart: the dragged node
+       * STAYS where it was dropped (its position was written during the drag)
+       * while its children spring back home, so a hub would sit detached from
+       * the web it just pulled. Baking keeps the whole structure in its new
+       * relative arrangement, which is what "move the head and the children
+       * follow" has to mean.
+       *
+       * The authored layout is preserved separately, so reset can undo this.
+       */
+      const prop = propBufRef.current;
+      if (prop) {
+        for (let i = 0; i < positions.length; i++) positions[i] += prop[i];
+        prop.fill(0);
+      }
       interactingRef.current = false;
       runAmbientRef.current?.();
       if (wasTap) {
@@ -1096,9 +1138,9 @@ export default function CanvasGraph({
         </button>
         <button
           type="button"
-          onClick={centerOnConan}
-          aria-label="Reset view"
-          title="Reset view"
+          onClick={resetLayout}
+          aria-label="Reset layout"
+          title="Reset layout"
           className="flex h-8 w-8 items-center justify-center rounded-full text-ink-dim transition-colors hover:bg-surface-muted hover:text-ink"
         >
           <RotateCcw className="h-4 w-4" />
