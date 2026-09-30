@@ -226,13 +226,6 @@ export function ContentGrid({
   const [flashId, setFlashId] = useState<string | null>(null)
   const didInit = useRef(false)
   const flashTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
-  // Resume-to-last-watched bookkeeping: skip when the user explicitly navigated
-  // with a ?page= / ?ep= intent; resume once on initial load, and again when the
-  // user switches INTO "Watch Order" (chronological) mode.
-  const hadNavIntent = useRef(initialPage != null || jumpTarget != null)
-  const didAutoJump = useRef(false)
-  const resumeOnModeSwitch = useRef(false)
-
   const PAGE_SIZE = 30
 
   // Highest episode number that actually exists in the tracker, so the
@@ -599,68 +592,6 @@ export function ContentGrid({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [jumpTarget])
 
-  /**
-   * "Watch Order" resume: scroll the grid to the highest episode the user has
-   * watched (watched OR rewatched), so reopening /tracker in chronological
-   * mode lands near where they left off instead of page 1.
-   */
-  const resumeToLastWatched = useCallback(() => {
-    if (mode !== "chronological") return
-    if (statusFilter !== "all") return
-    if (!userStatuses || userStatuses.size === 0) return
-    const epSection = sections.find((s) => s.key === "episode")
-    if (!epSection || epSection.entries.length === 0) return
-    let target: ContentEntry | null = null
-    for (const e of epSection.entries) {
-      const s = userStatuses.get(e.id)
-      if (s === "watched" || s === "rewatched") {
-        if (!target || (e.episode_number ?? 0) > (target.episode_number ?? 0)) target = e
-      }
-    }
-    if (!target) return
-    const idx = Math.max(0, epSection.entries.findIndex((e) => e.id === target!.id))
-    const pageIdx = Math.floor(idx / PAGE_SIZE)
-    setPages((prev) => ({ ...prev, episode: pageIdx }))
-    setExpandedType("episode")
-    requestAnimationFrame(() => {
-      requestAnimationFrame(() => {
-        const el = document.getElementById(`card-${target!.id}`)
-        if (el) {
-          el.scrollIntoView({ behavior: "smooth", block: "center" })
-          setFlashId(target!.id)
-          if (flashTimer.current) clearTimeout(flashTimer.current)
-          flashTimer.current = setTimeout(() => setFlashId(null), 2000)
-        }
-      })
-    })
-  }, [mode, statusFilter, userStatuses, sections])
-
-  // Resume once on initial load, once statuses + sections are ready. Skip when
-  // the user explicitly navigated with ?page= or ?ep= intent.
-  useEffect(() => {
-    if (hadNavIntent.current) {
-      didAutoJump.current = true
-      return
-    }
-    if (didAutoJump.current) return
-    if (userStatuses && userStatuses.size > 0 && sections.length > 0) {
-      resumeToLastWatched()
-      didAutoJump.current = true
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [resumeToLastWatched, userStatuses, sections])
-
-  // Resume again when the user switches INTO chronological mode mid-session
-  // (fires after sections recompute for the new mode).
-  useEffect(() => {
-    if (!resumeOnModeSwitch.current) return
-    if (sections.find((s) => s.key === "episode")?.entries.length) {
-      resumeOnModeSwitch.current = false
-      resumeToLastWatched()
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [mode, sections, resumeToLastWatched])
-
   function handleMarkUpTo(value: string) {
     const n = parseInt(value, 10)
     if (!Number.isInteger(n) || n < 1 || n > maxEpisode) {
@@ -751,9 +682,6 @@ export function ContentGrid({
             value={mode}
             onValueChange={(v) => {
               setMode(v as ViewMode)
-              if (v === "chronological" && mode !== "chronological") {
-                resumeOnModeSwitch.current = true
-              }
               onModeChange?.(v as ViewMode)
             }}
           >
@@ -1135,10 +1063,9 @@ export function ContentGrid({
             <div className="grid gap-6 lg:grid-cols-3">
               <div className="lg:col-span-2 space-y-4">
                 <p className="text-sm text-ink-dim leading-relaxed">
-                  High school detective Shinichi Kudo, known as the &quot;Savior of the Japanese Police Force,&quot;
-                  is poisoned by the Black Organization and shrinks into a child. Taking the alias Conan Edogawa,
-                  he secretly solves cases while searching for clues about the mysterious organization and an antidote
-                  to return to his true form.
+                  High-school detective Shinichi Kudo is poisoned by the Black Organization and
+                  shrinks into a child. As Conan Edogawa, he solves cases while hunting the
+                  syndicate — and an antidote back to his true form.
                 </p>
                 <dl className="grid grid-cols-2 gap-y-3 gap-x-6 text-sm">
                   <Detail term="Creator" value="Gosho Aoyama" />
@@ -1222,19 +1149,22 @@ function Section({
           }
         }}
         aria-expanded={isOpen}
-        className="w-full flex items-center gap-4 px-4 sm:px-6 py-4 hover:bg-surface-muted transition-colors text-left cursor-pointer outline-none focus-visible:ring-2 focus-visible:ring-accent/30"
+        className="w-full flex items-center gap-3 sm:gap-4 px-4 sm:px-6 py-4 hover:bg-surface-muted transition-colors text-left cursor-pointer outline-none focus-visible:ring-2 focus-visible:ring-accent/30"
       >
         <span className="flex h-8 w-8 items-center justify-center rounded-md bg-ink text-page shrink-0">
           <Icon className="h-4 w-4" />
         </span>
 
         <div className="flex-1 min-w-0">
-          <div className="flex items-center gap-2">
-            <h2 className="font-display text-base sm:text-lg tracking-tight text-ink truncate">
+          <div className="flex items-center gap-2 min-w-0">
+            {/* Wraps instead of ellipsizing: "The Culprit Hanzawa" and
+                "Zero's Tea Time" were cut to "Magic..." on narrow phones
+                because the row's fixed-width siblings left almost nothing. */}
+            <h2 className="font-display text-sm sm:text-base lg:text-lg tracking-tight text-ink break-words min-w-0">
               {title}
             </h2>
             {typeof count === "number" && (
-              <span className="font-mono text-xs text-ink-dim shrink-0 rounded-md bg-surface-muted px-1.5 py-0.5">
+              <span className="font-mono text-[10px] sm:text-xs text-ink-dim shrink-0 rounded-md bg-surface-muted px-1.5 py-0.5">
                 {count}
               </span>
             )}
@@ -1254,7 +1184,11 @@ function Section({
           )}
         </div>
 
-        {action && <div className="shrink-0">{action}</div>}
+        {action && (
+          <div className="shrink-0 max-w-[42%] sm:max-w-none [&_button]:max-w-full [&_button]:truncate">
+            {action}
+          </div>
+        )}
 
         <ChevronDown
           className={cn(

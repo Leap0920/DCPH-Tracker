@@ -121,16 +121,16 @@ export const NAV_MAIN = [
 ] as const;
 
 export const NAV_EXPLORE: NavSubItem[] = [
-  { href: "/arcs", label: "Story Arcs", description: "Watch guide & arc breakdown", icon: "BookOpen" },
-  { href: "/cases", label: "Case Files", description: "Every crime catalogued — types, victims & methods", icon: "FileText" },
-  { href: "/characters", label: "Characters", description: "Character profiles & relationships", icon: "Users" },
-  { href: "/analytics", label: "Self Analytics", description: "Personal stats & viewing insights", icon: "BarChart3" },
-  { href: "/wrapped", label: "Wrapped", description: "Your watch stats as a shareable card", icon: "BarChart3" },
+  { href: "/arcs", label: "Story Arcs", description: "Watch guide", icon: "BookOpen" },
+  { href: "/cases", label: "Case Files", description: "Types, victims, methods", icon: "FileText" },
+  { href: "/characters", label: "Characters", description: "Profiles & relationships", icon: "Users" },
+  { href: "/analytics", label: "Self Analytics", description: "Your viewing stats", icon: "BarChart3" },
+  { href: "/wrapped", label: "Wrapped", description: "Shareable watch card", icon: "BarChart3" },
 ];
 
 export const NAV_COMMUNITY: NavSubItem[] = [
-  { href: "/community/rankings", label: "Rankings", description: "Detective leaderboards & badges", icon: "Trophy" },
-  { href: "/community/chat", label: "Chat", description: "Live detective chat room", icon: "MessageSquare" },
+  { href: "/community/rankings", label: "Rankings", description: "Leaderboards & badges", icon: "Trophy" },
+  { href: "/community/chat", label: "Chat", description: "Live chat room", icon: "MessageSquare" },
 ];
 
 /** Avatar placeholder URL pattern (UI Avatars service) */

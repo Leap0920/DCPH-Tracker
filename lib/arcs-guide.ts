@@ -47,18 +47,18 @@ export interface StoryArc {
 export const SERIES_PREMISE = {
   title: "One Truth Prevails",
   intro:
-    "Shinichi Kudo is a brilliant 17-year-old high-school detective. After witnessing a shady deal, he is force-fed an experimental poison, APTX 4869, by two men in black. Instead of killing him, the drug shrinks his body back to that of a child.",
-  body: "Hiding his identity, he takes the alias Conan Edogawa and moves in with his childhood friend Ran Mouri and her bumbling detective father, Kogoro. From the shadows he solves case after case, knocking out Kogoro and using a voice-changer to deduce out loud, all while hunting the mysterious syndicate known only as the Black Organization, the only people who can lead him back to his real body.",
+    "Shinichi Kudo, a brilliant high-school detective, is force-fed an experimental poison by two men in black. Instead of killing him, APTX 4869 shrinks him back into a child.",
+  body: "As Conan Edogawa, he moves in with Ran Mouri and her detective father Kogoro, solving cases from the shadows while he hunts the Black Organization for a way back to his real body.",
 }
 
 export const HOW_IT_WORKS = [
   {
     title: "Case-of-the-week + a hidden main plot",
-    body: "Most episodes are self-contained murder mysteries. Woven between them is the ongoing 'main plot,' Conan's war with the Black Organization. This guide tracks that main plot so you never lose the thread.",
+    body: "Most episodes are standalone mysteries. Between them runs the main plot: Conan's war with the Black Organization. This guide tracks exactly that.",
   },
   {
     title: "Canon vs. filler",
-    body: "'Canon' episodes adapt Gosho Aoyama's manga and move the story forward. 'Filler' episodes are anime-original stand-alone cases. You can safely skip most filler if you only want the main story.",
+    body: "Canon episodes adapt Gosho Aoyama's manga and move the story forward. Filler is anime-original. If you only want the main story, most filler is safe to skip.",
   },
   {
     title: "Arcs are named after the antagonist",
@@ -66,7 +66,7 @@ export const HOW_IT_WORKS = [
   },
   {
     title: "Recurring characters matter",
-    body: "Beyond the Organization, watch for Kaitou Kid, Osaka detective Heiji Hattori, the FBI, and the slow-burn romance between Shinichi and Ran. Their threads pay off across hundreds of episodes.",
+    body: "Watch for Kaitou Kid, Heiji Hattori, the FBI, and the Shinichi–Ran romance — their threads pay off across hundreds of episodes.",
   },
 ]
 
@@ -83,7 +83,7 @@ export const STORY_ARCS: StoryArc[] = [
     status: "complete",
     tagline: "A shrunken detective builds a new life and a secret mission.",
     summary:
-      "The foundation of everything. Shinichi becomes Conan, moves in with the Mouris, and establishes his method: solving cases through 'Sleeping Kogoro.' He befriends Professor Agasa, who builds his gadgets, and forms the Detective Boys with Ran's classmates' younger siblings. Standalone mysteries dominate, but the Organization lurks at the edges, and rival detective Heiji Hattori and phantom thief Kaitou Kid make their unforgettable debuts.",
+      "The foundation. Shinichi becomes Conan, moves in with the Mouris, and perfects 'Sleeping Kogoro.' Professor Agasa builds his gadgets; the Detective Boys form. Standalone cases dominate, but Heiji Hattori and Kaitou Kid debut — and the Organization lurks at the edges.",
     keyCharacters: [
       { name: "Conan Edogawa / Shinichi Kudo", role: "The shrunken detective" },
       { name: "Ran Mouri", role: "Childhood friend, unaware of the truth" },
@@ -110,7 +110,7 @@ export const STORY_ARCS: StoryArc[] = [
     status: "complete",
     tagline: "A defector from the Organization joins Conan's side.",
     summary:
-      "The main plot ignites. Shiho Miyano, the Organization scientist code-named Sherry who created APTX 4869, escapes the syndicate and, like Conan, shrinks. She takes the identity Ai Haibara and becomes a Detective Boy, giving Conan his first true insider ally. The arc climaxes with 'Reunion with the Black Organization,' the first major face-off with the men in black, Gin and Vodka.",
+      "The main plot ignites. Shiho Miyano — code-named Sherry, creator of APTX 4869 — escapes the syndicate and shrinks, becoming Ai Haibara and Conan's first insider ally. It climaxes with the first face-off against Gin and Vodka.",
     keyCharacters: [
       { name: "Ai Haibara / Shiho Miyano (Sherry)", role: "Ex-Organization scientist, now Conan's ally" },
       { name: "Gin", role: "Ruthless senior Organization operative" },
@@ -133,7 +133,7 @@ export const STORY_ARCS: StoryArc[] = [
     status: "complete",
     tagline: "A master of disguise who somehow knows Conan's secret.",
     summary:
-      "Widely considered the emotional peak of the series. The FBI enters the war against the Organization, and the enigmatic Vermouth, a disguise artist who mysteriously refuses to expose Conan and Haibara, takes center stage. The arc is packed with landmark episodes, including 'The Desperate Revival' (Shinichi briefly returns) and 'Shinichi Kudo's New York Case,' which reveals Vermouth's hidden past. It ends with a tense full-moon-night showdown.",
+      "The emotional peak. The FBI joins the war, and Vermouth — a disguise artist who refuses to expose Conan and Haibara — takes center stage. Landmarks include 'The Desperate Revival' and her New York past, ending in a full-moon showdown.",
     keyCharacters: [
       { name: "Vermouth", role: "Master of disguise; calls Conan her 'Silver Bullet'" },
       { name: "Jodie Starling", role: "FBI agent hunting the Organization" },
@@ -157,7 +157,7 @@ export const STORY_ARCS: StoryArc[] = [
     status: "complete",
     tagline: "Conan gets dangerously close to the boss himself.",
     summary:
-      "A shorter but pivotal era. Conan uncovers a way to contact the Organization's boss directly, but Haibara warns that pursuing it is like opening Pandora's Box. Clues about the syndicate's leader accumulate, tension tightens, and the arc sets the stage for a wave of new, deadly Organization members waiting in the wings.",
+      "Short but pivotal. Conan finds a way to reach the Organization's boss — Haibara warns it is Pandora's Box. Clues mount, tension builds, and new deadly members wait in the wings.",
     keyCharacters: [
       { name: "Conan Edogawa", role: "Closing in on the boss" },
       { name: "Ai Haibara", role: "Warns of the danger ahead" },
@@ -180,7 +180,7 @@ export const STORY_ARCS: StoryArc[] = [
     status: "complete",
     tagline: "A three-way war between the FBI, the CIA, and the Organization.",
     summary:
-      "The scope explodes. New assassins Chianti and Korn arrive, and a mysterious member called Kir is captured by the FBI, setting up a high-stakes double-agent gambit. It all detonates in 'The Clash of Red and Black,' one of the most acclaimed main-plot sagas, featuring the shocking apparent death of Shuichi Akai and a brilliant chess match between Conan, the FBI, and Gin.",
+      "The scope explodes: snipers Chianti and Korn arrive, and the captured member Kir becomes a high-stakes double-agent gambit. It detonates in 'The Clash of Red and Black' — Akai's apparent death and a chess match pitting Conan and the FBI against Gin.",
     keyCharacters: [
       { name: "Kir / Hidemi Hondou", role: "Captured member turned FBI double agent" },
       { name: "Shuichi Akai", role: "The FBI's greatest weapon against the Organization" },
@@ -203,7 +203,7 @@ export const STORY_ARCS: StoryArc[] = [
     status: "complete",
     tagline: "Who is Bourbon? Three newcomers, one hidden agent.",
     summary:
-      "The longest main-plot era, a slow-burn mystery of identity. A new Organization member, Bourbon, hunts for Sherry and for the truth about Akai. Three suspicious newcomers appear: Masumi Sera, Subaru Okiya, and Tooru Amuro, and the question of which is Bourbon drives the arc. It resolves in a spectacular double reveal aboard a mystery train and in 'The Scarlet Series,' confirming Bourbon's identity and Akai's fate.",
+      "The longest era — a slow-burn mystery of identity. Bourbon hunts Sherry and the truth about Akai. Three newcomers (Sera, Okiya, Amuro) and the question of which is Bourbon drive the arc, resolved in a double reveal aboard the mystery train and 'The Scarlet Series.'",
     keyCharacters: [
       { name: "Tooru Amuro / Bourbon", role: "Triple agent: Organization, police, and PSB" },
       { name: "Subaru Okiya", role: "A calm lodger at the Kudo house" },
@@ -226,7 +226,7 @@ export const STORY_ARCS: StoryArc[] = [
     status: "ongoing",
     tagline: "The hunt for the No. 2 and the boss is finally named.",
     summary:
-      "The current era. The story turns to Rum, the Organization's mysterious second-in-command, with three suspects in play: Hyoue Kuroda, Rumi Wakasa, and Kanenori Wakita. The Akai family expands, the decades-old Koji Haneda murder resurfaces, and in a franchise-defining moment, clues finally reveal the boss's name: Renya Karasuma. With Akai back and allied with Conan, the war escalates toward its endgame, peaking in a deadly FBI-versus-Organization confrontation.",
+      "The current era. Rum — the Organization's No. 2 — has three suspects: Kuroda, Wakasa, Wakita. The Koji Haneda murder resurfaces, and the boss is finally named: Renya Karasuma. With Akai allied with Conan, the war heads for its endgame.",
     keyCharacters: [
       { name: "Rum", role: "The Organization's elusive number two" },
       { name: "Renya Karasuma", role: "The boss, finally named" },
@@ -273,7 +273,7 @@ export const RECURRING_THREADS: RecurringThread[] = [
     title: "Kaitou Kid",
     tagline: "The phantom thief and Conan's playful rival",
     description:
-      "A charming international thief who announces his heists in advance and never harms anyone. His duels with Conan are fan-favorite set pieces and connect to the spin-off Magic Kaito.",
+      "An international thief who announces his heists in advance and never harms anyone. His duels with Conan are fan-favorites, tied to the Magic Kaito spin-off.",
     starterEpisodes: "Ep 76, 219, 356",
   },
   {
@@ -281,7 +281,7 @@ export const RECURRING_THREADS: RecurringThread[] = [
     title: "Heiji Hattori",
     tagline: "The detective of the West",
     description:
-      "Osaka's high-school detective and one of the few who knows Conan's secret. He's Conan's closest rival-turned-partner, with his own slow-burn romance with Kazuha.",
+      "Osaka's high-school detective — one of the few who knows Conan's secret, and his closest rival-turned-partner.",
     starterEpisodes: "Ep 48-49, 118-119",
   },
   {
@@ -289,7 +289,7 @@ export const RECURRING_THREADS: RecurringThread[] = [
     title: "FBI vs. the Organization",
     tagline: "The international war in the shadows",
     description:
-      "Jodie, Shuichi Akai, Camel, and Kir wage a covert war against the syndicate. Their operations power the Vermouth, Kir, and Bourbon arcs.",
+      "A covert war against the syndicate, powered by Jodie, Akai, Camel, and Kir. Their operations carry the Vermouth, Kir, and Bourbon arcs.",
     starterEpisodes: "Ep 230-231, 491-504",
   },
   {
@@ -297,7 +297,7 @@ export const RECURRING_THREADS: RecurringThread[] = [
     title: "Shinichi & Ran",
     tagline: "The heart of the series",
     description:
-      "The canon romance between Shinichi and Ran simmers for hundreds of episodes, from missed phone calls to a long-awaited confession in London.",
+      "The slow-burn canon romance — missed calls, near-misses, and a confession in London.",
     starterEpisodes: "Ep 188-193, 621-623",
   },
 ]
@@ -313,25 +313,25 @@ export const WATCH_GUIDE: WatchStep[] = [
     step: 1,
     title: "Start with the essentials (Ep 1-5)",
     detail:
-      "Watch the first five episodes to learn the premise, meet the cast, and understand Conan's methods. Don't worry about catching every filler after that.",
+      "The first five episodes set the premise, cast, and Conan's method. After that, don't sweat the filler.",
   },
   {
     step: 2,
     title: "Follow the main plot arcs",
     detail:
-      "Use the arcs above as a spine. If you only want the core story, prioritize the Sherry, Vermouth, Kir, Bourbon, and Rum eras.",
+      "Use the arcs above as a spine. Core story only? Prioritize the Sherry, Vermouth, Kir, Bourbon, and Rum eras.",
   },
   {
     step: 3,
     title: "Add recurring-character episodes",
     detail:
-      "Sprinkle in Kaitou Kid, Heiji, and FBI episodes. They're canon and hugely rewarding, and several tie directly into the main plot.",
+      "Add Kaitou Kid, Heiji, and FBI episodes — canon, rewarding, and often tied into the main plot.",
   },
   {
     step: 4,
     title: "Enjoy standalone cases at your pace",
     detail:
-      "The self-contained mysteries are the soul of the show. Watch as many as you like between main-plot arcs; skip freely when you want momentum.",
+      "The standalone cases are the soul of the show. Watch as many as you like between main-plot arcs.",
   },
 ]
 

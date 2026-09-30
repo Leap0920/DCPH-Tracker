@@ -6,6 +6,8 @@
  * These run in route handlers / server actions — never trust the client.
  */
 
+import { containsForbiddenWords } from "./profanity"
+
 const USERNAME_RE = /^[a-zA-Z0-9_-]+$/
 
 export function validateUsername(username: unknown): string | null {
@@ -19,7 +21,37 @@ export function validateUsername(username: unknown): string | null {
   if (!USERNAME_RE.test(u)) {
     return "Username: letters, numbers, underscores, hyphens only"
   }
+  // A handle is public and permanent-ish, so vulgarity is rejected rather than
+  // masked: "f***er" is still a vulgar handle, and masking it would make two
+  // different inputs collide on the same stored name.
+  if (containsForbiddenWords(u)) {
+    return "Username contains language that isn't allowed"
+  }
   return null
+}
+
+/**
+ * Build the base candidate for an auto-assigned username from a display name or
+ * an email address, falling back to a neutral stem when the result would be
+ * empty, too short, or a slur.
+ *
+ * The slug rules alone are not enough: stripping punctuation out of a vulgar
+ * display name ("Tar*ntada!") yields a perfectly well-formed but profane handle,
+ * so the blocklist is consulted on the *result*, not on the raw input.
+ *
+ * Shared by both signup paths so the generated handle cannot drift between them.
+ */
+export function usernameBaseFrom(name: string, email: string): string {
+  const candidate = (name || email.split("@")[0])
+    .toLowerCase()
+    .replace(/[^a-z0-9_-]/g, "")
+    .slice(0, 15)
+  // The generated handle must also clear validateUsername, or a bad seed would
+  // mint a handle that the signup route's own check then rejects.
+  if (candidate.length < 3 || containsForbiddenWords(candidate)) {
+    return "detective"
+  }
+  return candidate
 }
 
 export function validateDisplayName(displayName: unknown): string | null {

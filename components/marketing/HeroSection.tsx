@@ -131,9 +131,9 @@ export function HeroSection({ liveBadge }: HeroSectionProps) {
             transition={{ duration: 0.7, ease: EASE }}
             className="mt-2 mb-8"
           >
-            <h1 className="hero-text-shadow font-display text-2xl min-[421px]:text-3xl sm:text-5xl font-bold text-ink leading-tight tracking-tight text-balance">
-              <span className="block">Your ultimate Detective Conan</span>
-              <span className="block">tracking platform</span>
+            <h1 className="hero-text-shadow font-display text-[26px] min-[421px]:text-3xl sm:text-5xl lg:text-6xl font-bold text-ink leading-[1.08] tracking-tight text-balance">
+              <span className="block">Track every case.</span>
+              <span className="block text-accent-bright">Prove your rank.</span>
             </h1>
           </motion.div>
 
@@ -178,10 +178,7 @@ export function HeroSection({ liveBadge }: HeroSectionProps) {
             transition={{ duration: 2, repeat: Infinity, ease: "easeInOut" }}
             className="flex flex-col items-center gap-2 hover:opacity-100 transition-opacity"
           >
-            <span className="hero-text-shadow text-[10px] font-mono text-ink-dim">
-              Scroll Down
-            </span>
-            <ChevronDown className="h-5 w-5 text-ink-dim" />
+            <ChevronDown aria-hidden className="h-5 w-5 text-ink-dim" />
           </motion.div>
         </motion.div>
       </div>
@@ -218,4 +215,4 @@ export function HeroSection({ liveBadge }: HeroSectionProps) {
       </div>
     </section>
   )
-}
+}

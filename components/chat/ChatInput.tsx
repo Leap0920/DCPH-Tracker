@@ -132,7 +132,7 @@ export function ChatInput({ onSend, onStop, disabled = false, isStreaming = fals
         disabled={disabled}
         onChange={(event) => setValue(event.target.value.slice(0, MAX_CHARS))}
         onKeyDown={handleKeyDown}
-        placeholder={isListening ? "Listening... speak now" : "Ask about Detective Conan episodes..."}
+        placeholder={isListening ? "Listening... speak now" : "Ask about episodes, movies, characters…"}
         className={cn(
           "flex-1 resize-none rounded-xl border border-line bg-surface px-3 py-2.5 text-sm text-ink transition-colors",
           isListening
