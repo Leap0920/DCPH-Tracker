@@ -35,11 +35,15 @@ export interface PaintedNode {
   darkFill: string;
   lightFill: string;
   border: string;
+  /** Soft faction halo colour (rgba string). */
+  glow: string;
   r: number;
   tier: 0 | 1 | 2;
   name: string;
   /** Sub-label (alias/role), skipped on the low tier. */
   sub?: string;
+  /** The Conan hub node gets a heavier ring, as in the SVG renderer. */
+  isConan?: boolean;
 }
 
 export interface PaintedEdge {
@@ -88,6 +92,8 @@ export interface PaintOptions {
   dimmed: boolean;
   labelLimit: 0 | 1 | null;
   dotGrid: boolean;
+  /** Selects the theme-appropriate node fill (see PaintedNode.darkFill). */
+  isDark: boolean;
   viewport: { w: number; h: number };
 }
 
@@ -184,12 +190,29 @@ export function paint(
     const isMatch = o.searchMatches?.has(n.index) ?? false;
     const emphasised = isSel || isHov || isMatch;
 
-    // Body
+    // Faction glow — the soft halo the SVG version got from a radial gradient.
+    // Drawn first, in screen-compensated radius so it stays a constant visual
+    // weight at any zoom.
+    const glowR = (n.r + 12) * k;
+    if (glowR > 2) {
+      const g = ctx.createRadialGradient(wx, wy, n.r * 0.6, wx, wy, glowR);
+      g.addColorStop(0, n.glow);
+      g.addColorStop(1, "rgba(0,0,0,0)");
+      ctx.fillStyle = g;
+      ctx.beginPath();
+      ctx.arc(wx, wy, glowR, 0, Math.PI * 2);
+      ctx.fill();
+      calls++;
+    }
+
+    // Body. The fill is theme-aware: hardcoding darkFill made every node render
+    // as a dark disc on the light theme, which flattened the whole palette.
     ctx.beginPath();
     ctx.arc(wx, wy, n.r, 0, Math.PI * 2);
-    ctx.fillStyle = isSel ? n.primary : n.darkFill;
+    ctx.fillStyle = isSel ? n.primary : o.isDark ? n.darkFill : n.lightFill;
     ctx.fill();
-    ctx.lineWidth = emphasised ? 3 : 2;
+    // Conan reads as the hub with a heavier ring; the SVG did the same.
+    ctx.lineWidth = emphasised ? 3 : n.isConan ? 3.5 : 2;
     ctx.strokeStyle = emphasised ? pal.strokeStrong : n.border;
     ctx.stroke();
     calls += 2;

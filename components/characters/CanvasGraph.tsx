@@ -64,6 +64,36 @@ const MIN_ZOOM = 0.12;
 const ZOOM_STEP = 1.35;
 /** Zoom used when flying to a searched node. */
 const ZOOM_TO_NODE = 1.9;
+/** Matches the SVG renderer's phone breakpoint. */
+const MOBILE_QUERY = "(max-width: 767px)";
+/** Share of the viewport the mobile dossier sheet may take. */
+const SHEET_VH = 0.56;
+
+/**
+ * The part of the viewport actually free of floating chrome.
+ *
+ * Fitting into the raw container is what pushed the graph under the dock and the
+ * top control row, so "centred" looked off-centre and the outermost nodes sat
+ * behind the chrome. This mirrors CharactersWeb's usableRect so both renderers
+ * centre on the same rectangle.
+ */
+function usableRect(
+  w: number,
+  h: number,
+  isMobile: boolean,
+  panelOpen: boolean
+): { x: number; y: number; w: number; h: number } {
+  const top = 100; // control row (search + graphics chip)
+  const left = isMobile ? 16 : 28;
+  const right = panelOpen && !isMobile ? 416 : isMobile ? 16 : 28;
+  const bottom = panelOpen && isMobile ? Math.round(h * SHEET_VH) + 20 : 92;
+  return {
+    x: left,
+    y: top,
+    w: Math.max(140, w - left - right),
+    h: Math.max(140, h - top - bottom),
+  };
+}
 
 /** Slop added to node hit radius so a small node is finger-tappable. */
 const TOUCH_SLACK_PX = 14;
@@ -102,7 +132,9 @@ type NodeSpec = {
   tier: 0 | 1 | 2;
   primary: string;
   darkFill: string;
+  lightFill: string;
   border: string;
+  glow: string;
   name: string;
   sub?: string;
   /** Relationship count — drives the radius and the accessibility label. */
@@ -159,6 +191,24 @@ export default function CanvasGraph({
   const camRef = useRef<Camera>({ x: 0, y: 0, k: 1 });
   const sizeRef = useRef({ w: 0, h: 0 });
   const didFitRef = useRef(false);
+  /** A dossier is open: it covers the lower half on a phone, so the fit has to
+   *  reserve that space or the graph centres behind the sheet. */
+  const panelOpenRef = useRef(Boolean(selectedCharacterId));
+  /** Read straight from matchMedia so the FIRST fit is already phone-shaped;
+   *  a React media-query hook settles one effect too late. */
+  const isMobileRef = useRef(
+    typeof window === "undefined"
+      ? false
+      : window.matchMedia(MOBILE_QUERY).matches
+  );
+  /** The chrome-free rectangle every camera fit centres on. */
+  const fitRect = useCallback(() => {
+    const { w, h } = sizeRef.current;
+    return usableRect(w, h, isMobileRef.current, panelOpenRef.current);
+  }, []);
+  useEffect(() => {
+    panelOpenRef.current = Boolean(selectedCharacterId);
+  }, [selectedCharacterId]);
   const dragRef = useRef<{ index: number; offX: number; offY: number } | null>(null);
   const panRef = useRef<{
     cx: number;
@@ -198,10 +248,14 @@ export default function CanvasGraph({
       return {
         c,
         r,
+        // Radius and tier both come straight from graph-theme, identical to the
+        // SVG renderer, so the size hierarchy cannot drift between the two.
         tier: r >= 20 ? 0 : r >= 16 ? 1 : 2,
         primary: ft.primary,
         darkFill: ft.darkFill,
+        lightFill: ft.lightFill,
         border: ft.border,
+        glow: ft.glow,
         name: c.name,
         sub: theme === "dark" ? undefined : c.aliases?.[0],
         degree: d,
@@ -223,7 +277,16 @@ export default function CanvasGraph({
       const total = counts.get(k) ?? 1;
       const idx = used.get(k) ?? 0;
       used.set(k, idx + 1);
-      edges.push({ rel: r, s, t, off: idx - (total - 1) / 2, color: "" });
+      // Resolve the theme-aware colour HERE, at graph-build time. Leaving it
+      // empty and defaulting at paint time flattened every red string to the
+      // same grey and threw away the relationship-type palette.
+      edges.push({
+        rel: r,
+        s,
+        t,
+        off: idx - (total - 1) / 2,
+        color: getRelationshipColor(r.type, theme === "dark"),
+      });
     }
 
     // Authored world positions.
@@ -305,12 +368,14 @@ export default function CanvasGraph({
       index: i,
       primary: n.primary,
       darkFill: n.darkFill,
-      lightFill: n.darkFill,
+      lightFill: n.lightFill,
       border: n.border,
+      glow: n.glow,
       r: n.r,
       tier: n.tier,
       name: n.name,
       sub: n.sub,
+      isConan: n.c.id === "conan-edogawa",
     }));
 
     const edgeFrom = new Float64Array(edges.length * 2);
@@ -327,7 +392,7 @@ export default function CanvasGraph({
         e.s === hovered || e.t === hovered || e.s === selectedIndex || e.t === selectedIndex;
       const dimmed = hovered >= 0 || searchMatches !== null || selectedIndex >= 0;
       const opacity = dimmed ? (isTarget ? 1 : 0.1) : 0.5;
-      return { index: i, color: e.color || "#64748B", opacity, width: 2 };
+      return { index: i, color: e.color, opacity, width: 2 };
     });
 
     paint(
@@ -346,11 +411,12 @@ export default function CanvasGraph({
         dimmed: hovered >= 0 || selectedIndex >= 0 || searchMatches !== null,
         labelLimit,
         dotGrid: q.dotGrid,
+        isDark: theme === "dark",
         viewport: { w, h },
       },
       pal
     );
-  }, [nodes, edges, positions, hovered, selectedIndex, searchMatches, labelLimit, q.dotGrid, pal]);
+  }, [nodes, edges, positions, hovered, selectedIndex, searchMatches, labelLimit, q.dotGrid, pal, theme]);
 
   // Publish the current draw so requestPaint() always repaints with fresh state.
   drawRef.current = draw;
@@ -377,12 +443,7 @@ export default function CanvasGraph({
       // First measurement: fit the graph so it is never off-screen.
       if (!didFitRef.current) {
         didFitRef.current = true;
-        camRef.current = fitCamera(
-          bbox,
-          { x: 0, y: 0, w, h },
-          MIN_ZOOM,
-          1.6
-        );
+        camRef.current = fitCamera(bbox, fitRect(), MIN_ZOOM, 1.6);
         setZoomPct(Math.round(camRef.current.k * 100));
       }
       requestPaint();
@@ -392,7 +453,7 @@ export default function CanvasGraph({
     const ro = new ResizeObserver(measure);
     ro.observe(el);
     return () => ro.disconnect();
-  }, [bbox, requestPaint]);
+  }, [bbox, fitRect, requestPaint]);
 
   /* ── camera commands (dock buttons + search "fly to") ───────────── */
 
@@ -410,14 +471,14 @@ export default function CanvasGraph({
     requestPaint();
   }, [requestPaint]);
 
-  /** Fit the whole graph, which is what "reset" means on the dock. */
+  /** Fit the whole graph into the chrome-free area — what "reset" means. */
   const centerOnConan = useCallback(() => {
     const { w, h } = sizeRef.current;
     if (w === 0 || h === 0) return;
-    camRef.current = fitCamera(bbox, { x: 0, y: 0, w, h }, MIN_ZOOM, 1.6);
+    camRef.current = fitCamera(bbox, fitRect(), MIN_ZOOM, 1.6);
     setZoomPct(Math.round(camRef.current.k * 100));
     requestPaint();
-  }, [bbox, requestPaint]);
+  }, [bbox, fitRect, requestPaint]);
 
   /** Bring a node into view at a readable zoom. */
   const focusNode = useCallback(

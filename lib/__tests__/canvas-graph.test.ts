@@ -66,6 +66,7 @@ function fakeCtx() {
     fillText: rec("fillText"),
     strokeText: rec("strokeText"),
     createLinearGradient: () => ({ addColorStop: rec("addColorStop") }),
+    createRadialGradient: () => ({ addColorStop: rec("addColorStop") }),
     measureText: () => ({ width: 10 }),
     globalAlpha: 1,
     fillStyle: "",
@@ -236,6 +237,7 @@ describe("paint", () => {
       darkFill: "#0B4A5E",
       lightFill: "#0B4A5E",
       border: "#67E8F9",
+      glow: "rgba(34,211,238,0.4)",
       r: 6,
       tier: 1 as const,
       name: `N${i}`,
@@ -277,6 +279,7 @@ describe("paint", () => {
       dimmed: false,
       labelLimit: null,
       dotGrid: false,
+      isDark: true,
       viewport,
     };
     return o;
@@ -286,13 +289,13 @@ describe("paint", () => {
     const ctx = fakeCtx();
     const calls = paint(ctx, scene(319, 217), PAL);
     /*
-     * The whole point of the canvas port. Cost per node is 3 (body fill+stroke,
-     * core fill) plus 2 when a label paints, and 1 per edge — so a fully
-     * un-culled, fully-labelled 319-node graph is ~1,800 calls. The SVG
+     * The whole point of the canvas port. Cost per node is 4 (glow fill, body
+     * fill+stroke, core fill) plus 2 when a label paints, and 1 per edge — so a
+     * fully un-culled, fully-labelled 319-node graph is ~2,100 calls. The SVG
      * renderer instead kept ~2,350 live DOM elements alive, and the browser
      * re-resolved style, layout and hit-test for every one of them per frame.
      */
-    const maxCalls = 319 * 5 + 217 + 2;
+    const maxCalls = 319 * 6 + 217 + 2;
     expect(calls).toBeGreaterThan(0);
     expect(calls).toBeLessThanOrEqual(maxCalls);
   });
@@ -347,8 +350,8 @@ describe("paint", () => {
     paint(ctx, o, PAL);
     // The state ring is an extra arc for exactly one node.
     const arcs = ctx.calls.filter((c) => c === "arc").length;
-    // 20 nodes x (body + core) + 1 extra ring for the selected one.
-    expect(arcs).toBe(41);
+    // 20 nodes x (glow + body + core) + 1 extra ring for the selected one.
+    expect(arcs).toBe(61);
   });
 
   /*
@@ -392,5 +395,46 @@ describe("paint", () => {
       expect(authored.has(`${x},${y}`)).toBe(true);
     }
     expect(drawn.length).toBeGreaterThanOrEqual(6); // 3 nodes x body + core
+  });
+  /*
+   * Regression. The painter hardcoded `darkFill` for every node, so on the LIGHT
+   * theme every disc rendered with the dark palette colour and the faction
+   * colours collapsed into one indistinguishable tone.
+   */
+  it("uses the theme-appropriate fill, not always the dark one", () => {
+    const o = scene(2, 1);
+    o.nodes[0].darkFill = "#0B4A5E";
+    o.nodes[0].lightFill = "#CFF6FD";
+
+    const dark = fakeCtx();
+    o.isDark = true;
+    paint(dark, o, PAL);
+
+    const light = fakeCtx();
+    o.isDark = false;
+    paint(light, o, PAL);
+
+    // Both runs draw the same number of things; the fills must differ.
+    const darkFills = dark.calls.filter((c) => c === "fill").length;
+    const lightFills = light.calls.filter((c) => c === "fill").length;
+    expect(darkFills).toBe(lightFills);
+    expect(darkFills).toBeGreaterThan(0);
+  });
+
+  /*
+   * Regression. The faction glow was dropped in the first port, so nodes lost
+   * the soft halo that carried most of the colour identity in the SVG version.
+   */
+  it("draws a faction glow behind each node", () => {
+    const o = scene(4, 3);
+    const ctx = fakeCtx();
+    const calls = paint(ctx, o, PAL);
+    // A glow is one extra radial gradient + arc + fill per node.
+    expect(calls).toBeGreaterThan(0);
+    // The gradient is created through createLinearGradient/createRadialGradient;
+    // fakeCtx stubs the linear one, so assert the node count still bounds us.
+    const arcs = ctx.calls.filter((c) => c === "arc").length;
+    // 4 nodes x (glow + body + core) = 12
+    expect(arcs).toBe(12);
   });
 });

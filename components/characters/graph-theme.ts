@@ -181,7 +181,7 @@ export function getFactionTheme(affiliation: string): FactionTheme {
   adversary is deliberately monochrome — stark, and distinct from the
   mid-grey colleague thread in both themes.
 */
-const RELATIONSHIP_COLORS: Record<
+export const RELATIONSHIP_COLORS: Record<
   RelationshipType,
   { light: string; dark: string }
 > = {
