@@ -103,6 +103,33 @@ describe("propagate", () => {
     expect(deepest).toBeGreaterThanOrEqual(10 * DEFAULT_PROPAGATION.minShare - 1e-9);
   });
 
+  /*
+   * The "screen moves while I move the nodes" report.
+   *
+   * A 30% floor over a 24-hop budget meant EVERY node in the component shifted
+   * by at least 30% of the drag, so pulling one node slid the entire picture.
+   * The floor must now be low enough that the far side of the graph barely
+   * stirs, while a direct child still clearly follows.
+   */
+  it("keeps distant branches nearly still so the view does not slide", () => {
+    // A long chain: 0-1-2-3-4-5-6-7-8
+    const edgeS = new Int32Array([0, 1, 2, 3, 4, 5, 6, 7]);
+    const edgeT = new Int32Array([1, 2, 3, 4, 5, 6, 7, 8]);
+    const n = 9;
+    const adj = buildAdjacency(edgeS, edgeT, edgeS.length, n);
+    const positions = new Float64Array(n * 2);
+    for (let i = 0; i < n; i++) positions[i * 2] = i * 100;
+
+    const out = new Float64Array(n * 2);
+    propagate(0, 100, 0, 0, 0, adj, n, positions, out, DEFAULT_PROPAGATION);
+
+    const child = out[2];        // hop 1
+    const distant = out[16];     // hop 8
+    expect(child).toBeGreaterThan(80);          // clearly follows
+    expect(Math.abs(distant)).toBeLessThan(12); // barely moves
+    expect(Math.abs(distant) / child).toBeLessThan(0.2);
+  });
+
   it("attenuates with distance rather than moving everything equally", () => {
     const edgeS = new Int32Array([0, 1, 2, 3]);
     const edgeT = new Int32Array([1, 2, 3, 4]);

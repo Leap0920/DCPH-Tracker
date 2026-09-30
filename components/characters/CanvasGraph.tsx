@@ -128,6 +128,13 @@ function usableRect(
 
 /** Slop added to node hit radius so a small node is finger-tappable. */
 const TOUCH_SLACK_PX = 14;
+/**
+ * Screen px a finger must travel before a pan begins.
+ *
+ * Without it, the few pixels of movement in an ordinary touch-and-lift panned
+ * the camera — so merely reaching for a node shifted the whole view.
+ */
+const PAN_DEAD_ZONE_PX = 8;
 
 /**
  * Ambient drift amplitude in world px, for the canvas renderer.
@@ -264,6 +271,11 @@ export default function CanvasGraph({
     vx: number;
     vy: number;
     lastT: number;
+    /** Where the finger first landed — the dead-zone is measured from here. */
+    ox: number;
+    oy: number;
+    /** False until the dead-zone is cleared, so a tap never pans. */
+    active: boolean;
   } | null>(null);
   const movedRef = useRef(false);
   const pointersRef = useRef(new Map<number, { x: number; y: number }>());
@@ -817,14 +829,40 @@ export default function CanvasGraph({
         vx: 0,
         vy: 0,
         lastT: performance.now(),
+        ox: e.clientX,
+        oy: e.clientY,
+        active: false,
       };
       el.style.cursor = "grabbing";
     };
+
+    /*
+     * Coalesce pointermove to one pass per frame.
+     *
+     * A drag handler that runs per EVENT does a full propagate (O(nodes+edges))
+     * plus a full repaint several times per frame — browsers fire far more move
+     * events than the display can show. That is what made the node feel like it
+     * lagged behind the finger. Recording the latest position and applying it
+     * once per animation frame makes the node track the finger closely instead.
+     */
+    let moveRaf = 0;
+    let latestMove: PointerEvent | null = null;
 
     const onMove = (e: PointerEvent) => {
       if (pointersRef.current.has(e.pointerId)) {
         pointersRef.current.set(e.pointerId, { x: e.clientX, y: e.clientY });
       }
+      latestMove = e;
+      if (moveRaf) return;
+      moveRaf = requestAnimationFrame(() => {
+        moveRaf = 0;
+        const evt = latestMove;
+        latestMove = null;
+        if (evt) applyMove(evt);
+      });
+    };
+
+    const applyMove = (e: PointerEvent) => {
 
       // Pinch zoom.
       const pinch = pinchRef.current;
@@ -886,7 +924,9 @@ export default function CanvasGraph({
         return;
       }
 
-      // Pan.
+      // Pan. A small dead-zone first, so a finger that meant to tap does not
+      // nudge the camera — that nudge is what makes the view feel like it drifts
+      // under you while you are only trying to touch a node.
       const pan = panRef.current;
       if (pan) {
         const dx = e.clientX - pan.cx;
@@ -898,9 +938,17 @@ export default function CanvasGraph({
         pan.lastT = now;
         pan.cx = e.clientX;
         pan.cy = e.clientY;
+        if (!pan.active) {
+          const travelled = Math.hypot(
+            e.clientX - pan.ox,
+            e.clientY - pan.oy
+          );
+          if (travelled < PAN_DEAD_ZONE_PX) return;
+          pan.active = true;
+        }
         const cam = camRef.current;
         camRef.current = { k: cam.k, x: cam.x + dx, y: cam.y + dy };
-        if (Math.abs(dx) + Math.abs(dy) > 1) movedRef.current = true;
+        movedRef.current = true;
         requestPaint();
         return;
       }
@@ -915,6 +963,17 @@ export default function CanvasGraph({
     };
 
     const onUp = (e: PointerEvent) => {
+      // Apply the last pending move before settling, so a fast flick does not
+      // lose its final position to a cancelled frame.
+      if (moveRaf) {
+        cancelAnimationFrame(moveRaf);
+        moveRaf = 0;
+        if (latestMove) {
+          const evt = latestMove;
+          latestMove = null;
+          applyMove(evt);
+        }
+      }
       pointersRef.current.delete(e.pointerId);
       if (pointersRef.current.size < 2) pinchRef.current = null;
       const wasTap = !movedRef.current;
@@ -974,6 +1033,11 @@ export default function CanvasGraph({
     el.addEventListener("wheel", onWheel, { passive: false });
 
     return () => {
+      if (moveRaf) {
+        cancelAnimationFrame(moveRaf);
+        moveRaf = 0;
+        latestMove = null;
+      }
       el.removeEventListener("pointerdown", onDown);
       window.removeEventListener("pointermove", onMove);
       window.removeEventListener("pointerup", onUp);

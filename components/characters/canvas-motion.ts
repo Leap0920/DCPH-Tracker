@@ -121,10 +121,18 @@ export interface PropagationOptions {
 }
 
 export const DEFAULT_PROPAGATION: PropagationOptions = {
-  neighbourShare: 0.92,
-  hopFalloff: 0.88,
-  minShare: 0.3,
-  hops: 24,
+  neighbourShare: 0.9,
+  /*
+   * Steeper than before ON PURPOSE. At 0.88-per-hop with a 30% floor, EVERY
+   * node in the component moved at least 30% of the drag, so pulling one node
+   * slid the entire picture — reported as "the screen moves while I move the
+   * nodes". A real falloff keeps close branches following (a grandchild still
+   * moves 65%) while the far side of the graph barely stirs (6% at the floor),
+   * which reads as tugging a branch instead of dragging the canvas.
+   */
+  hopFalloff: 0.72,
+  minShare: 0.06,
+  hops: 12,
   maxDistance: Number.POSITIVE_INFINITY,
 };
 
