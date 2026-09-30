@@ -88,8 +88,6 @@ export interface PaintOptions {
   hoveredIndex: number;
   /** Index set forced visible by an active search. */
   searchMatches: ReadonlySet<number> | null;
-  /** Dim non-targets (a dossier is open or a search is active). */
-  dimmed: boolean;
   dotGrid: boolean;
   /** Selects the theme-appropriate node fill (see PaintedNode.darkFill). */
   isDark: boolean;

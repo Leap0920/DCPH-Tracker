@@ -390,9 +390,27 @@ export default function CanvasGraph({
 
       const isTarget =
         e.s === hovered || e.t === hovered || e.s === selectedIndex || e.t === selectedIndex;
-      const dimmed = hovered >= 0 || searchMatches !== null || selectedIndex >= 0;
-      const opacity = dimmed ? (isTarget ? 1 : 0.1) : 0.5;
-      return { index: i, color: e.color, opacity, width: 2 };
+      /*
+       * Hovering must never make anything DISAPPEAR.
+       *
+       * It used to drop every non-adjacent string to 0.1 opacity, so sweeping the
+       * pointer across the graph blanked out most of it — on a phone with a fat
+       * finger that reads as content vanishing. Dimming is a readability aid, not
+       * a filter: the untouched strings stay clearly visible, and the ones tied
+       * to the node under the pointer simply brighten. Selection still dims, and
+       * a search still filters, because both are deliberate narrowing actions
+       * rather than incidental contact.
+       */
+      const isSearching = searchMatches !== null;
+      const isFocused = selectedIndex >= 0;
+      const opacity = isSearching
+        ? (e.s === selectedIndex || e.t === selectedIndex ? 1 : 0.22)
+        : isTarget
+          ? 1
+          : isFocused
+            ? 0.42
+            : 0.5;
+      return { index: i, color: e.color, opacity, width: isTarget ? 2.6 : 2 };
     });
 
     paint(
@@ -408,7 +426,6 @@ export default function CanvasGraph({
         selectedIndex,
         hoveredIndex: hovered,
         searchMatches,
-        dimmed: hovered >= 0 || selectedIndex >= 0 || searchMatches !== null,
         dotGrid: q.dotGrid,
         isDark: theme === "dark",
         dpr,

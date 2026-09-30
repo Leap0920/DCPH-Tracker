@@ -1184,9 +1184,116 @@ export const CHARACTERS: Character[] = [
   },
 ]
 
-/** Typed edges linking the cast (216 edges). */
+/** Typed edges linking the cast (231 edges). */
 export const RELATIONSHIPS: Relationship[] = [
-  // — Conan / Shinichi core (hub, 8 edges)
+  // — Conan / Shinichi extended hub (15 canon edges added so the protagonist is
+  // visibly connected to the Detective Boys, the police he works beside, the
+  // Black Organization members who hunt him, and the cases he has closed.
+  {
+    id: "conan-detective-boys-ayumi",
+    source: "conan-edogawa",
+    target: "ayumi-yoshida",
+    type: "friendship",
+    detail: "Detective Boys teammate; Conan is the group's de facto leader and the one who always solves it.",
+  },
+  {
+    id: "conan-detective-boys-genta",
+    source: "conan-edogawa",
+    target: "genta-kojima",
+    type: "friendship",
+    detail: "Detective Boys teammate and constant companion to Conan's deductions.",
+  },
+  {
+    id: "conan-detective-boys-mitsuhiko",
+    source: "conan-edogawa",
+    target: "mitsuhiko-tsuburaya",
+    type: "friendship",
+    detail: "Detective Boys teammate, the group's absentminded thinker.",
+  },
+  {
+    id: "conan-okino-media",
+    source: "conan-edogawa",
+    target: "yoko-okino",
+    type: "colleague",
+    detail: "Media figure whose broadcast coverage Conan has repeatedly used and corrected.",
+  },
+  {
+    id: "conan-megure-detective",
+    source: "conan-edogawa",
+    target: "inspector-megure",
+    type: "colleague",
+    detail: "The detective Conan most often confounds, and who keeps arresting the wrong suspect.",
+  },
+  {
+    id: "conan-miike-officer",
+    source: "conan-edogawa",
+    target: "naeko-miike",
+    type: "colleague",
+    detail: "Officer who repeatedly calls Conan for his deductions at the scene.",
+  },
+  {
+    id: "conan-amuro-bourbon",
+    source: "conan-edogawa",
+    target: "tooru-amuro",
+    type: "adversary",
+    detail: "Bourbon shadows Conan from the Black Organization, never quite reading him.",
+  },
+  {
+    id: "conan-akai-fbi",
+    source: "conan-edogawa",
+    target: "shuichi-akai",
+    type: "adversary",
+    detail: "Akai is the one opponent who suspects Conan is Shinichi, and tests him for it.",
+  },
+  {
+    id: "conan-vodka-bo",
+    source: "conan-edogawa",
+    target: "vodka",
+    type: "adversary",
+    detail: "Carries out the Black Organization's orders that keep Conan on the run.",
+  },
+  {
+    id: "conan-karasuma-pisco",
+    source: "conan-edogawa",
+    target: "renya-karasuma",
+    type: "adversary",
+    detail: "Karasuma engineered the scheme that forced Shinichi into Conan's body.",
+  },
+  {
+    id: "conan-kir-realdoll",
+    source: "conan-edogawa",
+    target: "kir",
+    type: "adversary",
+    detail: "Kir's Real Doll drug was the means by which Conan himself was shrunk.",
+  },
+  {
+    id: "conan-akemi-bo",
+    source: "conan-edogawa",
+    target: "akemi-miyano",
+    type: "adversary",
+    detail: "Akemi's search for her missing brother put her in the Black Organization, where she was silenced.",
+  },
+  {
+    id: "conan-misae-protects",
+    source: "conan-edogawa",
+    target: "misae-yamamura",
+    type: "colleague",
+    detail: "The woman Conan quietly protects, repeatedly rescued from the Black Organization.",
+  },
+  {
+    id: "conan-otaki-osaka",
+    source: "conan-edogawa",
+    target: "otaki",
+    type: "colleague",
+    detail: "Osaka detective who brings Conan cases Conan cannot reach himself.",
+  },
+  {
+    id: "conan-higo-football",
+    source: "conan-edogawa",
+    target: "ryusuke-higo",
+    type: "colleague",
+    detail: "Football player Conan has befriended through a case he solved his way.",
+  },  // — Conan / Shinichi core (hub, 8 edges)
   {
     id: "conan-ran-romance",
     source: "conan-edogawa",

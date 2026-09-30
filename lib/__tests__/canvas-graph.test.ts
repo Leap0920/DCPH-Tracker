@@ -54,6 +54,8 @@ function fakeCtx() {
   const ctx = {
     calls,
     setTransformArgs,
+    alphas: [] as number[],
+    alphaValue: 1,
     save: rec("save"),
     restore: rec("restore"),
     clearRect: rec("clearRect"),
@@ -73,7 +75,13 @@ function fakeCtx() {
     createLinearGradient: () => ({ addColorStop: rec("addColorStop") }),
     createRadialGradient: () => ({ addColorStop: rec("addColorStop") }),
     measureText: () => ({ width: 10 }),
-    globalAlpha: 1,
+    get globalAlpha() {
+      return ctx.alphaValue;
+    },
+    set globalAlpha(v: number) {
+      ctx.alphaValue = v;
+      ctx.alphas.push(v);
+    },
     fillStyle: "",
     strokeStyle: "",
     lineWidth: 1,
@@ -85,6 +93,7 @@ function fakeCtx() {
   return ctx as unknown as CanvasRenderingContext2D & {
     calls: string[];
     setTransformArgs: unknown[][];
+    alphas: number[];
   };
 }
 
@@ -284,7 +293,6 @@ describe("paint", () => {
       selectedIndex: -1,
       hoveredIndex: -1,
       searchMatches: null,
-      dimmed: false,
       dotGrid: false,
       isDark: true,
       dpr: 1,
@@ -407,6 +415,25 @@ describe("paint", () => {
 
     expect(nApart).toBe(4);
     expect(nApart).toBeGreaterThan(nStacked);
+  });
+
+  /*
+   * Regression. Edge opacity was driven by the CALLER, so a hover dropped every
+   * non-adjacent string to 0.1 — sweeping the pointer across the graph blanked
+   * out most of it, which on a phone reads as content vanishing.
+   */
+  it("keeps non-adjacent strings visible while a node is hovered", () => {
+    const o = scene(20, 40);
+    o.hoveredIndex = 0;
+    const ctx = fakeCtx();
+    paint(ctx, o, PAL);
+    // The painter multiplies by ctx.globalAlpha; assert it never goes near zero
+    // for a plain hover. (The caller now supplies 0.5 / 1.0 only.)
+    const alphas: number[] = ctx.alphas;
+    expect(alphas.length).toBeGreaterThan(0);
+    // No string is drawn at an alpha that would render it invisible.
+    const visible = alphas.filter((a: number) => a > 0);
+    expect(Math.min(...visible)).toBeGreaterThan(0.3);
   });
 
   it("restores the transform so the next frame starts clean", () => {
