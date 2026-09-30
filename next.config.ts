@@ -2,10 +2,47 @@ import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
   images: {
-    formats: ["image/avif", "image/webp"],
+    /*
+      Quota guardrails for the Vercel image optimizer (Hobby = 5,000
+      transformations/month, billed per unique src+width+format — and the
+      default 60-second cache TTL re-billed every sweep).
+
+      * webp only — "avif"+"webp" doubled every variant for marginal gain.
+      * minimumCacheTTL 31 days — repeat views stop re-transforming.
+      * sizes trimmed — each image gets a handful of widths instead of the
+        default 16-combination spread.
+
+      remotePatterns used to be "**", which let ANY remote URL be fetched
+      and optimized through this deployment (a quota-drain / open-relay
+      vector). The list below is exactly what content_entries.image_url and
+      profile avatars actually reference today, plus the OAuth avatar hosts.
+
+      EMERGENCY SWITCH: set IMAGE_OPTIMIZATION_DISABLED=true in the Vercel
+      project env and redeploy to bypass the optimizer entirely if the
+      transformation quota is exhausted (images then load straight from
+      their source; every host you need must also be allowed by the CSP
+      img-src in lib/security-headers.ts).
+    */
+    formats: ["image/webp"],
+    minimumCacheTTL: 2678400, // 31 days
+    deviceSizes: [640, 828, 1080, 1920],
+    imageSizes: [64, 128, 256, 384],
+    unoptimized: process.env.IMAGE_OPTIMIZATION_DISABLED === "true",
     remotePatterns: [
-      { protocol: "https", hostname: "**" },
-      { protocol: "http", hostname: "**" },
+      { protocol: "https", hostname: "**.supabase.co" },
+      { protocol: "https", hostname: "detectiveconanworld.com" },
+      { protocol: "https", hostname: "www.detectiveconanworld.com" },
+      { protocol: "https", hostname: "**.detectiveconanworld.com" },
+      { protocol: "https", hostname: "static.wikia.nocookie.net" },
+      { protocol: "https", hostname: "**.fandom.com" },
+      { protocol: "https", hostname: "media.kitsu.app" },
+      { protocol: "https", hostname: "cdn.myanimelist.net" },
+      { protocol: "https", hostname: "s4.anilist.co" },
+      { protocol: "https", hostname: "m.media-amazon.com" },
+      { protocol: "https", hostname: "image.tmdb.org" },
+      { protocol: "https", hostname: "upload.wikimedia.org" },
+      { protocol: "https", hostname: "lh3.googleusercontent.com" },
+      { protocol: "https", hostname: "avatars.githubusercontent.com" },
     ],
   },
   /*

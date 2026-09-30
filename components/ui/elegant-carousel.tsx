@@ -57,6 +57,16 @@ const defaultSlides: SlideData[] = [
   },
 ];
 
+/**
+ * Quota guardrail. Start-on-mount used to pull tens of megabytes per visit
+ * (four ~40 MB block-screening videos rendered with autoplay +
+ * preload="auto") — the single biggest line on the Vercel Fast Data
+ * Transfer meter. With this off, a slide shows its poster and a visitor who
+ * taps gets playback; set it back to true only once the media files are
+ * much smaller or hosted off Vercel entirely (see docs/ops/quota-and-backups.md).
+ */
+const AUTOPLAY_MUTED = false;
+
 export default function ElegantCarousel({ customSlides }: { customSlides?: SlideData[] }) {
   const slides = customSlides || defaultSlides;
   const [currentIndex, setCurrentIndex] = useState(0);
@@ -144,7 +154,7 @@ export default function ElegantCarousel({ customSlides }: { customSlides?: Slide
     if (video) video.muted = isMuted;
   }, [isMuted]);
 
-  // Autoplay on mount and on every slide change.
+  // Autoplay on mount and on every slide change — gated by AUTOPLAY_MUTED.
   useEffect(() => {
     const video = videoRef.current;
     if (!video) return;
@@ -158,6 +168,15 @@ export default function ElegantCarousel({ customSlides }: { customSlides?: Slide
       /* metadata not ready yet — element is already at 0 */
     }
     setProgress(0);
+
+    // Quota guardrail: with autoplay off, leave the poster up and pull no
+    // video bytes until the visitor taps play (togglePlay owns the rest).
+    if (!AUTOPLAY_MUTED) {
+      setIsPlaying(false);
+      return () => {
+        cancelled = true;
+      };
+    }
 
     const tryPlay = () => {
       if (cancelled) return;
@@ -358,10 +377,10 @@ export default function ElegantCarousel({ customSlides }: { customSlides?: Slide
                   ref={videoRef}
                   key={currentSlide.videoUrl}
                   src={currentSlide.videoUrl}
-                  autoPlay
+                  poster={currentSlide.imageUrl ?? undefined}
                   muted={isMuted}
                   playsInline
-                  preload="auto"
+                  preload="metadata"
                   aria-label={`Video highlight: ${currentSlide.title}`}
                   title={currentSlide.title}
                   onPlay={() => setIsPlaying(true)}
