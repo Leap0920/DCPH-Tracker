@@ -437,6 +437,24 @@ describe("paint", () => {
     expect(Math.min(...visible)).toBeGreaterThan(0.3);
   });
 
+  /*
+   * Regression, and the reason the mobile default looked wrong. The camera
+   * transform replaced the caller's DPR scale instead of composing with it, so
+   * the graph drew at 1/dpr size. On a 2x phone a correctly-fitted 81%-wide
+   * graph rendered 40% wide, parked up and to the left — precisely what the
+   * device screenshot showed, and what the arithmetic here pins down.
+   */
+  it("composes the camera with the DPR scale instead of replacing it", () => {
+    const ctx = fakeCtx();
+    const o = scene(10, 8);
+    o.dpr = 2;
+    o.cam = { x: 30, y: -12, k: 0.25 };
+    paint(ctx, o, PAL);
+    const scales = ctx.setTransformArgs;
+    // The first setTransform is the camera; it must carry dpr through.
+    expect(scales[0]).toEqual([0.25 * 2, 0, 0, 0.25 * 2, 30 * 2, -12 * 2]);
+  });
+
   it("restores the transform so the next frame starts clean", () => {
     const ctx = fakeCtx();
     paint(ctx, scene(10, 8), PAL);

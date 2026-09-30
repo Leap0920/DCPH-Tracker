@@ -143,6 +143,9 @@ export function paint(
   let calls = 0;
   const { cam, viewport } = o;
   const k = cam.k || 1;
+  /** The scale the caller already applied; every transform here composes with
+   *  it so drawing stays in CSS px while the backing store stays crisp. */
+  const dpr = o.dpr;
 
   ctx.save();
   ctx.clearRect(0, 0, viewport.w, viewport.h);
@@ -170,10 +173,20 @@ export function paint(
   }
 
   /* ── camera transform ── */
-  // Applied once, so every node/edge below is drawn in world coordinates and
-  // the rasteriser does the projection. This is the single transform that makes
-  // pan/zoom cheap: it is one setTransform, not 2,350 element updates.
-  ctx.setTransform(k, 0, 0, k, cam.x, cam.y);
+  /*
+   * Compose the camera WITH the device-pixel-ratio scale, never replace it.
+   *
+   * The caller sets the context to `scale(dpr)` so everything below can be
+   * written in CSS pixels. A bare `setTransform(k, 0, 0, k, cam.x, cam.y)` threw
+   * that scale away, so the whole graph drew at 1/dpr of its intended size —
+   * measured against a 2x phone that is exactly the reported symptom: the fit
+   * computed an 81%-wide graph and the screen showed 40%, parked up and to the
+   * left because the camera offset was likewise unscaled.
+   *
+   * Multiplying through keeps one transform for every node and edge, so pan and
+   * zoom stay a single setTransform rather than 2,350 element updates.
+   */
+  ctx.setTransform(k * dpr, 0, 0, k * dpr, cam.x * dpr, cam.y * dpr);
 
   // World-space viewport, used to cull before drawing.
   const minWX = -cam.x / k - 64;
