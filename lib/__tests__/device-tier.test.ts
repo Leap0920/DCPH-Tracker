@@ -39,6 +39,36 @@ describe("device tier detection", () => {
     ).toBe("balanced")
   })
 
+  it("drops a modest phone to low, where the frame cap actually applies", () => {
+    /*
+     * Regression: a 4 GB / 8-core phone (Realme 7 class) used to stop at
+     * `balanced`, so it could never reach the tier whose whole point is the
+     * still, frame-capped graph — and it stuttered even on "low graphics".
+     */
+    const realme7 = classifyDevice({
+      cores: 8,
+      memoryGB: 4,
+      coarsePointer: true,
+      dpr: 3,
+      screenArea: 404 * 896,
+    })
+    expect(realme7.tier).toBe("low")
+    expect(realme7.reasons.join(" ")).toMatch(/phone/i)
+
+    // 4 cores on a touch device is the same story.
+    expect(
+      classifyDevice({ cores: 4, memoryGB: 8, coarsePointer: true }).tier
+    ).toBe("low")
+
+    // A capable phone keeps its headroom.
+    expect(
+      classifyDevice({ cores: 8, memoryGB: 8, coarsePointer: true }).tier
+    ).toBe("balanced")
+
+    // The same hardware on a laptop is not a phone — desktops are untouched.
+    expect(classifyDevice({ cores: 8, memoryGB: 4 }).tier).toBe("balanced")
+  })
+
   it("drops weak hardware to low", () => {
     expect(classifyDevice({ cores: 2, memoryGB: 2 }).tier).toBe("low")
     expect(classifyDevice({ cores: 8, memoryGB: 2 }).tier).toBe("low")
@@ -116,6 +146,32 @@ describe("graph quality tiers", () => {
     expect(low.particles).toBe(0)
     expect(low.breathe).toBe(false)
     expect(low.ripple).toBe(false)
+  })
+
+  it("actually caps the frame rate below high", () => {
+    /*
+     * Regression: every tier shipped frameBudgetMs: 0, which the render loop's
+     * guard (`if (q.frameBudgetMs > 0 && ...)`) reads as "uncapped". The "Low —
+     * Maximum performance" tier therefore drew every vsync, so a phone that
+     * picked it still ran the full node/edge pass forever and still stuttered.
+     */
+    expect(GRAPH_QUALITY.low.frameBudgetMs).toBeGreaterThan(0)
+    expect(GRAPH_QUALITY.balanced.frameBudgetMs).toBeGreaterThan(0)
+    // Uncapped stays reserved for the tier a visitor picks on capable hardware.
+    expect(GRAPH_QUALITY.high.frameBudgetMs).toBe(0)
+
+    // Monotonically more expensive as quality rises.
+    expect(GRAPH_QUALITY.low.frameBudgetMs).toBeGreaterThan(
+      GRAPH_QUALITY.balanced.frameBudgetMs
+    )
+  })
+
+  it("spends nothing per frame on a still low tier", () => {
+    // A still graph has no reason to redraw between interactions, so the cap
+    // must be real enough to halve the frame count against `high`.
+    expect(GRAPH_QUALITY.low.frameBudgetMs).toBeGreaterThanOrEqual(
+      1000 / 30 - 1
+    )
   })
 
   it("stops the 103 breathing rings below high, so a phone never repaints every node", () => {

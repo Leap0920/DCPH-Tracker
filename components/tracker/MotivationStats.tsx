@@ -230,7 +230,7 @@ export function MotivationStats({ entries, userStatuses, userWatchCounts, userNa
           ))}
         </div>
         <p className="mt-4 text-[11px] text-ink-dim leading-relaxed">
-          Every case file in the tracker. The truth is out there, one episode at a time.
+          The truth is out there, one episode at a time.
         </p>
       </div>
 
@@ -246,7 +246,7 @@ export function MotivationStats({ entries, userStatuses, userWatchCounts, userNa
               Sign in to track
             </p>
             <p className="text-xs text-ink-dim">
-              Your watched list, minutes, and finish date will show up here.
+              Your watched list, minutes, and finish date land here.
             </p>
           </div>
         ) : (
@@ -311,7 +311,7 @@ export function MotivationStats({ entries, userStatuses, userWatchCounts, userNa
               No projection yet
             </p>
             <p className="text-xs text-ink-dim">
-              Sign in and start watching to see your estimated completion date.
+              Sign in to see your estimated finish date.
             </p>
           </div>
         ) : finishDate ? (

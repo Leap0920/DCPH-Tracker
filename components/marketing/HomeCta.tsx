@@ -48,10 +48,10 @@ export function HomeCta() {
         </span>
 
         <h3 className="mt-5 font-display text-2xl font-bold text-ink sm:text-3xl">
-          Ready to start tracking?
+          Open your case file.
         </h3>
         <p className="mx-auto mt-2 max-w-md text-sm text-ink-dim sm:text-base">
-          Create a free account and pick up where Conan left off.
+          Free to join. Start at episode one.
         </p>
 
         <div className="mt-8 flex flex-col items-stretch justify-center gap-3 sm:flex-row sm:items-center">

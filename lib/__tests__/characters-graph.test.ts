@@ -36,17 +36,36 @@ describe("characters graph theme & geometry", () => {
     }
   })
 
-  it("calculates node radius based on degree and role", () => {
-    const conan = CHARACTERS.find((c) => c.id === "conan-edogawa")!
-    expect(conan).toBeDefined()
-    const radiusConan = getNodeRadius(conan, 10)
-    expect(radiusConan).toBeGreaterThanOrEqual(24)
+  it("sizes every node from its connection count, and nothing else", () => {
+    // Strictly more relationships => strictly a bigger disc.
+    expect(getNodeRadius(34)).toBeGreaterThan(getNodeRadius(16))
+    expect(getNodeRadius(16)).toBeGreaterThan(getNodeRadius(8))
+    expect(getNodeRadius(8)).toBeGreaterThan(getNodeRadius(4))
+    expect(getNodeRadius(4)).toBeGreaterThan(getNodeRadius(1))
 
-    const minor = CHARACTERS.find((c) => c.role !== "Protagonist" && c.id !== "conan-edogawa")
-    if (minor) {
-      const radiusMinor = getNodeRadius(minor, 1)
-      expect(radiusMinor).toBeLessThan(radiusConan)
+    // Anchors: the hub (34 links) reads biggest; a one-link character stays
+    // a dot; a zero-link character never shrinks below the floor.
+    expect(getNodeRadius(34)).toBeGreaterThanOrEqual(30)
+    expect(getNodeRadius(1)).toBeLessThanOrEqual(11)
+    expect(getNodeRadius(0)).toBe(getNodeRadius(1))
+
+    // The real cast: sorted by degree, radii must never go DOWN — the guard
+    // against a size list sneaking back in.
+    const degree = new Map<string, number>()
+    for (const r of RELATIONSHIPS) {
+      degree.set(r.source, (degree.get(r.source) ?? 0) + 1)
+      degree.set(r.target, (degree.get(r.target) ?? 0) + 1)
     }
+    const byDegree = [...CHARACTERS].sort(
+      (a, b) => (degree.get(a.id) ?? 0) - (degree.get(b.id) ?? 0)
+    )
+    const radii = byDegree.map((c) => getNodeRadius(degree.get(c.id) ?? 0))
+    for (let i = 1; i < radii.length; i++) {
+      expect(radii[i]).toBeGreaterThanOrEqual(radii[i - 1])
+    }
+    // And the ordering is real: the biggest node is the most-connected one.
+    const hub = byDegree[byDegree.length - 1]
+    expect(degree.get(hub.id) ?? 0).toBeGreaterThanOrEqual(34)
   })
 
   it("provides distinct relationship colors for light and dark themes", () => {

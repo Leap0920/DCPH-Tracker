@@ -47,7 +47,7 @@ export function LatestContentGrid({ entries }: { entries: LatestEntry[] }) {
       <SectionHeading
         eyebrow="Fresh off the air"
         title="Latest content"
-        subtitle="Jump back in where the case left off."
+        subtitle="What just aired."
       />
 
       <div className="mt-8 sm:mt-12">
@@ -67,9 +67,9 @@ export function LatestContentGrid({ entries }: { entries: LatestEntry[] }) {
                 badge={entry.episode_number ? `Ep. ${entry.episode_number}` : label}
                 date={entry.air_date}
                 Icon={Icon}
-                description={entry.episode_number ? `${label} • Episode ${entry.episode_number}` : label}
+                description={label}
                 href={`/tracker?type=${entry.type}`}
-                cta="Watch episode"
+                cta="Watch"
                 background={
                   <Image
                     src={imgPath}

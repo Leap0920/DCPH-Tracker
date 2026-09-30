@@ -96,7 +96,7 @@ export default async function FavoritesPage() {
           Favorites
         </h1>
         <p className="mt-2 max-w-xl text-ink-dim">
-          Every case you hearted on the tracker, filed away for quick retrieval.
+          Your hearted cases, filed for quick retrieval.
         </p>
 
         {favorites.length === 0 ? (

@@ -5,9 +5,9 @@ import { Feature } from "@/components/ui/feature-with-advantages"
 export function FeaturesGrid() {
   return (
     <Feature
-      badge="Platform"
-      title="Everything you need to follow the case"
-      subtitle="Track, explore, rank, and talk, all in one place."
+      badge="Toolkit"
+      title="Your detective toolkit"
+      subtitle="Track, explore, rank, chat."
     />
   )
 }

@@ -50,8 +50,7 @@ export function Footer() {
               </span>
             </Link>
             <p className="max-w-xs text-sm text-ink-dim">
-              The Filipino Detective Conan community: track episodes, join discussions,
-              and prove your rank in the organization.
+              The Filipino Detective Conan community.
             </p>
           </div>
 

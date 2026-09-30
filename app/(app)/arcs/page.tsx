@@ -45,9 +45,8 @@ export default async function ArcsPage() {
           Story Arcs &amp; Watch Guide
         </h1>
         <p className="mt-2 max-w-2xl text-ink-dim">
-          The full main plot of Detective Conan from Season 1 to the latest
-          episode and how to actually watch it without drowning in 1,100+
-          episodes.
+          The main plot from S1 to the latest episode — without drowning in
+          1,100+ of them.
         </p>
 
         {/* Premise */}
@@ -246,8 +245,7 @@ export default async function ArcsPage() {
         <div className="mt-10 flex items-center gap-2 text-sm text-ink-faint">
           <ArrowRight className="h-4 w-4" />
           <span>
-            Open any arc above for a detailed breakdown of its key episodes and
-            characters.
+            Tap any arc above for its key episodes and characters.
           </span>
         </div>
       </div>

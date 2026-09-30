@@ -22,14 +22,14 @@ export function FiveYearsSection() {
           <div>
             <div className="mb-1 inline-flex items-center gap-2 font-mono text-xs font-semibold uppercase tracking-wider text-ink-faint">
               <Calendar className="h-3.5 w-3.5 text-accent" />
-              SM North EDSA Cinema Highlights
+              Cinema highlights
             </div>
             <h3 className="font-display text-2xl font-bold text-ink sm:text-3xl">
               Five Years of Screenings
             </h3>
           </div>
           <p className="max-w-md text-xs text-ink-dim sm:text-sm">
-            Watch video highlights and recaps of our annual DCPH cinema block screenings at SM North EDSA.
+            Recaps from our annual screenings at SM North EDSA.
           </p>
         </motion.div>
 

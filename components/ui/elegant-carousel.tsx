@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import Image from 'next/image';
-import { ArrowLeft, ArrowRight, MapPin, Volume2, VolumeX, Play, Pause } from 'lucide-react';
+import { ArrowLeft, ArrowRight, MapPin, Volume2, VolumeX, Play, Pause, Maximize, Minimize } from 'lucide-react';
 
 export interface SlideData {
   title: string;
@@ -76,10 +76,19 @@ export default function ElegantCarousel({ customSlides }: { customSlides?: Slide
   const [isPlaying, setIsPlaying] = useState(false);
   const [currentTime, setCurrentTime] = useState(0);
   const [duration, setDuration] = useState(0);
+  const [isFullscreen, setIsFullscreen] = useState(false);
 
   const videoRef = useRef<HTMLVideoElement>(null);
+  // Fullscreen is requested on the framed media box so the video fills the screen
+  // rather than the element alone; element-level is the iPhone-only fallback.
+  const mediaContainerRef = useRef<HTMLDivElement>(null);
   const touchStartX = useRef(0);
   const touchEndX = useRef(0);
+  // A swipe is resolved in touchend, but the browser then fires a synthetic
+  // click on the surface underneath. This window turns that trailing click
+  // into a no-op, so one drag can never both move the carousel and pause the
+  // video. Set when the drag navigates, consumed by handleVideoSurfaceTap.
+  const suppressTapUntil = useRef(0);
 
   const TRANSITION_DURATION = 500;
   const currentSlide = slides[currentIndex];
@@ -153,6 +162,18 @@ export default function ElegantCarousel({ customSlides }: { customSlides?: Slide
     const video = videoRef.current;
     if (video) video.muted = isMuted;
   }, [isMuted]);
+
+  // Fullscreen can also end by Esc, by the OS gesture, or by the browser, so the
+  // button's label is driven by the document rather than by the click alone.
+  useEffect(() => {
+    const sync = () => setIsFullscreen(Boolean(document.fullscreenElement));
+    document.addEventListener('fullscreenchange', sync);
+    document.addEventListener('webkitfullscreenchange', sync);
+    return () => {
+      document.removeEventListener('fullscreenchange', sync);
+      document.removeEventListener('webkitfullscreenchange', sync);
+    };
+  }, []);
 
   // Autoplay on mount and on every slide change — gated by AUTOPLAY_MUTED.
   useEffect(() => {
@@ -280,6 +301,43 @@ export default function ElegantCarousel({ customSlides }: { customSlides?: Slide
     if (Math.abs(diff) > 60) {
       if (diff > 0) goNext();
       else goPrev();
+      // Swallow the synthetic click that follows this drag.
+      suppressTapUntil.current = Date.now() + 700;
+      touchStartX.current = touchEndX.current;
+    }
+  };
+
+  // Tapping the picture plays/pauses. It used to bubble to the carousel's own
+  // touch handlers and register as a swipe, which swapped to another track.
+  const handleVideoSurfaceTap = () => {
+    // A synthetic click trailing a swipe must not toggle playback.
+    if (Date.now() < suppressTapUntil.current) return;
+    const video = videoRef.current;
+    // Opening fullscreen and toggling playback on one tap would be surprising.
+    if (video && document.fullscreenElement) return;
+    togglePlay();
+  };
+
+  const toggleFullscreen = () => {
+    const container = mediaContainerRef.current;
+    if (!container) return;
+    if (document.fullscreenElement) {
+      document.exitFullscreen().catch(() => {});
+      return;
+    }
+    const request = container.requestFullscreen?.bind(container);
+    if (!request) return;
+    const result = request() as Promise<void> | undefined;
+    // iOS Safari on iPhone only exposes fullscreen on the <video> element itself
+    // and has no container-level API, so fall back to the element.
+    if (result && typeof result.catch === "function") {
+      result.catch(() => {
+        const video = videoRef.current;
+        const videoRequest = (video as unknown as {
+          webkitEnterFullscreen?: () => void;
+        } | null)?.webkitEnterFullscreen;
+        videoRequest?.call(video);
+      });
     }
   };
 
@@ -365,14 +423,29 @@ export default function ElegantCarousel({ customSlides }: { customSlides?: Slide
         </div>
 
         {/* Right Column: Media Container with Timeframe Seeker */}
-        <div className="lg:col-span-7 relative h-full w-full min-h-[200px] sm:min-h-[320px] lg:min-h-[400px] overflow-hidden rounded-xl sm:rounded-2xl border border-line bg-black shadow-card">
+        <div
+          ref={mediaContainerRef}
+          className="lg:col-span-7 relative h-full w-full min-h-[200px] sm:min-h-[320px] lg:min-h-[400px] overflow-hidden rounded-xl sm:rounded-2xl border border-line bg-black shadow-card"
+        >
           <div
             className={`h-full w-full transition-all duration-500 ease-out ${
               isTransitioning ? 'opacity-0 scale-95' : 'opacity-100 scale-100'
             }`}
           >
             {currentSlide.videoUrl ? (
-              <div className="relative h-full w-full group">
+              <div
+                role="button"
+                tabIndex={0}
+                aria-label={isPlaying ? 'Pause video' : 'Play video'}
+                onClick={handleVideoSurfaceTap}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter' || e.key === ' ') {
+                    e.preventDefault();
+                    handleVideoSurfaceTap();
+                  }
+                }}
+                className="relative h-full w-full group cursor-pointer"
+              >
                 <video
                   ref={videoRef}
                   key={currentSlide.videoUrl}
@@ -393,8 +466,18 @@ export default function ElegantCarousel({ customSlides }: { customSlides?: Slide
                   <track kind="captions" srcLang="en" label="No commentary" />
                 </video>
 
-                {/* Video Timeframe Seeker Bar & Audio Controls Overlay */}
-                <div className="absolute inset-x-0 bottom-0 z-20 bg-gradient-to-t from-black/85 via-black/40 to-transparent p-2.5 sm:p-4 flex flex-col gap-1.5 sm:gap-2">
+                {/* Video Timeframe Seeker Bar & Audio Controls Overlay.
+                    The play/mute/fullscreen buttons are interactive controls, not
+                    surface taps, so the whole overlay stops propagation — otherwise
+                    pressing Sound also fired the surface click, pausing playback,
+                    and on touch could register as a swipe and change slide. */}
+                <div
+                  onClick={(e) => e.stopPropagation()}
+                  onTouchStart={(e) => e.stopPropagation()}
+                  onTouchMove={(e) => e.stopPropagation()}
+                  onTouchEnd={(e) => e.stopPropagation()}
+                  className="absolute inset-x-0 bottom-0 z-20 bg-gradient-to-t from-black/85 via-black/40 to-transparent p-2.5 sm:p-4 flex flex-col gap-1.5 sm:gap-2"
+                >
                   {/* Interactive Timeframe Slider */}
                   <input
                     type="range"
@@ -426,18 +509,32 @@ export default function ElegantCarousel({ customSlides }: { customSlides?: Slide
                       </span>
                     </div>
 
-                    <button
-                      type="button"
-                      onClick={toggleMute}
-                      className="flex h-6 w-6 sm:h-7 sm:w-7 items-center justify-center rounded-full bg-white/90 text-black shadow hover:scale-105"
-                      aria-label={isMuted ? 'Unmute sound' : 'Mute sound'}
-                    >
-                      {isMuted ? (
-                        <VolumeX className="h-3 w-3 sm:h-3.5 sm:w-3.5 text-accent" />
-                      ) : (
-                        <Volume2 className="h-3 w-3 sm:h-3.5 sm:w-3.5 text-success" />
-                      )}
-                    </button>
+                    <div className="flex items-center gap-2 sm:gap-2">
+                      <button
+                        type="button"
+                        onClick={toggleMute}
+                        className="flex h-6 w-6 sm:h-7 sm:w-7 items-center justify-center rounded-full bg-white/90 text-black shadow hover:scale-105"
+                        aria-label={isMuted ? 'Unmute sound' : 'Mute sound'}
+                      >
+                        {isMuted ? (
+                          <VolumeX className="h-3 w-3 sm:h-3.5 sm:w-3.5 text-accent" />
+                        ) : (
+                          <Volume2 className="h-3 w-3 sm:h-3.5 sm:w-3.5 text-success" />
+                        )}
+                      </button>
+                      <button
+                        type="button"
+                        onClick={toggleFullscreen}
+                        className="flex h-6 w-6 sm:h-7 sm:w-7 items-center justify-center rounded-full bg-white/90 text-black shadow hover:scale-105"
+                        aria-label={isFullscreen ? 'Exit fullscreen' : 'Play fullscreen'}
+                      >
+                        {isFullscreen ? (
+                          <Minimize className="h-3 w-3 sm:h-3.5 sm:w-3.5" />
+                        ) : (
+                          <Maximize className="h-3 w-3 sm:h-3.5 sm:w-3.5" />
+                        )}
+                      </button>
+                    </div>
                   </div>
                 </div>
               </div>
