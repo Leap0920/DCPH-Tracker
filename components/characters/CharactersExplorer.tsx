@@ -139,8 +139,8 @@ export default function CharactersExplorer({
   /* ── renderer choice ───────────────────────────────────────────── */
   /** null = follow the tier default (see rendererForTier). */
   const [rendererOverride, setRendererOverride] = useState<Renderer | null>(null)
-  /** Radial layout by default; `?layout=authored` restores the old coordinates. */
-  const [layout, setLayout] = useState<"galaxy" | "authored">("galaxy")
+  /** Globe by default; `?layout=` switches the arrangement on a real device. */
+  const [layout, setLayout] = useState<"globe" | "galaxy" | "authored">("globe")
 
   const { theme } = useTheme()
 
@@ -149,9 +149,10 @@ export default function CharactersExplorer({
   useEffect(() => {
     const params = new URLSearchParams(window.location.search)
     setRendererOverride(rendererFromParam(params.get("renderer")))
-    // `?layout=authored` restores the hand-placed coordinates so the radial
-    // layout can be judged against them on a real device, not just in theory.
-    setLayout(params.get("layout") === "authored" ? "authored" : "galaxy")
+    // `?layout=authored|galaxy|globe` picks the arrangement on a real device,
+    // so each can be judged against the others without a rebuild.
+    const lay = params.get("layout")
+    setLayout(lay === "authored" ? "authored" : lay === "galaxy" ? "galaxy" : "globe")
   }, [])
 
   // Detection and storage are client-only reads, so they cannot run during the
@@ -280,7 +281,10 @@ export default function CharactersExplorer({
           <CharactersWeb
             characters={characters}
             relationships={relationships}
-            layout={layout}
+            /* No 3D path in the SVG renderer yet: fall back to the flat radial
+               layout rather than the authored scatter — same cast, same
+               ordering, minus the depth. */
+            layout={layout === "globe" ? "galaxy" : layout}
             quality={quality}
             onSelectCharacter={handleSelect}
             selectedCharacterId={selection?.id}

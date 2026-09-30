@@ -46,6 +46,12 @@ import {
 } from "@/components/characters/graph-theme";
 import { galaxyLayout } from "./galaxy-layout";
 import {
+  DEFAULT_GLOBE,
+  globeLayout,
+  projectGlobe,
+  unprojectDelta,
+} from "./globe-layout";
+import {
   Camera,
   clamp as clampValue,
   fitCamera,
@@ -136,6 +142,15 @@ const TOUCH_SLACK_PX = 14;
  * the camera — so merely reaching for a node shifted the whole view.
  */
 const PAN_DEAD_ZONE_PX = 8;
+/**
+ * Radians of globe rotation per CSS px of drag.
+ *
+ * A full turn is ~2.2 screens' worth of travel, so a comfortable flick moves
+ * the globe a quarter turn instead of spinning it into a blur.
+ */
+const ROTATE_PER_PX = 0.0072;
+/** Pitch stops short of the poles: past this the cast piles up on itself. */
+const MAX_PITCH = 1.15;
 
 /**
  * Ambient drift amplitude in world px, for the canvas renderer.
@@ -212,11 +227,12 @@ export interface CanvasGraphProps {
   quality?: QualityTier;
   onSelectCharacter: (character: Character | null) => void;
   /**
-   * "galaxy" (default) derives a radial layout from the graph; "authored" uses
-   * the hand-placed x/y in the data. Exposed so the two can be compared on a
+   * "globe" (default) arranges the cast on a sphere you can spin, with the hub
+   * at the centre; "galaxy" is the flat radial layout; "authored" restores the
+   * hand-placed x/y from the data. Exposed so all three can be compared on a
    * real device without a rebuild.
    */
-  layout?: "galaxy" | "authored";
+  layout?: "globe" | "galaxy" | "authored";
   selectedCharacterId?: string | null;
   theme?: "light" | "dark";
   className?: string;
@@ -226,7 +242,7 @@ export default function CanvasGraph({
   characters,
   relationships,
   quality = "balanced",
-  layout = "galaxy",
+  layout = "globe",
   onSelectCharacter,
   selectedCharacterId,
   theme = "dark",
@@ -326,7 +342,7 @@ export default function CanvasGraph({
   const runAmbientRef = useRef<(() => void) | null>(null);
 
   /* ── derived graph model (built once per data change) ── */
-  const { nodes, edges, indexById, bbox, positions } = useMemo(() => {
+  const { nodes, edges, indexById, bbox, positions, globePoints } = useMemo(() => {
     const indexById = new Map<string, number>();
     characters.forEach((c, i) => indexById.set(c.id, i));
     /*
@@ -416,24 +432,57 @@ export default function CanvasGraph({
      * something (ring = hops from Conan). `layout` can be flipped back to
      * "authored" to compare, and the choice is a URL param.
      */
-    const positions =
-      layout === "authored"
-        ? (() => {
-            const flat = new Float64Array(nodes.length * 2);
-            nodes.forEach((n, i) => {
-              flat[i * 2] = n.c.x ?? 0;
-              flat[i * 2 + 1] = n.c.y ?? 0;
-            });
-            return flat;
-          })()
-        : galaxyLayout(
-            nodes.length,
-            new Int32Array(edges.map((e) => e.s)),
-            new Int32Array(edges.map((e) => e.t)),
-            nodes.map((n) => resolveFaction(n.c.affiliation).key),
-            nodes.map((n) => hash32(n.c.id)),
-            hubIndex
-          );
+    const edgeS = new Int32Array(edges.map((e) => e.s));
+    const edgeT = new Int32Array(edges.map((e) => e.t));
+    const factionKeys = nodes.map((n) => resolveFaction(n.c.affiliation).key);
+    const seeds = nodes.map((n) => hash32(n.c.id));
+
+    /*
+     * THREE LAYOUTS, ONE SOURCE OF TRUTH.
+     *
+     * "globe" (default) arranges the cast on a sphere; "galaxy" is the flat
+     * radial arrangement; "authored" restores the hand-placed x/y.
+     *
+     * In globe mode the 3D points are the truth and `positions` is DERIVED from
+     * them by projection. Everything downstream — the painter, hit-testing,
+     * labels, culling — keeps working in 2D and never learns there is a third
+     * dimension, which is why this did not need a second renderer.
+     */
+    let globePoints: Float64Array | null = null;
+    let positions: Float64Array;
+
+    if (layout === "authored") {
+      positions = new Float64Array(nodes.length * 2);
+      nodes.forEach((n, i) => {
+        positions[i * 2] = n.c.x ?? 0;
+        positions[i * 2 + 1] = n.c.y ?? 0;
+      });
+    } else if (layout === "globe") {
+      const g = globeLayout(
+        nodes.length,
+        edgeS,
+        edgeT,
+        factionKeys,
+        seeds,
+        hubIndex,
+        DEFAULT_GLOBE
+      );
+      globePoints = g.points;
+      positions = new Float64Array(nodes.length * 2);
+      projectGlobe(g.points, nodes.length, 0, 0, {
+        screen: positions,
+        depth: new Float64Array(nodes.length),
+      });
+    } else {
+      positions = galaxyLayout(
+        nodes.length,
+        edgeS,
+        edgeT,
+        factionKeys,
+        seeds,
+        hubIndex
+      );
+    }
 
     let minX = Infinity;
     let minY = Infinity;
@@ -452,7 +501,7 @@ export default function CanvasGraph({
       ? { minX, minY, w: maxX - minX, h: maxY - minY }
       : { minX: -500, minY: -500, w: 1000, h: 1000 };
 
-    return { nodes, edges, indexById, bbox, positions };
+    return { nodes, edges, indexById, bbox, positions, globePoints };
   }, [characters, relationships, theme, layout]);
 
   /**
@@ -468,6 +517,19 @@ export default function CanvasGraph({
    * this is the restore point.
    */
   const authoredRef = useRef<Float64Array | null>(null);
+  /** The authored 3D layout, so a reset can restore the globe itself. */
+  const authoredGlobeRef = useRef<Float64Array | null>(null);
+  /** The globe's 3D points. Mutated by a node drag, exactly like `positions`. */
+  const globeRef = useRef<Float64Array | null>(null);
+  /** Yaw/pitch of the globe, in radians. Only used when layout === "globe". */
+  const yawRef = useRef(0);
+  const pitchRef = useRef(0);
+  /** Per-node normalised depth, refreshed whenever the globe is reprojected. */
+  const depthBufRef = useRef<Float64Array | null>(null);
+  /** Scratch for the propagation SHARES (see applyMove). */
+  const shareBufRef = useRef<Float64Array | null>(null);
+  /** An in-progress globe rotation, driven by a drag on empty space. */
+  const rotateRef = useRef<{ cx: number; cy: number } | null>(null);
 
   const adjacency = useMemo(() => {
     const edgeS = new Int32Array(edges.length);
@@ -487,11 +549,36 @@ export default function CanvasGraph({
     driftBufRef.current = new Float64Array(n * 2);
     renderBufRef.current = new Float64Array(n * 2);
     scratchBufRef.current = new Float64Array(n * 2);
+    shareBufRef.current = new Float64Array(n * 2);
+    depthBufRef.current = new Float64Array(n);
     driftParamsRef.current = nodes.map((node) => driftParams(hash32(node.c.id)));
     if (!authoredRef.current || authoredRef.current.length !== positions.length) {
       authoredRef.current = Float64Array.from(positions);
     }
-  }, [nodes, positions]);
+    /*
+     * The globe's 3D points follow the same rule: captured once, mutated by
+     * drags, restorable. Reset has to put back the SPHERE, not just the camera,
+     * or a spinner who has scattered the cast has no way home.
+     */
+    const g = globePoints ? Float64Array.from(globePoints) : null;
+    globeRef.current = g;
+    authoredGlobeRef.current = g ? Float64Array.from(g) : null;
+    yawRef.current = 0;
+    pitchRef.current = 0;
+    /*
+     * Fill the depth buffer NOW rather than leaving it zeroed.
+     *
+     * The layout memo projected into a throwaway buffer to derive `positions`,
+     * so the depth that arrives here is all zeros — and a zero depth means
+     * "every node is exactly at the middle of the globe": no draw-order sort,
+     * no size falloff, no fade. The first frame would look flat until something
+     * happened to reproject. This makes frame one correct.
+     */
+    const depth = depthBufRef.current;
+    if (g && depth) {
+      projectGlobe(g, nodes.length, 0, 0, { screen: positions, depth });
+    }
+  }, [nodes, positions, globePoints]);
 
   /* Kick off the ambient loop once buffered, and whenever it would otherwise be
      idle. The loop parks itself when there is nothing to animate. */
@@ -706,6 +793,9 @@ export default function CanvasGraph({
         dpr,
         ambientMs: reduceMotionRef.current ? 0 : clockRef.current,
         viewport: { w, h },
+        // Depth is only meaningful for the globe; the flat layouts pass null and
+        // keep exactly the draw order and sizing they had before.
+        depth: globeRef.current ? depthBufRef.current : null,
       },
       pal
     );
@@ -764,6 +854,23 @@ export default function CanvasGraph({
     requestPaint();
   }, [requestPaint]);
 
+  /**
+   * Re-derive the flat layout from the globe.
+   *
+   * Called whenever the globe moves — a rotation, a node drag, a reset. The
+   * painter never sees 3D; it draws `positions`, so this is the single seam
+   * where depth becomes a projection.
+   */
+  const reprojectGlobe = useCallback(() => {
+    const g = globeRef.current;
+    const depth = depthBufRef.current;
+    if (!g || !depth) return;
+    projectGlobe(g, nodes.length, yawRef.current, pitchRef.current, {
+      screen: positions,
+      depth,
+    });
+  }, [nodes.length, positions]);
+
   /** Fit the whole graph into the chrome-free area. */
   const centerOnConan = useCallback(() => {
     const { w, h } = sizeRef.current;
@@ -785,9 +892,23 @@ export default function CanvasGraph({
     if (authored && authored.length === positions.length) {
       positions.set(authored);
     }
+    /*
+     * On the globe a drag does not bake an offset into `positions` — it moves
+     * the 3D points and re-projects. So the reset has to restore the sphere AND
+     * unwind the rotation, or the cast would keep whatever shape the last drag
+     * left it in and stay facing whichever way it was spun.
+     */
+    const g = globeRef.current;
+    const ag = authoredGlobeRef.current;
+    if (g && ag && ag.length === g.length) {
+      g.set(ag);
+      yawRef.current = 0;
+      pitchRef.current = 0;
+      reprojectGlobe();
+    }
     propBufRef.current?.fill(0);
     centerOnConan();
-  }, [positions, centerOnConan]);
+  }, [positions, centerOnConan, reprojectGlobe]);
 
   /** Bring a node into view at a readable zoom. */
   const focusNode = useCallback(
@@ -851,11 +972,18 @@ export default function CanvasGraph({
       const painted = renderBufRef.current;
       const src =
         painted && painted.length === positions.length ? painted : positions;
+      const dep = depthBufRef.current;
       return nodes.map((n, i) => ({
         index: i,
         wx: src[i * 2],
         wy: src[i * 2 + 1],
-        r: n.r,
+        /*
+         * Match the radius the painter actually draws. On the globe a node's
+         * drawn size is scaled by its depth, so testing against the flat `n.r`
+         * would make the far, small nodes easy to grab and the near, big ones
+         * hard to — the target would not be where it looks.
+         */
+        r: dep ? n.r * (1 + dep[i] * 0.22) : n.r,
       }));
     };
 
@@ -987,6 +1115,63 @@ export default function CanvasGraph({
         const ny = w.y - drag.offY;
         const dx = nx - positions[drag.index * 2];
         const dy = ny - positions[drag.index * 2 + 1];
+
+        if (globeRef.current) {
+          /*
+           * On the globe the screen delta has to be turned back into world
+           * space before it can be added to a position: the node lives in 3D,
+           * and the drag plane is the one FACING the viewer. Applying the raw
+           * screen delta would push the node along a world axis instead — which
+           * on a rotated globe sends it in a visibly wrong direction, and
+           * changes its depth, so it would swell or shrink under the finger.
+           */
+          const g = globeRef.current;
+          const d3 = unprojectDelta(dx, dy, yawRef.current, pitchRef.current);
+          const shares = shareBufRef.current;
+          if (shares) {
+            /*
+             * The shares are a property of the GRAPH — how much each node
+             * follows the one being dragged — and not of the direction it is
+             * dragged in. So they are computed ONCE with a unit horizontal
+             * delta, and the resulting x offset IS the share. Reading them off
+             * a real drag would break on a purely vertical drag, where every x
+             * offset is zero and the share would look like zero for the whole
+             * cast.
+             */
+            propagate(
+              drag.index,
+              1,
+              0,
+              nx,
+              ny,
+              adjacency,
+              nodes.length,
+              positions,
+              shares,
+              DEFAULT_PROPAGATION
+            );
+
+            // The dragged node moves fully; the rest by their share of the
+            // SAME 3D displacement, so the web follows through the sphere in
+            // whichever direction the drag actually went.
+            g[drag.index * 3] += d3.x;
+            g[drag.index * 3 + 1] += d3.y;
+            g[drag.index * 3 + 2] += d3.z;
+            for (let i = 0; i < nodes.length; i++) {
+              if (i === drag.index) continue;
+              const sh = shares[i * 2];
+              if (sh <= 0) continue;
+              g[i * 3] += d3.x * sh;
+              g[i * 3 + 1] += d3.y * sh;
+              g[i * 3 + 2] += d3.z * sh;
+            }
+            reprojectGlobe();
+          }
+          movedRef.current = true;
+          requestPaint();
+          return;
+        }
+
         positions[drag.index * 2] = nx;
         positions[drag.index * 2 + 1] = ny;
 
@@ -1021,9 +1206,12 @@ export default function CanvasGraph({
         return;
       }
 
-      // Pan. A small dead-zone first, so a finger that meant to tap does not
-      // nudge the camera — that nudge is what makes the view feel like it drifts
-      // under you while you are only trying to touch a node.
+      // Pan — or, on the globe, SPIN.
+      //
+      // The same gesture, because on a globe dragging the background is how you
+      // turn the object: there is no "somewhere else" to pan to when the thing
+      // fills the view. A small dead-zone still applies either way, so a finger
+      // that meant to tap a node does not nudge the view first.
       const pan = panRef.current;
       if (pan) {
         const dx = e.clientX - pan.cx;
@@ -1043,8 +1231,25 @@ export default function CanvasGraph({
           if (travelled < PAN_DEAD_ZONE_PX) return;
           pan.active = true;
         }
-        const cam = camRef.current;
-        camRef.current = { k: cam.k, x: cam.x + dx, y: cam.y + dy };
+        if (globeRef.current) {
+          /*
+           * Yaw follows the finger horizontally and pitch vertically, both
+           * scaled by the same constant so the globe turns at one rate in every
+           * direction. Pitch is clamped short of the poles: past vertical the
+           * shells line up behind one another and the cast collapses into a
+           * column, which reads as the graph breaking rather than as a limit.
+           */
+          yawRef.current -= dx * ROTATE_PER_PX;
+          pitchRef.current = clampValue(
+            pitchRef.current - dy * ROTATE_PER_PX,
+            -MAX_PITCH,
+            MAX_PITCH
+          );
+          reprojectGlobe();
+        } else {
+          const cam = camRef.current;
+          camRef.current = { k: cam.k, x: cam.x + dx, y: cam.y + dy };
+        }
         movedRef.current = true;
         requestPaint();
         return;
@@ -1153,7 +1358,7 @@ export default function CanvasGraph({
       el.removeEventListener("pointerleave", onLeave);
       el.removeEventListener("wheel", onWheel);
     };
-  }, [nodes, positions, adjacency, localPoint, onSelectCharacter, requestPaint]);
+  }, [nodes, positions, adjacency, localPoint, onSelectCharacter, requestPaint, reprojectGlobe]);
 
   /* Repaint whenever the painted inputs change. */
   useEffect(() => {

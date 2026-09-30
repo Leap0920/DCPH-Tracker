@@ -46,6 +46,8 @@ const PAL: PaintPalette = {
 function fakeCtx() {
   const calls: string[] = [];
   const setTransformArgs: unknown[][] = [];
+  /** Radius of every arc, in draw order — used by the depth tests. */
+  const arcArgs: number[][] = [];
   const rec =
     (name: string) =>
     (..._a: unknown[]) => {
@@ -54,6 +56,7 @@ function fakeCtx() {
   const ctx = {
     calls,
     setTransformArgs,
+    arcArgs,
     alphas: [] as number[],
     alphaValue: 1,
     save: rec("save"),
@@ -64,7 +67,10 @@ function fakeCtx() {
       setTransformArgs.push(a);
     },
     beginPath: rec("beginPath"),
-    arc: rec("arc"),
+    arc: (...a: unknown[]) => {
+      calls.push("arc");
+      arcArgs.push(a as number[]);
+    },
     fill: rec("fill"),
     stroke: rec("stroke"),
     fillRect: rec("fillRect"),
@@ -94,6 +100,7 @@ function fakeCtx() {
     calls: string[];
     setTransformArgs: unknown[][];
     alphas: number[];
+    arcArgs: number[][];
   };
 }
 
@@ -576,5 +583,89 @@ describe("paint", () => {
     const arcs = ctx.calls.filter((c) => c === "arc").length;
     // 4 nodes x (glow + body + core) = 12
     expect(arcs).toBe(12);
+  });
+
+  function withDepth(o: PaintOptions, depth: number[]): PaintOptions {
+    return { ...o, depth: Float64Array.from(depth) };
+  }
+
+  it("draws far nodes first so the near side occludes", () => {
+    /*
+     * Node 0 is placed nearest and node 1 farthest, and they are given
+     * identical geometry. The NEAREST must be drawn LAST.
+     */
+    const o = scene(2, 0);
+    o.positions[0] = 0;
+    o.positions[1] = 0;
+    o.positions[2] = 100;
+    o.positions[3] = 0;
+    const ctx = fakeCtx();
+    paint(ctx, withDepth(o, [1, -1]), PAL);
+
+    // Radii: far (smaller) then near (larger). The first arc of each node is
+    // its glow, so compare the first two arcs after the grid-less backdrop.
+    const radii = ctx.arcArgs.map((a) => a[2]);
+    expect(radii.length).toBeGreaterThanOrEqual(6);
+    // far node's glow  (6 - 0.22*6) + 12*0.78  ; near node's glow (6+1.32)+12*1.22
+    expect(radii[0]).toBeLessThan(radii[3]);
+  });
+
+  it("scales a node's radius by its depth", () => {
+    const near = scene(1, 0);
+    const far = scene(1, 0);
+    const cNear = fakeCtx();
+    const cFar = fakeCtx();
+    paint(cNear, withDepth(near, [1]), PAL);
+    paint(cFar, withDepth(far, [-1]), PAL);
+
+    // The body is the second arc of the single node (glow, then body).
+    const nearR = cNear.arcArgs[1][2];
+    const farR = cFar.arcArgs[1][2];
+    expect(nearR).toBeGreaterThan(farR);
+    // 1 + 0.22 and 1 - 0.22 about the authored radius.
+    expect(nearR).toBeCloseTo(6 * 1.22, 5);
+    expect(farR).toBeCloseTo(6 * 0.78, 5);
+  });
+
+  it("fades the far side without ever going fully transparent", () => {
+    const o = scene(1, 0);
+    const ctx = fakeCtx();
+    paint(ctx, withDepth(o, [-1]), PAL);
+    const alphas = ctx.alphas.filter((a) => a > 0 && a < 1);
+    expect(alphas.length).toBeGreaterThan(0);
+    for (const a of alphas) expect(a).toBeGreaterThan(0.4);
+  });
+
+  it("changes nothing when there is no depth buffer", () => {
+    /*
+     * The flat layouts must be byte-for-byte the behaviour they had before the
+     * globe existed: same call count, same radii. Anything else means adding
+     * the third dimension leaked into the 2D renderer.
+     */
+    const flat = scene(20, 12);
+    const a = fakeCtx();
+    const callsFlat = paint(a, flat, PAL);
+    const b = fakeCtx();
+    const callsDepth = paint(
+      b,
+      withDepth(flat, new Array(20).fill(0)),
+      PAL
+    );
+    expect(callsDepth).toBe(callsFlat);
+    expect(b.arcArgs.length).toBe(a.arcArgs.length);
+    // Zero depth is the neutral size, so every radius matches too.
+    for (let i = 0; i < a.arcArgs.length; i++) {
+      expect(b.arcArgs[i][2]).toBeCloseTo(a.arcArgs[i][2], 6);
+    }
+  });
+
+  it("keeps an emphasised node fully opaque even when it is far away", () => {
+    // The node being searched for or hovered is the thing the visitor is
+    // looking for; fading it out with the far side would hide the answer.
+    const o = scene(1, 0);
+    o.hoveredIndex = 0;
+    const ctx = fakeCtx();
+    paint(ctx, withDepth(o, [-1]), PAL);
+    expect(Math.max(...ctx.alphas)).toBe(1);
   });
 });

@@ -103,6 +103,14 @@ export interface PaintOptions {
    */
   ambientMs: number;
   viewport: { w: number; h: number };
+  /**
+   * Per-node depth, normalised -1 (farthest) .. +1 (nearest), or null for a
+   * flat layout. When present the painter sorts far-to-near, scales a node's
+   * radius with its depth and dims the far side of the globe — which is what
+   * makes the sphere read as a solid object instead of a flat scatter that
+   * happens to share the outline.
+   */
+  depth?: Float64Array | null;
 }
 
 
@@ -143,6 +151,7 @@ export function paint(
   let calls = 0;
   const { cam, viewport } = o;
   const k = cam.k || 1;
+  const depth = o.depth ?? null;
   /** The scale the caller already applied; every transform here composes with
    *  it so drawing stays in CSS px while the backing store stays crisp. */
   const dpr = o.dpr;
@@ -226,15 +235,44 @@ export function paint(
   ctx.textBaseline = "middle";
   const fontBase = pal.fontSize;
 
-  for (const n of o.nodes) {
+  /*
+   * PAINTER'S ORDER.
+   *
+   * On a flat layout the array order is as good as any. On the globe it is not:
+   * drawing near nodes first lets the far side paint over them, which erases
+   * the depth cue entirely and makes the sphere look like a scrambled disc. Sort
+   * farthest-first so nearer nodes land on top, the way solid objects occlude.
+   *
+   * The sort is skipped when there is no depth — that keeps the flat renderers
+   * on exactly the draw order they had before this option existed.
+   */
+  const orderedNodes = depth
+    ? [...o.nodes].sort((a, b) => depth[a.index] - depth[b.index])
+    : o.nodes;
+
+  for (const n of orderedNodes) {
     const wx = o.positions[n.index * 2];
     const wy = o.positions[n.index * 2 + 1];
     if (wx < minWX || wx > maxWX || wy < minWY || wy > maxWY) continue;
+
+    /*
+     * Depth scaling. Near nodes grow and far nodes shrink, both about the
+     * neutral size, so the mid-shell of the globe is unchanged and only the
+     * front/back extremes move. Kept modest (22%) because the label sits under
+     * the node and an aggressive scale starts colliding with its neighbours.
+     */
+    const d = depth ? depth[n.index] : 0;
+    const dScale = depth ? 1 + d * 0.22 : 1;
+    const dAlpha = depth ? 0.55 + 0.45 * ((d + 1) / 2) : 1;
+    const nr = n.r * dScale;
+    if (nr < 1.5) continue;
 
     const isSel = n.index === o.selectedIndex;
     const isHov = n.index === o.hoveredIndex;
     const isMatch = o.searchMatches?.has(n.index) ?? false;
     const emphasised = isSel || isHov || isMatch;
+    // An emphasised node stays fully opaque: it is the thing being looked for.
+    ctx.globalAlpha = emphasised ? 1 : dAlpha;
 
     // Faction glow — the soft halo the SVG version got from a radial gradient.
     // Drawn first, in screen-compensated radius so it stays a constant visual
@@ -245,9 +283,9 @@ export function paint(
     // canvas equivalent of the SVG's breathing ring, and costs one multiplication
     // per node rather than 103 infinite CSS animations.
     const breathe = o.ambientMs > 0 ? breatheScale(o.ambientMs, 4200, n.index * 0.7, 0.16) : 1;
-    const glowR = (n.r + 12) * k * breathe;
+    const glowR = (nr + 12 * dScale) * k * breathe;
     if (glowR > 2) {
-      const g = ctx.createRadialGradient(wx, wy, n.r * 0.6, wx, wy, glowR);
+      const g = ctx.createRadialGradient(wx, wy, nr * 0.6, wx, wy, glowR);
       g.addColorStop(0, n.glow);
       g.addColorStop(1, "rgba(0,0,0,0)");
       ctx.fillStyle = g;
@@ -260,7 +298,7 @@ export function paint(
     // Body. The fill is theme-aware: hardcoding darkFill made every node render
     // as a dark disc on the light theme, which flattened the whole palette.
     ctx.beginPath();
-    ctx.arc(wx, wy, n.r, 0, Math.PI * 2);
+    ctx.arc(wx, wy, nr, 0, Math.PI * 2);
     ctx.fillStyle = isSel ? n.primary : o.isDark ? n.darkFill : n.lightFill;
     ctx.fill();
     // Conan reads as the hub with a heavier ring; the SVG did the same.
@@ -271,7 +309,7 @@ export function paint(
 
     // Core dot
     ctx.beginPath();
-    ctx.arc(wx, wy, n.r > 16 ? 4.5 : 3.5, 0, Math.PI * 2);
+    ctx.arc(wx, wy, (nr > 16 ? 4.5 : 3.5) * dScale, 0, Math.PI * 2);
     ctx.fillStyle = emphasised ? pal.strokeStrong : n.primary;
     ctx.fill();
     calls++;
@@ -280,7 +318,7 @@ export function paint(
     // state-ring <circle>.
     if (emphasised) {
       ctx.beginPath();
-      ctx.arc(wx, wy, n.r + 7, 0, Math.PI * 2);
+      ctx.arc(wx, wy, nr + 7, 0, Math.PI * 2);
       ctx.strokeStyle = pal.strokeStrong;
       ctx.lineWidth = 2;
       ctx.stroke();
@@ -311,7 +349,7 @@ export function paint(
   const boxes: LabelBox[] = [];
   const candidates: { n: PaintedNode; wx: number; wy: number }[] = [];
 
-  for (const n of o.nodes) {
+  for (const n of orderedNodes) {
     const wx = o.positions[n.index * 2];
     const wy = o.positions[n.index * 2 + 1];
     if (wx < minWX || wx > maxWX || wy < minWY || wy > maxWY) continue;
@@ -334,7 +372,8 @@ export function paint(
     ctx.font = `${n.tier === 0 ? 700 : 600} ${size}px ui-sans-serif, system-ui, sans-serif`;
 
     const wpx = ctx.measureText(n.name).width;
-    const ty2 = wy + n.r + 12 + size * 0.5;
+    const labelScale = depth ? 1 + depth[n.index] * 0.22 : 1;
+    const ty2 = wy + n.r * labelScale + 12 + size * 0.5;
 
     // Screen-space box for collision. Everything here is in CSS px because the
     // context is still scaled by DPR, not by the camera.
@@ -348,18 +387,19 @@ export function paint(
     boxes.push(box);
 
     // Halo first so the name stays readable over any string behind it.
-    ctx.globalAlpha = op * 0.9;
+    const labelDepth = depth ? 0.55 + 0.45 * ((depth[n.index] + 1) / 2) : 1;
+    ctx.globalAlpha = op * 0.9 * labelDepth;
     ctx.lineWidth = 3;
     ctx.strokeStyle = pal.labelHalo;
     ctx.strokeText(n.name, wx, ty2);
-    ctx.globalAlpha = op;
+    ctx.globalAlpha = op * labelDepth;
     ctx.fillStyle = emphasised(n.index, o) ? pal.labelStrong : pal.label;
     ctx.fillText(n.name, wx, ty2);
     calls += 2;
 
     if (n.sub) {
       ctx.font = `400 ${Math.round(size * 0.78)}px ui-monospace, monospace`;
-      ctx.globalAlpha = op * 0.65;
+      ctx.globalAlpha = op * 0.65 * labelDepth;
       ctx.fillStyle = pal.label;
       ctx.fillText(n.sub, wx, ty2 + size * 1.05);
       calls++;
