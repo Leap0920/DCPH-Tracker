@@ -121,18 +121,26 @@ export interface PropagationOptions {
 }
 
 export const DEFAULT_PROPAGATION: PropagationOptions = {
-  neighbourShare: 0.9,
-  /*
-   * Steeper than before ON PURPOSE. At 0.88-per-hop with a 30% floor, EVERY
-   * node in the component moved at least 30% of the drag, so pulling one node
-   * slid the entire picture — reported as "the screen moves while I move the
-   * nodes". A real falloff keeps close branches following (a grandchild still
-   * moves 65%) while the far side of the graph barely stirs (6% at the floor),
-   * which reads as tugging a branch instead of dragging the canvas.
+  neighbourShare: 0.55,
+  /**
+   * Steep, and the floor is GONE.
+   *
+   * Measured on the real cast: at 0.9/0.72 over 12 hops with a 6% floor, a drag
+   * on Conan moved 102 of 103 nodes and 86 of them by more than half the drag.
+   * The cast is a single connected component, so a gentle falloff never has a
+   * chance to die out — every node is within a few hops of every other, and the
+   * result is that pulling one node slides the entire picture. That is the
+   * "the screen moves in the same direction as the node" report: the viewport
+   * was still, but 99% of what you can see was translating with the finger.
+   *
+   * 0.55 for a direct neighbour with a 0.28 per-hop falloff dies to nothing by
+   * the fourth hop, so a drag tugs the immediate web (neighbour 55%,
+   * grandchild 15%, hop 3 ~4%) and leaves the far side of the graph genuinely
+   * still. Local and legible beats whole-graph.
    */
-  hopFalloff: 0.72,
-  minShare: 0.06,
-  hops: 12,
+  hopFalloff: 0.28,
+  minShare: 0,
+  hops: 4,
   maxDistance: Number.POSITIVE_INFINITY,
 };
 

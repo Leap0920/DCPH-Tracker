@@ -82,25 +82,26 @@ describe("propagate", () => {
    * great-grandchild moved 1.6% of the drag and anything past five hops did not
    * move at all — the reported "only the head moves, children stay put".
    */
-  it("carries the whole connected structure, not just two hops", () => {
-    // A longer chain: 0-1-2-3-4-5-6
-    const edgeS = new Int32Array([0, 1, 2, 3, 4, 5]);
-    const edgeT = new Int32Array([1, 2, 3, 4, 5, 6]);
-    const n = 7;
+  it("carries the local hierarchy — children and grandchildren follow", () => {
+    // A chain: 0-1-2-3-4-5-6-7-8
+    const edgeS = new Int32Array([0, 1, 2, 3, 4, 5, 6, 7]);
+    const edgeT = new Int32Array([1, 2, 3, 4, 5, 6, 7, 8]);
+    const n = 9;
     const adj = buildAdjacency(edgeS, edgeT, edgeS.length, n);
     const positions = new Float64Array(n * 2);
     for (let i = 0; i < n; i++) positions[i * 2] = i * 100;
 
     const out = new Float64Array(n * 2);
-    propagate(0, 10, 0, 0, 0, adj, n, positions, out, DEFAULT_PROPAGATION);
+    propagate(0, 100, 0, 0, 0, adj, n, positions, out, DEFAULT_PROPAGATION);
 
-    // Hop 6 — a great-great-great-grandchild — must still visibly move. Under
-    // the old 2-hop rule this was exactly zero.
-    const deepest = out[12];
-    expect(deepest).toBeGreaterThan(0);
-    // It is still attenuating here (0.92 * 0.88^5 ≈ 48%), and the floor only
-    // takes over past that. Either way it must never fall below the floor.
-    expect(deepest).toBeGreaterThanOrEqual(10 * DEFAULT_PROPAGATION.minShare - 1e-9);
+    // "Move the head and the children come too": a direct child follows at the
+    // configured share, and each hop after it moves strictly less.
+    expect(out[2]).toBeGreaterThanOrEqual(
+      100 * DEFAULT_PROPAGATION.neighbourShare - 1e-9
+    );
+    expect(out[4]).toBeGreaterThan(0);
+    expect(out[4]).toBeLessThan(out[2]);
+    expect(out[6]).toBeLessThan(out[4]);
   });
 
   /*
@@ -108,8 +109,10 @@ describe("propagate", () => {
    *
    * A 30% floor over a 24-hop budget meant EVERY node in the component shifted
    * by at least 30% of the drag, so pulling one node slid the entire picture.
-   * The floor must now be low enough that the far side of the graph barely
-   * stirs, while a direct child still clearly follows.
+   * Lowering the floor to 6% was not enough — measured on the real cast that
+   * still moved 102 of 103 nodes, i.e. still the whole screen. The reach must
+   * now END: a direct child clearly follows, and past the hop budget a node is
+   * untouched rather than nudged.
    */
   it("keeps distant branches nearly still so the view does not slide", () => {
     // A long chain: 0-1-2-3-4-5-6-7-8
@@ -125,9 +128,80 @@ describe("propagate", () => {
 
     const child = out[2];        // hop 1
     const distant = out[16];     // hop 8
-    expect(child).toBeGreaterThan(80);          // clearly follows
-    expect(Math.abs(distant)).toBeLessThan(12); // barely moves
-    expect(Math.abs(distant) / child).toBeLessThan(0.2);
+    expect(child).toBeGreaterThan(50);   // clearly follows
+    // EXACTLY still, not merely "small". A non-zero floor is what made an
+    // earlier fix fail to help: at 6% over 12 hops, 99% of the cast still
+    // drifted with the finger, which is indistinguishable from the viewport
+    // moving.
+    expect(distant).toBe(0);
+  });
+
+  /*
+   * The regression that matters, measured on the REAL cast.
+   *
+   * Every synthetic chain above passes under a range of tunings, so none of
+   * them would have caught the actual bug: with 0.9/0.72 over 12 hops, dragging
+   * Conan moved 102 of 103 characters and 86 of them by more than half the
+   * drag. The cast is one connected component, so a "gently attenuating" pull
+   * never dies out — and a picture where 99% of the nodes translate with the
+   * finger is indistinguishable from the camera panning.
+   *
+   * The assertion is therefore about PROPORTION, not about any single node.
+   */
+  it("does not translate most of the real cast when one node is dragged", async () => {
+    const { CHARACTERS, RELATIONSHIPS } = await import("@/lib/characters-guide");
+    const n = CHARACTERS.length;
+    const idx = new Map<string, number>();
+    CHARACTERS.forEach((c, i) => idx.set(c.id, i));
+
+    const es: number[] = [];
+    const et: number[] = [];
+    const degree = new Map<number, number>();
+    for (const r of RELATIONSHIPS) {
+      const s = idx.get(r.source);
+      const t = idx.get(r.target);
+      if (s === undefined || t === undefined) continue;
+      es.push(s);
+      et.push(t);
+      degree.set(s, (degree.get(s) ?? 0) + 1);
+      degree.set(t, (degree.get(t) ?? 0) + 1);
+    }
+    const adj = buildAdjacency(
+      new Int32Array(es),
+      new Int32Array(et),
+      es.length,
+      n
+    );
+    const pos = new Float64Array(n * 2);
+    CHARACTERS.forEach((c, i) => {
+      pos[i * 2] = c.x ?? 0;
+      pos[i * 2 + 1] = c.y ?? 0;
+    });
+
+    // The worst case: the highest-degree node, Conan, pulls the most nodes.
+    const hub = [...degree.entries()].sort((a, b) => b[1] - a[1])[0][0];
+    const out = new Float64Array(n * 2);
+    propagate(
+      hub,
+      200,
+      0,
+      pos[hub * 2],
+      pos[hub * 2 + 1],
+      adj,
+      n,
+      pos,
+      out,
+      DEFAULT_PROPAGATION
+    );
+
+    let substantial = 0;
+    for (let i = 0; i < n; i++) {
+      if (Math.abs(out[i * 2]) > 100) substantial++; // >50% of the drag
+    }
+    // The hub is the worst case in the data. Even so, the nodes that follow it
+    // by more than half the drag must be its own neighbourhood, not the cast.
+    expect(substantial).toBeLessThan(n * 0.4);
+    expect(substantial).toBeGreaterThan(0);
   });
 
   it("attenuates with distance rather than moving everything equally", () => {

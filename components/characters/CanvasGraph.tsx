@@ -264,7 +264,13 @@ export default function CanvasGraph({
   useEffect(() => {
     panelOpenRef.current = Boolean(selectedCharacterId);
   }, [selectedCharacterId]);
-  const dragRef = useRef<{ index: number; offX: number; offY: number } | null>(null);
+  const dragRef = useRef<{
+    index: number;
+    offX: number;
+    offY: number;
+    /** The pointer that started the grab — only it may release the node. */
+    pointerId: number;
+  } | null>(null);
   const panRef = useRef<{
     cx: number;
     cy: number;
@@ -777,13 +783,26 @@ export default function CanvasGraph({
 
     const hoveredRef = { current: -1 };
 
-    const circles = () =>
-      nodes.map((n, i) => ({
+    /*
+     * Hit-test against WHAT IS ON SCREEN.
+     *
+     * The painter draws home + propagation + drift (the render buffer). Reading
+     * `positions` here instead meant the grab tested a point the visitor cannot
+     * see: with any drift active the node is visibly elsewhere, the hit misses,
+     * and the gesture falls through to the pan branch — so grabbing a node slid
+     * the whole camera. Same buffer for both sides.
+     */
+    const circles = () => {
+      const painted = renderBufRef.current;
+      const src =
+        painted && painted.length === positions.length ? painted : positions;
+      return nodes.map((n, i) => ({
         index: i,
-        wx: positions[i * 2],
-        wy: positions[i * 2 + 1],
+        wx: src[i * 2],
+        wy: src[i * 2 + 1],
         r: n.r,
       }));
+    };
 
     const onDown = (e: PointerEvent) => {
       // Ambient motion yields to the finger: stop it before any gesture work.
@@ -793,6 +812,19 @@ export default function CanvasGraph({
       pointersRef.current.set(e.pointerId, { x: e.clientX, y: e.clientY });
       movedRef.current = false;
       const { sx, sy } = localPoint(e.clientX, e.clientY);
+
+      /*
+       * A LIVE NODE DRAG OWNS THE GESTURE.
+       *
+       * On a phone it is easy for a second finger, a thumb, or the edge of a
+       * palm to land while you are moving a node. That used to satisfy the
+       * two-pointer branch below and silently convert the drag into a pinch:
+       * the grab was thrown away and the CAMERA took over, panning along the
+       * midpoint of the two contacts — i.e. the view slid in the same direction
+       * you were moving the node. Extra contacts are now ignored entirely while
+       * a node is held; the pinch can only begin from a clean two-finger touch.
+       */
+      if (dragRef.current) return;
 
       if (pointersRef.current.size === 2) {
         const pts = Array.from(pointersRef.current.values());
@@ -814,10 +846,20 @@ export default function CanvasGraph({
       if (idx >= 0) {
         const cam = camRef.current;
         const w = toWorld(sx, sy, cam);
+        /*
+         * The offset is measured against the node's PAINTED position, not its
+         * settled one. Ambient drift means those differ by a few px, and using
+         * the settled position made the node visibly hop under the finger at
+         * the instant of the grab.
+         */
+        const painted = renderBufRef.current;
+        const base =
+          painted && painted.length === positions.length ? painted : positions;
         dragRef.current = {
           index: idx,
-          offX: w.x - positions[idx * 2],
-          offY: w.y - positions[idx * 2 + 1],
+          offX: w.x - base[idx * 2],
+          offY: w.y - base[idx * 2 + 1],
+          pointerId: e.pointerId,
         };
         el.style.cursor = "grabbing";
         return;
@@ -963,6 +1005,17 @@ export default function CanvasGraph({
     };
 
     const onUp = (e: PointerEvent) => {
+      /*
+       * Only the finger that grabbed the node may let it go. A stray contact
+       * landing and lifting mid-drag used to run this whole settle path —
+       * baking the offsets and dropping the node — so the graph would twitch
+       * away from the finger that was still holding it.
+       */
+      const held = dragRef.current;
+      if (held && held.pointerId !== e.pointerId) {
+        pointersRef.current.delete(e.pointerId);
+        return;
+      }
       // Apply the last pending move before settling, so a fast flick does not
       // lose its final position to a cancelled frame.
       if (moveRaf) {
