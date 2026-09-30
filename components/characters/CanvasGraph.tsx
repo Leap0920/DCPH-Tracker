@@ -44,6 +44,7 @@ import {
   hash32,
   resolveFaction,
 } from "@/components/characters/graph-theme";
+import { galaxyLayout } from "./galaxy-layout";
 import {
   Camera,
   clamp as clampValue,
@@ -210,6 +211,12 @@ export interface CanvasGraphProps {
   relationships: Relationship[];
   quality?: QualityTier;
   onSelectCharacter: (character: Character | null) => void;
+  /**
+   * "galaxy" (default) derives a radial layout from the graph; "authored" uses
+   * the hand-placed x/y in the data. Exposed so the two can be compared on a
+   * real device without a rebuild.
+   */
+  layout?: "galaxy" | "authored";
   selectedCharacterId?: string | null;
   theme?: "light" | "dark";
   className?: string;
@@ -219,6 +226,7 @@ export default function CanvasGraph({
   characters,
   relationships,
   quality = "balanced",
+  layout = "galaxy",
   onSelectCharacter,
   selectedCharacterId,
   theme = "dark",
@@ -321,6 +329,29 @@ export default function CanvasGraph({
   const { nodes, edges, indexById, bbox, positions } = useMemo(() => {
     const indexById = new Map<string, number>();
     characters.forEach((c, i) => indexById.set(c.id, i));
+    /*
+     * The hub is the highest-degree node — Conan, by a wide margin (34 links
+     * against 16 for the next). Deriving it from the data rather than hardcoding
+     * the id keeps the centre correct if the cast is ever edited, and it is the
+     * only node that belongs at the middle of a radial layout.
+     */
+    let hubIndex = 0;
+    {
+      let best = -1;
+      const deg = new Map<number, number>();
+      for (const r of relationships) {
+        const s = indexById.get(r.source);
+        const t = indexById.get(r.target);
+        if (s !== undefined) deg.set(s, (deg.get(s) ?? 0) + 1);
+        if (t !== undefined) deg.set(t, (deg.get(t) ?? 0) + 1);
+      }
+      for (const [i, d] of deg) {
+        if (d > best) {
+          best = d;
+          hubIndex = i;
+        }
+      }
+    }
 
     const degree = new Map<string, number>();
     for (const r of relationships) {
@@ -376,17 +407,41 @@ export default function CanvasGraph({
       });
     }
 
-    // Authored world positions.
-    const positions = new Float64Array(nodes.length * 2);
+    /*
+     * GALAXY LAYOUT.
+     *
+     * Positions are DERIVED from the graph, not read from the authored x/y.
+     * On a phone the hand-placed coordinates read as a tangle with no centre;
+     * a radial layout gives you a hub to orient by and rings that mean
+     * something (ring = hops from Conan). `layout` can be flipped back to
+     * "authored" to compare, and the choice is a URL param.
+     */
+    const positions =
+      layout === "authored"
+        ? (() => {
+            const flat = new Float64Array(nodes.length * 2);
+            nodes.forEach((n, i) => {
+              flat[i * 2] = n.c.x ?? 0;
+              flat[i * 2 + 1] = n.c.y ?? 0;
+            });
+            return flat;
+          })()
+        : galaxyLayout(
+            nodes.length,
+            new Int32Array(edges.map((e) => e.s)),
+            new Int32Array(edges.map((e) => e.t)),
+            nodes.map((n) => resolveFaction(n.c.affiliation).key),
+            nodes.map((n) => hash32(n.c.id)),
+            hubIndex
+          );
+
     let minX = Infinity;
     let minY = Infinity;
     let maxX = -Infinity;
     let maxY = -Infinity;
     nodes.forEach((n, i) => {
-      const x = n.c.x ?? 0;
-      const y = n.c.y ?? 0;
-      positions[i * 2] = x;
-      positions[i * 2 + 1] = y;
+      const x = positions[i * 2];
+      const y = positions[i * 2 + 1];
       const halfLabel = Math.max(n.r + 8, 48);
       minX = Math.min(minX, x - halfLabel);
       maxX = Math.max(maxX, x + halfLabel);
@@ -398,7 +453,7 @@ export default function CanvasGraph({
       : { minX: -500, minY: -500, w: 1000, h: 1000 };
 
     return { nodes, edges, indexById, bbox, positions };
-  }, [characters, relationships, theme]);
+  }, [characters, relationships, theme, layout]);
 
   /**
    * Adjacency, built once per graph. This is what lets a dragged node pull its

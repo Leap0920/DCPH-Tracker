@@ -74,6 +74,7 @@ import {
   resolveFaction,
   type FactionTheme,
 } from "@/components/characters/graph-theme";
+import { galaxyLayout } from "./galaxy-layout";
 import { RotateCcw, Search, Sparkles, Target, X, ZoomIn, ZoomOut } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -303,6 +304,8 @@ export interface CharactersWebProps {
   relationships: Relationship[];
   /** Device tier driving the frame-by-frame cost. See graph-quality.ts. */
   quality?: QualityTier;
+  /** "galaxy" (default) derives a radial layout; "authored" uses the data x/y. */
+  layout?: "galaxy" | "authored";
   onSelectCharacter: (character: Character | null) => void;
   selectedCharacterId?: string | null;
   /** Rendered inside the top-left control column. */
@@ -556,6 +559,7 @@ export default function CharactersWeb({
   characters,
   relationships,
   quality = "balanced",
+  layout = "galaxy",
   onSelectCharacter,
   selectedCharacterId,
   topLeftSlot,
@@ -706,16 +710,55 @@ export default function CharactersWeb({
     const base = new Float64Array(n * 2);
     const curX = new Float64Array(n);
     const curY = new Float64Array(n);
+    /*
+     * Same derived radial layout as the canvas renderer — one source of truth,
+     * so switching renderers cannot change where a node sits. `layout` is the
+     * URL-driven escape hatch back to the authored coordinates.
+     */
+    const flat =
+      layout === "authored"
+        ? (() => {
+            const out = new Float64Array(n * 2);
+            nodes.forEach((node, i) => {
+              out[i * 2] = node.c.x ?? 0;
+              out[i * 2 + 1] = node.c.y ?? 0;
+            });
+            return out;
+          })()
+        : (() => {
+            let hub = 0;
+            let best = -1;
+            const deg = new Int32Array(n);
+            for (const e of edges) {
+              deg[e.s]++;
+              deg[e.t]++;
+            }
+            for (let i = 0; i < n; i++) {
+              if (deg[i] > best) {
+                best = deg[i];
+                hub = i;
+              }
+            }
+            return galaxyLayout(
+              n,
+              new Int32Array(edges.map((e) => e.s)),
+              new Int32Array(edges.map((e) => e.t)),
+              nodes.map((node) => resolveFaction(node.c.affiliation).key),
+              nodes.map((node) => hash32(node.c.id)),
+              hub
+            );
+          })();
+
     nodes.forEach((node, i) => {
-      const x = node.c.x ?? 0;
-      const y = node.c.y ?? 0;
+      const x = flat[i * 2];
+      const y = flat[i * 2 + 1];
       base[i * 2] = x;
       base[i * 2 + 1] = y;
       curX[i] = x;
       curY[i] = y;
     });
     return { base, curX, curY };
-  }, [nodes]);
+  }, [nodes, edges, layout]);
 
   /** Content bounding box, inflated for label boxes and drift headroom. */
   const bbox = useMemo(() => {
@@ -723,15 +766,15 @@ export default function CharactersWeb({
     let minY = Infinity;
     let maxX = -Infinity;
     let maxY = -Infinity;
-    for (const n of nodes) {
+    nodes.forEach((n, i) => {
       const halfLabel = Math.max(n.r + 8, 48);
-      const cx = n.c.x ?? 0;
-      const cy = n.c.y ?? 0;
+      const cx = geom.base[i * 2];
+      const cy = geom.base[i * 2 + 1];
       minX = Math.min(minX, cx - halfLabel);
       maxX = Math.max(maxX, cx + halfLabel);
       minY = Math.min(minY, cy - n.r - 12);
       maxY = Math.max(maxY, cy + n.r + 30);
-    }
+    });
     if (!Number.isFinite(minX) || !Number.isFinite(minY)) {
       return { minX: -500, minY: -500, w: 1000, h: 1000 };
     }
@@ -742,7 +785,7 @@ export default function CharactersWeb({
       w: maxX - minX + m * 2,
       h: maxY - minY + m * 2,
     };
-  }, [nodes, q.driftAmp]);
+  }, [nodes, geom, q.driftAmp]);
 
   const particles = useMemo<Particle[]>(() => {
     const out: Particle[] = [];

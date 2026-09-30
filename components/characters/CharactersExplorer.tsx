@@ -139,14 +139,19 @@ export default function CharactersExplorer({
   /* ── renderer choice ───────────────────────────────────────────── */
   /** null = follow the tier default (see rendererForTier). */
   const [rendererOverride, setRendererOverride] = useState<Renderer | null>(null)
+  /** Radial layout by default; `?layout=authored` restores the old coordinates. */
+  const [layout, setLayout] = useState<"galaxy" | "authored">("galaxy")
 
   const { theme } = useTheme()
 
   // `?renderer=svg|canvas` pins the renderer for A/B comparison on a real
   // device. Read once, on the client, so the server render stays tier-neutral.
   useEffect(() => {
-    const value = new URLSearchParams(window.location.search).get("renderer")
-    setRendererOverride(rendererFromParam(value))
+    const params = new URLSearchParams(window.location.search)
+    setRendererOverride(rendererFromParam(params.get("renderer")))
+    // `?layout=authored` restores the hand-placed coordinates so the radial
+    // layout can be judged against them on a real device, not just in theory.
+    setLayout(params.get("layout") === "authored" ? "authored" : "galaxy")
   }, [])
 
   // Detection and storage are client-only reads, so they cannot run during the
@@ -264,6 +269,7 @@ export default function CharactersExplorer({
           <CanvasGraphLazy
             characters={characters}
             relationships={relationships}
+            layout={layout}
             quality={quality}
             onSelectCharacter={handleSelect}
             selectedCharacterId={selection?.id}
@@ -274,6 +280,7 @@ export default function CharactersExplorer({
           <CharactersWeb
             characters={characters}
             relationships={relationships}
+            layout={layout}
             quality={quality}
             onSelectCharacter={handleSelect}
             selectedCharacterId={selection?.id}
