@@ -93,6 +93,11 @@ export interface PaintOptions {
   dotGrid: boolean;
   /** Selects the theme-appropriate node fill (see PaintedNode.darkFill). */
   isDark: boolean;
+  /**
+   * The device-pixel-ratio scale the caller applied to the context. `paint`
+   * restores it on the way out, so the value has to travel with the options.
+   */
+  dpr: number;
   viewport: { w: number; h: number };
 }
 
@@ -341,7 +346,17 @@ export function paint(
 
 
   ctx.restore();
-  ctx.setTransform(1, 0, 0, 1, 0, 0);
+  /*
+   * Reset to the DPR scale, NOT the identity.
+   *
+   * The caller's context is scaled by the device pixel ratio so `paint` can work
+   * in CSS pixels. Ending on setTransform(1,0,0,1,0,0) threw that away, so
+   * every frame after the first drew at 1/dpr scale — on a 3x phone that is a
+   * third of the intended size in the top-left corner, which is exactly what
+   * "the graph is a cluster in the corner and things vanish when I zoom" looked
+   * like. The DPR reset belongs to sizeCanvas, so restore it here.
+   */
+  ctx.setTransform(o.dpr, 0, 0, o.dpr, 0, 0);
   return calls;
 }
 

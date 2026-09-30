@@ -45,6 +45,7 @@ const PAL: PaintPalette = {
 /** Minimal CanvasRenderingContext2D that counts calls. */
 function fakeCtx() {
   const calls: string[] = [];
+  const setTransformArgs: unknown[][] = [];
   const rec =
     (name: string) =>
     (..._a: unknown[]) => {
@@ -52,10 +53,14 @@ function fakeCtx() {
     };
   const ctx = {
     calls,
+    setTransformArgs,
     save: rec("save"),
     restore: rec("restore"),
     clearRect: rec("clearRect"),
-    setTransform: rec("setTransform"),
+    setTransform: (...a: unknown[]) => {
+      calls.push("setTransform");
+      setTransformArgs.push(a);
+    },
     beginPath: rec("beginPath"),
     arc: rec("arc"),
     fill: rec("fill"),
@@ -77,7 +82,10 @@ function fakeCtx() {
     textAlign: "center" as const,
     textBaseline: "middle" as const,
   };
-  return ctx as unknown as CanvasRenderingContext2D & { calls: string[] };
+  return ctx as unknown as CanvasRenderingContext2D & {
+    calls: string[];
+    setTransformArgs: unknown[][];
+  };
 }
 
 describe("camera transforms", () => {
@@ -279,6 +287,7 @@ describe("paint", () => {
       dimmed: false,
       dotGrid: false,
       isDark: true,
+      dpr: 1,
       viewport,
     };
     return o;
@@ -403,10 +412,29 @@ describe("paint", () => {
   it("restores the transform so the next frame starts clean", () => {
     const ctx = fakeCtx();
     paint(ctx, scene(10, 8), PAL);
-    // save + restore pair, and a final identity setTransform.
+    // save + restore pair, and a final transform reset.
     expect(ctx.calls.filter((c) => c === "save")).toHaveLength(1);
     expect(ctx.calls.filter((c) => c === "restore")).toHaveLength(1);
     expect(ctx.calls[ctx.calls.length - 1]).toBe("setTransform");
+  });
+
+  /*
+   * Regression. paint() used to end on setTransform(1,0,0,1,0,0), which
+   * discarded the DPR scale the caller had applied. Every frame after the first
+   * was then drawn at 1/dpr scale — on a 3x phone a third of the size, jammed
+   * into the top-left corner. That is what "the graph is a corner cluster and
+   * nodes vanish as I zoom" actually was.
+   */
+  it("leaves the context at the DPR scale, not the identity", () => {
+    const ctx = fakeCtx();
+    const o = scene(10, 8);
+    o.dpr = 3;
+    paint(ctx, o, PAL);
+    const last = ctx.calls[ctx.calls.length - 1];
+    expect(last).toBe("setTransform");
+    // fakeCtx records only names, so assert on the scale arguments instead.
+    const scales = ctx.setTransformArgs ?? [];
+    expect(scales[scales.length - 1]).toEqual([3, 0, 0, 3, 0, 0]);
   });
 
   it("marks the selected node without touching the others", () => {

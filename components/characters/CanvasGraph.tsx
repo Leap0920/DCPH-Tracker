@@ -411,6 +411,7 @@ export default function CanvasGraph({
         dimmed: hovered >= 0 || selectedIndex >= 0 || searchMatches !== null,
         dotGrid: q.dotGrid,
         isDark: theme === "dark",
+        dpr,
         viewport: { w, h },
       },
       pal
