@@ -67,12 +67,17 @@ export interface PaintOptions {
   cam: Camera;
   nodes: readonly PaintedNode[];
   edges: readonly PaintedEdge[];
-  /** World endpoints per edge, parallel to `edges`. */
+  /** World endpoints per edge, interleaved [x,y] per edge. */
   edgeFrom: Float64Array;
   edgeTo: Float64Array;
-  /** World positions per node, parallel to `nodes`. */
-  nodeX: Float64Array;
-  nodeY: Float64Array;
+  /**
+   * World node positions, interleaved [x0,y0,x1,y1,...] — the same layout the
+   * SVG renderer's `geom.base` uses, so node dragging and edge routing read one
+   * buffer. Interleaved rather than split because every consumer already indexes
+   * `i * 2` / `i * 2 + 1`, and a split pair invites exactly the bug where both
+   * axes get handed the same array.
+   */
+  positions: Float64Array;
   /** Bow offset index per edge. */
   edgeOff: Float64Array;
   selectedIndex: number;
@@ -170,8 +175,8 @@ export function paint(
   const fontBase = pal.fontSize;
 
   for (const n of o.nodes) {
-    const wx = o.nodeX[n.index];
-    const wy = o.nodeY[n.index];
+    const wx = o.positions[n.index * 2];
+    const wy = o.positions[n.index * 2 + 1];
     if (wx < minWX || wx > maxWX || wy < minWY || wy > maxWY) continue;
 
     const isSel = n.index === o.selectedIndex;

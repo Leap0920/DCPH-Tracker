@@ -33,6 +33,7 @@
  */
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { RotateCcw, Search, Target, ZoomIn, ZoomOut } from "lucide-react";
 import type { Character, Relationship } from "@/lib/characters-guide";
 import type { QualityTier } from "@/lib/device-tier";
 import { GRAPH_QUALITY, labelTierLimit, type GraphQuality } from "./graph-quality";
@@ -60,6 +61,9 @@ import {
 
 const MAX_ZOOM = 4;
 const MIN_ZOOM = 0.12;
+const ZOOM_STEP = 1.35;
+/** Zoom used when flying to a searched node. */
+const ZOOM_TO_NODE = 1.9;
 
 /** Slop added to node hit radius so a small node is finger-tappable. */
 const TOUCH_SLACK_PX = 14;
@@ -148,6 +152,8 @@ export default function CanvasGraph({
   const [hovered, setHovered] = useState(-1);
   const [searchQuery, setSearchQuery] = useState("");
   const [searchOpen, setSearchOpen] = useState(false);
+  /** Drives the dock readout; updated from the camera on each paint. */
+  const [zoomPct, setZoomPct] = useState(100);
 
   /* ── camera + interaction state (refs: read by paint, never by React) ── */
   const camRef = useRef<Camera>({ x: 0, y: 0, k: 1 });
@@ -333,8 +339,7 @@ export default function CanvasGraph({
         edgeFrom,
         edgeTo,
         edgeOff,
-        nodeX: positions,
-        nodeY: positions,
+        positions,
         selectedIndex,
         hoveredIndex: hovered,
         searchMatches,
@@ -378,6 +383,7 @@ export default function CanvasGraph({
           MIN_ZOOM,
           1.6
         );
+        setZoomPct(Math.round(camRef.current.k * 100));
       }
       requestPaint();
     };
@@ -387,6 +393,53 @@ export default function CanvasGraph({
     ro.observe(el);
     return () => ro.disconnect();
   }, [bbox, requestPaint]);
+
+  /* ── camera commands (dock buttons + search "fly to") ───────────── */
+
+  /** Zoom about the viewport centre, then repaint. */
+  const zoomBy = useCallback((factor: number) => {
+    const cam = camRef.current;
+    const { w, h } = sizeRef.current;
+    if (w === 0 || h === 0) return;
+    const cx = w / 2;
+    const cy = h / 2;
+    const world = toWorld(cx, cy, cam);
+    const nk = clamp(cam.k * factor, MIN_ZOOM, MAX_ZOOM);
+    camRef.current = { k: nk, x: cx - world.x * nk, y: cy - world.y * nk };
+    setZoomPct(Math.round(nk * 100));
+    requestPaint();
+  }, [requestPaint]);
+
+  /** Fit the whole graph, which is what "reset" means on the dock. */
+  const centerOnConan = useCallback(() => {
+    const { w, h } = sizeRef.current;
+    if (w === 0 || h === 0) return;
+    camRef.current = fitCamera(bbox, { x: 0, y: 0, w, h }, MIN_ZOOM, 1.6);
+    setZoomPct(Math.round(camRef.current.k * 100));
+    requestPaint();
+  }, [bbox, requestPaint]);
+
+  /** Bring a node into view at a readable zoom. */
+  const focusNode = useCallback(
+    (index: number) => {
+      const { w, h } = sizeRef.current;
+      if (w === 0 || h === 0) return;
+      const cam = camRef.current;
+      const k = clampValue(
+        Math.max(cam.k, ZOOM_TO_NODE),
+        MIN_ZOOM,
+        MAX_ZOOM
+      );
+      camRef.current = {
+        k,
+        x: w / 2 - positions[index * 2] * k,
+        y: h / 2 - positions[index * 2 + 1] * k,
+      };
+      setZoomPct(Math.round(k * 100));
+      requestPaint();
+    },
+    [positions, requestPaint]
+  );
 
   /* ── pointer interaction ──────────────────────────────────────── */
 
@@ -484,6 +537,7 @@ export default function CanvasGraph({
         const nk = clamp((pinch.k * dist) / pinch.dist, MIN_ZOOM, MAX_ZOOM);
         camRef.current = { k: nk, x: mid.sx - pinch.wx * nk, y: mid.sy - pinch.wy * nk };
         movedRef.current = true;
+        setZoomPct(Math.round(nk * 100));
         requestPaint();
         return;
       }
@@ -557,6 +611,7 @@ export default function CanvasGraph({
       const factor = e.deltaY < 0 ? 1.12 : 1 / 1.12;
       const nk = clamp(cam.k * factor, MIN_ZOOM, MAX_ZOOM);
       camRef.current = { k: nk, x: sx - w.x * nk, y: sy - w.y * nk };
+      setZoomPct(Math.round(nk * 100));
       requestPaint();
     };
 
@@ -605,6 +660,138 @@ export default function CanvasGraph({
         className="absolute inset-0 block h-full w-full"
         aria-hidden
       />
+
+      {/* ── control chrome ──────────────────────────────────────────
+          The canvas paints the graph; these are ordinary DOM buttons layered
+          over it. They were an omission in the first port — the graph was
+          unreachable without pinch, which is exactly the "no functions"
+          symptom. Kept as real buttons so they are focusable and announced. */}
+
+      {/* search, top-left */}
+      <div className="absolute left-3 top-4 z-20 sm:left-4">
+        <button
+          type="button"
+          onClick={() => {
+            if (searchOpen) setSearchQuery("");
+            setSearchOpen(!searchOpen);
+          }}
+          aria-label="Search characters"
+          aria-expanded={searchOpen}
+          className="flex h-9 w-9 items-center justify-center rounded-full border border-line bg-surface text-ink shadow-lift"
+        >
+          <Search className="h-4 w-4" />
+        </button>
+        {searchOpen && (
+          <div className="mt-2 w-[15rem] space-y-1.5 rounded-xl border border-line bg-surface p-2 text-ink shadow-lift">
+            <div className="flex items-center gap-2 rounded-lg bg-surface-muted px-2.5 py-1.5">
+              <Search className="h-3.5 w-3.5 shrink-0 text-ink-faint" aria-hidden />
+              <input
+                autoFocus
+                type="text"
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === "Escape") {
+                    setSearchQuery("");
+                    setSearchOpen(false);
+                    e.stopPropagation();
+                  }
+                }}
+                placeholder="Search characters"
+                aria-label="Search characters"
+                className="w-full min-w-0 select-text bg-transparent text-sm text-ink outline-none placeholder:text-ink-faint"
+              />
+            </div>
+            {searchQuery && (
+              <div className="max-h-[40vh] overflow-y-auto">
+                {searchResults.length === 0 ? (
+                  <p className="px-2.5 py-2 text-xs text-ink-faint">
+                    No characters match that.
+                  </p>
+                ) : (
+                  searchResults.map(({ n, i }) => (
+                    <button
+                      key={n.c.id}
+                      type="button"
+                      onClick={() => {
+                        // Fly to the node instead of just selecting it, so the
+                        // result is visible in the viewport.
+                        focusNode(i);
+                        onSelectCharacter(n.c);
+                        setSearchQuery("");
+                        setSearchOpen(false);
+                      }}
+                      className="flex w-full items-center gap-2.5 rounded-lg px-2.5 py-1.5 text-left transition-colors hover:bg-surface-muted"
+                    >
+                      <span
+                        className="h-2.5 w-2.5 shrink-0 rounded-full"
+                        style={{ backgroundColor: n.primary }}
+                      />
+                      <span className="min-w-0 flex-1">
+                        <span className="block truncate text-xs font-semibold">
+                          {n.c.name}
+                        </span>
+                        <span className="block truncate text-[10px] text-ink-dim">
+                          {n.c.role}
+                        </span>
+                      </span>
+                    </button>
+                  ))
+                )}
+              </div>
+            )}
+          </div>
+        )}
+      </div>
+
+      {/* dock: center-Conan, zoom out, readout, zoom in, reset */}
+      <div className="absolute bottom-6 left-3 z-20 flex items-center gap-1 rounded-full border border-line bg-surface p-1.5 shadow-lift sm:left-4 sm:bottom-6">
+        <button
+          type="button"
+          onClick={centerOnConan}
+          aria-label="Center on Conan Edogawa"
+          title="Center on Conan Edogawa"
+          className="flex items-center gap-1 rounded-full bg-accent/10 px-2.5 py-1.5 font-display text-xs font-medium text-accent-bright"
+        >
+          <Target className="h-3.5 w-3.5" />
+        </button>
+        <div className="my-auto h-4 w-px bg-line" />
+        <button
+          type="button"
+          onClick={() => zoomBy(1 / ZOOM_STEP)}
+          aria-label="Zoom out"
+          title="Zoom out"
+          className="flex h-8 w-8 items-center justify-center rounded-full text-ink-dim transition-colors hover:bg-surface-muted hover:text-ink"
+        >
+          <ZoomOut className="h-4 w-4" />
+        </button>
+        <span className="w-10 text-center font-mono text-[10px] tabular-nums text-ink-faint" aria-hidden>
+          {zoomPct}%
+        </span>
+        <button
+          type="button"
+          onClick={() => zoomBy(ZOOM_STEP)}
+          aria-label="Zoom in"
+          title="Zoom in"
+          className="flex h-8 w-8 items-center justify-center rounded-full text-ink-dim transition-colors hover:bg-surface-muted hover:text-ink"
+        >
+          <ZoomIn className="h-4 w-4" />
+        </button>
+        <button
+          type="button"
+          onClick={centerOnConan}
+          aria-label="Reset view"
+          title="Reset view"
+          className="flex h-8 w-8 items-center justify-center rounded-full text-ink-dim transition-colors hover:bg-surface-muted hover:text-ink"
+        >
+          <RotateCcw className="h-4 w-4" />
+        </button>
+      </div>
+
+      {/* character count, mirrors the SVG renderer's badge */}
+      <div className="pointer-events-none absolute bottom-6 right-4 z-10 hidden items-center gap-1.5 rounded-full border border-line bg-surface px-3 py-1 font-mono text-[10px] uppercase tracking-wider text-ink-faint shadow-card sm:flex">
+        {nodes.length} characters · {edges.length} threads
+      </div>
 
       {/* Accessibility mirror: the canvas cannot expose semantics, so every
           node gets a real focusable button in a visually hidden layer. This is

@@ -249,19 +249,19 @@ describe("paint", () => {
     const edgeFrom = new Float64Array(m * 2);
     const edgeTo = new Float64Array(m * 2);
     const edgeOff = new Float64Array(m);
-    const nodeX = new Float64Array(n * 2);
-    const nodeY = new Float64Array(n * 2);
+    // Interleaved [x,y] per node — the layout every other consumer uses.
+    const positions = new Float64Array(n * 2);
     for (let i = 0; i < n; i++) {
-      nodeX[i * 2] = (i % 20) * 18;
-      nodeY[i * 2] = Math.floor(i / 20) * 18;
+      positions[i * 2] = (i % 20) * 18;
+      positions[i * 2 + 1] = Math.floor(i / 20) * 18;
     }
     for (let i = 0; i < m; i++) {
       const a = i % n;
       const b = (i + 1) % n;
-      edgeFrom[i * 2] = nodeX[a * 2];
-      edgeFrom[i * 2 + 1] = nodeY[a * 2];
-      edgeTo[i * 2] = nodeX[b * 2];
-      edgeTo[i * 2 + 1] = nodeY[b * 2];
+      edgeFrom[i * 2] = positions[a * 2];
+      edgeFrom[i * 2 + 1] = positions[a * 2 + 1];
+      edgeTo[i * 2] = positions[b * 2];
+      edgeTo[i * 2 + 1] = positions[b * 2 + 1];
     }
     const o: PaintOptions = {
       cam: { x: 0, y: 0, k: 1 },
@@ -270,8 +270,7 @@ describe("paint", () => {
       edgeFrom,
       edgeTo,
       edgeOff,
-      nodeX,
-      nodeY,
+      positions,
       selectedIndex: -1,
       hoveredIndex: -1,
       searchMatches: null,
@@ -350,5 +349,48 @@ describe("paint", () => {
     const arcs = ctx.calls.filter((c) => c === "arc").length;
     // 20 nodes x (body + core) + 1 extra ring for the selected one.
     expect(arcs).toBe(41);
+  });
+
+  /*
+   * Regression. The painter once took split `nodeX` / `nodeY` arrays, and the
+   * component handed it the same interleaved buffer for both — so every node was
+   * painted at (x, x) instead of (x, y). The whole graph collapsed onto a
+   * diagonal, and culling then discarded most of it, which looked like nodes
+   * vanishing when you zoomed in.
+   *
+   * The test asserts a node is painted at its authored Y, which a shared-array
+   * bug cannot satisfy whenever x !== y.
+   */
+  it("paints each node at its authored x AND y, never x for both", () => {
+    const o = scene(3, 2);
+    // Place nodes at deliberately asymmetric coordinates.
+    o.positions[0] = 10;
+    o.positions[1] = 90;
+    o.positions[2] = 30;
+    o.positions[3] = 20;
+    o.positions[4] = 70;
+    o.positions[5] = 40;
+
+    const drawn: Array<[number, number]> = [];
+    const ctx = {
+      ...fakeCtx(),
+      arc: (x: number, y: number, ..._r: unknown[]) => {
+        drawn.push([x, y]);
+      },
+    } as unknown as CanvasRenderingContext2D & { calls: string[] };
+
+    paint(ctx, o, PAL);
+
+    // Every painted coordinate must match some authored (x, y) pair — never a
+    // position whose Y was copied from X.
+    const authored = new Set([
+      "10,90",
+      "30,20",
+      "70,40",
+    ]);
+    for (const [x, y] of drawn) {
+      expect(authored.has(`${x},${y}`)).toBe(true);
+    }
+    expect(drawn.length).toBeGreaterThanOrEqual(6); // 3 nodes x body + core
   });
 });
