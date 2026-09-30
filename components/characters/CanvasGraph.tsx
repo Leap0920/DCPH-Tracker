@@ -60,6 +60,7 @@ import {
   type HitCircle,
 } from "./canvas-geometry";
 import {
+  MIN_NODE_R_PX,
   paint,
   sizeCanvas,
   type PaintPalette,
@@ -772,7 +773,16 @@ export default function CanvasGraph({
           : isFocused
             ? 0.42
             : 0.5;
-      return { index: i, color: e.color, opacity, width: isTarget ? 2.6 : 2 };
+      return {
+        index: i,
+        color: e.color,
+        opacity,
+        width: isTarget ? 2.6 : 2,
+        // Endpoints travel with the edge so the globe can fade a string by the
+        // depth of what it joins.
+        s: e.s,
+        t: e.t,
+      };
     });
 
     paint(
@@ -978,12 +988,15 @@ export default function CanvasGraph({
         wx: src[i * 2],
         wy: src[i * 2 + 1],
         /*
-         * Match the radius the painter actually draws. On the globe a node's
-         * drawn size is scaled by its depth, so testing against the flat `n.r`
-         * would make the far, small nodes easy to grab and the near, big ones
-         * hard to — the target would not be where it looks.
+         * Match the radius the painter actually draws: scaled by depth on the
+         * globe, and never below the drawn-size floor. Testing against the raw
+         * `n.r` would make the far, small nodes easy to grab and the near, big
+         * ones hard to — the target would not be where it looks.
          */
-        r: dep ? n.r * (1 + dep[i] * 0.22) : n.r,
+        r: Math.max(
+          dep ? n.r * (1 + dep[i] * 0.22) : n.r,
+          MIN_NODE_R_PX / (camRef.current.k || 1)
+        ),
       }));
     };
 

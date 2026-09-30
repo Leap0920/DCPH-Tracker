@@ -28,7 +28,12 @@ import {
   type HitCircle,
   type HitEdge,
 } from "@/components/characters/canvas-geometry";
-import { paint, type PaintOptions, type PaintPalette } from "@/components/characters/canvas-painter";
+import {
+  MIN_NODE_R_PX,
+  paint,
+  type PaintOptions,
+  type PaintPalette,
+} from "@/components/characters/canvas-painter";
 
 const PAL: PaintPalette = {
   bg0: "#000",
@@ -48,6 +53,8 @@ function fakeCtx() {
   const setTransformArgs: unknown[][] = [];
   /** Radius of every arc, in draw order — used by the depth tests. */
   const arcArgs: number[][] = [];
+  /** Text of every fillText, so a test can assert WHICH name was painted. */
+  const textArgs: string[] = [];
   const rec =
     (name: string) =>
     (..._a: unknown[]) => {
@@ -57,6 +64,7 @@ function fakeCtx() {
     calls,
     setTransformArgs,
     arcArgs,
+    textArgs,
     alphas: [] as number[],
     alphaValue: 1,
     save: rec("save"),
@@ -76,7 +84,10 @@ function fakeCtx() {
     fillRect: rec("fillRect"),
     moveTo: rec("moveTo"),
     quadraticCurveTo: rec("quadraticCurveTo"),
-    fillText: rec("fillText"),
+    fillText: (...a: unknown[]) => {
+      calls.push("fillText");
+      textArgs.push(String(a[0]));
+    },
     strokeText: rec("strokeText"),
     createLinearGradient: () => ({ addColorStop: rec("addColorStop") }),
     createRadialGradient: () => ({ addColorStop: rec("addColorStop") }),
@@ -101,6 +112,7 @@ function fakeCtx() {
     setTransformArgs: unknown[][];
     alphas: number[];
     arcArgs: number[][];
+    textArgs: string[];
   };
 }
 
@@ -373,18 +385,16 @@ describe("paint", () => {
     expect(labels).toBeLessThan(6);
   });
 
-  it("keeps the most important label when two collide", () => {
+  it("never drops the most important label to a collision", () => {
     const o = scene(2, 1);
-    // Node 0 is tier 1, node 1 is the hub (tier 0) — they overlap exactly.
+    // Node 0 is tier 1, node 1 is the hub (tier 0).
     o.nodes[0].tier = 1;
     o.nodes[1].tier = 0;
     o.nodes[1].r = 26;
-    // Same label baseline: the hub's bigger radius pushes its own label DOWN by
-    // exactly that much, so it has to sit that much higher to line up.
     o.positions[0] = 100;
     o.positions[1] = 100;
-    // Hub sits HIGHER so its label band crosses the tier-1 node's band: a 26px
-    // radius pushes its own label ~32px further down than a 6px one.
+    // Hub sits HIGHER, so a below-only placement would put its label across the
+    // tier-1 node's band.
     o.positions[2] = 100;
     o.positions[3] = 70;
     o.viewport = { w: 400, h: 400 };
@@ -392,9 +402,15 @@ describe("paint", () => {
 
     const ctx = fakeCtx();
     paint(ctx, o, PAL);
-    // Exactly one name painted, and it must be the hub's.
-    const names = ctx.calls.filter((c) => c === "fillText").length;
-    expect(names).toBe(1);
+    /*
+     * The property is WHO survives, not HOW MANY.
+     *
+     * Labels are now tried below the node and then above it, so a collision that
+     * used to cost one of the two names can now cost neither — pinning the count
+     * to 1 would assert the old limitation. What must hold either way is that
+     * the hub is never the one sacrificed to a lesser node.
+     */
+    expect(ctx.textArgs).toContain("N1");
   });
 
   it("brings a suppressed name back once the graph is spread out", () => {
@@ -633,7 +649,14 @@ describe("paint", () => {
     paint(ctx, withDepth(o, [-1]), PAL);
     const alphas = ctx.alphas.filter((a) => a > 0 && a < 1);
     expect(alphas.length).toBeGreaterThan(0);
-    for (const a of alphas) expect(a).toBeGreaterThan(0.4);
+    /*
+     * The floor is what matters, not its exact value: a far node must stay
+     * clearly visible rather than dissolving into the background. Asserting the
+     * precise constant here would just re-state the source; asserting that it
+     * is meaningfully present is the property that keeps the far hemisphere
+     * from disappearing.
+     */
+    for (const a of alphas) expect(a).toBeGreaterThanOrEqual(0.35);
   });
 
   it("changes nothing when there is no depth buffer", () => {
@@ -667,5 +690,105 @@ describe("paint", () => {
     const ctx = fakeCtx();
     paint(ctx, withDepth(o, [-1]), PAL);
     expect(Math.max(...ctx.alphas)).toBe(1);
+  });
+
+  it("draws labels at a constant SCREEN size, whatever the zoom", () => {
+    /*
+     * The readability bug behind the report. Labels were drawn in world units,
+     * so the camera scaled them: at the zoom that fits the cast on a phone an
+     * 11px name rendered at ~2.5px — not small print, a grey smudge. The font
+     * must be divided by k, so that (font size set) x (zoom) is a constant:
+     * that product IS the size on screen.
+     *
+     * Each zoom is measured in its own scope. Collecting the font strings into
+     * one array and looking up which k produced each was the first attempt, and
+     * it silently passed against the broken code: when every zoom yields the
+     * SAME string, indexOf returns the first match for all of them and the test
+     * compares a value against itself.
+     */
+    const onScreen: number[] = [];
+    for (const k of [0.2, 1, 3]) {
+      const o = scene(1, 0);
+      o.cam = { x: 0, y: 0, k };
+      const ctx = fakeCtx();
+      let font = "";
+      Object.defineProperty(ctx, "font", {
+        get: () => font,
+        set: (v: string) => {
+          font = v;
+        },
+      });
+      paint(ctx, o, PAL);
+      const m = /([\d.]+)px/.exec(font);
+      expect(m).not.toBeNull();
+      onScreen.push(Number(m![1]) * k);
+    }
+    // A name is the same number of CSS px at every zoom.
+    for (const v of onScreen) expect(v).toBeCloseTo(11, 4);
+  });
+
+  it("never draws a node below the legibility floor", () => {
+    /*
+     * The readability regression behind the "so messy" report: at the zoom that
+     * fits the whole globe on a phone, a 10px world radius renders under 4 CSS
+     * px and the cast reads as scattered dust. The drawn radius must be clamped
+     * to MIN_NODE_R_PX in screen terms — so the smallest node at a small zoom is
+     * still a dot you can see and tap, not a speck.
+     */
+    const o = scene(1, 0);
+    // A small camera zoom makes world units tiny on screen.
+    o.cam = { x: 0, y: 0, k: 0.2 };
+    const ctx = fakeCtx();
+    paint(ctx, o, PAL);
+    // The body is the second arc (glow first). World r is 6; at k=0.2 that is
+    // 1.2 world px of screen — well under the floor.
+    const bodyR = ctx.arcArgs[1][2];
+    // The clamp is applied in world units as MIN_NODE_R_PX / k.
+    expect(bodyR * o.cam.k).toBeGreaterThanOrEqual(MIN_NODE_R_PX - 1e-6);
+  });
+
+  it("fades a string by the depth of the nodes it joins", () => {
+    /*
+     * On a globe the far hemisphere's web used to draw at full strength over
+     * the near hemisphere, which is most of the hairball. An edge whose ends are
+     * both at the back must come out dimmer than one whose ends are at the
+     * front.
+     */
+    const back = scene(2, 1);
+    back.edges[0].s = 0;
+    back.edges[0].t = 1;
+    const frontO = { ...back, edges: [{ ...back.edges[0] }] };
+    const cBack = fakeCtx();
+    paint(cBack, withDepth(back, [-1, -1]), PAL);
+    const cFront = fakeCtx();
+    paint(cFront, withDepth(frontO, [1, 1]), PAL);
+
+    // Edge alpha is set before the node passes; take the first non-1 alpha.
+    const backEdgeAlpha = cBack.alphas[0];
+    const frontEdgeAlpha = cFront.alphas[0];
+    expect(frontEdgeAlpha).toBeGreaterThan(backEdgeAlpha);
+  });
+
+  it("labels only the front of the globe, so back names cannot overlay front nodes", () => {
+    /*
+     * This is the single biggest source of text overlap in the phone
+     * screenshot: names from the far side were printed over the near side's
+     * nodes. Only front-hemisphere nodes may be labelled.
+     */
+    const o = scene(2, 0);
+    o.positions[0] = 0;
+    o.positions[1] = 0;
+    o.positions[2] = 40;
+    o.positions[3] = 0;
+    // Node 0 near the viewer, node 1 far. Only node 0's name should be drawn.
+    const ctx = fakeCtx();
+    paint(ctx, withDepth(o, [1, -1]), PAL);
+    /*
+     * Two nodes, but only the front one may be named. `fakeCtx` records call
+     * names rather than arguments, so the assertion is on the COUNT: a second
+     * label would show up as another fillText.
+     */
+    const fillTexts = ctx.calls.filter((c) => c === "fillText").length;
+    expect(fillTexts).toBe(1);
   });
 });

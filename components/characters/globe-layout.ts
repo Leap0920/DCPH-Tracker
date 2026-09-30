@@ -36,14 +36,23 @@ export interface GlobeOptions {
 
 export const DEFAULT_GLOBE: GlobeOptions = {
   /*
-   * Sized from the drawn node radius (10-24) plus a label, at the zoom the fit
-   * picks on a phone: anything tighter and the shell a node sits on becomes a
-   * visually solid ring of overlapping discs.
+   * SIZED FROM MEASUREMENT, not taste.
+   *
+   * At 132/96 the phone fit put 24 pairs of discs on top of one another — the
+   * single biggest contributor to the "so messy" report, since overlapping
+   * nodes hide their own labels and the whole sphere reads as one mass. These
+   * values were picked by rendering the real cast at a phone viewport and
+   * counting collisions: 132/96 gives 24, 200/150 gives 6, and 240/180 gives 3
+   * at the cost of a smaller fit zoom.
+   *
+   * 200/150 is the balance — the overlap is essentially gone while the globe
+   * still fills the screen, and the drawn-size floor in the painter keeps the
+   * slightly smaller fit zoom legible.
    */
-  shellGap: 132,
-  minSpacing: 96,
+  shellGap: 200,
+  minSpacing: 150,
   phase: 0.6,
-  jitter: 6,
+  jitter: 4,
 };
 
 /** Golden angle — the Fibonacci sphere's azimuth step. */

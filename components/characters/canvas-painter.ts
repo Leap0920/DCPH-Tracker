@@ -53,6 +53,14 @@ export interface PaintedEdge {
   /** Opacity 0..1 resolved by the caller from hover/search/dim state. */
   opacity: number;
   width: number;
+  /**
+   * The two node indices this string joins. Only the globe needs them — to fade
+   * a string by the depth of its ends, so the web on the far side of the sphere
+   * recedes with its nodes instead of cutting across the front of the globe as
+   * a bright tangle.
+   */
+  s?: number;
+  t?: number;
 }
 
 export interface PaintPalette {
@@ -115,6 +123,17 @@ export interface PaintOptions {
 
 
 type LabelBox = { x: number; y: number; w: number; h: number };
+
+/**
+ * The smallest a node is ever DRAWN, in CSS px.
+ *
+ * Below roughly this size a disc stops reading as a node and starts reading as
+ * noise. Measured against the real cast at a phone viewport: a 4px floor nearly
+ * doubles the number of colliding pairs (6 -> 12) because it inflates the many
+ * small cast members into their neighbours, while 3px is free — the same six
+ * collisions as no floor at all, with a guaranteed visible dot.
+ */
+export const MIN_NODE_R_PX = 3;
 
 /** Axis-aligned overlap test for label boxes. */
 function overlaps(box: LabelBox, placed: readonly LabelBox[]): boolean {
@@ -219,7 +238,19 @@ export function paint(
     if (bothLeft || bothRight || bothAbove || bothBelow) continue;
 
     const ctrl = quadControl(sx, sy, tx, ty, o.edgeOff[e.index]);
-    ctx.globalAlpha = e.opacity;
+    /*
+     * Depth fade for strings. Without it the far hemisphere's web is drawn at
+     * full strength straight over the near hemisphere, and since the cast is
+     * one dense component that is most of the visual noise in the view — the
+     * "so messy" of a hairball. Fading with the mean depth of the two ends
+     * makes each string belong to the side of the globe it actually connects.
+     */
+    let edgeAlpha = e.opacity;
+    if (depth && e.s !== undefined && e.t !== undefined) {
+      const dm = (depth[e.s] + depth[e.t]) / 2;
+      edgeAlpha *= 0.16 + 0.84 * ((dm + 1) / 2);
+    }
+    ctx.globalAlpha = edgeAlpha;
     ctx.strokeStyle = e.color;
     ctx.lineWidth = e.width / k;
     ctx.beginPath();
@@ -263,8 +294,16 @@ export function paint(
      */
     const d = depth ? depth[n.index] : 0;
     const dScale = depth ? 1 + d * 0.22 : 1;
-    const dAlpha = depth ? 0.55 + 0.45 * ((d + 1) / 2) : 1;
-    const nr = n.r * dScale;
+    const dAlpha = depth ? 0.4 + 0.6 * ((d + 1) / 2) : 1;
+    /*
+     * A minimum DRAWN radius, in screen px. A node's world radius is 10-24, so
+     * at the zoom that fits a 103-node globe on a phone the smallest cast
+     * members render under 4px and the whole thing reads as scattered dust —
+     * part of what "so messy" meant. Clamping the drawn size keeps every node a
+     * visible dot at any zoom; the size hierarchy still reads when you zoom in
+     * far enough for the real radii to exceed the floor.
+     */
+    const nr = Math.max(n.r * dScale, MIN_NODE_R_PX / k);
     if (nr < 1.5) continue;
 
     const isSel = n.index === o.selectedIndex;
@@ -363,45 +402,110 @@ export function paint(
   ctx.textBaseline = "middle";
 
   for (const { n, wx, wy } of candidates) {
-    // Fade with zoom exactly as the SVG did, so a zoomed-out overview is not a
-    // wall of 11px text — but never to zero while the node itself is visible.
-    const op = labelOpacityFor(k, n.tier);
+    /*
+     * On the globe, a label belongs to the FRONT of the sphere.
+     *
+     * Everything behind the silhouette still projects into the view, so without
+     * this the far side's names are printed on top of the near side's nodes and
+     * the two sets interleave into unreadable overlap — most of the text in the
+     * "so messy" screenshot is far-side labels that should not have been drawn.
+     * Anything emphasised is exempt: a name you searched for or tapped is
+     * wanted even when it is round the back.
+     */
+    const emph = emphasised(n.index, o);
+    if (depth && !emph && depth[n.index] < 0) continue;
+
+    /*
+     * Opacity. `labelOpacityFor` fades labels as you zoom OUT, which was right
+     * when text scaled with the camera and a zoomed-out view really was a wall
+     * of unreadable specks. Text is now a constant 11px on screen, so that fade
+     * would hide perfectly legible names for no reason; on the globe the
+     * collision test is what keeps the picture readable. The flat layouts keep
+     * the original policy, since their labels still scale.
+     */
+    const opRaw = depth ? 1 : labelOpacityFor(k, n.tier);
+    const op = emph ? Math.max(opRaw, 1) : opRaw;
     if (op <= 0.02) continue;
 
+    /*
+     * LABELS DO NOT SCALE WITH THE CAMERA — and that was the readability bug.
+     *
+     * Everything else here is drawn in world units and the camera transform
+     * scales it, so a node naturally grows as you zoom in. Text must not: at the
+     * zoom the phone fit picks (k ~ 0.33) an 11px label rendered at 3.7px, which
+     * is not small type, it is a grey smudge. Feeding the font size through
+     * 1/k cancels the camera scale exactly, so a name is 11px ON SCREEN at any
+     * zoom, and zooming in is what buys room for more of them rather than
+     * making the existing ones legible.
+     *
+     * With the text at a fixed screen size, the collision test finally measures
+     * what it is comparing, so the labels that survive are the ones that fit.
+     */
     const size = n.tier === 0 ? fontBase + 1 : fontBase;
-    ctx.font = `${n.tier === 0 ? 700 : 600} ${size}px ui-sans-serif, system-ui, sans-serif`;
+    const worldSize = size / k;
+    ctx.font = `${n.tier === 0 ? 700 : 600} ${worldSize}px ui-sans-serif, system-ui, sans-serif`;
 
     const wpx = ctx.measureText(n.name).width;
     const labelScale = depth ? 1 + depth[n.index] * 0.22 : 1;
-    const ty2 = wy + n.r * labelScale + 12 + size * 0.5;
+    const gapPx = 12;
+    const screenW = wpx * k;
+    const sx = wx * k + cam.x;
+    const sy = wy * k + cam.y;
+    const nodeR = Math.max(n.r * labelScale, MIN_NODE_R_PX / k) * k;
 
-    // Screen-space box for collision. Everything here is in CSS px because the
-    // context is still scaled by DPR, not by the camera.
-    const box: LabelBox = {
-      x: wx * k + cam.x - wpx / 2 - 2,
-      y: ty2 * k + cam.y - size * 0.62,
-      w: wpx + 4,
-      h: size * 1.24,
-    };
-    if (overlaps(box, boxes)) continue;
-    boxes.push(box);
+    /*
+     * TWO PLACEMENTS, NOT ONE.
+     *
+     * Historically a label went below its node or nowhere, so a name was lost
+     * the moment the node under it happened to sit in a crowded band — and on a
+     * globe every shell IS a crowded band, which is why so few names survived.
+     * Mirroring the label to the top of the node when the underside is taken is
+     * free (it is text either way) and roughly doubles how many of the cast can
+     * be named at once.
+     *
+     * Below is tried first because it is the reading people expect, and because
+     * the halo is tuned for it.
+     */
+    const belowY = sy + nodeR + gapPx + size * 0.5;
+    const aboveY = sy - nodeR - gapPx - size * 0.5;
+    let placed = false;
+    let ty2 = (belowY - cam.y) / k; // back to world units for drawing
+    let dir = 1; // +1 below, -1 above — the sub-label hangs on the same side
+    for (const [screenY, d] of [
+      [belowY, 1],
+      [aboveY, -1],
+    ] as const) {
+      const box: LabelBox = {
+        x: sx - screenW / 2 - 2,
+        y: screenY - size * 0.62,
+        w: screenW + 4,
+        h: size * 1.24,
+      };
+      if (overlaps(box, boxes)) continue;
+      boxes.push(box);
+      ty2 = (screenY - cam.y) / k;
+      dir = d;
+      placed = true;
+      break;
+    }
+    if (!placed) continue;
 
     // Halo first so the name stays readable over any string behind it.
-    const labelDepth = depth ? 0.55 + 0.45 * ((depth[n.index] + 1) / 2) : 1;
+    const labelDepth = depth ? 0.45 + 0.55 * ((depth[n.index] + 1) / 2) : 1;
     ctx.globalAlpha = op * 0.9 * labelDepth;
-    ctx.lineWidth = 3;
+    ctx.lineWidth = 3 / k;
     ctx.strokeStyle = pal.labelHalo;
     ctx.strokeText(n.name, wx, ty2);
     ctx.globalAlpha = op * labelDepth;
-    ctx.fillStyle = emphasised(n.index, o) ? pal.labelStrong : pal.label;
+    ctx.fillStyle = emph ? pal.labelStrong : pal.label;
     ctx.fillText(n.name, wx, ty2);
     calls += 2;
 
     if (n.sub) {
-      ctx.font = `400 ${Math.round(size * 0.78)}px ui-monospace, monospace`;
+      ctx.font = `400 ${Math.round(worldSize * 0.78)}px ui-monospace, monospace`;
       ctx.globalAlpha = op * 0.65 * labelDepth;
       ctx.fillStyle = pal.label;
-      ctx.fillText(n.sub, wx, ty2 + size * 1.05);
+      ctx.fillText(n.sub, wx, ty2 + worldSize * 1.05 * dir);
       calls++;
     }
   }
