@@ -52,6 +52,18 @@ describe("WhatsNewNotice", () => {
     ).toBeTruthy()
   })
 
+  it("announces the daily streak", async () => {
+    render(<WhatsNewNotice />)
+    expect(
+      await screen.findByText(
+        /daily streaks are here/i,
+        {},
+        { timeout: 4000 }
+      )
+    ).toBeTruthy()
+    expect(screen.getByText(/3 times a month/i)).toBeTruthy()
+  })
+
   it("closes with 'Got it' and is back on the next open", async () => {
     render(<WhatsNewNotice />)
     expect(
