@@ -187,3 +187,27 @@ describe("StreakCard", () => {
     expect(await screen.findByText("4")).toBeTruthy()
   })
 })
+
+describe("StreakCard — embedded variant", () => {
+  it("renders as a bare block, no card chrome, content intact", async () => {
+    fetchMock.mockResolvedValue(
+      snapshot({ current: 2, longest: 2, loggedToday: true, lastActive: "2026-10-01" })
+    )
+    const client = new QueryClient({
+      defaultOptions: { queries: { retry: false } },
+    })
+    const { container } = render(
+      <QueryClientProvider client={client}>
+        <StreakCard userId="user-1" variant="embedded" />
+      </QueryClientProvider>
+    )
+
+    expect(await screen.findByText(/day streak/i)).toBeTruthy()
+    expect(screen.getByText("2")).toBeTruthy()
+    // The host card supplies the frame — the embedded block must not add its own.
+    expect(container.querySelector("section")).toBeNull()
+    expect(container.querySelector(".shadow-card")).toBeNull()
+    // Still labelled for assistive tech.
+    expect(container.querySelector('[aria-label="Daily streak"]')).not.toBeNull()
+  })
+})
