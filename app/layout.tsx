@@ -6,6 +6,7 @@ import { ThemeProvider } from "@/components/theme-provider";
 import { AuthModalLoader } from "@/components/auth/AuthModalLoader";
 import { ServiceWorkerRegister } from "@/components/service-worker-register";
 import { ChatWidgetLoader } from "@/components/chat/ChatWidgetLoader";
+import { WhatsNewNotice } from "@/components/whats-new/WhatsNewNotice";
 import "./globals.css";
 
 const plusJakartaSans = Plus_Jakarta_Sans({
@@ -138,6 +139,7 @@ export default async function RootLayout({
             <AuthModalLoader />
             <ServiceWorkerRegister />
             <ChatWidgetLoader />
+            <WhatsNewNotice />
           </Providers>
         </ThemeProvider>
       </body>
