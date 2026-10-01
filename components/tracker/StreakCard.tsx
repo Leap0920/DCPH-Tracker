@@ -50,7 +50,14 @@ function reviveErrorMessage(error: unknown): string {
  * refreshes when: it mounts, the page logs a watch (ACTIVITY_LOGGED_EVENT),
  * the window regains focus, or the user taps Revive.
  */
-export function StreakCard({ userId }: { userId: string | null }) {
+export function StreakCard({
+  userId,
+  variant = "card",
+}: {
+  userId: string | null
+  /** "card" = standalone card (default); "embedded" = bare block for host cards. */
+  variant?: "card" | "embedded"
+}) {
   const queryClient = useQueryClient()
   const streakKey = useMemo(
     () => queryKeys.streak.byUser(userId ?? ""),
@@ -85,11 +92,8 @@ export function StreakCard({ userId }: { userId: string | null }) {
 
   const snapshot = streakQuery.data
 
-  return (
-    <section
-      aria-label="Daily streak"
-      className="rounded-lg border border-ink-dim/20 bg-surface p-4 shadow-card sm:p-6"
-    >
+  const content = (
+    <>
       {!userId ? (
         <div className="flex items-center gap-3">
           <Flame className="h-5 w-5 shrink-0 text-ink-faint" aria-hidden="true" />
@@ -181,6 +185,19 @@ export function StreakCard({ userId }: { userId: string | null }) {
           </div>
         </div>
       )}
+    </>
+  )
+
+  if (variant === "embedded") {
+    return <div aria-label="Daily streak">{content}</div>
+  }
+
+  return (
+    <section
+      aria-label="Daily streak"
+      className="rounded-lg border border-ink-dim/20 bg-surface p-4 shadow-card sm:p-6"
+    >
+      {content}
     </section>
   )
 }
