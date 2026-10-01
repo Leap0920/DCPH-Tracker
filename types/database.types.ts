@@ -742,6 +742,35 @@ export interface Database {
         Args: { p_content_id: string };
         Returns: { avg_rating: number; rating_count: number };
       };
+      streak_sync: {
+        Args: Record<string, never>;
+        Returns: {
+          current: number;
+          longest: number;
+          loggedToday: boolean;
+          lastActive: string | null;
+          brokenStreak: number | null;
+          brokenSince: string | null;
+          revivesUsed: number;
+          revivesLeft: number;
+          revivesPerMonth: number;
+        };
+      };
+      streak_revive: {
+        Args: Record<string, never>;
+        Returns: {
+          current: number;
+          longest: number;
+          loggedToday: boolean;
+          lastActive: string | null;
+          brokenStreak: number | null;
+          brokenSince: string | null;
+          revivesUsed: number;
+          revivesLeft: number;
+          revivesPerMonth: number;
+          revived: boolean;
+        };
+      };
     };
     Enums: Record<string, never>;
   };

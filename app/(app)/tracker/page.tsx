@@ -6,6 +6,7 @@ import { useRouter, useSearchParams } from "next/navigation"
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query"
 import type { StatusFilter } from "@/components/tracker/ContentGrid"
 import { MotivationStats } from "@/components/tracker/MotivationStats"
+import { StreakCard } from "@/components/tracker/StreakCard"
 import { fetchContentEntries } from "@/lib/queries/client/content"
 import { Button } from "@/components/ui/button"
 import { X } from "lucide-react"
@@ -463,6 +464,7 @@ function TrackerPageContent() {
                 {error}
               </div>
             )}
+            <StreakCard userId={user} />
             <MotivationStats
               entries={entries}
               userStatuses={userStatuses}

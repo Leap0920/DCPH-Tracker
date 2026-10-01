@@ -9,7 +9,7 @@
 /** Label shown on the notice (also handy for support: "which update is this?"). */
 export const WHATS_NEW_VERSION = "2026-10-01"
 
-export type WhatsNewIcon = "download" | "web" | "ranks" | "player" | "speed" | "palette"
+export type WhatsNewIcon = "download" | "flame" | "web" | "ranks" | "player" | "speed" | "palette"
 
 export type WhatsNewEntry = {
   /** Keyed to an icon in components/whats-new/WhatsNewNotice.tsx. */
@@ -20,6 +20,11 @@ export type WhatsNewEntry = {
 
 /** The user-facing changelog. Plain-spoken and short — this is read on phones. */
 export const WHATS_NEW_ENTRIES: WhatsNewEntry[] = [
+  {
+    icon: "flame",
+    title: "Daily streaks are here",
+    body: "Watch something every day to build your streak. Miss a day and it breaks — revive it up to 3 times a month, right from your tracker.",
+  },
   {
     icon: "download",
     title: "Add DCPH to your home screen",

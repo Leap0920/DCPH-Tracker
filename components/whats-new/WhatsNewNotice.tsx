@@ -4,6 +4,7 @@ import { useEffect, useState } from "react"
 import {
   Download,
   Film,
+  Flame,
   Network,
   PenLine,
   TriangleAlert,
@@ -29,6 +30,7 @@ import {
 
 const ENTRY_ICON: Record<WhatsNewIcon, LucideIcon> = {
   download: Download,
+  flame: Flame,
   web: Network,
   ranks: Trophy,
   player: Film,
