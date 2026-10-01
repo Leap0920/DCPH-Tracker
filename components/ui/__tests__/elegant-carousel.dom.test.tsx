@@ -87,8 +87,15 @@ describe("ElegantCarousel sound button", () => {
     })
   })
 
-  afterEach(() => {
+  afterEach(async () => {
     cleanup()
+    // The slide-transition timers (goToSlide) have no unmount cleanup; let
+    // them fire while jsdom still exists, or a straggler lands after the
+    // environment is torn down ("window is not defined") when another DOM
+    // suite is running alongside. 500ms covers the 250ms + 50ms chain.
+    await act(async () => {
+      await new Promise((resolve) => setTimeout(resolve, 500))
+    })
     vi.clearAllMocks()
     delete (HTMLMediaElement.prototype as unknown as Record<string, unknown>)
       .paused

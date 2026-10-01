@@ -3,12 +3,13 @@
  * Deliberately conservative:
  *   - Immutable build assets (content-hashed URLs): cache-first.
  *   - Same-origin static files in PRECACHE: stale-while-revalidate.
+ *   - /manifest.webmanifest: served by this worker (see serveManifest).
  *   - Everything else (HTML, /api/*, Supabase, auth): network-only, untouched.
  *
  * Bump CACHE_VERSION on any change to this file or PRECACHE_ASSETS.
  */
 
-const CACHE_VERSION = "dcph-v3";
+const CACHE_VERSION = "dcph-v4";
 const STATIC_CACHE = `${CACHE_VERSION}-static`;
 const IMMUTABLE_CACHE = `${CACHE_VERSION}-immutable`;
 
@@ -104,6 +105,37 @@ async function staleWhileRevalidate(request, cacheName) {
   return new Response("", { status: 504, statusText: "Offline" });
 }
 
+/* The browser's own manifest fetch is cookie-less by spec, and ngrok's
+ * free-plan warning page answers cookie-less browser requests with its HTML —
+ * so Chrome parsed that HTML as the manifest ("Syntax error", the site was
+ * deemed not installable, and beforeinstallprompt never fired). Fetching the
+ * manifest from the worker carries same-origin credentials, which gets the
+ * real file; cache it and fall back to the cached copy. */
+async function serveManifest() {
+  const cache = await caches.open(STATIC_CACHE);
+  const cached = await cache.match("/manifest.webmanifest");
+
+  try {
+    const fresh = await fetch("/manifest.webmanifest", {
+      credentials: "same-origin",
+      cache: "no-store",
+    });
+    const type = fresh.headers.get("content-type") || "";
+    if (fresh.ok && type.includes("manifest")) {
+      cache.put("/manifest.webmanifest", fresh.clone()).catch(() => {});
+      return fresh;
+    }
+  } catch {
+    /* fall through to the cached copy */
+  }
+
+  if (cached) return cached;
+  return new Response("{}", {
+    status: 200,
+    headers: { "Content-Type": "application/manifest+json" },
+  });
+}
+
 self.addEventListener("fetch", (event) => {
   const { request } = event;
 
@@ -120,6 +152,11 @@ self.addEventListener("fetch", (event) => {
   if (BYPASS_PATH_PREFIXES.some((p) => url.pathname.startsWith(p))) return;
   if (request.headers.get("accept")?.includes("text/html")) return;
   if (request.headers.has("range")) return;
+
+  if (url.pathname === "/manifest.webmanifest") {
+    event.respondWith(serveManifest());
+    return;
+  }
 
   if (isImmutableAsset(url)) {
     event.respondWith(cacheFirst(request, IMMUTABLE_CACHE));

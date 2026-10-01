@@ -1,18 +1,12 @@
 "use client"
 
-import { useEffect, useState } from "react"
+import { useState } from "react"
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query"
 
 export function Providers({ children }: { children: React.ReactNode }) {
-  // Register the static-cache service worker in production only. Dev-mode
-  // registration would cache HMR responses and cause stale-module hell.
-  useEffect(() => {
-    if (process.env.NODE_ENV !== "production") return
-    if (!("serviceWorker" in navigator)) return
-    navigator.serviceWorker.register("/sw.js").catch(() => {
-      // Silent: SW registration must never crash the app shell.
-    })
-  }, [])
+  // Service worker registration lives in ServiceWorkerRegister (mounted in the
+  // root layout): a single registrar using the version-bumped script URL that
+  // reliable updates require. Don't register a second time here.
 
   // useState initializer (NOT module-level) to avoid SSR/request state leaks
   const [queryClient] = useState(

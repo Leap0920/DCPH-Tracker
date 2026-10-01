@@ -23,6 +23,7 @@ import {
 import { Button } from "@/components/ui/button"
 import { ThemeToggle } from "@/components/ui/theme-toggle"
 import { NotificationBell } from "@/components/notifications/NotificationBell"
+import { InstallAppButton, InstallSheetHost } from "@/components/whats-new/InstallAppButton"
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -421,6 +422,7 @@ export function Navbar() {
                         Settings
                       </Link>
                     </DropdownMenuItem>
+                    <InstallAppButton variant="menu" />
                     <DropdownMenuSeparator />
                     <div className="px-3 py-1.5 flex items-center justify-between">
                       <span className="text-xs font-display text-ink-dim">Theme</span>
@@ -575,6 +577,7 @@ export function Navbar() {
                           Settings
                         </Button>
                       </Link>
+                      <InstallAppButton variant="drawer" onTriggered={() => setMobileOpen(false)} />
                       <ThemeToggle withLabel className="w-full justify-start gap-2.5 font-display text-ink-dim hover:text-ink px-4 py-2" />
                       <Button
                         variant="ghost"
@@ -609,6 +612,9 @@ export function Navbar() {
           </div>
         </div>
       )}
+
+      {/* Install / create-shortcut sheet — portals to <body>. */}
+      <InstallSheetHost />
     </header>
   )
 }
