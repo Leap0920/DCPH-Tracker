@@ -1,4 +1,5 @@
 import type { SupabaseClient } from "@supabase/supabase-js"
+import { broadcastActivityLogged } from "@/lib/queries/client/streaks"
 
 /** Chunked so a mark-all across the whole library stays under payload limits. */
 const INSERT_CHUNK = 500
@@ -49,4 +50,18 @@ export async function recordWatchEvents(
       return
     }
   }
+
+  // Feed today's daily streak. Best-effort like the events themselves: this
+  // runs only after a clean insert (the early return above), and a streak
+  // hiccup — e.g. supabase/migration-streaks.sql not applied yet — must never
+  // surface as a failed watch toggle. The card also re-syncs on load, so a
+  // missed call here self-heals; the broadcast just makes an open card refresh.
+  const { error: streakError } = await supabase.rpc("streak_sync")
+  if (streakError) {
+    console.warn("[streaks] sync after log failed", {
+      message: streakError.message,
+    })
+  }
+  // Listeners still refresh: the log itself is what the event announces.
+  broadcastActivityLogged()
 }

@@ -111,6 +111,7 @@ export async function readConfirmPhrase(
 export const ACCOUNT_SWEEP_TABLES = [
   "watch_events",
   "watch_status",
+  "user_streaks",
   "episode_comments",
   "chat_messages",
   "user_badges",
