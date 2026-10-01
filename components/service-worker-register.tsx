@@ -2,6 +2,13 @@
 
 import { useEffect } from "react"
 
+/* Query-bumped script URL: the browser's own SW update checks are cookie-less,
+ * and the dev tunnel (ngrok free tier) answers cookie-less browser requests
+ * with its HTML warning page — so updates to a plain "/sw.js" silently stall
+ * forever. A new ?v= makes the browser fetch a never-seen URL, installing the
+ * new worker cold. Bump it whenever public/sw.js changes. */
+const SW_SCRIPT_URL = "/sw.js?v=4"
+
 export function ServiceWorkerRegister() {
   useEffect(() => {
     if (typeof window === "undefined") return
@@ -33,23 +40,23 @@ export function ServiceWorkerRegister() {
 
     const register = async () => {
       try {
-        const registration = await navigator.serviceWorker.register("/sw.js", {
-          scope: "/",
-        })
+        // Workers stuck on an older script URL can never pick up new code
+        // (their update check was poisoned — see SW_SCRIPT_URL) — drop them so
+        // the new script is fetched cold, then register it.
+        const registrations = await navigator.serviceWorker.getRegistrations()
+        const isCurrent = (registration: ServiceWorkerRegistration) =>
+          [registration.active, registration.installing, registration.waiting].some(
+            (worker) => worker?.scriptURL.includes("?v=4")
+          )
+        const stale = registrations.filter((registration) => !isCurrent(registration))
+        if (stale.length > 0) {
+          await Promise.all(stale.map((registration) => registration.unregister()))
+        }
         if (cancelled) return
 
-        // Pick up a new SW build without requiring a hard reload.
-        registration.addEventListener("updatefound", () => {
-          const installing = registration.installing
-          if (!installing) return
-          installing.addEventListener("statechange", () => {
-            if (
-              installing.state === "installed" &&
-              navigator.serviceWorker.controller
-            ) {
-              // A newer version is waiting; it activates on next full load.
-            }
-          })
+        await navigator.serviceWorker.register(SW_SCRIPT_URL, {
+          scope: "/",
+          updateViaCache: "none",
         })
       } catch {
         // Registration failures are non-fatal — the app works without the SW.
