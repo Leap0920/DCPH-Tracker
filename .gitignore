@@ -76,3 +76,12 @@ task5-*.png
 *.xlsx
 tracker-t5-snapshot.yml
 
+# agent instructions for this repo stay local
+AGENTS.md
+
+# local proof gate (gsd-bend: generated per machine, never part of a change)
+/LAWS.bend
+/PROOF.bend
+/src/*.bend
+/.planning/
+
