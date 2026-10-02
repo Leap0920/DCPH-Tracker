@@ -68,14 +68,6 @@ logs/
 .freebuff/
 .workbuddy-ai/
 
-# curation backups
-/scripts/out/
-
-# task screenshots / AI artifacts
-task5-*.png
-*.xlsx
-tracker-t5-snapshot.yml
-
 # agent instructions for this repo stay local
 AGENTS.md
 
@@ -84,4 +76,12 @@ AGENTS.md
 /PROOF.bend
 /src/*.bend
 /.planning/
+
+# curation backups
+/scripts/out/
+
+# task screenshots / AI artifacts
+task5-*.png
+*.xlsx
+tracker-t5-snapshot.yml
 
