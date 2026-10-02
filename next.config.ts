@@ -17,17 +17,22 @@ const nextConfig: NextConfig = {
       vector). The list below is exactly what content_entries.image_url and
       profile avatars actually reference today, plus the OAuth avatar hosts.
 
-      EMERGENCY SWITCH: set IMAGE_OPTIMIZATION_DISABLED=true in the Vercel
-      project env and redeploy to bypass the optimizer entirely if the
-      transformation quota is exhausted (images then load straight from
-      their source; every host you need must also be allowed by the CSP
-      img-src in lib/security-headers.ts).
+      DEFAULT OFF: the Hobby allowance (5,000 source images per cycle) is far
+      smaller than this catalog, so the optimizer answers 402
+      (OPTIMIZED_IMAGE_REQUEST_PAYMENT_REQUIRED) for every uncached image and
+      the browser shows the alt text instead of the artwork. With
+      unoptimized, <Image> emits the source URL and the browser fetches it
+      directly — the CSP img-src already allows any https: host, so remote
+      thumbnails keep working and no transformation is billed.
+
+      OPT BACK IN: set IMAGE_OPTIMIZATION_ENABLED=true in the Vercel project
+      env (Production) and redeploy — the settings below apply again.
     */
     formats: ["image/webp"],
     minimumCacheTTL: 2678400, // 31 days
     deviceSizes: [640, 828, 1080, 1920],
     imageSizes: [64, 128, 256, 384],
-    unoptimized: process.env.IMAGE_OPTIMIZATION_DISABLED === "true",
+    unoptimized: process.env.IMAGE_OPTIMIZATION_ENABLED !== "true",
     remotePatterns: [
       { protocol: "https", hostname: "**.supabase.co" },
       { protocol: "https", hostname: "detectiveconanworld.com" },
