@@ -23,6 +23,12 @@ export interface Hero04Props {
   primaryCTA: CtaProps
   secondaryCTA?: CtaProps
   variant?: 'standard' | 'compact'
+  /**
+   * CSP nonce. react-wrap-balancer injects its balancing runtime as an inline
+   * <script>, so under a nonce-based policy every instance must carry the
+   * per-request nonce or the browser blocks it (script-src-elem violation).
+   */
+  nonce?: string
 }
 
 const variantStyles = {
@@ -100,6 +106,7 @@ export function Hero04({
   primaryCTA,
   secondaryCTA,
   variant = 'standard',
+  nonce,
 }: Readonly<Hero04Props>) {
   const reduce = useReducedMotion()
   const animate = animation === 'subtle' && !reduce
@@ -128,11 +135,11 @@ export function Hero04({
         vs.title,
       )}
     >
-      <Balancer>{title}</Balancer>
+      <Balancer nonce={nonce}>{title}</Balancer>
       {titleLine2 && (
         <>
           <br />
-          <Balancer>{titleLine2}</Balancer>
+          <Balancer nonce={nonce}>{titleLine2}</Balancer>
         </>
       )}
     </h1>
@@ -140,7 +147,7 @@ export function Hero04({
 
   const descriptionElement = description && (
     <p className={cn('text-ink-dim font-body leading-relaxed', vs.description)}>
-      <Balancer>{description}</Balancer>
+      <Balancer nonce={nonce}>{description}</Balancer>
     </p>
   )
 
