@@ -5,6 +5,7 @@ import Image from "next/image"
 import { useRouter, usePathname } from "next/navigation"
 import {
   Loader2,
+  Clock,
   Mail,
   ShieldAlert,
   User,
@@ -26,6 +27,18 @@ import {
 import { createClient } from "@/utils/supabase/client"
 import { cn } from "@/lib/utils"
 import type { AuthModalMode } from "@/lib/auth-modal"
+
+import {
+  cooldownFromRetryAfter,
+  formatCooldown,
+  otpSendBlocked,
+  OTP_RESEND_COOLDOWN_SECONDS,
+} from "@/lib/otp-cooldown"
+
+/** Retry-After from a 429, clamped by lib/otp-cooldown. */
+function cooldownFromResponse(res: Response): number {
+  return cooldownFromRetryAfter(res.headers.get("retry-after"))
+}
 
 export function AuthModal() {
   const [open, setOpen] = useState(false)
@@ -52,6 +65,7 @@ export function AuthModal() {
   const [otpCode, setOtpCode] = useState("")
   const [otpLoading, setOtpLoading] = useState(false)
   const [resendState, setResendState] = useState<"idle" | "sending" | "sent">("idle")
+  const [resendCooldown, setResendCooldown] = useState(0)
 
   // Listen for the global "open-auth-modal" event dispatched by openAuthModal()
   useEffect(() => {
@@ -96,6 +110,15 @@ export function AuthModal() {
       setResendState("idle")
     }
   }, [open])
+
+  // Tick the resend countdown down one second at a time. It is deliberately NOT
+  // reset when the modal reopens: it tracks the server-side window for this
+  // address, which closing a dialog does not clear.
+  useEffect(() => {
+    if (resendCooldown <= 0) return
+    const timer = setTimeout(() => setResendCooldown((s) => s - 1), 1000)
+    return () => clearTimeout(timer)
+  }, [resendCooldown])
 
   function switchMode(next: AuthModalMode) {
     setMode(next)
@@ -202,10 +225,14 @@ export function AuthModal() {
       const data = await res.json().catch(() => null)
       if (!res.ok) {
         setError(data?.error || "Failed to send verification code. Check your email template includes {{ .Token }}.")
+        // Even a refusal opens a window server-side; show it on the button so
+        // the next tap is not another immediate 429.
+        if (res.status === 429) setResendCooldown(cooldownFromResponse(res))
         setOtpLoading(false)
         return
       }
       setOtpSent(true)
+      setResendCooldown(OTP_RESEND_COOLDOWN_SECONDS)
       setOtpLoading(false)
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to send verification code.")
@@ -284,10 +311,12 @@ export function AuthModal() {
       const data = await res.json().catch(() => null)
       if (!res.ok) {
         setError(data?.error || "Failed to resend code.")
+        if (res.status === 429) setResendCooldown(cooldownFromResponse(res))
         setResendState("idle")
         return
       }
       setResendState("sent")
+      setResendCooldown(OTP_RESEND_COOLDOWN_SECONDS)
       setTimeout(() => setResendState("idle"), 3000)
     } catch {
       setError("Failed to resend code.")
@@ -532,12 +561,23 @@ export function AuthModal() {
               <Button
                 type="submit"
                 className="w-full bg-accent hover:bg-accent-bright text-white font-semibold text-sm h-11 rounded-full transition-all shadow-card hover:scale-[1.01] mt-2"
-                disabled={otpLoading}
+                disabled={otpSendBlocked({
+                  loading: otpLoading,
+                  cooldownSeconds: resendCooldown,
+                })}
               >
                 {otpLoading ? (
                   <>
                     <Loader2 className="h-4 w-4 animate-spin mr-2" />
                     Sending code…
+                  </>
+                ) : resendCooldown > 0 ? (
+                  // Refused (429) or just sent: the button stays disabled for
+                  // the same countdown the resend link honours, so a refused
+                  // user cannot tap straight back into the limiter.
+                  <>
+                    <Clock className="h-4 w-4 mr-2" />
+                    Try again in {formatCooldown(resendCooldown)}
                   </>
                 ) : (
                   <>
@@ -592,14 +632,16 @@ export function AuthModal() {
                   <button
                     type="button"
                     onClick={handleResendOtp}
-                    disabled={resendState !== "idle"}
+                    disabled={resendState !== "idle" || resendCooldown > 0}
                     className="text-ink-dim hover:text-ink hover:underline transition-colors disabled:opacity-50"
                   >
                     {resendState === "sending"
                       ? "Resending…"
                       : resendState === "sent"
                         ? "Code resent ✓"
-                        : "Resend code"}
+                        : resendCooldown > 0
+                          ? `Resend in ${formatCooldown(resendCooldown)}`
+                          : "Resend code"}
                   </button>
                   <button
                     type="button"
