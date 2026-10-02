@@ -141,13 +141,10 @@ export default function ForgotPasswordPage() {
             Password Reset Complete
           </CardTitle>
           <CardDescription className="text-ink-dim text-sm mt-1.5">
-            Your password has been updated. You can now sign in with your new password.
+            You can now sign in with your new password.
           </CardDescription>
         </CardHeader>
         <CardContent className="px-6 pb-8">
-          <div className="bg-success/10 border border-success/30 rounded-lg p-4 text-sm text-success">
-            <p>Your password has been successfully reset.</p>
-          </div>
           <Button
             className="w-full mt-4 rounded-full h-11 text-sm font-semibold"
             onClick={() => openAuthModal("signin")}

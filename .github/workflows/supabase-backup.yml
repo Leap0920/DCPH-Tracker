@@ -1,0 +1,80 @@
+name: Supabase backup
+
+# Nightly logical backup of the production Supabase project: public schema
+# dump + auth users + storage objects. Runs in GitHub's cloud, so it does
+# not depend on any machine at home being on.
+#
+# One-time setup (repo → Settings → Secrets and variables → Actions):
+#   SUPABASE_DB_URL            session-pooler URI (Supabase → Connect → Session pooler)
+#   SUPABASE_SERVICE_ROLE_KEY  service-role key (for the auth + storage capture)
+#
+# The artifacts contain user PII (emails, auth records, avatars) and the
+# plain-SQL dump may embed secrets stored in your tables — treat repository
+# and artifact access accordingly. Retention: 90 days.
+
+on:
+  schedule:
+    - cron: "23 2 * * *" # 02:23 UTC daily
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: supabase-backup
+  cancel-in-progress: false
+
+jobs:
+  backup:
+    name: Dump Supabase
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    env:
+      SUPABASE_DB_URL: ${{ secrets.SUPABASE_DB_URL }}
+      SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+      NEXT_PUBLIC_SUPABASE_URL: https://hgwtlbbbkxppbasbhvlo.supabase.co
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Skip when the secret is not configured yet
+        id: guard
+        run: |
+          if [ -z "$SUPABASE_DB_URL" ]; then
+            echo "::warning::SUPABASE_DB_URL secret is not set — skipping the backup. Add it in repo settings."
+            echo "skip=1" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Install PostgreSQL client (pgdg — newest)
+        if: steps.guard.outputs.skip != '1'
+        run: |
+          sudo install -d /usr/share/postgresql-common/pgdg
+          sudo curl -fsSL -o /usr/share/postgresql-common/pgdg/apt.postgresql.org.asc https://www.postgresql.org/media/keys/ACCC4CF8.asc
+          . /etc/os-release
+          echo "deb [signed-by=/usr/share/postgresql-common/pgdg/apt.postgresql.org.asc] https://apt.postgresql.org/pub/repos/apt $VERSION_CODENAME-pgdg main" | sudo tee /etc/apt/sources.list.d/pgdg.list
+          sudo apt-get update -qq
+          # pg_dump must be >= the server's major version. If Supabase is on a
+          # newer major (18+), bump this package name.
+          sudo apt-get install -y -qq postgresql-client-17
+
+      - name: Dump public schema
+        if: steps.guard.outputs.skip != '1'
+        run: |
+          mkdir -p out
+          pg_dump "$SUPABASE_DB_URL" --no-owner --no-privileges --schema=public -Fc -f out/dcph-public.dump
+          pg_dump "$SUPABASE_DB_URL" --no-owner --no-privileges --schema=public | gzip -9 > out/dcph-public.sql.gz
+          ls -lh out/
+
+      - name: Auth users + storage objects
+        if: steps.guard.outputs.skip != '1'
+        run: node scripts/backup-supabase-extras.mjs out
+
+      - name: Upload artifact (90 days)
+        # Runs even when a step failed (e.g. one storage object hiccup) so the
+        # partial backup is still preserved — check the run log for failures.
+        if: always() && steps.guard.outputs.skip != '1'
+        uses: actions/upload-artifact@v4
+        with:
+          name: supabase-backup-${{ github.run_id }}
+          path: out/
+          retention-days: 90

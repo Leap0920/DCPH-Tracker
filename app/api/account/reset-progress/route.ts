@@ -18,6 +18,8 @@ import { logger } from "@/lib/logger"
  *                      favorite, rating.
  *   2. watch_events  — the append-only log that powers the rolling 7/30-day
  *                      leaderboards.
+ *   3. user_streaks  — the daily-streak row (migration-streaks.sql). It is
+ *                      derived from the log, so a reset takes it too.
  *
  * Only #1 is deletable from the browser. migration-watch-events.sql revokes
  * DELETE on watch_events from `anon, authenticated` as defence in depth, so no
@@ -76,8 +78,13 @@ export async function POST(request: NextRequest) {
     // The activity log first: if it fails, nothing visible has been destroyed
     // yet and the user can simply retry.
     let eventsCleared: number | null = null
+    let streaksCleared: number | null = null
     if (admin) {
       eventsCleared = await deleteRowsForUser(admin, "watch_events", user.id)
+      // A streak must not stand on history that no longer exists. Missing
+      // table (migration not applied) deletes 0 rows instead of failing —
+      // same guard as watch_events.
+      streaksCleared = await deleteRowsForUser(admin, "user_streaks", user.id)
     } else {
       logger.warn("account_reset.service_role_missing", {
         userId: user.id,
@@ -101,11 +108,13 @@ export async function POST(request: NextRequest) {
       userId: user.id,
       tracked,
       eventsCleared,
+      streaksCleared,
     })
 
     return ok({
       tracked,
       eventsCleared,
+      streaksCleared,
       contentIds: (deleted ?? []).map((row) => row.content_id),
     })
   } catch (error) {

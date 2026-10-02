@@ -59,7 +59,6 @@ import {
 import type { QualityTier } from "@/lib/device-tier";
 import {
   GRAPH_QUALITY,
-  labelTierLimit,
   type GraphQuality,
 } from "@/components/characters/graph-quality";
 import {
@@ -74,6 +73,8 @@ import {
   resolveFaction,
   type FactionTheme,
 } from "@/components/characters/graph-theme";
+import { galaxyLayout } from "./galaxy-layout";
+import { labelVisibilityFor, OUT_OF_WEB_COLOR, OUT_OF_WEB_OPACITY } from "./canvas-geometry";
 import { RotateCcw, Search, Sparkles, Target, X, ZoomIn, ZoomOut } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -101,7 +102,15 @@ export function useMediaQuery(query: string): boolean {
 const MAX_ZOOM = 4;
 const ZOOM_STEP = 1.35;
 const ZOOM_TO_NODE = 1.9;
-const FIT_MIN_K = 0.6;
+/**
+ * The default zoom-out floor. This used to be 0.6, which stranded desktop
+ * visitors at 60%: the cast is ~1730x1691 world px, so on a normal window the
+ * whole graph only fits from ~25% or so, and the visitor could push the zoom
+ * out button forever with nothing happening. 0.15 lets anyone reach a view
+ * that holds the entire cast with margin (and lines up with the canvas
+ * renderer's own floor of 0.12). Search focus and fit still clamp above it.
+ */
+const FIT_MIN_K = 0.15;
 const FIT_MAX_K = 1.6;
 /**
  * Absolute zoom-out floor. The cast is ~1430x830 world px wide, so a phone
@@ -303,6 +312,8 @@ export interface CharactersWebProps {
   relationships: Relationship[];
   /** Device tier driving the frame-by-frame cost. See graph-quality.ts. */
   quality?: QualityTier;
+  /** "galaxy" (default) derives a radial layout; "authored" uses the data x/y. */
+  layout?: "galaxy" | "authored";
   onSelectCharacter: (character: Character | null) => void;
   selectedCharacterId?: string | null;
   /** Rendered inside the top-left control column. */
@@ -528,12 +539,15 @@ const EdgeView = memo(function EdgeView({
   i,
   edgeEls,
   isTarget,
+  faded,
   opacity,
 }: {
   e: EdgeSpec;
   i: number;
   edgeEls: { current: (SVGPathElement | null)[] };
   isTarget: boolean;
+  /** True when a selection owns the stage and this edge is not part of it. */
+  faded: boolean;
   opacity: number;
 }) {
   return (
@@ -542,7 +556,7 @@ const EdgeView = memo(function EdgeView({
         edgeEls.current[i] = el;
       }}
       fill="none"
-      stroke={e.color}
+      stroke={faded ? OUT_OF_WEB_COLOR : e.color}
       strokeWidth={isTarget ? STRING_WIDTH + 1.8 : STRING_WIDTH}
       strokeLinecap="round"
       strokeDasharray={e.dash}
@@ -556,6 +570,7 @@ export default function CharactersWeb({
   characters,
   relationships,
   quality = "balanced",
+  layout = "galaxy",
   onSelectCharacter,
   selectedCharacterId,
   topLeftSlot,
@@ -569,8 +584,6 @@ export default function CharactersWeb({
   /** The tier's budget for this graph. Module-level objects, so identity is
    *  stable across renders and the memos below only rebuild on a real change. */
   const q: GraphQuality = GRAPH_QUALITY[quality];
-  /** Weakest node tier whose label is painted while zoomed out (null = all). */
-  const labelLimit = labelTierLimit(q.labels);
 
   const [hoveredId, setHoveredId] = useState<string | null>(null);
   const [searchOpen, setSearchOpen] = useState(false);
@@ -643,7 +656,7 @@ export default function CharactersWeb({
     const nodes: NodeSpec[] = characters.map((c) => {
       const seed = hash32(c.id);
       const d = degree.get(c.id) ?? 0;
-      const r = getNodeRadius(c, d);
+      const r = getNodeRadius(d);
       // Destructured (not spread) so the faction key lands on `factionKey` —
       // resolveFaction returns it as `key`, which collides conceptually with
       // React's reserved prop name and does not match NodeSpec.
@@ -706,16 +719,55 @@ export default function CharactersWeb({
     const base = new Float64Array(n * 2);
     const curX = new Float64Array(n);
     const curY = new Float64Array(n);
+    /*
+     * Same derived radial layout as the canvas renderer — one source of truth,
+     * so switching renderers cannot change where a node sits. `layout` is the
+     * URL-driven escape hatch back to the authored coordinates.
+     */
+    const flat =
+      layout === "authored"
+        ? (() => {
+            const out = new Float64Array(n * 2);
+            nodes.forEach((node, i) => {
+              out[i * 2] = node.c.x ?? 0;
+              out[i * 2 + 1] = node.c.y ?? 0;
+            });
+            return out;
+          })()
+        : (() => {
+            let hub = 0;
+            let best = -1;
+            const deg = new Int32Array(n);
+            for (const e of edges) {
+              deg[e.s]++;
+              deg[e.t]++;
+            }
+            for (let i = 0; i < n; i++) {
+              if (deg[i] > best) {
+                best = deg[i];
+                hub = i;
+              }
+            }
+            return galaxyLayout(
+              n,
+              new Int32Array(edges.map((e) => e.s)),
+              new Int32Array(edges.map((e) => e.t)),
+              nodes.map((node) => resolveFaction(node.c.affiliation).key),
+              nodes.map((node) => hash32(node.c.id)),
+              hub
+            );
+          })();
+
     nodes.forEach((node, i) => {
-      const x = node.c.x ?? 0;
-      const y = node.c.y ?? 0;
+      const x = flat[i * 2];
+      const y = flat[i * 2 + 1];
       base[i * 2] = x;
       base[i * 2 + 1] = y;
       curX[i] = x;
       curY[i] = y;
     });
     return { base, curX, curY };
-  }, [nodes]);
+  }, [nodes, edges, layout]);
 
   /** Content bounding box, inflated for label boxes and drift headroom. */
   const bbox = useMemo(() => {
@@ -723,15 +775,15 @@ export default function CharactersWeb({
     let minY = Infinity;
     let maxX = -Infinity;
     let maxY = -Infinity;
-    for (const n of nodes) {
+    nodes.forEach((n, i) => {
       const halfLabel = Math.max(n.r + 8, 48);
-      const cx = n.c.x ?? 0;
-      const cy = n.c.y ?? 0;
+      const cx = geom.base[i * 2];
+      const cy = geom.base[i * 2 + 1];
       minX = Math.min(minX, cx - halfLabel);
       maxX = Math.max(maxX, cx + halfLabel);
       minY = Math.min(minY, cy - n.r - 12);
       maxY = Math.max(maxY, cy + n.r + 30);
-    }
+    });
     if (!Number.isFinite(minX) || !Number.isFinite(minY)) {
       return { minX: -500, minY: -500, w: 1000, h: 1000 };
     }
@@ -742,7 +794,7 @@ export default function CharactersWeb({
       w: maxX - minX + m * 2,
       h: maxY - minY + m * 2,
     };
-  }, [nodes, q.driftAmp]);
+  }, [nodes, geom, q.driftAmp]);
 
   const particles = useMemo<Particle[]>(() => {
     const out: Particle[] = [];
@@ -798,12 +850,12 @@ export default function CharactersWeb({
   );
 
   /**
-   * One label's full live style: opacity from the zoom tier, and visibility
-   * from the quality policy. Labels the policy suppresses while zoomed out are
-   * `display:none`d rather than faded to 0, so the renderer can skip them — but
-   * a forced label (hover, selection, search hit) is exempt at any zoom.
-   * Display is written only when it flips, since style writes on 95 elements
-   * are the expensive part.
+   * One label's full live style: opacity from the zoom gate (and the per-tier
+   * fade inside the visible band). Labels the gate suppresses — everything
+   * under 33% — are `display:none`d rather than faded to 0, so the renderer can
+   * skip them — but a forced label (hover, selection, search hit) is exempt at
+   * any zoom. Display is written only when it flips, since style writes on 95
+   * elements are the expensive part.
    */
   const styleLabel = useCallback(
     (i: number, k: number, forced: Set<number>) => {
@@ -818,15 +870,16 @@ export default function CharactersWeb({
         lastHaloRef.current = halo;
         el.setAttribute("stroke-width", halo);
       }
-      const o = forced.has(i) ? 1 : labelOpacityFor(k, nodes[i].tier);
+      const o = forced.has(i) ? 1 : labelOpacityFor(k, nodes[i].tier) * labelVisibilityFor(k);
       el.style.opacity = o.toFixed(2);
-      const show = labelLimit === null || nodes[i].tier <= labelLimit || o > 0.01;
+      /* The gate decides what exists at all; display is the cheap skip. */
+      const show = o > 0.01;
       if (labelShownRef.current[i] !== show) {
         labelShownRef.current[i] = show;
         el.style.display = show ? "" : "none";
       }
     },
-    [nodes, labelLimit]
+    [nodes]
   );
 
   const updateLabelOpacities = useCallback(
@@ -913,6 +966,30 @@ export default function CharactersWeb({
     },
     []
   );
+
+  /**
+   * Closing the dossier re-centres the graph.
+   *
+   * While a character is open the side panel reserves the right of the
+   * viewport, so the selection focus and every zoom framed a shrunken area.
+   * On close, glide the world point that sat at the reserved frame's centre
+   * into the centre of the full frame: the graph never stays parked off to
+   * the left of centre after the panel leaves.
+   */
+  const hadSelectionRef = useRef(false);
+  useEffect(() => {
+    if (hadSelectionRef.current && !selectedCharacterId) {
+      const { w, h } = sizeRef.current;
+      if (w > 0 && h > 0) {
+        const open = usableRect(w, h, isMobileRef.current, true);
+        const cam = targetRef.current;
+        const wx = (open.x + open.w / 2 - cam.x) / (cam.k || 1);
+        const wy = (open.y + open.h / 2 - cam.y) / (cam.k || 1);
+        zoomToPoint(wx, wy, cam.k, false);
+      }
+    }
+    hadSelectionRef.current = Boolean(selectedCharacterId);
+  }, [selectedCharacterId, zoomToPoint]);
 
   const zoomBy = useCallback((factor: number) => {
     const { w, h } = sizeRef.current;
@@ -1975,17 +2052,36 @@ export default function CharactersWeb({
               hoveredId === e.rel.target ||
               selectedCharacterId === e.rel.source ||
               selectedCharacterId === e.rel.target;
+            /* The selected character's own strings, regardless of hover. */
+            const inSelectedWeb =
+              selectedCharacterId === e.rel.source ||
+              selectedCharacterId === e.rel.target;
             const matchesSearch =
               searchMatches.size === 0 ||
               searchMatches.has(e.rel.source) ||
               searchMatches.has(e.rel.target);
-            const opacity = dimmed
-              ? isTarget
+            /*
+             * A selected character's web stays at full strength while every
+             * other string drops into the background as a gray ghost: colour
+             * burned out (leftover threads kept crossing the web being read
+             * whenever they kept their colours), shape kept so the whole cast
+             * stays readable behind it. Search and faction spotlights only
+             * dim, because there the rest of the graph is context; a hover
+             * only brightens. Mirrors `edgeOpacityFor` in canvas-geometry so
+             * both renderers agree.
+             */
+            const faded = Boolean(selectedCharacterId) && !inSelectedWeb;
+            const opacity = selectedCharacterId
+              ? inSelectedWeb
                 ? 1
-                : DIM_OPACITY
-              : matchesSearch
-                ? pal.stringActive
-                : pal.stringIdle;
+                : OUT_OF_WEB_OPACITY
+              : dimmed
+                ? isTarget
+                  ? 1
+                  : DIM_OPACITY
+                : matchesSearch
+                  ? pal.stringActive
+                  : pal.stringIdle;
             return (
               <EdgeView
                 key={e.rel.id}
@@ -1993,6 +2089,7 @@ export default function CharactersWeb({
                 i={i}
                 edgeEls={edgeEls}
                 isTarget={isTarget}
+                faded={faded}
                 opacity={opacity}
               />
             );

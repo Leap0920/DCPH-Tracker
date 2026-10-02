@@ -32,40 +32,40 @@ export interface AdvantageItem {
 const defaultAdvantages: AdvantageItem[] = [
   {
     title: "Track Episodes",
-    description: "Log every case you watch - episodes, movies, specials and OVAs - and watch your progress fill in.",
+    description: "Tick off episodes, movies, specials and OVAs as you watch.",
     href: "/tracker",
   },
   {
     title: "Story Arcs Guide",
-    description: "Follow the main plot from Season 1 to the latest era with a clean, spoiler-free watch guide.",
+    description: "The main plot from S1 to now, spoiler-free.",
     href: "/arcs",
   },
   {
     title: "Detective Rankings",
-    description: "Climb the community leaderboards and compete with fellow detectives based on solved cases.",
+    description: "See how you rank against fellow detectives.",
     href: "/community/rankings",
   },
   {
     title: "Community Chat Rooms",
-    description: "Drop into themed discussion rooms, talk theories, and solve cases together in real time.",
+    description: "Themed rooms for theories and case talk.",
     href: "/community/chat",
   },
   {
     title: "Comprehensive Database",
-    description: "Search through detailed case metadata, character profiles, canon episode tags, and release dates.",
+    description: "Cases, characters, canon tags, air dates.",
     href: "/tracker",
   },
   {
     title: "Sync Across Devices",
-    description: "Your viewing history, rank badges, and bookmarks stay synced seamlessly everywhere you log in.",
+    description: "Progress and badges follow you to any device.",
     href: "/tracker",
   },
 ]
 
 export function Feature({
   badge = "Platform",
-  title = "Everything you need to follow the case",
-  subtitle = "Track, explore, rank, and talk - all in one place.",
+  title = "Your detective toolkit",
+  subtitle = "Track, explore, rank, chat.",
   advantages = defaultAdvantages,
 }: {
   badge?: string

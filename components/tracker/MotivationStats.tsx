@@ -20,6 +20,7 @@ import type { WatchStatus } from "@/lib/constants"
 import { CONTENT_TYPE_LABELS, type ContentType } from "@/lib/constants"
 import { formatHours, getDefaultRuntime } from "@/lib/utils"
 import { isNonMainlineMovie, MAINLINE_MOVIES } from "@/lib/movies-guide"
+import { StreakCard } from "@/components/tracker/StreakCard"
 
 type ContentEntry = Database["public"]["Tables"]["content_entries"]["Row"]
 
@@ -29,6 +30,8 @@ interface MotivationStatsProps {
   /** content_id -> watch_count. Rewatches are extra time spent. */
   userWatchCounts?: Map<string, number>
   userName?: string | null
+  /** Auth user id — shows the daily-streak block inside the Finish Line card. */
+  userId?: string | null
 }
 
 const DEFAULT_RATE_PER_DAY = 3
@@ -152,7 +155,7 @@ export function formatDate(date: Date): string {
   return date.toLocaleDateString("en-US", { month: "long", day: "numeric", year: "numeric" })
 }
 
-export function MotivationStats({ entries, userStatuses, userWatchCounts, userName }: MotivationStatsProps) {
+export function MotivationStats({ entries, userStatuses, userWatchCounts, userName, userId }: MotivationStatsProps) {
   const series = useMemo(() => computeSeriesTotals(entries), [entries])
   const personal = useMemo(
     () => computePersonalStats(entries, userStatuses, userWatchCounts),
@@ -230,7 +233,7 @@ export function MotivationStats({ entries, userStatuses, userWatchCounts, userNa
           ))}
         </div>
         <p className="mt-4 text-[11px] text-ink-dim leading-relaxed">
-          Every case file in the tracker. The truth is out there, one episode at a time.
+          The truth is out there, one episode at a time.
         </p>
       </div>
 
@@ -246,7 +249,7 @@ export function MotivationStats({ entries, userStatuses, userWatchCounts, userNa
               Sign in to track
             </p>
             <p className="text-xs text-ink-dim">
-              Your watched list, minutes, and finish date will show up here.
+              Your watched list, minutes, and finish date land here.
             </p>
           </div>
         ) : (
@@ -311,7 +314,7 @@ export function MotivationStats({ entries, userStatuses, userWatchCounts, userNa
               No projection yet
             </p>
             <p className="text-xs text-ink-dim">
-              Sign in and start watching to see your estimated completion date.
+              Sign in to see your estimated finish date.
             </p>
           </div>
         ) : finishDate ? (
@@ -362,6 +365,11 @@ export function MotivationStats({ entries, userStatuses, userWatchCounts, userNa
             <p className="text-xs text-ink-dim">
               You&apos;ve watched every episode in the tracker. Now wait for the next case...
             </p>
+          </div>
+        )}
+        {hasUser && (
+          <div className="mt-5 border-t border-ink-dim/10 pt-4">
+            <StreakCard userId={userId ?? null} variant="embedded" />
           </div>
         )}
       </div>

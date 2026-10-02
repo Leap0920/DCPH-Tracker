@@ -19,7 +19,7 @@ import { getLatestEpisodeNumber, getLatestContent } from "@/lib/homepage-content
 export const metadata = {
   title: "Detective Conan PH · Track, Chat, and Climb the Ranks",
   description:
-    "The Filipino Detective Conan community: track every episode, explore the story arcs, join the community chat, and prove your rank.",
+    "Track episodes, explore the story arcs, and climb the ranks — the Filipino Detective Conan community.",
 }
 
 // Cache the homepage feed for 5 minutes so a slow DB degrades to stale

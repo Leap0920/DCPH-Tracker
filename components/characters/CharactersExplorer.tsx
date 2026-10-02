@@ -60,6 +60,36 @@ const CharactersWeb = dynamic(
   }
 )
 
+/*
+ * Canvas renderer (the Obsidian-style port). Opt-in via a query flag so it can
+ * be compared against the SVG path on a real device without a deploy:
+ *
+ *   /characters?renderer=canvas   force the canvas graph
+ *   /characters?renderer=svg      force the SVG graph (the escape hatch)
+ *   /characters                   quality-tier default (see below)
+ *
+ * Default policy: the canvas path serves `low` and `balanced` tiers, and the SVG
+ * keeps `high`. That gives phones the cheap renderer immediately while a
+ * desktop that can afford the full effect stack is unchanged.
+ */
+const CanvasGraphLazy = dynamic(
+  () => import("@/components/characters/CanvasGraph"),
+  { ssr: false, loading: () => <GraphLoading /> }
+)
+
+type Renderer = "svg" | "canvas"
+
+/** Which renderer a quality tier gets when the query flag is absent. */
+export function rendererForTier(tier: QualityTier | null): Renderer {
+  return tier === "high" ? "svg" : "canvas"
+}
+
+export function rendererFromParam(value: string | null): Renderer | null {
+  if (value === "canvas") return "canvas"
+  if (value === "svg") return "svg"
+  return null
+}
+
 /**
  * The dossier (panel + framer-motion + the on-demand guide) is the one part of
  * this page a visitor may never need, so it is fetched on the first tap rather
@@ -106,7 +136,21 @@ export default function CharactersExplorer({
   /** The frame probe measures once per page load, never in a loop. */
   const probedRef = useRef(false)
 
+  /* ── renderer choice ───────────────────────────────────────────── */
+  /** null = follow the tier default (see rendererForTier). */
+  const [rendererOverride, setRendererOverride] = useState<Renderer | null>(null)
+  /** Flat radial by default; `?layout=authored` restores the data-file x/y. */
+  const [layout, setLayout] = useState<"galaxy" | "authored">("galaxy")
+
   const { theme } = useTheme()
+
+  // `?renderer=svg|canvas` pins the renderer for A/B comparison on a real
+  // device. Read once, on the client, so the server render stays tier-neutral.
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search)
+    setRendererOverride(rendererFromParam(params.get("renderer")))
+    setLayout(params.get("layout") === "authored" ? "authored" : "galaxy")
+  }, [])
 
   // Detection and storage are client-only reads, so they cannot run during the
   // server render: the graph paints once the tier is known.
@@ -173,6 +217,17 @@ export default function CharactersExplorer({
     return () => window.clearTimeout(timer)
   }, [quality])
 
+  /**
+   * While the chooser is open, fetch the canvas renderer's chunk too. Applying
+   * a tier that switches renderers must not open on a blank beat while the
+   * lazy chunk arrives — the frame a visitor liked should stay on screen until
+   * its replacement is ready.
+   */
+  useEffect(() => {
+    if (!qualityOpen) return
+    void import("@/components/characters/CanvasGraph")
+  }, [qualityOpen])
+
   const handleSelect = useCallback((character: Character | null) => {
     if (character) {
       setDossierReady(true)
@@ -219,16 +274,31 @@ export default function CharactersExplorer({
   return (
     <div className="relative h-full w-full overflow-hidden bg-page text-ink transition-colors duration-300">
       {quality ? (
-        <CharactersWeb
-          characters={characters}
-          relationships={relationships}
-          quality={quality}
-          onSelectCharacter={handleSelect}
-          selectedCharacterId={selection?.id}
-          topLeftSlot={topLeftControls}
-          theme={theme}
-          className="h-full w-full rounded-none border-none shadow-none"
-        />
+        (rendererOverride ?? rendererForTier(quality)) === "canvas" ? (
+          <CanvasGraphLazy
+            characters={characters}
+            relationships={relationships}
+            layout={layout}
+            quality={quality}
+            onSelectCharacter={handleSelect}
+            selectedCharacterId={selection?.id}
+            topLeftSlot={topLeftControls}
+            theme={theme}
+            className="h-full w-full"
+          />
+        ) : (
+          <CharactersWeb
+            characters={characters}
+            relationships={relationships}
+            layout={layout}
+            quality={quality}
+            onSelectCharacter={handleSelect}
+            selectedCharacterId={selection?.id}
+            topLeftSlot={topLeftControls}
+            theme={theme}
+            className="h-full w-full rounded-none border-none shadow-none"
+          />
+        )
       ) : (
         // At most one frame: detection is synchronous once the browser is here.
         <GraphLoading />

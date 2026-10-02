@@ -159,7 +159,7 @@ export default async function SearchPage({
           Search
         </h1>
         <p className="mt-2 max-w-xl text-ink-dim">
-          Dig through episodes, story arcs, and the detective roster.
+          Episodes, story arcs, detectives.
         </p>
 
         <div className="mt-6">
@@ -172,7 +172,7 @@ export default async function SearchPage({
               Search episodes, arcs, and detectives
             </p>
             <p className="mt-1 text-sm text-ink-dim">
-              Start typing a case title, a character, or a detective&apos;s name.
+              Try a case title, character, or username.
             </p>
           </div>
         )}

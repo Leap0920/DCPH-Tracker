@@ -6,6 +6,7 @@ import { ThemeProvider } from "@/components/theme-provider";
 import { AuthModalLoader } from "@/components/auth/AuthModalLoader";
 import { ServiceWorkerRegister } from "@/components/service-worker-register";
 import { ChatWidgetLoader } from "@/components/chat/ChatWidgetLoader";
+import { WhatsNewNotice } from "@/components/whats-new/WhatsNewNotice";
 import "./globals.css";
 
 const plusJakartaSans = Plus_Jakarta_Sans({
@@ -49,7 +50,7 @@ export const metadata: Metadata = {
     template: "%s | Detective Conan PH",
   },
   description:
-    "The Filipino Detective Conan community: track episodes, join discussions, and prove your rank in the organization.",
+    "Track episodes, join discussions, and climb the ranks — the Filipino Detective Conan community.",
   openGraph: {
     title: "Detective Conan PH",
     description:
@@ -138,6 +139,7 @@ export default async function RootLayout({
             <AuthModalLoader />
             <ServiceWorkerRegister />
             <ChatWidgetLoader />
+            <WhatsNewNotice />
           </Providers>
         </ThemeProvider>
       </body>

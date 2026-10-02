@@ -14,7 +14,7 @@ function formatHours(minutes: number) {
 }
 
 type Timeframe = "all" | "month" | "week"
-type Category = "episodes" | "movies" | "hours"
+type Category = "all" | "episodes" | "movies" | "hours"
 
 /**
  * Rolling windows, not calendar periods. "Last 30 Days" rather than "This Month"
@@ -72,6 +72,11 @@ function project(row: RankingRow, timeframe: Timeframe): DisplayRow {
 }
 
 function statFor(row: DisplayRow, category: Category): number {
+  // "all" is the summed progress across every content type — episodes, movies,
+  // specials, OVAs, Kaito and live action — which is the same thing the
+  // /analytics "Cases Solved" headline reports. Episodes-only is the narrower
+  // slice that made the board look thinner than the user's own dashboard.
+  if (category === "all") return row.stat_count
   if (category === "hours") return row.stat_minutes
   if (category === "movies") return row.stat_movies
   return row.stat_episodes
@@ -135,6 +140,15 @@ function PodiumCard({
     }
     // Real count of type='episode' entries: OVAs, specials and films are not
     // episodes and must not inflate this number.
+    // For category === "all" the headline is the summed total across every
+    // content type, matching /analytics "Cases Solved" — the same figure the
+    // list below now sorts on, so the two can no longer disagree.
+    if (category === "all") {
+      return {
+        val: `${row.stat_count}`,
+        label: row.stat_count === 1 ? "case solved" : "cases solved",
+      }
+    }
     return {
       val: `${row.stat_episodes}`,
       label: row.stat_episodes === 1 ? "episode" : "episodes",
@@ -220,7 +234,7 @@ export function RankingsBoard({
   you?: RankingRow | null
 }) {
   const [timeframe, setTimeframe] = useState<Timeframe>("all")
-  const [category, setCategory] = useState<Category>("episodes")
+  const [category, setCategory] = useState<Category>("all")
   const [searchQuery, setSearchQuery] = useState("")
   const [visibleCount, setVisibleCount] = useState(25)
 
@@ -239,6 +253,11 @@ export function RankingsBoard({
       .filter((row) => timeframe === "all" || statFor(row, category) > 0)
 
     list.sort((a, b) => {
+      // "all" ranks on the total across every content type, which is the same
+      // ordering the query itself uses, so the podium matches the list beneath it.
+      if (category === "all") {
+        return b.stat_count - a.stat_count || b.stat_minutes - a.stat_minutes
+      }
       if (category === "hours") {
         return b.stat_minutes - a.stat_minutes || b.stat_count - a.stat_count
       }
@@ -296,9 +315,9 @@ export function RankingsBoard({
   return (
     <div className="space-y-4 sm:space-y-6">
       {/* Clean Control & Filter Bar */}
-      <div className="flex flex-col gap-2.5 rounded-2xl border border-ink-dim/20 bg-surface p-2.5 sm:p-3.5 shadow-card sm:flex-row sm:items-center sm:justify-between">
+      <div className="flex flex-col gap-2.5 rounded-2xl border border-ink-dim/20 bg-surface p-2.5 sm:p-3.5 shadow-card sm:flex-row sm:flex-wrap sm:items-center sm:justify-between">
         {/* Timeframe Selector */}
-        <div className="grid grid-cols-3 gap-1 rounded-xl bg-surface-muted p-1 w-full sm:w-auto">
+        <div className="grid w-full shrink-0 grid-cols-3 gap-1 rounded-xl bg-surface-muted p-1 sm:w-auto">
           {TIMEFRAME_TABS.map((tab) => (
             <button
               key={tab.value}
@@ -307,7 +326,7 @@ export function RankingsBoard({
                 setTimeframe(tab.value)
                 setVisibleCount(25)
               }}
-              className={`rounded-lg px-2 sm:px-3 py-1.5 font-mono text-[11px] sm:text-xs font-medium text-center transition-all ${
+              className={`rounded-lg px-2 sm:px-3 py-1.5 font-mono text-[11px] sm:text-xs font-medium text-center whitespace-nowrap transition-all ${
                 timeframe === tab.value
                   ? "bg-surface text-ink shadow-2xs font-bold"
                   : "text-ink-dim hover:text-ink"
@@ -320,42 +339,54 @@ export function RankingsBoard({
         </div>
 
         {/* Category Toggles */}
-        <div className="grid grid-cols-3 gap-1 rounded-xl bg-surface-muted p-1 w-full sm:w-auto">
+        <div className="grid w-full shrink-0 grid-cols-4 gap-1 rounded-xl bg-surface-muted p-1 sm:w-auto">
+          <button
+            type="button"
+            onClick={() => setCategory("all")}
+            className={`flex items-center justify-center gap-1 sm:gap-1.5 rounded-lg px-2 sm:px-3 py-1.5 font-mono text-[11px] sm:text-xs font-medium whitespace-nowrap transition-all ${
+              category === "all"
+                ? "bg-surface text-accent shadow-2xs font-bold"
+                : "text-ink-dim hover:text-ink"
+            }`}
+          >
+            <Trophy className="h-3 w-3 sm:h-3.5 sm:w-3.5 shrink-0" />
+            <span className="min-w-0 truncate">All Cases</span>
+          </button>
           <button
             type="button"
             onClick={() => setCategory("episodes")}
-            className={`flex items-center justify-center gap-1 sm:gap-1.5 rounded-lg px-2 sm:px-3 py-1.5 font-mono text-[11px] sm:text-xs font-medium transition-all ${
+            className={`flex items-center justify-center gap-1 sm:gap-1.5 rounded-lg px-2 sm:px-3 py-1.5 font-mono text-[11px] sm:text-xs font-medium whitespace-nowrap transition-all ${
               category === "episodes"
                 ? "bg-surface text-accent shadow-2xs font-bold"
                 : "text-ink-dim hover:text-ink"
             }`}
           >
             <Tv className="h-3 w-3 sm:h-3.5 sm:w-3.5 shrink-0" />
-            <span className="truncate">Episodes</span>
+            <span className="min-w-0 truncate">Episodes</span>
           </button>
           <button
             type="button"
             onClick={() => setCategory("movies")}
-            className={`flex items-center justify-center gap-1 sm:gap-1.5 rounded-lg px-2 sm:px-3 py-1.5 font-mono text-[11px] sm:text-xs font-medium transition-all ${
+            className={`flex items-center justify-center gap-1 sm:gap-1.5 rounded-lg px-2 sm:px-3 py-1.5 font-mono text-[11px] sm:text-xs font-medium whitespace-nowrap transition-all ${
               category === "movies"
                 ? "bg-surface text-accent shadow-2xs font-bold"
                 : "text-ink-dim hover:text-ink"
             }`}
           >
             <Film className="h-3 w-3 sm:h-3.5 sm:w-3.5 shrink-0" />
-            <span className="truncate">Movies</span>
+            <span className="min-w-0 truncate">Movies</span>
           </button>
           <button
             type="button"
             onClick={() => setCategory("hours")}
-            className={`flex items-center justify-center gap-1 sm:gap-1.5 rounded-lg px-2 sm:px-3 py-1.5 font-mono text-[11px] sm:text-xs font-medium transition-all ${
+            className={`flex items-center justify-center gap-1 sm:gap-1.5 rounded-lg px-2 sm:px-3 py-1.5 font-mono text-[11px] sm:text-xs font-medium whitespace-nowrap transition-all ${
               category === "hours"
                 ? "bg-surface text-accent shadow-2xs font-bold"
                 : "text-ink-dim hover:text-ink"
             }`}
           >
             <Clock className="h-3 w-3 sm:h-3.5 sm:w-3.5 shrink-0" />
-            <span className="truncate">Watch Time</span>
+            <span className="min-w-0 truncate">Watch Time</span>
           </button>
         </div>
       </div>
@@ -414,7 +445,7 @@ export function RankingsBoard({
             <div className="p-8 sm:p-12 text-center">
               <Clock className="mx-auto h-7 w-7 text-ink-faint" />
               <p className="mt-3 font-display text-sm font-semibold text-ink-dim">
-                No {category === "hours" ? "watch time" : category} logged in the{" "}
+                No {category === "hours" ? "watch time" : category === "all" ? "cases" : category} logged in the{" "}
                 {timeframe === "week" ? "last 7 days" : "last 30 days"}
               </p>
               <p className="mt-1 text-xs text-ink-faint">
@@ -487,10 +518,18 @@ export function RankingsBoard({
                       ? formatHours(row.stat_minutes)
                       : category === "movies"
                         ? row.stat_movies
-                        : row.stat_episodes}
+                        : category === "all"
+                          ? row.stat_count
+                          : row.stat_episodes}
                   </p>
                   <p className="font-mono text-[9px] sm:text-[10px] uppercase text-ink-faint">
-                    {category === "hours" ? "time" : category === "movies" ? "movies" : "eps"}
+                    {category === "hours"
+                      ? "time"
+                      : category === "movies"
+                        ? "movies"
+                        : category === "all"
+                          ? "cases"
+                          : "eps"}
                   </p>
                 </div>
               </div>

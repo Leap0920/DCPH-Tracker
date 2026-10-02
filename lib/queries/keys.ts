@@ -21,6 +21,9 @@ export const queryKeys = {
     byContent: (userId: string, contentId: string) =>
       ["watchStatus", "byContent", userId, contentId] as const,
   },
+  streak: {
+    byUser: (userId: string) => ["streak", "byUser", userId] as const,
+  },
   continueWatching: {
     all: (userId: string) => ["continueWatching", "all", userId] as const,
     nextUp: (userId: string) => ["continueWatching", "nextUp", userId] as const,

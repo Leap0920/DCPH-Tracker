@@ -468,6 +468,7 @@ function TrackerPageContent() {
               userStatuses={userStatuses}
               userWatchCounts={watchCounts}
               userName={user}
+              userId={user}
             />
             {!user && (
               <div className="flex flex-wrap items-center gap-4 rounded-lg border border-line bg-surface p-5">
@@ -476,7 +477,7 @@ function TrackerPageContent() {
                     Sign in to track your progress
                   </p>
                   <p className="text-sm text-ink-dim">
-                    Log in to mark episodes watched and climb the rankings.
+                    Mark episodes watched and climb the ranks.
                   </p>
                 </div>
                 <Button size="sm" className="rounded-lg" onClick={() => openAuthModal("signin")}>
