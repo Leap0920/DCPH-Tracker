@@ -184,17 +184,28 @@ export function sanitizeLike(value: string): string {
 /**
  * Splits a question into search keywords.
  *
- * Sorted by specificity (longest first) rather than by frequency: for
- * "Which episode has the ski resort murder?", `resort` and `murder` are the
- * discriminating terms and should survive the MAX_KEYWORDS cut.
+ * Two halves to the contract:
+ *  - WHICH keywords survive is decided by specificity: for "Which episode has
+ *    the ski resort murder?", `resort` and `murder` are the discriminating
+ *    terms and should survive the MAX_KEYWORDS cut.
+ *  - The survivors keep their QUERY order, because `keywords` is not a bag of
+ *    terms — scoreEntry() and buildWikiQueries() read `keywords.join(" ")` as a
+ *    phrase. Length-sorting the run turned "Who is Heiji Hattori?" into
+ *    ["hattori", "heiji"], which is a contiguous substring of six episode
+ *    titles ("Hattori Heiji …") but not of the character's own "Heiji Hattori",
+ *    so the episodes outranked the answer.
  */
 export function tokenize(query: string, maxKeywords = 6): string[] {
   const tokens = normalizeText(query)
     .split(" ")
     .filter((t) => (t.length >= MIN_KEYWORD_LENGTH || SHORT_TERMS.has(t)) && !STOPWORDS.has(t))
 
-  const unique = Array.from(new Set(tokens)).sort((a, b) => b.length - a.length)
-  return unique.slice(0, maxKeywords)
+  // First occurrence wins, so `unique` is already in query order.
+  const unique = Array.from(new Set(tokens))
+  // The cut is by specificity; what comes back is not re-sorted.
+  const kept = new Set(unique.slice().sort((a, b) => b.length - a.length).slice(0, maxKeywords))
+
+  return unique.filter((token) => kept.has(token))
 }
 
 /**
@@ -298,11 +309,22 @@ export function expandAliases(keywords: string[]): string[] {
  */
 export function searchTermGroups(keywords: string[]): string[][] {
   const groups: string[][] = []
-  if (keywords.length > 2) groups.push(keywords.slice(0, 2))
+  // The selective group sorts for itself: `tokenize` now returns query order,
+  // and "the two most selective terms" is a different question from "the two
+  // the user said first". It stays a small, precise SQL probe.
+  if (keywords.length > 2) {
+    groups.push([...keywords].sort((a, b) => b.length - a.length).slice(0, 2))
+  }
+  // The full group keeps the caller's order: buildOrFilter ORs the terms, so
+  // the order cannot change which rows match.
   if (keywords.length > 0) groups.push(keywords)
 
   const translated = translateTerms(keywords)
-  if (translated.length > 2) groups.push(translated.slice(0, 2))
+  // Same reasoning as the selective group above, applied to the translated
+  // terms: they inherit the caller's order, so the two longest are the probe.
+  if (translated.length > 2) {
+    groups.push([...translated].sort((a, b) => b.length - a.length).slice(0, 2))
+  }
   if (translated.length > 0) groups.push(translated)
 
   const aliases = expandAliases(keywords)
@@ -373,12 +395,93 @@ const FIELD_WEIGHTS: ReadonlyArray<readonly [keyof RankableEntry, number]> = [
 
 /** Bonus when the whole phrase appears in a title, e.g. "ski lodge murder case". */
 const BONUS_PHRASE_IN_TITLE = 4
+/**
+ * Half the phrase bonus, paid when a title holds every keyword as a whole word
+ * but in a different order.
+ *
+ * "Who is Heiji Hattori?" asks for the run "heiji hattori", while six episode
+ * titles say "Hattori Heiji …": without this, the character's own entry scores
+ * below all six. It stays weaker than the run because it is a weaker signal.
+ */
+const BONUS_ALL_TERMS_IN_TITLE = 2
+/**
+ * The most a title can earn for being made of the words the user asked for.
+ *
+ * A title is the strongest signal the corpus carries, and "how much of it did
+ * the question actually use" is what separates the document *about* a subject
+ * from a document that merely names it. "Which movie is The Time-Bombed
+ * Skyscraper?" uses every meaningful word of that movie's own title, while the
+ * case record beside it is titled "… — case 6": two words the question never
+ * said. Both match the same keywords on the same fields, so they tie, and the
+ * tie was broken by fusion order — which handed the answer to the case record.
+ * Scaled by the covered share, so a title carrying extra words ranks below the
+ * title that is the subject.
+ *
+ * Deliberately below BONUS_EXACT_NUMBER: a question naming an episode number is
+ * a number question first.
+ */
+const BONUS_TITLE_COVERED = 5
+/**
+ * Paid when the title is the phrase and nothing else.
+ *
+ * The strongest form of the signal above: a title that says exactly what the
+ * user asked for, with no word of its own, is the document *about* the subject
+ * rather than one that names it in passing. "What happens in Moonlight Sonata
+ * Murder Case?" is answered by the episode titled exactly that; the 2021
+ * remake's case records are titled "The Moonlight Sonata Murder — case 1" and
+ * tie with it on every other term, so they used to win on fusion order.
+ *
+ * Above BONUS_TITLE_COVERED because it is that measure taken to its limit, and
+ * still below BONUS_EXACT_NUMBER: a question naming an episode number is a
+ * number question first.
+ */
+const BONUS_TITLE_EXACT = 6
 /** An exact episode/movie number beats every keyword match. */
 const BONUS_EXACT_NUMBER = 10
 
 /** Concatenates the title-like fields used for the whole-phrase bonus. */
 function titleText(entry: RankableEntry): string {
   return normalizeText([entry.title, entry.dcw_title, entry.page_title].filter(Boolean).join(" "))
+}
+
+/**
+ * True when every keyword is a whole word of `title` (already normalized).
+ *
+ * A word set, never `includes`: "ran" is a substring of "brand" and would
+ * qualify under a substring test, which is the one way this bonus could leak
+ * across the corpus.
+ */
+function allTermsInTitle(title: string, keywords: string[]): boolean {
+  const words = new Set(title.split(" "))
+  return keywords.every((keyword) => words.has(keyword))
+}
+
+/**
+ * The share of a title's own substance that the keywords account for.
+ *
+ * Grammar is not substance: stopwords and one- or two-letter tokens are dropped
+ * because `tokenize` never emits them, so counting them would penalise a title
+ * for saying "The …" rather than for mentioning something the user did not ask
+ * about. Repetition is kept, not deduplicated — "… — case 2" says "case" twice
+ * and that repeat is exactly the extra word this measure exists to see.
+ */
+function titleCoverage(title: string, keywords: string[]): number {
+  const words = title
+    .split(" ")
+    .filter(
+      (word) =>
+        word.length > 0 &&
+        (word.length >= MIN_KEYWORD_LENGTH || SHORT_TERMS.has(word)) &&
+        !STOPWORDS.has(word)
+    )
+  if (words.length === 0) return 0
+
+  const asked = new Set(keywords)
+  let covered = 0
+  for (const word of words) {
+    if (asked.has(word)) covered += 1
+  }
+  return covered / words.length
 }
 
 /**
@@ -416,10 +519,24 @@ export function scoreEntry(
   // Reward entries matching several keywords over entries matching one.
   if (matched > 1) score += matched
 
+  // The two title bonuses are alternatives, not a sum: an entry that matches
+  // the run is worth exactly BONUS_PHRASE_IN_TITLE, never the two together.
+  const title = titleText(entry)
   const phrase = keywords.join(" ")
-  if (keywords.length > 1 && phrase.length > 0 && titleText(entry).includes(phrase)) {
-    score += BONUS_PHRASE_IN_TITLE
+  if (keywords.length > 1 && phrase.length > 0) {
+    if (title.includes(phrase)) {
+      score += BONUS_PHRASE_IN_TITLE
+    } else if (allTermsInTitle(title, keywords)) {
+      score += BONUS_ALL_TERMS_IN_TITLE
+    }
   }
+
+  // Independent of the two bonuses above: those read the ORDER of the keywords
+  // in the title, these read how much of the title they cover. A case record
+  // can satisfy neither the run nor the full-term set while still naming the
+  // subject, which is the tie this breaks.
+  score += BONUS_TITLE_COVERED * titleCoverage(title, keywords)
+  if (title.length > 0 && title === phrase) score += BONUS_TITLE_EXACT
 
   for (const n of numbers) {
     if (entry.episode_number === n || entry.movie_number === n) {
@@ -547,7 +664,12 @@ export function buildWikiQueries(query: string, maxQueries = 6): string[] {
   // Per-word and bigram queries run over the translated terms as well, so a
   // Tagalog question can still reach an English page by its English name.
   const terms = searchTerms(keywords)
-  for (const term of terms) push(term)
+  // Longest term first, not in query order: the list above spends the budget on
+  // phrase forms, and the whole point of a lone term is that MediaWiki can
+  // still match on the most selective one. This order used to come from
+  // tokenize()'s sort; it is stated here now that tokenize() keeps the
+  // question's order.
+  for (const term of [...terms].sort((a, b) => b.length - a.length)) push(term)
 
   for (let i = 0; i < terms.length - 1; i += 1) {
     push(`${terms[i]} ${terms[i + 1]}`)

@@ -30,6 +30,9 @@ yarn-error.log*
 
 # env files
 .env*.local
+# A copy of the same file without the leading dot holds the same secrets and
+# matches none of the patterns above.
+env.local
 
 # vercel
 .vercel
@@ -67,6 +70,21 @@ logs/
 # local agent/tool state (was accidentally committed; removed via history scrub)
 .freebuff/
 .workbuddy-ai/
+.pi/
+.pi-tasks/
+
+# agent instructions for this repo stay local
+AGENTS.md
+
+# local proof gate (gsd-bend: generated per machine, never part of a change)
+/LAWS.bend
+/PROOF.bend
+/src/chat_scoring.bend
+/.planning/
+
+# supabase CLI state
+supabase/.temp/
+supabase/.branches/
 
 # curation backups
 /scripts/out/
@@ -75,4 +93,13 @@ logs/
 task5-*.png
 *.xlsx
 tracker-t5-snapshot.yml
+
+# design prototype QA captures (regenerable via example-design/serve.py)
+example-design/qa/
+example-design/tools/.guide.tmp.ts
+
+
+# mcp-server (agent tooling)
+mcp-server/node_modules/
+mcp-server/.dcph-dev.pid
 

@@ -1,0 +1,23 @@
+# The Vercel CLI uploads the working directory and deliberately does NOT read
+# .gitignore -- it honours only this file plus a hardcoded list. That list
+# covers `.env.local` and `.env.*.local`, but not the dotless `env.local` or a
+# timestamped backup like `.env.local.bak-qa-20260921`, and those hold the
+# service-role key, the cron secrets and a Cloudflare API token. Every one of
+# them is invisible to `git status` because .gitignore already excludes it, so
+# nothing else would have stopped them being shipped into a deployment.
+#
+# Runtime configuration on Vercel comes from the project's environment
+# variables, never from a file in the tree, so excluding all of these is safe.
+env.local
+.env
+.env.*
+!.env.example
+
+# Local tooling state and build output.
+.vercel
+.next
+node_modules
+supabase/.temp
+supabase/.branches
+.pi
+.pi-tasks

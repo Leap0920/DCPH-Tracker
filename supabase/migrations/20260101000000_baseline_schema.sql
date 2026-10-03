@@ -1,0 +1,662 @@
+-- Baseline: the consolidated schema, as the first link in the timestamped chain.
+--
+-- WHY THIS FILE EXISTS
+--   supabase/schema.sql is the consolidated, idempotent source of truth for the
+--   tables, indexes, functions, RLS policies and storage buckets, but it was
+--   only ever applied by hand in the Supabase SQL Editor (README.md documents
+--   that flow). The timestamped chain in supabase/migrations/ therefore had no
+--   baseline: the first migration, 20260820120000_add_crime_types.sql, does
+--   `alter table content_entries`, and content_entries existed only in
+--   schema.sql, so `supabase start` died on a fresh database with
+--   `relation "content_entries" does not exist` (SQLSTATE 42P01).
+--
+--   This migration is schema.sql verbatim, cut at the DEMO ACCOUNTS banner.
+--   Everything it contains is guarded (`create table if not exists`,
+--   `create index if not exists`, `create or replace function`,
+--   `drop policy if exists` immediately before `create policy`), so it is a
+--   no-op on a database that already has the schema and creates it on one that
+--   does not.
+--
+-- WHAT IS DELIBERATELY LEFT OUT
+--   The DEMO ACCOUNTS section of schema.sql, which does `delete from
+--   public.profiles` for admin@dcph.ph and member@dcph.ph before re-asserting
+--   their roles. That is a seeding step for a human's demo environment, not a
+--   schema change, and it must never run unattended against a database with
+--   real users. Demo users are provisioned by scripts/provision-demo-users.mjs.
+--
+--   The trailing VERIFICATION `select` is left out for the same reason: it is
+--   output for a human reading the SQL Editor, not a migration statement.
+-- ============================================================
+-- Detective Conan PH — Database Schema (CONSOLIDATED)
+-- ============================================================
+-- Single source of truth for the entire database.
+-- Merges the old schema.sql + migration-security.sql +
+-- migration-admin.sql + migration-content-types.sql +
+-- migration-demo-accounts.sql into ONE idempotent script.
+--
+-- HOW TO USE
+--   1. (Optional, dev only) Run reset.sql first to wipe all data.
+--   2. Run THIS file in the Supabase SQL Editor.
+--   3. Then run seed.sql (base data) and/or seed-content.sql
+--      (full catalog) as desired.
+--
+-- Idempotent: safe to run multiple times on an existing DB.
+-- ============================================================
+
+-- ─────────────────────────────────────────────────────────────
+-- EXTENSIONS
+-- ─────────────────────────────────────────────────────────────
+create extension if not exists "uuid-ossp";
+create extension if not exists pgcrypto with schema extensions;
+create extension if not exists pg_net;
+
+-- ─────────────────────────────────────────────────────────────
+-- PROFILES
+-- ─────────────────────────────────────────────────────────────
+create table if not exists profiles (
+  id         uuid primary key default uuid_generate_v4(),
+  user_id    uuid unique references auth.users(id) on delete cascade not null,
+  username   text unique not null,
+  display_name text not null,
+  avatar_url text,
+  bio        text,
+  role       text not null default 'member' check (role in ('member', 'moderator', 'admin')),
+  birthday   date,
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now()
+);
+
+-- ─────────────────────────────────────────────────────────────
+-- PROFILES MODERATION (apply in Supabase Dashboard SQL Editor)
+-- Idempotent — safe to re-run.
+-- ─────────────────────────────────────────────────────────────
+alter table profiles add column if not exists status text not null default 'active' check (status in ('active', 'suspended', 'banned'));
+alter table profiles add column if not exists ban_reason text;
+alter table profiles add column if not exists banned_at timestamptz;
+alter table profiles add column if not exists suspended_until timestamptz;
+create index if not exists idx_profiles_status on profiles(status);
+
+-- ─────────────────────────────────────────────────────────────
+-- ARCS (Story Arcs)
+-- ─────────────────────────────────────────────────────────────
+create table if not exists arcs (
+  id             uuid primary key default uuid_generate_v4(),
+  slug           text unique not null,
+  title          text not null,
+  description    text,
+  image_url      text,
+  start_episode  integer not null,
+  end_episode    integer not null,
+  created_at     timestamptz not null default now()
+);
+
+create index if not exists idx_arcs_slug on arcs(slug);
+
+-- ─────────────────────────────────────────────────────────────
+-- CONTENT ENTRIES (Episodes, Movies, Specials, OVAs)
+-- Includes the widened type set and release_order column that
+-- used to live in migration-content-types.sql.
+-- ─────────────────────────────────────────────────────────────
+create table if not exists content_entries (
+  id               uuid primary key default uuid_generate_v4(),
+  slug             text unique not null,
+  title            text not null,
+  type             text not null check (type in ('episode', 'movie', 'special', 'ova', 'live_action', 'magic_kaito', 'hanzawa', 'zero_tea_time', 'yaiba')),
+  episode_number   integer,
+  movie_number     integer,
+  air_date         date not null,
+  canon_order      integer not null,
+  release_order    integer,
+  arc_id           uuid references arcs(id) on delete set null,
+  synopsis         text,
+  image_url        text,
+  runtime_minutes  integer,
+  crime_types      text[] not null default '{}'::text[],
+  dcw_title        text,
+  image_source     text,
+  created_at       timestamptz not null default now()
+);
+
+-- Heal pre-existing databases where content_entries predates the
+-- release_order column. No-op on a fresh CREATE TABLE above.
+alter table content_entries add column if not exists release_order integer;
+
+-- Heal pre-existing databases whose type CHECK predates the 'yaiba'
+-- type. No-op on a fresh CREATE TABLE above.
+alter table content_entries drop constraint if exists content_entries_type_check;
+alter table content_entries add constraint content_entries_type_check
+  check (type in ('episode', 'movie', 'special', 'ova', 'live_action', 'magic_kaito', 'hanzawa', 'zero_tea_time', 'yaiba'));
+
+create index if not exists idx_content_air_date on content_entries(air_date);
+create index if not exists idx_content_canon_order on content_entries(canon_order);
+create index if not exists idx_content_release_order on content_entries(release_order);
+create index if not exists idx_content_type on content_entries(type);
+create index if not exists idx_content_arc on content_entries(arc_id);
+
+-- Crime taxonomy: validated against lib/crime-categories.ts
+alter table content_entries add column if not exists crime_types text[] not null default '{}'::text[];
+alter table content_entries drop constraint if exists content_entries_crime_types_valid;
+alter table content_entries add constraint content_entries_crime_types_valid
+  check (
+    crime_types <@ array[
+      'stabbing',
+      'blunt-force',
+      'strangulation',
+      'poisoning',
+      'shooting',
+      'explosion',
+      'arson',
+      'drowning',
+      'fall',
+      'electrocution',
+      'suffocation',
+      'locked-room',
+      'staged-accident',
+      'serial-murder',
+      'kidnapping',
+      'theft-heist',
+      'no-crime'
+    ]::text[]
+  );
+create index if not exists content_entries_crime_types_idx on content_entries using gin (crime_types);
+
+-- DCW image tracking
+alter table public.content_entries add column if not exists dcw_title text;
+alter table public.content_entries add column if not exists image_source text;
+create index if not exists content_entries_image_source_idx on public.content_entries (image_source);
+
+-- ─────────────────────────────────────────────────────────────
+-- WATCH STATUS
+-- ─────────────────────────────────────────────────────────────
+create table if not exists watch_status (
+  id         uuid primary key default uuid_generate_v4(),
+  user_id    uuid references auth.users(id) on delete cascade not null,
+  content_id uuid references content_entries(id) on delete cascade not null,
+  status     text not null default 'unwatched' check (status in ('unwatched', 'watched', 'rewatched')),
+  watch_count integer not null default 0,
+  favorite   boolean not null default false,
+  rating     integer check (rating >= 1 and rating <= 10),
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now(),
+  unique(user_id, content_id)
+);
+
+create index if not exists idx_watch_status_user on watch_status(user_id);
+create index if not exists idx_watch_status_content on watch_status(content_id);
+
+-- ─────────────────────────────────────────────────────────────
+-- CHAT ROOMS
+-- ─────────────────────────────────────────────────────────────
+create table if not exists chat_rooms (
+  id          uuid primary key default uuid_generate_v4(),
+  slug        text unique not null,
+  name        text not null,
+  description text,
+  is_active   boolean not null default true,
+  created_at  timestamptz not null default now()
+);
+
+-- Seed default rooms
+insert into chat_rooms (slug, name, description) values
+  ('general', 'General', 'The main gathering place for the organization'),
+  ('episodes', 'Episode Discussion', 'Discuss the latest episodes'),
+  ('movies', 'Movie Talk', 'Movie reactions and theories'),
+  ('off-topic', 'Off-Topic', 'Anything goes (keep it civil)')
+on conflict (slug) do nothing;
+
+-- ─────────────────────────────────────────────────────────────
+-- CHAT MESSAGES
+-- ─────────────────────────────────────────────────────────────
+create table if not exists chat_messages (
+  id         uuid primary key default uuid_generate_v4(),
+  room_id    uuid references chat_rooms(id) on delete cascade not null,
+  user_id    uuid references auth.users(id) on delete cascade not null,
+  content    text not null,
+  created_at timestamptz not null default now()
+);
+
+create index if not exists idx_chat_messages_room on chat_messages(room_id, created_at desc);
+
+-- ─────────────────────────────────────────────────────────────
+-- BADGES
+-- ─────────────────────────────────────────────────────────────
+create table if not exists badges (
+  id          uuid primary key default uuid_generate_v4(),
+  slug        text unique not null,
+  name        text not null,
+  description text,
+  icon_url    text,
+  category    text not null default 'achievement',
+  created_at  timestamptz not null default now()
+);
+
+-- ─────────────────────────────────────────────────────────────
+-- USER BADGES
+-- ─────────────────────────────────────────────────────────────
+create table if not exists user_badges (
+  id         uuid primary key default uuid_generate_v4(),
+  user_id    uuid references auth.users(id) on delete cascade not null,
+  badge_id   uuid references badges(id) on delete cascade not null,
+  earned_at  timestamptz not null default now(),
+  unique(user_id, badge_id)
+);
+
+-- ─────────────────────────────────────────────────────────────
+-- SCREENING EVENTS
+-- ─────────────────────────────────────────────────────────────
+create table if not exists screening_events (
+  id           uuid primary key default uuid_generate_v4(),
+  movie_number integer not null,
+  movie_title  text not null,
+  event_name   text not null,
+  venue        text,
+  city         text,
+  date         date,
+  ticket_url   text,
+  is_featured  boolean not null default false,
+  created_at   timestamptz not null default now()
+);
+
+-- ─────────────────────────────────────────────────────────────
+-- SOCIAL LINKS
+-- ─────────────────────────────────────────────────────────────
+create table if not exists social_links (
+  id         uuid primary key default uuid_generate_v4(),
+  platform   text not null,
+  handle     text not null,
+  url        text not null,
+  icon       text,
+  is_active  boolean not null default true,
+  sort_order integer not null default 0,
+  created_at timestamptz not null default now()
+);
+
+-- Seed default social links
+insert into social_links (platform, handle, url, icon, sort_order) values
+  ('Facebook', '@DetectiveConanPH', 'https://facebook.com/DetectiveConanPH', 'facebook', 1),
+  ('Instagram', '@detectiveconan.ph', 'https://instagram.com/detectiveconan.ph', 'instagram', 2),
+  ('Discord', 'Join the Organization', 'https://discord.gg/your-invite', 'discord', 3),
+  ('YouTube', '@DetectiveConanPH', 'https://youtube.com/@DetectiveConanPH', 'youtube', 4)
+on conflict (id) do nothing;
+
+-- ─────────────────────────────────────────────────────────────
+-- FUNCTIONS
+-- ─────────────────────────────────────────────────────────────
+
+-- Auto-create profile on signup (trigger function, see triggers below)
+drop function if exists public.handle_new_user();
+create or replace function public.handle_new_user()
+returns trigger as $$
+begin
+  insert into public.profiles (user_id, username, display_name, birthday)
+  values (
+    new.id,
+    coalesce(new.raw_user_meta_data ->> 'username', split_part(new.email, '@', 1)),
+    coalesce(new.raw_user_meta_data ->> 'display_name', split_part(new.email, '@', 1)),
+    nullif(new.raw_user_meta_data ->> 'birthday', '')::date
+  );
+  return new;
+end;
+$$ language plpgsql security definer set search_path = public;
+
+-- Refresh the leaderboard materialized view
+create or replace function refresh_leaderboard()
+returns void as $$
+begin
+  refresh materialized view concurrently leaderboard;
+end;
+$$ language plpgsql;
+
+-- Prevent privilege escalation on profiles UPDATE:
+-- blocks any change to `role` / `user_id` coming from a non-admin.
+-- Admins and service_role can still change roles.
+create or replace function public.prevent_profile_privilege_escalation()
+returns trigger as $$
+declare
+  caller_role text;
+begin
+  -- service_role bypasses RLS and this check (used by trusted server code)
+  if auth.role() = 'service_role' then
+    return new;
+  end if;
+
+  -- Look up the calling user's current role.
+  select role into caller_role
+  from public.profiles
+  where user_id = auth.uid();
+
+  -- Non-admins may not change protected columns.
+  if coalesce(caller_role, 'member') <> 'admin' then
+    if new.role is distinct from old.role then
+      raise exception 'Not allowed to change role';
+    end if;
+    if new.user_id is distinct from old.user_id then
+      raise exception 'Not allowed to change user_id';
+    end if;
+  end if;
+
+  return new;
+end;
+$$ language plpgsql security definer set search_path = public;
+
+-- Admin check helper (used by content / storage / arcs policies)
+create or replace function public.is_admin()
+returns boolean as $$
+  select coalesce(
+    (select role = 'admin'
+     from public.profiles
+     where user_id = auth.uid()),
+    false
+  );
+$$ language sql stable security definer set search_path = public;
+
+-- Moderator/admin check helper (chat moderation)
+create or replace function public.is_moderator_or_admin()
+returns boolean as $$
+  select coalesce(
+    (select role in ('moderator', 'admin')
+     from public.profiles
+     where user_id = auth.uid()),
+    false
+  );
+$$ language sql stable security definer set search_path = public;
+
+-- ─────────────────────────────────────────────────────────────
+-- TRIGGERS
+-- ─────────────────────────────────────────────────────────────
+drop trigger if exists on_auth_user_created on auth.users;
+create trigger on_auth_user_created
+  after insert on auth.users
+  for each row execute function public.handle_new_user();
+
+drop trigger if exists trg_prevent_profile_privilege_escalation on public.profiles;
+create trigger trg_prevent_profile_privilege_escalation
+  before update on public.profiles
+  for each row execute function public.prevent_profile_privilege_escalation();
+
+-- ─────────────────────────────────────────────────────────────
+-- LEADERBOARD (Materialized View)
+-- ─────────────────────────────────────────────────────────────
+drop materialized view if exists leaderboard;
+create materialized view leaderboard as
+select
+  p.user_id,
+  p.username,
+  p.display_name,
+  p.avatar_url,
+  count(ws.id) filter (where ws.status = 'watched') as watched_count,
+  coalesce(sum(ce.runtime_minutes) filter (where ws.status = 'watched'), 0) as total_minutes,
+  rank() over (order by count(ws.id) filter (where ws.status = 'watched') desc) as rank
+from profiles p
+left join watch_status ws on ws.user_id = p.user_id
+left join content_entries ce on ce.id = ws.content_id
+group by p.user_id, p.username, p.display_name, p.avatar_url;
+
+create unique index if not exists idx_leaderboard_user on leaderboard(user_id);
+
+-- ─────────────────────────────────────────────────────────────
+-- API ROLE GRANTS
+-- Required after `drop schema public cascade` (reset.sql): the
+-- project's default privileges are keyed to the old schema OID,
+-- so a recreated schema leaves anon/authenticated with NO table
+-- access (PostgREST fails "permission denied" before RLS runs).
+-- RLS policies below still gate which rows each role can touch.
+-- ─────────────────────────────────────────────────────────────
+grant usage on schema public to anon, authenticated, service_role;
+-- anon is read-only; all writes happen as authenticated (user sessions) or
+-- service_role (cron/admin), both of which retain full grants below.
+grant select on all tables in schema public to anon;
+grant all on all tables in schema public to authenticated, service_role;
+grant usage on all sequences in schema public to authenticated, service_role;
+grant execute on all functions in schema public to anon;
+grant all on all functions in schema public to authenticated, service_role;
+
+alter default privileges in schema public grant select on tables to anon;
+alter default privileges in schema public grant all on tables to authenticated, service_role;
+alter default privileges in schema public grant usage on sequences to authenticated, service_role;
+alter default privileges in schema public grant execute on functions to anon;
+alter default privileges in schema public grant all on functions to authenticated, service_role;
+
+-- ─────────────────────────────────────────────────────────────
+-- ROW LEVEL SECURITY
+-- ─────────────────────────────────────────────────────────────
+alter table profiles enable row level security;
+alter table arcs enable row level security;
+alter table content_entries enable row level security;
+alter table watch_status enable row level security;
+alter table chat_rooms enable row level security;
+alter table chat_messages enable row level security;
+alter table badges enable row level security;
+alter table user_badges enable row level security;
+alter table screening_events enable row level security;
+alter table social_links enable row level security;
+
+-- Profiles: authenticated owner read, admin read/write, owner write, self-heal insert
+drop policy if exists "Profiles are publicly readable" on profiles;
+
+grant select on public.profiles to authenticated;
+
+drop policy if exists "Users can read own profile" on profiles;
+create policy "Users can read own profile"
+  on profiles for select
+  to authenticated
+  using (auth.uid() = user_id);
+
+drop policy if exists "Admins can read all profiles" on profiles;
+create policy "Admins can read all profiles"
+  on profiles for select
+  to authenticated
+  using (public.is_admin());
+
+drop policy if exists "Admins can update all profiles" on profiles;
+create policy "Admins can update all profiles"
+  on profiles for update
+  to authenticated
+  using (public.is_admin())
+  with check (public.is_admin());
+
+drop policy if exists "Users can update own profile" on profiles;
+create policy "Users can update own profile"
+  on profiles for update using (auth.uid() = user_id)
+  with check (auth.uid() = user_id);
+
+drop policy if exists "Users can insert own profile" on profiles;
+create policy "Users can insert own profile"
+  on profiles for insert
+  with check (auth.uid() = user_id);
+
+-- Arcs: public read, admin manage
+drop policy if exists "Arcs are publicly readable" on arcs;
+create policy "Arcs are publicly readable"
+  on arcs for select using (true);
+
+drop policy if exists "Admins can insert arcs" on arcs;
+create policy "Admins can insert arcs"
+  on arcs for insert with check (public.is_admin());
+
+drop policy if exists "Admins can update arcs" on arcs;
+create policy "Admins can update arcs"
+  on arcs for update using (public.is_admin());
+
+drop policy if exists "Admins can delete arcs" on arcs;
+create policy "Admins can delete arcs"
+  on arcs for delete using (public.is_admin());
+
+-- Content entries: public read, admin insert/update/delete (used by /api/sync + admin dashboard)
+drop policy if exists "Content entries are publicly readable" on content_entries;
+create policy "Content entries are publicly readable"
+  on content_entries for select using (true);
+
+drop policy if exists "Admins can insert content entries" on content_entries;
+create policy "Admins can insert content entries"
+  on content_entries for insert
+  with check (public.is_admin());
+
+drop policy if exists "Admins can update content entries" on content_entries;
+create policy "Admins can update content entries"
+  on content_entries for update
+  using (public.is_admin());
+
+drop policy if exists "Admins can delete content entries" on content_entries;
+create policy "Admins can delete content entries"
+  on content_entries for delete
+  using (public.is_admin());
+
+-- Watch status: public read, owner write/delete
+drop policy if exists "Users can view own watch status" on watch_status;
+drop policy if exists "Watch status is publicly readable" on watch_status;
+create policy "Watch status is publicly readable"
+  on watch_status for select using (true);
+
+drop policy if exists "Users can insert own watch status" on watch_status;
+create policy "Users can insert own watch status"
+  on watch_status for insert with check (auth.uid() = user_id);
+
+drop policy if exists "Users can update own watch status" on watch_status;
+create policy "Users can update own watch status"
+  on watch_status for update using (auth.uid() = user_id);
+
+drop policy if exists "Users can delete own watch status" on watch_status;
+create policy "Users can delete own watch status"
+  on watch_status for delete using (auth.uid() = user_id);
+
+-- Chat rooms: public read
+drop policy if exists "Chat rooms are publicly readable" on chat_rooms;
+create policy "Chat rooms are publicly readable"
+  on chat_rooms for select using (true);
+
+-- Chat messages: authenticated read, owner insert/delete, moderator/admin delete
+drop policy if exists "Authenticated users can read chat messages" on chat_messages;
+create policy "Authenticated users can read chat messages"
+  on chat_messages for select using (auth.role() = 'authenticated');
+
+drop policy if exists "Authenticated users can insert own messages" on chat_messages;
+create policy "Authenticated users can insert own messages"
+  on chat_messages for insert with check (auth.uid() = user_id);
+
+drop policy if exists "Users can delete own messages" on chat_messages;
+create policy "Users can delete own messages"
+  on chat_messages for delete
+  using (auth.uid() = user_id);
+
+drop policy if exists "Moderators can delete any message" on chat_messages;
+create policy "Moderators can delete any message"
+  on chat_messages for delete
+  using (public.is_moderator_or_admin());
+
+-- Badges: public read
+drop policy if exists "Badges are publicly readable" on badges;
+create policy "Badges are publicly readable"
+  on badges for select using (true);
+
+-- User badges: public read
+drop policy if exists "User badges are publicly readable" on user_badges;
+create policy "User badges are publicly readable"
+  on user_badges for select using (true);
+
+-- Screening events: public read
+drop policy if exists "Screening events are publicly readable" on screening_events;
+create policy "Screening events are publicly readable"
+  on screening_events for select using (true);
+
+-- Social links: public read
+drop policy if exists "Social links are publicly readable" on social_links;
+create policy "Social links are publicly readable"
+  on social_links for select using (true);
+
+-- ─────────────────────────────────────────────────────────────
+-- STORAGE: AVATARS BUCKET
+-- Public read; users upload/manage only inside avatars/<user_id>/.
+-- Bucket-level MIME + 3 MB size limits (was migration-security.sql).
+-- ─────────────────────────────────────────────────────────────
+insert into storage.buckets (id, name, public, file_size_limit, allowed_mime_types)
+values (
+  'avatars',
+  'avatars',
+  true,
+  3145728, -- 3 MB
+  array['image/jpeg', 'image/png', 'image/webp', 'image/gif']
+)
+on conflict (id) do update
+set
+  public = true,
+  file_size_limit = 3145728,
+  allowed_mime_types = array['image/jpeg', 'image/png', 'image/webp', 'image/gif'];
+
+-- Anyone can read avatar images (bucket is public)
+drop policy if exists "Avatar images are publicly readable" on storage.objects;
+create policy "Avatar images are publicly readable"
+  on storage.objects for select
+  using ( bucket_id = 'avatars' );
+
+-- Authenticated users may upload only inside their own folder: avatars/<user_id>/*
+-- Content-type is enforced to prevent stored XSS via SVG/HTML uploads.
+drop policy if exists "Users can upload their own avatar" on storage.objects;
+create policy "Users can upload their own avatar"
+  on storage.objects for insert to authenticated
+  with check (
+    bucket_id = 'avatars'
+    and (storage.foldername(name))[1] = auth.uid()::text
+    and (metadata->>'mimetype') in ('image/jpeg', 'image/png', 'image/webp', 'image/gif')
+  );
+
+-- Users may update/delete only their own avatar objects
+drop policy if exists "Users can update their own avatar" on storage.objects;
+create policy "Users can update their own avatar"
+  on storage.objects for update to authenticated
+  using (
+    bucket_id = 'avatars'
+    and (storage.foldername(name))[1] = auth.uid()::text
+  );
+
+drop policy if exists "Users can delete their own avatar" on storage.objects;
+create policy "Users can delete their own avatar"
+  on storage.objects for delete to authenticated
+  using (
+    bucket_id = 'avatars'
+    and (storage.foldername(name))[1] = auth.uid()::text
+  );
+
+-- ─────────────────────────────────────────────────────────────
+-- STORAGE: CONTENT-IMAGES BUCKET
+-- Public read; only admins may write. Used for episode/movie
+-- cover photos uploaded from the admin dashboard (5 MB limit).
+-- ─────────────────────────────────────────────────────────────
+insert into storage.buckets (id, name, public, file_size_limit, allowed_mime_types)
+values (
+  'content-images',
+  'content-images',
+  true,
+  5242880, -- 5 MB
+  array['image/jpeg', 'image/png', 'image/webp', 'image/gif']
+)
+on conflict (id) do update
+set
+  public = true,
+  file_size_limit = 5242880,
+  allowed_mime_types = array['image/jpeg', 'image/png', 'image/webp', 'image/gif'];
+
+drop policy if exists "Content images are publicly readable" on storage.objects;
+create policy "Content images are publicly readable"
+  on storage.objects for select
+  using ( bucket_id = 'content-images' );
+
+drop policy if exists "Admins can upload content images" on storage.objects;
+create policy "Admins can upload content images"
+  on storage.objects for insert to authenticated
+  with check (
+    bucket_id = 'content-images'
+    and public.is_admin()
+    and (metadata->>'mimetype') in ('image/jpeg', 'image/png', 'image/webp', 'image/gif')
+  );
+
+drop policy if exists "Admins can update content images" on storage.objects;
+create policy "Admins can update content images"
+  on storage.objects for update to authenticated
+  using ( bucket_id = 'content-images' and public.is_admin() );
+
+drop policy if exists "Admins can delete content images" on storage.objects;
+create policy "Admins can delete content images"
+  on storage.objects for delete to authenticated
+  using ( bucket_id = 'content-images' and public.is_admin() );
+
