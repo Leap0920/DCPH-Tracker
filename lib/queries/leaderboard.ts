@@ -80,12 +80,192 @@ export interface RankingRow {
   rank: number
 }
 
+/** One row of the get_leaderboard RPC (supabase/migration-leaderboard-rpc.sql). */
+type LeaderboardRpcRow = {
+  user_id: string
+  username: string
+  display_name: string
+  avatar_url: string | null
+  watched_count: number
+  total_minutes: number | string
+  rewatched_count: number
+  total_views: number | string
+  movie_count: number
+  episode_count: number
+  month_count: number
+  month_minutes: number | string
+  month_movie_count: number
+  month_episode_count: number
+  week_count: number
+  week_minutes: number | string
+  week_movie_count: number
+  week_episode_count: number
+  rank: number
+}
+
+// The leaderboard RPC is added by supabase/migration-leaderboard-rpc.sql and is
+// not in database.types.ts (generated), so the name is cast to `never` to get
+// past the typed-rpc generic — the same trick lib/queries/client/stats.ts uses
+// for the site-stats RPCs. PostgREST still maps the string name.
+const LEADERBOARD_RPC = "get_leaderboard"
+/** PostgREST's "function not found" — the migration has not been applied. */
+const MISSING_FUNCTION = "PGRST202"
+
+/** bigint columns can arrive as strings through PostgREST, so coerce them all. */
+function toRankingRow(row: LeaderboardRpcRow): RankingRow {
+  const detectiveRank = getDetectiveRank(row.watched_count)
+  return {
+    user_id: row.user_id,
+    username: row.username,
+    display_name: row.display_name,
+    avatar_url: row.avatar_url,
+    watched_count: Number(row.watched_count),
+    total_minutes: Number(row.total_minutes),
+    rewatched_count: Number(row.rewatched_count),
+    total_views: Number(row.total_views),
+    movie_count: Number(row.movie_count),
+    episode_count: Number(row.episode_count),
+    month_count: Number(row.month_count),
+    month_minutes: Number(row.month_minutes),
+    month_movie_count: Number(row.month_movie_count),
+    month_episode_count: Number(row.month_episode_count),
+    week_count: Number(row.week_count),
+    week_minutes: Number(row.week_minutes),
+    week_movie_count: Number(row.week_movie_count),
+    week_episode_count: Number(row.week_episode_count),
+    detectiveRank: { title: detectiveRank.title, level: detectiveRank.level },
+    rank: Number(row.rank),
+  }
+}
+
 /**
+ * The leaderboard: the get_leaderboard RPC when it exists, the old paging path
+ * otherwise.
+ *
+ * Why the RPC: the paging path reads the whole watch_status table (145,810 rows
+ * ÷ PostgREST's 1,000-row cap = 146 serial requests) and the whole 30-day
+ * watch_events window (another ~149 requests), then aggregates ~50 MB of JSON
+ * in the serverless function — /community/rankings measured 187 seconds to
+ * finish loading. The RPC returns a few hundred rows in one request.
+ *
+ * The paging path is kept as a pre-migration fallback (PGRST202) so this file
+ * can ship before — or without — the migration. Once
+ * supabase/migration-leaderboard-rpc.sql is applied everywhere, the fallback can
+ * be deleted along with lib/queries/leaderboard-events.ts.
+ */
+export async function getRankings(limit = 100): Promise<RankingRow[]> {
+  const supabase = createAdminClient() ?? (await createClient())
+
+  const { data, error } = await supabase.rpc(LEADERBOARD_RPC as never, {
+    p_limit: limit,
+  } as never)
+
+  if (!error) {
+    return ((data ?? []) as unknown as LeaderboardRpcRow[]).map(toRankingRow)
+  }
+  if (error.code !== MISSING_FUNCTION) throw error
+
+  return getRankingsByPaging(limit)
+}
+
+/**
+ * One user's board row, for the "Your Standing" card when they are not on the
+ * returned page. p_limit 0 makes the RPC return only the caller's row, so this
+ * is one cheap request rather than a second full read of watch_status — which
+ * is what the page used to do, doubling the cost for anyone outside the top 100.
+ */
+export async function getUserRankRow(userId: string): Promise<RankingRow | null> {
+  const supabase = createAdminClient() ?? (await createClient())
+
+  const { data, error } = await supabase.rpc(LEADERBOARD_RPC as never, {
+    p_limit: 0,
+    p_user_id: userId,
+  } as never)
+
+  if (!error) {
+    const rows = (data ?? []) as unknown as LeaderboardRpcRow[]
+    return rows.length > 0 ? toRankingRow(rows[0]) : null
+  }
+  if (error.code !== MISSING_FUNCTION) throw error
+
+  return getUserRankRowByPaging(userId)
+}
+
+/**
+ * PRE-MIGRATION FALLBACK — delete with getRankingsByPaging.
+ *
+ * Behaviour is identical to the block this replaced in
+ * app/(app)/community/rankings/page.tsx: the period figures are not fetched on
+ * this path, so the standing card is all-time only.
+ */
+async function getUserRankRowByPaging(userId: string): Promise<RankingRow | null> {
+  const supabase = createAdminClient() ?? (await createClient())
+
+  const [watchResult, profileResult] = await Promise.all([
+    supabase
+      .from("watch_status")
+      .select("user_id, status, watch_count, content_entries(runtime_minutes, type)")
+      .in("status", ["watched", "rewatched"])
+      .eq("user_id", userId),
+    supabase
+      .from("profiles")
+      .select(PUBLIC_PROFILE_COLUMNS)
+      .eq("user_id", userId)
+      .single(),
+  ])
+
+  const watched = watchResult.data as WatchStatusRow[] | null
+  const profile = profileResult.data
+  if (!watched || watched.length === 0 || !profile) return null
+
+  const count = watched.length
+  const rewatched = watched.filter((w) => w.status === "rewatched").length
+  const views = watched.reduce((acc, w) => acc + (w.watch_count ?? 0), 0)
+  // Same fallback and the same floor-of-one view rule getRankings uses, so the
+  // rank this compares against is the rank the board would give the same
+  // numbers — including the rewatch multiplier.
+  const minutes = watched.reduce(
+    (acc, w) =>
+      acc + entryMinutes(w.content_entries as ContentRef | null) * Math.max(w.watch_count ?? 0, 1),
+    0
+  )
+  const entries = watched.map((w) => w.content_entries as ContentRef | null)
+  const globalRank = await getUserGlobalRank(userId, count, minutes)
+  const detectiveRank = getDetectiveRank(count)
+
+  return {
+    user_id: userId,
+    username: profile.username,
+    display_name: profile.display_name,
+    avatar_url: profile.avatar_url,
+    watched_count: count,
+    total_minutes: minutes,
+    rewatched_count: rewatched,
+    total_views: views,
+    // Real per-type counts — mirrors getRankings' aggregation.
+    movie_count: entries.filter((entry) => entry?.type === MOVIE_TYPE).length,
+    episode_count: entries.filter((entry) => entry?.type === EPISODE_TYPE).length,
+    month_count: 0,
+    month_minutes: 0,
+    month_movie_count: 0,
+    month_episode_count: 0,
+    week_count: 0,
+    week_minutes: 0,
+    week_movie_count: 0,
+    week_episode_count: 0,
+    detectiveRank: { title: detectiveRank.title, level: detectiveRank.level },
+    rank: globalRank ?? 0,
+  }
+}
+
+/**
+ * PRE-MIGRATION FALLBACK — delete once migration-leaderboard-rpc.sql is applied.
+ *
  * Computes the leaderboard live from base tables (no reliance on the
  * materialized view, which can go stale). All-time figures come from
  * watch_status; rolling-window figures come from the watch_events log.
  */
-export async function getRankings(limit = 100): Promise<RankingRow[]> {
+async function getRankingsByPaging(limit = 100): Promise<RankingRow[]> {
   const supabase = createAdminClient() ?? (await createClient())
 
   // PostgREST caps each request at 1,000 rows; paginate so the leaderboard
@@ -262,6 +442,8 @@ export async function getRankings(limit = 100): Promise<RankingRow[]> {
  *
  * Deliberately all-time only. The "Your Standing" card that consumes this must
  * be labelled "All-time" so it does not appear to contradict a period tab.
+ *
+ * PRE-MIGRATION ONLY — the RPC computes rank in the same query.
  */
 export async function getUserGlobalRank(
   userId: string,
