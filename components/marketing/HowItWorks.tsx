@@ -4,7 +4,9 @@ import Link from "next/link"
 import Image from "next/image"
 import { motion, useReducedMotion, type Variants } from "framer-motion"
 import { UserPlus, ListChecks, Trophy, ArrowRight } from "lucide-react"
+import { useEffect, useState } from "react"
 import { openAuthModal } from "@/lib/auth-modal"
+import { createClient } from "@/utils/supabase/client"
 import { SectionHeading } from "./SectionHeading"
 
 const EASE = [0.16, 1, 0.3, 1] as const
@@ -28,6 +30,33 @@ const stepVariants: Variants = {
 
 export function HowItWorks() {
   const reduce = useReducedMotion()
+  const supabase = createClient()
+
+  // Step one is "create your account", which a signed-in visitor has already
+  // done — so the step has to know the session. It is read in the browser for
+  // the same reason as the CTA band: the homepage is statically rendered, and
+  // reading cookies here would opt the whole marketing page out of that.
+  // null = not resolved yet, which is treated as "do not offer sign-up".
+  const [signedIn, setSignedIn] = useState<boolean | null>(null)
+
+  useEffect(() => {
+    let active = true
+    supabase.auth.getSession().then(({ data }) => {
+      if (active) setSignedIn(Boolean(data.session))
+    })
+    const {
+      data: { subscription },
+    } = supabase.auth.onAuthStateChange((_event, session) => {
+      setSignedIn(Boolean(session))
+    })
+    return () => {
+      active = false
+      subscription.unsubscribe()
+    }
+    // Subscribe once for the life of the section; the browser client is rebuilt
+    // per render by design (utils/supabase/client.ts).
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
 
   return (
     <section className="mx-auto max-w-6xl px-6 sm:px-12">
@@ -88,17 +117,25 @@ export function HowItWorks() {
               <UserPlus className="w-5 h-5 sm:w-7 sm:h-7" />
             </div>
             <div className="space-y-1 pt-0.5 sm:pt-1">
-              <h3 className="text-base sm:text-lg font-semibold font-display text-ink">Create your account</h3>
+              <h3 className="text-base sm:text-lg font-semibold font-display text-ink">
+                {signedIn ? "Your account is ready" : "Create your account"}
+              </h3>
               <p className="text-xs sm:text-sm text-ink-dim leading-relaxed">
-                Email only. Takes about a minute.
+                {signedIn
+                  ? "Your progress is saved to this account."
+                  : "Email only. Takes about a minute."}
               </p>
-              <button
-                type="button"
-                onClick={() => openAuthModal("signup")}
-                className="inline-flex items-center gap-1 text-xs font-semibold text-accent hover:gap-2 transition-all pt-1"
-              >
-                Create account <ArrowRight className="w-3.5 h-3.5" />
-              </button>
+              {/* Signed-out visitors only, and only once the session is known:
+                  an account that already exists has nothing to sign up for. */}
+              {signedIn === false && (
+                <button
+                  type="button"
+                  onClick={() => openAuthModal("signup")}
+                  className="inline-flex items-center gap-1 text-xs font-semibold text-accent hover:gap-2 transition-all pt-1"
+                >
+                  Create account <ArrowRight className="w-3.5 h-3.5" />
+                </button>
+              )}
             </div>
           </motion.div>
 
