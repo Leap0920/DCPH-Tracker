@@ -53,27 +53,40 @@ export function AuthModal() {
   const [otpLoading, setOtpLoading] = useState(false)
   const [resendState, setResendState] = useState<"idle" | "sending" | "sent">("idle")
 
+  // Only a signed-out visitor may see this dialog: a caller that opens it
+  // without checking first (the homepage band used to) would otherwise show a
+  // sign-up form to someone who already has an account. The ?error= handling
+  // below is deliberately left alone — it never opens the dialog, and a banned
+  // or suspended account still holds a session, so gating it would be wrong.
+  async function openForSignedOut(next: AuthModalMode) {
+    const {
+      data: { session },
+    } = await supabase.auth.getSession()
+    if (session) return
+    setMode(next)
+    setOpen(true)
+  }
+
   // Listen for the global "open-auth-modal" event dispatched by openAuthModal()
   useEffect(() => {
     const handler = (e: Event) => {
       const detail = (e as CustomEvent<{ mode?: AuthModalMode }>).detail
-      setMode(detail?.mode === "signup" ? "signup" : "signin")
-      setOpen(true)
+      void openForSignedOut(detail?.mode === "signup" ? "signup" : "signin")
     }
     window.addEventListener("open-auth-modal", handler)
     return () => window.removeEventListener("open-auth-modal", handler)
+    // openForSignedOut is rebuilt per render but only ever reads a fresh session.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
   // Auto-open when the URL carries ?auth=signin|signup
   useEffect(() => {
     const params = new URLSearchParams(window.location.search)
     const authMode = params.get("auth")
-    if (authMode === "signup") {
-      setMode("signup")
-      setOpen(true)
-    } else if (authMode === "signin") {
-      setMode("signin")
-      setOpen(true)
+    // Same gate as the event path: a shared or bookmarked ?auth= link must not
+    // open the dialog for someone who is already signed in.
+    if (authMode === "signup" || authMode === "signin") {
+      void openForSignedOut(authMode)
     }
     const errorParam = params.get("error")
     if (errorParam === "banned") {
@@ -83,6 +96,7 @@ export function AuthModal() {
     } else if (errorParam === "admin_only") {
       setUrlError("This area is restricted to administrators.")
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [pathname])
 
   // Reset transient state every time the modal opens
