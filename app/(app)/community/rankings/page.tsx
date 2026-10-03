@@ -1,9 +1,8 @@
 import Link from "next/link"
 import { Trophy, LogIn, ArrowRight } from "lucide-react"
 import { createClient } from "@/utils/supabase/server"
-import { getRankings, getUserGlobalRank } from "@/lib/queries/leaderboard"
+import { getRankings, getUserRankRow } from "@/lib/queries/leaderboard"
 import { getDetectiveRank } from "@/lib/ranks"
-import { defaultRuntimeMinutes } from "@/lib/runtime-defaults"
 import { RankingsBoardLoader } from "@/components/community/RankingsBoardLoader"
 import { Button } from "@/components/ui/button"
 import { AuthModalButton } from "@/components/auth/AuthModalButton"
@@ -28,81 +27,15 @@ export default async function RankingsPage() {
   const user = authResult.data.user
   const currentUserId = user?.id ?? null
 
-  let you = null
-  if (currentUserId) {
-    you = rankings.find((r) => r.user_id === currentUserId) ?? null
-  }
-  // Keep the "You" row in the list even if it ranks beyond the limit. The two
-  // reads below depend only on the user id, so fetch them concurrently.
-  if (currentUserId && !you) {
-    const [watchResult, profileResult] = await Promise.all([
-      supabase
-        .from("watch_status")
-        .select("user_id, status, watch_count, content_entries(runtime_minutes, type)")
-        .in("status", ["watched", "rewatched"])
-        .eq("user_id", currentUserId),
-      supabase
-        .from("profiles")
-        .select("username, display_name, avatar_url")
-        .eq("user_id", currentUserId)
-        .single(),
-    ])
-    const watched = watchResult.data
-    if (watched && watched.length > 0) {
-      const count = watched.length
-      const rewatched = watched.filter((w) => w.status === "rewatched").length
-      const views = watched.reduce((acc, w) => acc + (w.watch_count ?? 0), 0)
-      const entries = watched.map(
-        (w) => w.content_entries as { runtime_minutes: number | null; type: string | null } | null
-      )
-      // Same fallback and the same floor-of-one view rule getRankings uses, so
-      // the rank this compares against is the rank the board would give the same
-      // numbers — including the rewatch multiplier.
-      const minutes = watched.reduce((acc, w) => {
-        const entry = w.content_entries as {
-          runtime_minutes: number | null
-          type: string | null
-        } | null
-        const mins =
-          typeof entry?.runtime_minutes === "number" && entry.runtime_minutes > 0
-            ? entry.runtime_minutes
-            : defaultRuntimeMinutes(entry?.type ?? "")
-        return acc + mins * Math.max(w.watch_count ?? 0, 1)
-      }, 0)
-      // Real per-type counts — mirrors getRankings' aggregation.
-      const movieCount = entries.filter((entry) => entry?.type === "movie").length
-      const episodeCount = entries.filter((entry) => entry?.type === "episode").length
-      const profile = profileResult.data
-      if (profile) {
-        const globalRank = await getUserGlobalRank(currentUserId, count, minutes)
-        const detectiveRank = getDetectiveRank(count)
-        you = {
-          user_id: currentUserId,
-          username: profile.username,
-          display_name: profile.display_name,
-          avatar_url: profile.avatar_url,
-          watched_count: count,
-          total_minutes: minutes,
-          rewatched_count: rewatched,
-          total_views: views,
-          movie_count: movieCount,
-          episode_count: episodeCount,
-          // The standing card is all-time only; period figures come from the
-          // watch_events log and are not fetched on this fallback path.
-          month_count: 0,
-          month_minutes: 0,
-          month_movie_count: 0,
-          month_episode_count: 0,
-          week_count: 0,
-          week_minutes: 0,
-          week_movie_count: 0,
-          week_episode_count: 0,
-          detectiveRank: { title: detectiveRank.title, level: detectiveRank.level },
-          rank: globalRank ?? 0,
-        }
-      }
-    }
-  }
+  // The board carries the caller's row when they are on it. When they are not —
+  // ranked beyond the returned page, or no qualifying rows at all — fetch just
+  // that one row. This used to re-read every watch_status row to rebuild the
+  // caller's totals and scan the table a second time for their rank, which
+  // doubled an already-minutes-long load for anyone outside the top 100.
+  const you = currentUserId
+    ? (rankings.find((r) => r.user_id === currentUserId) ??
+      (await getUserRankRow(currentUserId)))
+    : null
 
   return (
     <div className="px-3.5 sm:px-6 py-6 sm:py-10">
