@@ -1,4 +1,5 @@
 import { Suspense } from "react"
+import { headers } from "next/headers"
 import { Navbar } from "@/components/layout/Navbar"
 import { Footer } from "@/components/layout/Footer"
 import { HeroSection } from "@/components/marketing/HeroSection"
@@ -29,6 +30,12 @@ export default async function HomePage() {
   // Parallelize the two homepage reads: costs max(slow read), not the sum,
   // each bounded by HOMEPAGE_TIMEOUT_MS with safe fallbacks.
   const [episode, entries] = await Promise.all([getLatestEpisodeNumber(), getLatestContent()])
+
+  // react-wrap-balancer injects an inline <script> per instance; the CSP is
+  // nonce-based, so the per-request nonce has to reach it. The root layout
+  // already reads headers() for the same value, so this adds no dynamic
+  // rendering the app did not already have.
+  const nonce = (await headers()).get("x-nonce") ?? undefined
 
   return (
     <div className="bg-page text-ink flex min-h-screen flex-col overflow-x-hidden w-full max-w-full">
@@ -63,7 +70,7 @@ export default async function HomePage() {
           <FiveYearsSection />
         </div>
 
-        <BlockScreeningSection />
+        <BlockScreeningSection nonce={nonce} />
 
         <div className="py-12 sm:py-16 lg:py-20">
           <FeaturesGrid />

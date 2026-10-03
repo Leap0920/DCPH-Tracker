@@ -26,6 +26,10 @@ function loadEnvLocal(): Record<string, string> {
 }
 
 export default defineConfig({
+  // Next compiles JSX with the automatic runtime (no `React` in scope), so
+  // vitest must too or any test that renders a component throws
+  // "React is not defined".
+  esbuild: { jsx: "automatic" },
   resolve: {
     // Mirrors tsconfig paths: "@/*" -> "./*"
     // Regex `find` keeps Windows paths clean (no "C:\repo\" + "/lib/x").

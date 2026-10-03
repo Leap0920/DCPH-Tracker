@@ -24,10 +24,20 @@ export function fail(status: number, message: string): Response {
   return NextResponse.json({ error: message }, { status, headers: NO_STORE })
 }
 
-/** 429 with a Retry-After hint. */
-export function tooManyRequests(retryAfterSeconds: number): Response {
+/**
+ * 429 with a Retry-After hint.
+ *
+ * `message` defaults to the generic body; pass one where the caller can say
+ * something actionable (which limit fired, how long the wait is). The
+ * Retry-After header is always set — a client that only reads headers still
+ * learns the wait.
+ */
+export function tooManyRequests(
+  retryAfterSeconds: number,
+  message = "Too many requests"
+): Response {
   return NextResponse.json(
-    { error: "Too many requests" },
+    { error: message },
     {
       status: 429,
       headers: { ...NO_STORE, "Retry-After": String(retryAfterSeconds) },

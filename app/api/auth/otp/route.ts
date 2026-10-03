@@ -2,7 +2,16 @@ import { NextRequest, NextResponse } from "next/server"
 import { createClient } from "@/utils/supabase/server"
 import { fail, tooManyRequests, handleApiError } from "@/lib/api-utils"
 import { isSameOrigin } from "@/lib/origin-check"
-import { authRateLimitKey, identifierRateLimitKey } from "@/lib/rate-limit"
+import {
+  OTP_EMAIL_DEV_FLOOR,
+  OTP_EMAIL_HOURLY_LIMIT,
+  OTP_IP_DEV_FLOOR,
+  OTP_IP_HOURLY_LIMIT,
+  UPSTREAM_RESEND_WINDOW_SECONDS,
+  devFloor,
+  waitHint,
+} from "@/lib/otp-limits"
+import { authRateLimitKey, identifierRateLimitKey, rateLimit } from "@/lib/rate-limit"
 import { rateLimitPersistent } from "@/lib/rate-limit-db"
 import { validateEmail, validateDisplayName, validateBirthday, usernameBaseFrom } from "@/lib/validation"
 
@@ -15,6 +24,33 @@ const SITE_URL = (
 
 const GENERIC_OK = { success: true } as const
 
+/*
+  The hourly ceilings, the override guard and the wait hint live in
+  lib/otp-limits.ts — the numbers are proved there (`bend PROOF.bend`), so they
+  are not duplicated here.
+*/
+
+/**
+ * GoTrue's own rate-limit refusals arrive as ordinary error messages:
+ * "Email rate limit exceeded", "Request rate limit reached", and the
+ * per-address window "For security purposes, you can only request this once
+ * every 60 seconds". They used to be echoed as a 400 with the provider's raw
+ * wording, which told the user nothing about what to do next.
+ */
+const UPSTREAM_RATE_LIMIT =
+  /rate limit|too many|for security purposes|only request this/i
+
+/** A provider refusal: a rate-limit wait, or the provider's own text. */
+function upstreamRefusal(message: string): Response {
+  if (UPSTREAM_RATE_LIMIT.test(message)) {
+    return tooManyRequests(
+      UPSTREAM_RESEND_WINDOW_SECONDS,
+      "A code was requested for this email a moment ago. Please wait about a minute before asking for another one."
+    )
+  }
+  return fail(400, message)
+}
+
 export async function POST(request: NextRequest) {
   try {
     if (!isSameOrigin(request)) {
@@ -22,17 +58,30 @@ export async function POST(request: NextRequest) {
     }
 
     const isDev = process.env.NODE_ENV === "development"
-    const ipLimit = isDev ? 50 : 10
-    const emailLimit = isDev ? 30 : 10
+    // Dev keeps its own looser floor so a local test run is never blocked by
+    // the production numbers; a configured override above it still wins.
+    const ipLimit = isDev
+      ? devFloor(OTP_IP_HOURLY_LIMIT, OTP_IP_DEV_FLOOR)
+      : OTP_IP_HOURLY_LIMIT
+    const emailLimit = isDev
+      ? devFloor(OTP_EMAIL_HOURLY_LIMIT, OTP_EMAIL_DEV_FLOOR)
+      : OTP_EMAIL_HOURLY_LIMIT
 
-    // OTP requests per hour per IP
-    const ipRl = await rateLimitPersistent(`otp:${authRateLimitKey(request)}`, {
-      limit: ipLimit,
-      windowMs: 60 * 60 * 1000,
-      failClosed: !isDev,
+    /*
+      Burst guard before the body is read: in-memory, per instance, and cheap.
+      It bounds how often an anonymous caller can make the server parse a body,
+      and it keeps a floor under rapid retries if the persistent limiter is
+      unavailable (which otherwise denies everything on this route).
+    */
+    const burst = rateLimit(authRateLimitKey(request), {
+      limit: 30,
+      windowMs: 60_000,
     })
-    if (!ipRl.allowed) {
-      return tooManyRequests(ipRl.retryAfterSeconds)
+    if (!burst.allowed) {
+      return tooManyRequests(
+        burst.retryAfterSeconds,
+        `Too many requests. Please try again in ${waitHint(burst.retryAfterSeconds)}.`
+      )
     }
 
     const body = await request.json().catch(() => null)
@@ -41,9 +90,29 @@ export async function POST(request: NextRequest) {
     const displayName = typeof body?.displayName === "string" ? body.displayName.trim() : ""
     const birthday = typeof body?.birthday === "string" ? body.birthday.trim() : ""
 
+    /*
+      Validate the address BEFORE the shared per-IP budget is spent. A malformed
+      address can never send mail, so charging it against the network's hourly
+      budget only takes attempts away from the legitimate users behind that
+      address — which is the failure this route is fixing.
+    */
     const emailError = validateEmail(email)
     if (emailError) {
       return fail(400, emailError)
+    }
+
+    // OTP requests per hour per IP — an abuse ceiling shared by everyone behind
+    // that address, not a per-user quota (see OTP_IP_HOURLY_LIMIT).
+    const ipRl = await rateLimitPersistent(`otp:${authRateLimitKey(request)}`, {
+      limit: ipLimit,
+      windowMs: 60 * 60 * 1000,
+      failClosed: !isDev,
+    })
+    if (!ipRl.allowed) {
+      return tooManyRequests(
+        ipRl.retryAfterSeconds,
+        `Too many verification codes were requested from this network. Please try again in ${waitHint(ipRl.retryAfterSeconds)}.`
+      )
     }
 
     /*
@@ -63,13 +132,16 @@ export async function POST(request: NextRequest) {
       if (birthdayError) return fail(400, birthdayError)
     }
 
-    // OTP requests per hour per address
+    // OTP requests per hour per address — the actual per-user quota.
     const emailRl = await rateLimitPersistent(
       `otp:${identifierRateLimitKey(request, email)}`,
       { limit: emailLimit, windowMs: 60 * 60 * 1000, failClosed: !isDev }
     )
     if (!emailRl.allowed) {
-      return tooManyRequests(emailRl.retryAfterSeconds)
+      return tooManyRequests(
+        emailRl.retryAfterSeconds,
+        `Too many codes were requested for ${email}. Please try again in ${waitHint(emailRl.retryAfterSeconds)}.`
+      )
     }
 
     const supabase = await createClient()
@@ -123,11 +195,11 @@ export async function POST(request: NextRequest) {
           })
           if (retryError) {
             console.error("[otp] retry signIn failed", retryError.message)
-            return fail(400, retryError.message)
+            return upstreamRefusal(retryError.message)
           }
           return NextResponse.json(GENERIC_OK)
         }
-        return fail(400, error.message)
+        return upstreamRefusal(error.message)
       }
     } else {
       const { error } = await supabase.auth.signInWithOtp({
@@ -144,7 +216,7 @@ export async function POST(request: NextRequest) {
         if (error.message.toLowerCase().includes("not found")) {
           return fail(400, "No account found with this email. Please create an account first.")
         }
-        return fail(400, error.message)
+        return upstreamRefusal(error.message)
       }
     }
 

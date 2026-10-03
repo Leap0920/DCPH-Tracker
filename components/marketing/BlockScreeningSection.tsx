@@ -2,10 +2,11 @@
 
 import { Hero04 } from "@/components/ui/hero-04"
 
-export function BlockScreeningSection() {
+export function BlockScreeningSection({ nonce }: Readonly<{ nonce?: string }>) {
   return (
     <section className="relative overflow-hidden bg-surface">
       <Hero04
+        nonce={nonce}
         title="Annual Block Screenings"
         titleLine2="Movie 29 · SM North EDSA"
         description="Movie 29 on the big screen — merch, cosplay and raffles with the whole community."

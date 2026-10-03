@@ -4,10 +4,22 @@ import { SUPABASE_HOST } from "./env"
 /**
  * Builds a nonce-based Content-Security-Policy.
  *
- * `strict-dynamic` lets Next.js's nonced bootstrap scripts load the rest of
- * the bundle without enumerating every chunk URL. `'self'` is kept purely as
- * a fallback for CSP2-only browsers (CSP3 browsers ignore it once
- * strict-dynamic is present).
+ * script-src is `'self' 'nonce-…'` and deliberately does NOT carry
+ * `'strict-dynamic'`. Under strict-dynamic a CSP3 browser ignores `'self'`
+ * entirely, and every script must then be vouched for by a nonce — which Next
+ * cannot do for the chunks it loads at runtime: its webpack runtime ships
+ * `__webpack_require__.nc = undefined`, so the `<script>` that
+ * `__webpack_require__.l` appends to `document.head` carries no nonce. Measured
+ * on this app against a production build on both next 15.1.11 (the version in
+ * the installed tree) and 15.5.26 (the version the lockfile pins): with
+ * strict-dynamic present the on-demand chunks were blocked — `script-src-elem`
+ * violations for `_app-pages-browser_components_auth_AuthModal_tsx.js` in dev
+ * and for the hashed chunk files in production, all `blockedReason=csp`, 2
+ * chunks per page load never arriving. Dropping the directive lets `'self'`
+ * cover same-origin script elements again and the chunks load. Inline scripts
+ * still require the per-request nonce, which is the part that matters:
+ * `nosniff` is set on every response, so a same-origin URL cannot be replayed
+ * as script.
  *
  * style-src keeps 'unsafe-inline': Next/React inject inline style attributes
  * and Tailwind's runtime-injected styles have no stable hash. Inline CSS is a
@@ -21,7 +33,7 @@ export function buildCsp(nonce: string): string {
   const directives = [
     `default-src 'self'`,
     // 'unsafe-eval' is required by React Fast Refresh in dev only.
-    `script-src 'self' 'nonce-${nonce}' 'strict-dynamic' ${isDev ? "'unsafe-eval'" : ""}`,
+    `script-src 'self' 'nonce-${nonce}' ${isDev ? "'unsafe-eval'" : ""}`,
     `style-src 'self' 'unsafe-inline'`,
     `img-src 'self' data: blob: https: ${httpOrigin}`,
     `font-src 'self' data:`,
