@@ -60,12 +60,11 @@ describe("Image delivery & payload optimization", () => {
           .toBuffer()
       }
 
-      if (optimizedBuffer.length < initialBuffer.length) {
-        fs.writeFileSync(fullPath, optimizedBuffer)
-      }
-
-      const finalStat = fs.statSync(fullPath)
-      expect(finalStat.size).toBeGreaterThan(0)
+      // Never write the optimized bytes back into the repository. This test
+      // used to overwrite the file under public/ on every run, which left the
+      // working tree permanently dirty and re-encoded the asset lossily on
+      // each invocation. Only assert that sharp can produce optimized output.
+      expect(optimizedBuffer.length).toBeGreaterThan(0)
     }
   }, 30000)
 })
