@@ -2,7 +2,7 @@
 
 import Link from "next/link"
 import { motion, useReducedMotion } from "framer-motion"
-import { ArrowRight, UserPlus } from "lucide-react"
+import { ArrowRight } from "lucide-react"
 import { useEffect, useState } from "react"
 import { Button } from "@/components/ui/button"
 import { openAuthModal } from "@/lib/auth-modal"
@@ -11,14 +11,18 @@ import { createClient } from "@/utils/supabase/client"
 const EASE = [0.16, 1, 0.3, 1] as const
 
 /**
- * Homepage CTA band — "Start Tracking" goes to the tracker, "Sign Up" opens
- * the auth modal in signup mode (no page navigation).
+ * Homepage CTA band. "Start tracking" goes to the tracker, "Sign up" opens the
+ * auth modal in signup mode (no page navigation).
  *
  * The band resolves the session in the browser instead of on the server: the
  * homepage is statically rendered (`revalidate = 300` in app/page.tsx), and
  * reading cookies here would opt the whole marketing page out of that. Sign Up
  * is rendered only for a *confirmed* signed-out visitor, so a signed-in user
- * never sees it — not even for a frame while the session resolves.
+ * never sees it, not even for a frame while the session resolves.
+ *
+ * Laid out left-aligned on a hairline rather than centred on a badge: the
+ * closing band is the last thing on the page and does not need a pill to
+ * announce itself.
  */
 export function HomeCta() {
   const reduce = useReducedMotion()
@@ -50,80 +54,52 @@ export function HomeCta() {
   }, [])
 
   return (
-    <section className="relative mx-auto max-w-5xl overflow-hidden px-6 py-20 text-center sm:px-12 sm:py-24">
-      {/* Layered cinematic glow — two blobs drifting on opposing cycles so the
-          band never looks static, at a low enough opacity to stay quiet. */}
+    <section className="relative mx-auto max-w-6xl px-6 py-20 sm:px-12 sm:py-28">
+      {/* One soft light source, low enough to read as depth rather than glow. */}
       <div
         aria-hidden
-        className="dcph-drift-slow pointer-events-none absolute left-1/2 top-0 h-64 w-64 -translate-x-1/2 rounded-full bg-accent/[0.07] blur-3xl"
-      />
-      <div
-        aria-hidden
-        className="dcph-drift-slower pointer-events-none absolute bottom-0 left-[18%] h-52 w-52 rounded-full bg-gold-seal/[0.05] blur-3xl"
-      />
-
-      {/* Hairline frame that draws in from the centre. */}
-      <motion.span
-        aria-hidden
-        initial={reduce ? false : { scaleX: 0, opacity: 0 }}
-        whileInView={{ scaleX: 1, opacity: 1 }}
-        viewport={{ once: true, margin: "-60px" }}
-        transition={{ duration: 0.9, ease: EASE }}
-        className="pointer-events-none absolute inset-x-6 top-8 h-px origin-center bg-gradient-to-r from-transparent via-ink-dim/25 to-transparent sm:inset-x-12"
+        className="dcph-drift-slow pointer-events-none absolute right-0 top-10 h-64 w-64 rounded-full bg-accent/[0.06] blur-3xl"
       />
 
       <motion.div
-        initial={reduce ? false : { opacity: 0, y: 28 }}
+        initial={reduce ? false : { opacity: 0, y: 24 }}
         whileInView={{ opacity: 1, y: 0 }}
-        viewport={{ once: true, margin: "-60px" }}
-        transition={{ duration: 0.6, ease: EASE }}
-        className="relative"
+        viewport={{ once: true, margin: "-80px" }}
+        transition={{ duration: 0.7, ease: EASE }}
+        className="relative border-t border-line pt-10 sm:pt-14"
       >
-        <span className="inline-flex items-center gap-1.5 rounded-full border border-accent/20 bg-accent-soft px-3 py-1 font-mono text-[10px] font-semibold uppercase tracking-widest text-accent">
+        <span className="font-mono text-[10px] uppercase tracking-[0.28em] text-ink-faint sm:text-[11px]">
           Case open
         </span>
 
-        <h3 className="mt-5 font-display text-2xl font-bold text-ink sm:text-3xl">
+        <h2 className="mt-4 max-w-[18ch] font-display text-[clamp(1.75rem,4vw,3rem)] font-medium leading-[1.04] tracking-[-0.02em] text-ink">
           Open your case file.
-        </h3>
-        <p className="mx-auto mt-2 max-w-md text-sm text-ink-dim sm:text-base">
+        </h2>
+        <p className="mt-3 max-w-[40ch] text-sm leading-relaxed text-ink-dim sm:text-base">
           {signedIn
             ? "Pick up where you left off."
             : "Free to join. Start at episode one."}
         </p>
 
-        <div className="mt-8 flex flex-col items-stretch justify-center gap-3 sm:flex-row sm:items-center">
-          <motion.div
-            whileHover={reduce ? undefined : { scale: 1.03 }}
-            whileTap={{ scale: 0.97 }}
-            transition={{ type: "spring", stiffness: 300, damping: 20 }}
-          >
-            <Link href="/tracker" className="sm:w-auto">
-              <Button className="dcph-sheen group h-12 w-full gap-2 rounded-xl bg-accent px-7 font-display font-semibold text-white shadow-md transition-shadow hover:bg-accent-bright hover:shadow-glow sm:w-auto">
-                {signedIn ? "Continue tracking" : "Start Tracking"}
-                <ArrowRight className="h-4 w-4 transition-transform duration-300 group-hover:translate-x-1" />
-              </Button>
-            </Link>
-          </motion.div>
+        <div className="mt-8 flex flex-col items-start gap-4 sm:flex-row sm:items-center">
+          <Link href="/tracker">
+            <Button className="group h-12 gap-2 rounded-full bg-accent px-7 font-display text-sm font-medium text-white transition-colors hover:bg-accent-bright">
+              {signedIn ? "Continue tracking" : "Start tracking"}
+              <ArrowRight className="h-4 w-4 transition-transform duration-300 group-hover:translate-x-1" />
+            </Button>
+          </Link>
 
           {/* Signed-out visitors only: an account that already exists has nothing
               to sign up for. Gated on `=== false` rather than `!signedIn` so it
               never renders while the session is still unknown. */}
           {signedIn === false && (
-            <motion.div
-              whileHover={reduce ? undefined : { scale: 1.03 }}
-              whileTap={{ scale: 0.97 }}
-              transition={{ type: "spring", stiffness: 300, damping: 20 }}
+            <button
+              type="button"
+              onClick={() => openAuthModal("signup")}
+              className="h-12 rounded-full border border-line px-6 font-mono text-[11px] uppercase tracking-[0.2em] text-ink-dim transition-colors hover:border-accent/40 hover:text-ink"
             >
-              <Button
-                variant="outline"
-                onClick={() => openAuthModal("signup")}
-                className="group h-12 w-full gap-2 rounded-xl border-ink-dim/20 px-7 font-display text-ink-dim transition-colors hover:border-accent/40 hover:text-ink sm:w-auto"
-              >
-                <UserPlus className="h-4 w-4 transition-transform duration-300 group-hover:-translate-y-0.5" />
-                Sign Up
-              </Button>
-            </motion.div>
+              Sign up
+            </button>
           )}
         </div>
       </motion.div>

@@ -1,7 +1,6 @@
 "use client"
 
 import { motion, useReducedMotion } from "framer-motion"
-import { Calendar } from "lucide-react"
 import ElegantCarousel from "@/components/ui/elegant-carousel"
 
 const EASE = [0.16, 1, 0.3, 1] as const
@@ -13,22 +12,21 @@ export function FiveYearsSection() {
     <section className="relative mx-auto max-w-6xl px-6 sm:px-12">
       <div className="space-y-10 sm:space-y-12">
         <motion.div
-          initial={reduce ? false : { opacity: 0, y: 24, filter: "blur(6px)" }}
-          whileInView={{ opacity: 1, y: 0, filter: "blur(0px)" }}
-          viewport={{ once: true, margin: "-60px" }}
+          initial={reduce ? false : { opacity: 0, y: 20 }}
+          whileInView={{ opacity: 1, y: 0 }}
+          viewport={{ once: true, margin: "-80px" }}
           transition={{ duration: 0.7, ease: EASE }}
           className="flex flex-col justify-between gap-4 sm:flex-row sm:items-end"
         >
           <div>
-            <div className="mb-1 inline-flex items-center gap-2 font-mono text-xs font-semibold uppercase tracking-wider text-ink-faint">
-              <Calendar className="h-3.5 w-3.5 text-accent" />
+            <span className="font-mono text-[10px] uppercase tracking-[0.28em] text-ink-faint sm:text-[11px]">
               Cinema highlights
-            </div>
-            <h3 className="font-display text-2xl font-bold text-ink sm:text-3xl">
-              Five Years of Screenings
+            </span>
+            <h3 className="mt-3 font-display text-[clamp(1.4rem,2.6vw,2rem)] font-medium tracking-[-0.02em] text-ink">
+              Five years of screenings
             </h3>
           </div>
-          <p className="max-w-md text-xs text-ink-dim sm:text-sm">
+          <p className="max-w-[38ch] text-xs leading-relaxed text-ink-dim sm:text-sm">
             Recaps from our annual screenings at SM North EDSA.
           </p>
         </motion.div>

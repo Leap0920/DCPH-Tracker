@@ -12,10 +12,13 @@ import { randomId } from "@/lib/utils"
 const POLL_INTERVAL_MS = 60_000
 
 /**
- * Live hero stats: "N all-time visits" + "M detectives active right now" + "K episodes tracked".
- * On first mount it registers this browser's visit and seeds both counters,
- * then a 60s heartbeat (visible tabs only) keeps the session alive and
- * refreshes them.
+ * Live hero stats: all-time visits, episodes tracked, detectives online.
+ * On first mount it registers this browser's visit and seeds the counters,
+ * then a 60s heartbeat (visible tabs only) keeps the session alive.
+ *
+ * Set as one inline mono row separated by hairlines instead of a stack of
+ * bordered pills: three boxes above the fold read as badges, three numbers
+ * on a line read as a dashboard.
  *
  * Client-only: stats start null and nothing renders until the hydration
  * fetch resolves, so this never appears in SSR output. Pre-migration
@@ -35,7 +38,7 @@ export function LiveStats() {
     mountedRef.current = true
 
     const supabase = createClient()
-    // One anonymous id per browser tab — reused across visits so a reload
+    // One anonymous id per browser tab, reused across visits so a reload
     // heartbeats instead of double-counting.
     const sessionId = sessionStorage.getItem("dcph-session") ?? randomId()
     sessionStorage.setItem("dcph-session", sessionId)
@@ -47,7 +50,7 @@ export function LiveStats() {
       // write, and these are a large slice of the project's request volume
       // (all of it logged against the Supabase quota). heartbeat()'s window
       // is 2 minutes, so a backgrounded tab drops off "online now" shortly
-      // after the user stops looking — which is the honest reading anyway.
+      // after the user stops looking, which is the honest reading anyway.
       if (document.visibilityState !== "visible") return
       // getSession() reads the stored session locally; getUser() would hit
       // the auth server once per minute per open tab.
@@ -82,28 +85,31 @@ export function LiveStats() {
   if (stats.totalVisits == null) return null
 
   return (
-    <div className="flex flex-col gap-2">
-      <div className="flex flex-wrap items-center gap-2">
-        <span className="inline-flex items-center rounded-lg border border-ink-dim/20 bg-surface px-3 py-1.5 font-mono text-[11px] shadow-card uppercase tracking-widest text-ink-dim sm:text-xs">
-          {stats.totalVisits.toLocaleString()} visits
-        </span>
-        {stats.trackedEpisodes != null && (
-          <span className="inline-flex items-center rounded-lg border border-ink-dim/20 bg-surface px-3 py-1.5 font-mono text-[11px] shadow-card uppercase tracking-widest text-ink-dim sm:text-xs">
-            {stats.trackedEpisodes.toLocaleString()} episodes tracked
+    <div className="flex flex-wrap items-center gap-x-4 gap-y-2 font-mono text-[10px] uppercase tracking-[0.2em] text-ink-faint sm:text-[11px]">
+      <span>
+        <span className="text-ink">{stats.totalVisits.toLocaleString()}</span> visits
+      </span>
+
+      {stats.trackedEpisodes != null && (
+        <>
+          <span aria-hidden className="hidden h-3 w-px bg-line sm:block" />
+          <span className="hidden sm:inline">
+            <span className="text-ink">{stats.trackedEpisodes.toLocaleString()}</span> episodes tracked
           </span>
-        )}
-      </div>
+        </>
+      )}
+
       {stats.activeNow != null && (
-        <div className="flex flex-wrap items-center gap-2">
-          <span className="inline-flex items-center rounded-lg border border-ink-dim/20 bg-surface px-3 py-1.5 font-mono text-[11px] shadow-card uppercase tracking-widest text-ink-dim sm:text-xs">
+        <>
+          <span aria-hidden className="h-3 w-px bg-line" />
+          <span className="inline-flex items-center gap-1.5">
             <span
               aria-hidden
-              className={`h-2 w-2 rounded-full bg-emerald-500 inline-block mr-1.5 ${reduce ? "" : "animate-pulse"
-                }`}
+              className={`h-1.5 w-1.5 rounded-full bg-emerald-500 ${reduce ? "" : "animate-pulse"}`}
             />
-            {stats.activeNow} online now
+            <span className="text-ink">{stats.activeNow}</span> online
           </span>
-        </div>
+        </>
       )}
     </div>
   )

@@ -2,11 +2,11 @@ import { Suspense } from "react"
 import { Navbar } from "@/components/layout/Navbar"
 import { Footer } from "@/components/layout/Footer"
 import { HeroSection } from "@/components/marketing/HeroSection"
+import { ScrollStory } from "@/components/marketing/ScrollStory"
 import { FeaturesGrid } from "@/components/marketing/FeaturesGrid"
 import { HowItWorks } from "@/components/marketing/HowItWorks"
 import { LatestContent } from "@/components/marketing/LatestContent"
 import { HomeCta } from "@/components/marketing/HomeCta"
-import { BlockScreeningSection } from "@/components/marketing/BlockScreeningSection"
 import { FiveYearsSection } from "@/components/marketing/FiveYearsSection"
 import { AccountDeletedNotice } from "@/components/layout/AccountDeletedNotice"
 import {
@@ -18,7 +18,7 @@ import { getLatestEpisodeNumber, getLatestContent } from "@/lib/homepage-content
 export const metadata = {
   title: "Detective Conan PH · Track, Chat, and Climb the Ranks",
   description:
-    "Track episodes, explore the story arcs, and climb the ranks — the Filipino Detective Conan community.",
+    "Track episodes, explore the story arcs, and climb the ranks. The Filipino Detective Conan community.",
 }
 
 // Cache the homepage feed for 5 minutes so a slow DB degrades to stale
@@ -31,7 +31,7 @@ export default async function HomePage() {
   const [episode, entries] = await Promise.all([getLatestEpisodeNumber(), getLatestContent()])
 
   return (
-    <div className="bg-page text-ink flex min-h-screen flex-col overflow-x-hidden w-full max-w-full">
+    <div className="bg-page text-ink flex min-h-screen flex-col w-full max-w-full">
       <Navbar />
       <main className="flex-1">
         {/* Client-side so reading the query string does not opt the whole
@@ -50,7 +50,9 @@ export default async function HomePage() {
           }
         />
 
-        {/* Vertical rhythm comes from clean, balanced whitespace */}
+        {/* Cinematic scroll band: three beats, scrubbed by scroll position. */}
+        <ScrollStory />
+
         <div className="py-12 sm:py-16 lg:py-20">
           <LatestContent entries={entries} />
         </div>
@@ -62,8 +64,6 @@ export default async function HomePage() {
         <div className="py-12 sm:py-16 lg:py-20">
           <FiveYearsSection />
         </div>
-
-        <BlockScreeningSection />
 
         <div className="py-12 sm:py-16 lg:py-20">
           <FeaturesGrid />

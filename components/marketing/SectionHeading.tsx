@@ -6,56 +6,43 @@ const EASE = [0.16, 1, 0.3, 1] as const
 
 const group: Variants = {
   hidden: {},
-  show: { transition: { staggerChildren: 0.09 } },
+  show: { transition: { staggerChildren: 0.08 } },
 }
 
-const eyebrowV: Variants = {
-  hidden: { opacity: 0, y: 14, scale: 0.96 },
-  show: {
-    opacity: 1,
-    y: 0,
-    scale: 1,
-    transition: { duration: 0.55, ease: EASE },
-  },
+const kickerV: Variants = {
+  hidden: { opacity: 0, y: 10 },
+  show: { opacity: 1, y: 0, transition: { duration: 0.5, ease: EASE } },
 }
 
 const titleV: Variants = {
-  hidden: { opacity: 0, y: 26, filter: "blur(8px)" },
-  show: {
-    opacity: 1,
-    y: 0,
-    filter: "blur(0px)",
-    transition: { duration: 0.7, ease: EASE },
-  },
-}
-
-const subtitleV: Variants = {
-  hidden: { opacity: 0, y: 20, filter: "blur(6px)" },
-  show: {
-    opacity: 1,
-    y: 0,
-    filter: "blur(0px)",
-    transition: { duration: 0.7, ease: EASE },
-  },
+  hidden: { opacity: 0, y: 18 },
+  show: { opacity: 1, y: 0, transition: { duration: 0.7, ease: EASE } },
 }
 
 const ruleV: Variants = {
   hidden: { scaleX: 0, opacity: 0 },
-  show: {
-    scaleX: 1,
-    opacity: 1,
-    transition: { duration: 0.8, ease: EASE },
-  },
+  show: { scaleX: 1, opacity: 1, transition: { duration: 0.9, ease: EASE } },
 }
 
-/** Shared cinematic section header — eyebrow badge, display title, optional
- *  subtitle, plus a hairline accent rule that draws itself under the block.
- *  Elements reveal in sequence as the section scrolls into view. */
+const subtitleV: Variants = {
+  hidden: { opacity: 0, y: 14 },
+  show: { opacity: 1, y: 0, transition: { duration: 0.7, ease: EASE } },
+}
+
+/**
+ * Section header, editorial rather than promotional.
+ *
+ * A mono kicker sits on the same baseline as a hairline, the title is set at a
+ * medium weight so size and spacing carry the hierarchy instead of font-bold,
+ * and the accent rule underneath is a single hairline rather than a badge.
+ * There is deliberately no pill, no icon and no pulsing dot above the title:
+ * that stack is the first line of every generated hero.
+ */
 export function SectionHeading({
   eyebrow,
   title,
   subtitle,
-  align = "center",
+  align = "left",
   className,
 }: {
   eyebrow: React.ReactNode
@@ -72,28 +59,21 @@ export function SectionHeading({
       variants={group}
       initial={reduce ? "show" : "hidden"}
       whileInView="show"
-      viewport={{ once: true, margin: "-60px" }}
-      className={`flex flex-col ${
-        centered ? "items-center text-center" : "items-start text-left"
-      } max-w-3xl ${centered ? "mx-auto" : ""} ${className ?? ""}`}
+      viewport={{ once: true, margin: "-80px" }}
+      className={`flex flex-col ${centered ? "items-center text-center" : "items-start text-left"} ${
+        className ?? ""
+      }`}
     >
-      <motion.span
-        variants={eyebrowV}
-        className="group inline-flex items-center gap-2 rounded-full border border-accent/20 bg-accent-soft px-3.5 py-1 font-mono text-xs font-semibold uppercase tracking-widest text-accent dark:text-accent-bright"
-      >
-        <span
-          aria-hidden
-          className="relative flex h-1.5 w-1.5 shrink-0 items-center justify-center"
-        >
-          <span className="absolute inset-0 rounded-full bg-accent/50 animate-dcph-pulse-ring" />
-          <span className="relative h-1.5 w-1.5 rounded-full bg-accent" />
+      <motion.div variants={kickerV} className="flex w-full items-center gap-3">
+        <span className="font-mono text-[10px] uppercase tracking-[0.28em] text-ink-faint sm:text-[11px]">
+          {eyebrow}
         </span>
-        {eyebrow}
-      </motion.span>
+        <span aria-hidden className="h-px flex-1 bg-line" />
+      </motion.div>
 
       <motion.h2
         variants={titleV}
-        className="mt-5 font-display text-3xl font-bold tracking-tight text-ink sm:text-4xl lg:text-5xl"
+        className="mt-4 max-w-[22ch] font-display text-[clamp(1.6rem,3.4vw,2.75rem)] font-medium leading-[1.06] tracking-[-0.02em] text-ink"
       >
         {title}
       </motion.h2>
@@ -102,13 +82,13 @@ export function SectionHeading({
         aria-hidden
         variants={ruleV}
         style={{ transformOrigin: centered ? "center" : "left" }}
-        className="mt-4 h-[2px] w-24 rounded-full bg-gradient-to-r from-accent via-accent-bright to-transparent"
+        className="mt-5 h-px w-full max-w-[16rem] bg-gradient-to-r from-accent/70 via-line to-transparent"
       />
 
       {subtitle && (
         <motion.p
           variants={subtitleV}
-          className="mt-4 max-w-xl text-sm leading-relaxed text-ink-dim sm:text-base"
+          className="mt-4 max-w-[46ch] text-sm leading-relaxed text-ink-dim sm:text-base"
         >
           {subtitle}
         </motion.p>

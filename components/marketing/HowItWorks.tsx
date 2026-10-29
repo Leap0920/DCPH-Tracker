@@ -3,7 +3,6 @@
 import Link from "next/link"
 import Image from "next/image"
 import { motion, useReducedMotion, type Variants } from "framer-motion"
-import { UserPlus, ListChecks, Trophy, ArrowRight } from "lucide-react"
 import { useEffect, useState } from "react"
 import { openAuthModal } from "@/lib/auth-modal"
 import { createClient } from "@/utils/supabase/client"
@@ -19,12 +18,11 @@ const stepListVariants: Variants = {
 }
 
 const stepVariants: Variants = {
-  hidden: { opacity: 0, y: 24, filter: "blur(6px)" },
+  hidden: { opacity: 0, y: 20 },
   show: {
     opacity: 1,
     y: 0,
-    filter: "blur(0px)",
-    transition: { duration: 0.7, ease: EASE },
+    transition: { duration: 0.65, ease: EASE },
   },
 }
 
@@ -33,7 +31,7 @@ export function HowItWorks() {
   const supabase = createClient()
 
   // Step one is "create your account", which a signed-in visitor has already
-  // done — so the step has to know the session. It is read in the browser for
+  // done, so the step has to know the session. It is read in the browser for
   // the same reason as the CTA band: the homepage is statically rendered, and
   // reading cookies here would opt the whole marketing page out of that.
   // null = not resolved yet, which is treated as "do not offer sign-up".
@@ -60,123 +58,120 @@ export function HowItWorks() {
 
   return (
     <section className="mx-auto max-w-6xl px-6 sm:px-12">
-      <SectionHeading
-        eyebrow="How it works"
-        title="From zero to full detective"
-      />
+      <SectionHeading eyebrow="How it works" title="From zero to full detective" />
 
-      <div className="mt-12 sm:mt-16 lg:mt-20 flex flex-col md:flex-row items-center justify-between gap-10 sm:gap-12 lg:gap-16">
-        {/* Left Side: Overlapping stacked image cards (Shinichi and Jinpei) */}
+      <div className="mt-12 flex flex-col gap-12 sm:mt-16 lg:flex-row lg:items-start lg:justify-between lg:gap-20">
+        {/* Left: two overlapping stills. Kept because they are real characters
+            from the show, not decoration standing in for a product shot. */}
         <motion.div
-          initial={
-            reduce
-              ? false
-              : { opacity: 0, x: -30, filter: "blur(6px)" }
-          }
-          whileInView={{ opacity: 1, x: 0, filter: "blur(0px)" }}
-          viewport={{ once: true, margin: "-60px" }}
+          initial={reduce ? false : { opacity: 0, x: -24 }}
+          whileInView={{ opacity: 1, x: 0 }}
+          viewport={{ once: true, margin: "-80px" }}
           transition={{ duration: 0.7, ease: EASE }}
-          className="relative w-full max-w-sm sm:max-w-md h-[280px] sm:h-[380px]"
+          className="relative h-[260px] w-full max-w-sm shrink-0 sm:h-[340px] sm:max-w-md"
         >
-          {/* Background Image Card (Shinichi Kudo) */}
-          <div className="absolute top-0 left-2 sm:left-4 w-44 sm:w-60 h-56 sm:h-72 overflow-hidden rounded-2xl sm:rounded-3xl border border-ink-dim/20 shadow-lg -rotate-3 hover:rotate-0 transition-all duration-500">
+          <div className="absolute left-2 top-0 h-52 w-40 overflow-hidden rounded-xl border border-line sm:left-4 sm:h-64 sm:w-56">
             <Image
               src="/img/shinichi.jpg"
-              alt="Shinichi Kudo - Detective Conan"
+              alt="Shinichi Kudo"
               fill
-              sizes="(max-width: 640px) 176px, 240px"
+              sizes="(max-width: 640px) 160px, 224px"
               loading="lazy"
               className="h-full w-full object-cover"
             />
           </div>
 
-          {/* Foreground Image Card (Jinpei Matsuda) */}
-          <div className="absolute bottom-0 right-2 sm:right-4 z-10 w-44 sm:w-60 h-56 sm:h-72 overflow-hidden rounded-2xl sm:rounded-3xl border-2 border-white shadow-2xl rotate-3 hover:rotate-0 transition-all duration-500">
+          <div className="absolute bottom-0 right-2 z-10 h-52 w-40 overflow-hidden rounded-xl border border-line sm:right-4 sm:h-64 sm:w-56">
             <Image
               src="/img/Jinpei.jpg"
-              alt="Jinpei Matsuda - Police Academy"
+              alt="Jinpei Matsuda"
               fill
-              sizes="(max-width: 640px) 176px, 240px"
+              sizes="(max-width: 640px) 160px, 224px"
               loading="lazy"
               className="h-full w-full object-cover"
             />
           </div>
         </motion.div>
 
-        {/* Right Side: Vertical feature list with accent circle icons */}
-        <motion.div
+        {/* Right: three steps as a numbered ledger. Numbers replace the icon
+            circles; the rule above each step does the separating. */}
+        <motion.ol
           initial={reduce ? "show" : "hidden"}
           whileInView="show"
-          viewport={{ once: true, margin: "-60px" }}
+          viewport={{ once: true, margin: "-80px" }}
           variants={stepListVariants}
-          className="space-y-8 sm:space-y-10 w-full max-w-lg"
+          className="w-full max-w-xl"
         >
           {/* Step 1 */}
-          <motion.div variants={stepVariants} className="flex items-start gap-4 sm:gap-6 group">
-            <div className="p-3 sm:p-4 aspect-square bg-accent-soft text-accent rounded-full flex items-center justify-center shrink-0 shadow-sm transition-all duration-300 group-hover:scale-110 group-hover:bg-accent group-hover:text-white">
-              <UserPlus className="w-5 h-5 sm:w-7 sm:h-7" />
+          <motion.li variants={stepVariants} className="border-t border-line py-6">
+            <div className="flex items-baseline gap-5">
+              <span className="font-mono text-[11px] tabular-nums text-ink-faint">01</span>
+              <div>
+                <h3 className="font-display text-base font-medium text-ink sm:text-lg">
+                  {signedIn ? "Your account is ready" : "Create your account"}
+                </h3>
+                <p className="mt-1 text-sm leading-relaxed text-ink-dim">
+                  {signedIn
+                    ? "Your progress is saved to this account."
+                    : "Email only. Takes about a minute."}
+                </p>
+                {/* Signed-out visitors only, and only once the session is known:
+                    an account that already exists has nothing to sign up for. */}
+                {signedIn === false && (
+                  <button
+                    type="button"
+                    onClick={() => openAuthModal("signup")}
+                    className="mt-2 inline-flex items-center gap-1 text-xs font-medium text-accent transition-colors hover:text-accent-bright"
+                  >
+                    Create account
+                  </button>
+                )}
+              </div>
             </div>
-            <div className="space-y-1 pt-0.5 sm:pt-1">
-              <h3 className="text-base sm:text-lg font-semibold font-display text-ink">
-                {signedIn ? "Your account is ready" : "Create your account"}
-              </h3>
-              <p className="text-xs sm:text-sm text-ink-dim leading-relaxed">
-                {signedIn
-                  ? "Your progress is saved to this account."
-                  : "Email only. Takes about a minute."}
-              </p>
-              {/* Signed-out visitors only, and only once the session is known:
-                  an account that already exists has nothing to sign up for. */}
-              {signedIn === false && (
-                <button
-                  type="button"
-                  onClick={() => openAuthModal("signup")}
-                  className="inline-flex items-center gap-1 text-xs font-semibold text-accent hover:gap-2 transition-all pt-1"
-                >
-                  Create account <ArrowRight className="w-3.5 h-3.5" />
-                </button>
-              )}
-            </div>
-          </motion.div>
+          </motion.li>
 
           {/* Step 2 */}
-          <motion.div variants={stepVariants} className="flex items-start gap-4 sm:gap-6 group">
-            <div className="p-3 sm:p-4 aspect-square bg-accent-soft text-accent rounded-full flex items-center justify-center shrink-0 shadow-sm transition-all duration-300 group-hover:scale-110 group-hover:bg-accent group-hover:text-white">
-              <ListChecks className="w-5 h-5 sm:w-7 sm:h-7" />
+          <motion.li variants={stepVariants} className="border-t border-line py-6">
+            <div className="flex items-baseline gap-5">
+              <span className="font-mono text-[11px] tabular-nums text-ink-faint">02</span>
+              <div>
+                <h3 className="font-display text-base font-medium text-ink sm:text-lg">
+                  Track what you watch
+                </h3>
+                <p className="mt-1 text-sm leading-relaxed text-ink-dim">
+                  Episodes, movies, specials and OVAs, ticked off as you go.
+                </p>
+                <Link
+                  href="/tracker"
+                  className="mt-2 inline-flex items-center gap-1 text-xs font-medium text-accent transition-colors hover:text-accent-bright"
+                >
+                  Start tracking
+                </Link>
+              </div>
             </div>
-            <div className="space-y-1 pt-0.5 sm:pt-1">
-              <h3 className="text-base sm:text-lg font-semibold font-display text-ink">Track what you watch</h3>
-              <p className="text-xs sm:text-sm text-ink-dim leading-relaxed">
-                Episodes, movies, specials, OVAs — tick them off as you go.
-              </p>
-              <Link
-                href="/tracker"
-                className="inline-flex items-center gap-1 text-xs font-semibold text-accent hover:gap-2 transition-all pt-1"
-              >
-                Start tracking <ArrowRight className="w-3.5 h-3.5" />
-              </Link>
-            </div>
-          </motion.div>
+          </motion.li>
 
           {/* Step 3 */}
-          <motion.div variants={stepVariants} className="flex items-start gap-4 sm:gap-6 group">
-            <div className="p-3 sm:p-4 aspect-square bg-accent-soft text-accent rounded-full flex items-center justify-center shrink-0 shadow-sm transition-all duration-300 group-hover:scale-110 group-hover:bg-accent group-hover:text-white">
-              <Trophy className="w-5 h-5 sm:w-7 sm:h-7" />
+          <motion.li variants={stepVariants} className="border-y border-line py-6">
+            <div className="flex items-baseline gap-5">
+              <span className="font-mono text-[11px] tabular-nums text-ink-faint">03</span>
+              <div>
+                <h3 className="font-display text-base font-medium text-ink sm:text-lg">
+                  Compete with fellow detectives
+                </h3>
+                <p className="mt-1 text-sm leading-relaxed text-ink-dim">
+                  Climb the rankings. Talk cases in the chat rooms.
+                </p>
+                <Link
+                  href="/community/rankings"
+                  className="mt-2 inline-flex items-center gap-1 text-xs font-medium text-accent transition-colors hover:text-accent-bright"
+                >
+                  See rankings
+                </Link>
+              </div>
             </div>
-            <div className="space-y-1 pt-0.5 sm:pt-1">
-              <h3 className="text-base sm:text-lg font-semibold font-display text-ink">Compete with fellow detectives</h3>
-              <p className="text-xs sm:text-sm text-ink-dim leading-relaxed">
-                Climb the rankings. Talk cases in the chat rooms.
-              </p>
-              <Link
-                href="/community/rankings"
-                className="inline-flex items-center gap-1 text-xs font-semibold text-accent hover:gap-2 transition-all pt-1"
-              >
-                See rankings <ArrowRight className="w-3.5 h-3.5" />
-              </Link>
-            </div>
-          </motion.div>
-        </motion.div>
+          </motion.li>
+        </motion.ol>
       </div>
     </section>
   )

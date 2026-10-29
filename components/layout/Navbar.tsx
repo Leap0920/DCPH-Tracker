@@ -453,6 +453,9 @@ export function Navbar() {
             </>
           )}
 
+          {/* Theme switch on the surface on mobile: one tap, no drawer. */}
+          <ThemeToggle className="md:hidden text-ink-faint hover:text-ink" />
+
           {/* Mobile hamburger */}
           <Button
             variant="ghost"

@@ -7,6 +7,9 @@ import { EPISODE_FLOOR, getLatestEpisodeNumber } from "@/lib/homepage-content"
  * works for logged-out visitors and never ships a query or key to the browser.
  * Timeout-wrapped in lib/homepage-content so a slow DB falls back to
  * EPISODE_FLOOR instead of hanging the homepage.
+ *
+ * Rendered as a plain mono line, not a bordered pill: the information is the
+ * point, the chrome around it never was.
  */
 
 /** Static twin of the live badge, used as the Suspense fallback in app/page.tsx. */
@@ -14,10 +17,10 @@ export function LiveEpisodeBadgeSkeleton() {
   return (
     <span
       aria-hidden
-      className="inline-flex items-center gap-1.5 rounded-full border border-ink-dim/20 bg-surface/80 px-3 py-1 font-mono text-[10px] uppercase tracking-widest text-ink-dim shadow-card backdrop-blur-sm sm:text-[11px]"
+      className="inline-flex items-center gap-2 font-mono text-[10px] uppercase tracking-[0.22em] text-ink-faint sm:text-[11px]"
     >
-      <span className="h-2 w-2 rounded-full bg-ink-dim/40" />
-      Live ep …
+      <span className="h-1.5 w-1.5 rounded-full bg-ink-faint/40" />
+      Ep ...
     </span>
   )
 }
@@ -31,14 +34,15 @@ export async function LiveEpisodeBadge({ episode }: { episode?: number }) {
   return (
     <span
       aria-label={`Currently airing: episode ${display}`}
-      className="inline-flex items-center gap-1.5 rounded-full border border-accent/30 bg-surface/90 px-3 py-1 font-mono text-[10px] font-semibold uppercase tracking-widest text-accent shadow-card backdrop-blur-sm sm:text-[11px]"
+      className="inline-flex items-center gap-2 font-mono text-[10px] uppercase tracking-[0.22em] text-ink-dim sm:text-[11px]"
     >
-      {/* Pulsing presence dot — matches the LiveStats "active right now" pill. */}
-      <span aria-hidden className="relative flex h-2 w-2">
-        <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-emerald-500 opacity-70 motion-reduce:animate-none" />
-        <span className="relative inline-flex h-2 w-2 rounded-full bg-emerald-500" />
+      <span aria-hidden className="relative flex h-1.5 w-1.5">
+        <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-accent opacity-60 motion-reduce:animate-none" />
+        <span className="relative inline-flex h-1.5 w-1.5 rounded-full bg-accent" />
       </span>
-      Live ep {display} now
+      <span className="text-ink-dim">
+        Ep <span className="text-ink">{display}</span> / airing now
+      </span>
     </span>
   )
 }

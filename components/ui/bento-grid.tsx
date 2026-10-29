@@ -52,7 +52,6 @@ const BentoCard = ({
   name,
   className,
   background,
-  Icon,
   description,
   href,
   cta,
@@ -62,7 +61,6 @@ const BentoCard = ({
   name: string;
   className?: string;
   background?: ReactNode;
-  Icon?: any;
   description?: string;
   href?: string;
   cta?: string;
@@ -88,15 +86,19 @@ const BentoCard = ({
       {/* Background element / image */}
       <div className="absolute inset-0 z-0 overflow-hidden">{background}</div>
 
+      {/* Top scrim: the mono labels sit straight on the still, so they need a
+          little darkness under them instead of a solid pill. */}
+      <div className="pointer-events-none absolute inset-x-0 top-0 z-[1] h-1/3 bg-gradient-to-b from-black/70 to-transparent" />
+
       {/* Header badges */}
       <div className="relative z-10 flex items-center justify-between gap-1">
         {badge && (
-          <span className="inline-flex items-center gap-1 rounded-full bg-surface/95 px-2 py-0.5 sm:px-2.5 sm:py-1 font-mono text-[8.5px] min-[400px]:text-[9.5px] sm:text-xs font-semibold text-ink shadow-sm backdrop-blur-sm truncate max-w-[55%]">
+          <span className="inline-flex items-center gap-1 font-mono text-[8.5px] min-[400px]:text-[9.5px] sm:text-xs font-semibold text-white drop-shadow-[0_1px_3px_rgba(0,0,0,0.9)] truncate max-w-[55%]">
             {badge}
           </span>
         )}
         {date && (
-          <span className="font-mono text-[8.5px] min-[400px]:text-[9.5px] sm:text-xs text-ink-dim bg-surface/85 px-1.5 py-0.5 sm:px-2 sm:py-1 rounded-full shadow-sm backdrop-blur-sm shrink-0">
+          <span className="font-mono text-[8.5px] min-[400px]:text-[9.5px] sm:text-xs text-white/70 drop-shadow-[0_1px_3px_rgba(0,0,0,0.9)] shrink-0">
             {date}
           </span>
         )}
@@ -104,12 +106,7 @@ const BentoCard = ({
 
       {/* Content Area */}
       <div className="relative z-10 flex transform-gpu flex-col gap-0.5 sm:gap-1 transition-all duration-300 group-hover:-translate-y-1 mt-auto">
-        {Icon && (
-          <span className="flex h-5 w-5 sm:h-8 sm:w-8 items-center justify-center rounded-md sm:rounded-lg bg-surface/90 text-ink shadow-sm backdrop-blur-md transition-all duration-300 group-hover:scale-110 mb-0.5">
-            <Icon className="h-2.5 w-2.5 sm:h-4 sm:w-4" />
-          </span>
-        )}
-        <h3 className="text-[11px] min-[400px]:text-xs sm:text-base lg:text-lg font-bold font-display text-white drop-shadow-[0_2px_4px_rgba(0,0,0,0.9)] leading-tight line-clamp-2">
+        <h3 className="text-[11px] min-[400px]:text-xs sm:text-base lg:text-lg font-semibold font-display text-white drop-shadow-[0_2px_4px_rgba(0,0,0,0.9)] leading-tight line-clamp-2">
           {name}
         </h3>
         {description && (

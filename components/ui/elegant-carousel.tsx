@@ -19,7 +19,7 @@ const defaultSlides: SlideData[] = [
     title: 'Movie 29: Fallen Angel of the Highway',
     subtitle: '2026 Cinema Block Screening • Same Day Edit',
     description:
-      'Relive the unforgettable moments from the DCPH Block Screening 2026, featuring Detective Conan: Fallen Angel of the Highway. From the excitement and anticipation to the fun, laughter, friendships, and unforgettable memories shared by Conan fans from different parts of the country—this day was truly one to remember. Press play, relive the memories, and experience the DCPH Block Screening 2026 all over again! Case closed, but the memories remain. 🔍',
+      'Relive the DCPH Block Screening 2026, featuring Detective Conan: Fallen Angel of the Highway. The anticipation, the laughter, the friendships, and the fans who came from all over the country. Press play and live the day again. Case closed, but the memories remain.',
     accent: '#C8102E',
     videoUrl: '/videos/BS2026.mp4',
     imageUrl: '/Bs2026.jpg',

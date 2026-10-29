@@ -111,14 +111,14 @@ export function HeroSection({ liveBadge }: HeroSectionProps) {
             transition={{ duration: 0.6, ease: EASE }}
             className="flex flex-col items-start"
           >
-            <div className="flex items-center gap-3 mb-6">
+            <div className="flex items-center gap-4 mb-7">
               <Image
                 src="/img/logo_DCPH.png"
                 alt="Detective Conan PH Logo"
-                width={40}
-                height={40}
+                width={36}
+                height={36}
                 priority
-                className="h-10 w-10 object-contain drop-shadow-card hover:scale-105 transition-transform duration-300 pointer-events-none"
+                className="h-9 w-9 object-contain pointer-events-none"
               />
               {liveBadge}
             </div>
@@ -131,7 +131,7 @@ export function HeroSection({ liveBadge }: HeroSectionProps) {
             transition={{ duration: 0.7, ease: EASE }}
             className="mt-2 mb-8"
           >
-            <h1 className="hero-text-shadow font-display text-[26px] min-[421px]:text-3xl sm:text-5xl lg:text-6xl font-bold text-ink leading-[1.08] tracking-tight text-balance">
+            <h1 className="hero-text-shadow font-display text-[clamp(2rem,7vw,4.75rem)] font-medium text-ink leading-[1.0] tracking-[-0.035em] text-balance">
               <span className="block">Track every case.</span>
               <span className="block text-accent-bright">Prove your rank.</span>
             </h1>
@@ -144,23 +144,18 @@ export function HeroSection({ liveBadge }: HeroSectionProps) {
             transition={{ duration: 0.7, delay: 0.15, ease: EASE }}
             className="flex flex-col sm:flex-row items-start gap-4"
           >
-            <motion.div
-              whileTap={{ scale: 0.97 }}
-              transition={{ type: "spring", stiffness: 400, damping: 17 }}
+            <Button
+              size="lg"
+              onClick={handleTrackNow}
+              className="group bg-accent hover:bg-accent-bright text-white px-8 h-12 text-sm font-medium rounded-full transition-colors"
             >
-              <Button
-                size="lg"
-                onClick={handleTrackNow}
-                className="bg-accent hover:bg-accent-bright text-white px-8 h-11 text-sm font-semibold rounded-full shadow-md hover:shadow-lg transition-all hover:scale-[1.02]"
-              >
-                Track Now
-                <ArrowRight className="ml-2 h-4 w-4" />
-              </Button>
-            </motion.div>
+              Track Now
+              <ArrowRight className="ml-2 h-4 w-4 transition-transform duration-300 group-hover:translate-x-1" />
+            </Button>
           </motion.div>
 
           {/* Live all-time + active-now stats */}
-          <div className="mt-8">
+          <div className="mt-9">
             <LiveStats />
           </div>
         </div>
