@@ -1,23 +1,16 @@
 import Link from "next/link"
-import {
-  BookOpen,
-  Sparkles,
-  Layers,
-  PlayCircle,
-  ArrowRight,
-  Compass,
-  Clock,
-  Users,
-} from "lucide-react"
+import { ArrowRight, PlayCircle, Sparkles } from "lucide-react"
 import {
   SERIES_PREMISE,
   HOW_IT_WORKS,
   STORY_ARCS,
   RECURRING_THREADS,
   WATCH_GUIDE,
-  formatEpisodeRange,
 } from "@/lib/arcs-guide"
 import { computeArcProgress, getArcProgressData } from "@/lib/arcs-progress"
+import { buildArcIndex, buildArcSegments, summarizeArcs } from "@/lib/arcs-view"
+import { ArcSpine } from "@/components/arcs/ArcSpine"
+import { ArcRow } from "@/components/arcs/ArcRow"
 
 export const metadata = {
   title: "Story Arcs & Watch Guide · Detective Conan PH",
@@ -27,227 +20,160 @@ export const metadata = {
 
 export default async function ArcsPage() {
   const { signedIn, watchedEpisodeNumbers, latestEpisodeNumber } = await getArcProgressData()
+
   const progressBySlug = new Map(
     STORY_ARCS.map((arc) => [
       arc.slug,
       computeArcProgress(arc, watchedEpisodeNumbers, latestEpisodeNumber),
     ])
   )
+
+  const rows = buildArcIndex(STORY_ARCS, progressBySlug)
+  const segments = buildArcSegments(rows)
+  const summary = summarizeArcs(rows)
+
   return (
-    <div className="px-6 py-10">
+    <div className="px-4 py-10 sm:px-6">
       <div className="mx-auto max-w-5xl">
-        {/* Header */}
-        <div className="mb-6 flex items-center gap-3">
-          <span className="case-number">FILE NO. 004 STORY ARCS</span>
-          <span className="redacted-bar w-16" />
-        </div>
-        <h1 className="font-display text-3xl sm:text-4xl tracking-tight text-ink">
-          Story Arcs &amp; Watch Guide
-        </h1>
-        <p className="mt-2 max-w-2xl text-ink-dim">
-          The main plot from S1 to the latest episode — without drowning in
-          1,100+ of them.
-        </p>
-
-        {/* Premise */}
-        <div className="mt-8 rounded-lg border border-line bg-surface p-6 shadow-card">
-          <div className="flex items-start gap-3">
-            <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-md bg-accent/10 text-accent-bright">
-              <BookOpen className="h-5 w-5" />
+        {/* ── Masthead ────────────────────────────────────────────────────
+            The page opens on what it is and how big it is. The premise is a
+            lead paragraph rather than a card: it is two sentences of setup,
+            and boxing it made it compete with the page title for the eye. */}
+        <header>
+          <div className="flex items-center gap-3">
+            <span className="font-mono text-[10px] uppercase tracking-[0.18em] text-ink-faint">
+              File 004
             </span>
-            <div>
-              <h2 className="font-display text-xl tracking-tight text-ink">
-                {SERIES_PREMISE.title}
-              </h2>
-              <p className="mt-2 text-sm text-ink-dim">{SERIES_PREMISE.intro}</p>
-              <p className="mt-2 text-sm text-ink-dim">{SERIES_PREMISE.body}</p>
-            </div>
+            <span className="h-px flex-1 bg-line" />
           </div>
-        </div>
 
-        {/* How the story works */}
-        <section className="mt-12">
-          <div className="mb-4 flex items-center gap-2">
-            <Compass className="h-5 w-5 text-accent-bright" />
-            <h2 className="font-display text-2xl tracking-tight text-ink">
-              How the story works
-            </h2>
-          </div>
-          <div className="grid gap-4 sm:grid-cols-2">
-            {HOW_IT_WORKS.map((item) => (
-              <div
-                key={item.title}
-                className="rounded-lg border border-line bg-surface p-5"
-              >
-                <h3 className="font-display text-base tracking-tight text-ink">
-                  {item.title}
-                </h3>
-                <p className="mt-2 text-sm text-ink-dim">{item.body}</p>
-              </div>
-            ))}
-          </div>
-        </section>
+          <h1 className="mt-4 font-display text-3xl tracking-tight text-ink sm:text-4xl">
+            Story Arcs
+          </h1>
 
-        {/* Main plot timeline */}
-        <section className="mt-12">
-          <div className="mb-4 flex items-center gap-2">
-            <Layers className="h-5 w-5 text-accent-bright" />
-            <h2 className="font-display text-2xl tracking-tight text-ink">
-              The main plot: S1 to latest
-            </h2>
-          </div>
-          <p className="mb-6 text-sm text-ink-dim">
-            Seven eras, each named for the Black Organization member in focus.
-            Episode ranges use the original Japanese numbering.
+          <p className="mt-3 max-w-xl text-[15px] leading-relaxed text-ink-dim">
+            {SERIES_PREMISE.intro}
+          </p>
+          <p className="mt-2 max-w-xl text-[15px] leading-relaxed text-ink-dim">
+            {SERIES_PREMISE.body}
           </p>
 
-          <ol className="relative space-y-4 border-l border-line pl-6">
-            {STORY_ARCS.map((arc) => {
-              const progress = progressBySlug.get(arc.slug)!
-              return (
-              <li key={arc.slug} className="relative">
-                <span className="absolute -left-[31px] top-5 h-3 w-3 rounded-full border-2 border-accent bg-surface" />
-                <Link
-                  href={`/arcs/${arc.slug}`}
-                  className="group block rounded-lg border border-line bg-surface p-5 shadow-card transition-colors hover:border-ink-faint/40 hover:bg-surface-muted"
-                >
-                  <div className="flex flex-wrap items-center gap-2">
-                    <span className="font-mono text-xs text-ink-faint">
-                      {arc.era}
-                    </span>
-                    <span
-                      className={`rounded-md px-2 py-0.5 font-mono text-[10px] ${
-                        arc.status === "ongoing"
-                          ? "bg-success/10 text-success"
-                          : "bg-surface-muted text-ink-dim"
-                      }`}
-                    >
-                      {arc.status === "ongoing" ? "Ongoing" : "Complete"}
-                    </span>
-                  </div>
+          {/* The scale of the thing being indexed, stated once. */}
+          <p className="mt-4 font-mono text-[10px] uppercase tracking-[0.12em] text-ink-faint">
+            {summary.eras} eras · {summary.episodes.toLocaleString()} episodes ·{" "}
+            {summary.firstYear}–{summary.lastYear}
+          </p>
+        </header>
 
-                  <div className="mt-2 flex flex-wrap items-baseline justify-between gap-2">
-                    <h3 className="font-display text-xl tracking-tight text-ink group-hover:text-accent-bright">
-                      {arc.title}
-                    </h3>
-                    <span className="font-mono text-xs text-ink-faint">
-                      {formatEpisodeRange(arc)}
-                    </span>
-                  </div>
+        {/* ── The map ─────────────────────────────────────────────────────
+            The one distinctive element on the page: seven contiguous eras,
+            each as wide as its episode count. Everything below stays quiet so
+            this reads as the thing worth looking at. */}
+        <div className="mt-10">
+          <ArcSpine
+            segments={segments}
+            signedIn={signedIn}
+            firstEpisode={STORY_ARCS[0].episodeStart}
+            lastEpisode={latestEpisodeNumber}
+          />
+        </div>
 
-                  <p className="mt-1 text-sm font-medium text-accent-bright">
-                    {arc.tagline}
-                  </p>
-                  <p className="mt-2 line-clamp-2 text-sm text-ink-dim">
-                    {arc.summary}
-                  </p>
-
-                  {/* Live per-arc progress */}
-                  <div className="mt-3">
-                    <div className="flex items-center justify-between mb-1">
-                      <span className="font-mono text-[10px] text-ink-faint">
-                        {signedIn
-                          ? `${progress.watched} / ${progress.total} watched`
-                          : `${progress.total} episodes`}
-                      </span>
-                      <span className="font-mono text-[10px] text-ink-dim">
-                        {progress.percent}%
-                      </span>
-                    </div>
-                    <div className="h-1.5 bg-surface-muted rounded-full overflow-hidden">
-                      <div
-                        className="h-full bg-accent rounded-full"
-                        style={{ width: `${progress.percent}%` }}
-                      />
-                    </div>
-                  </div>
-
-                  <div className="mt-3 flex items-center gap-4 text-xs text-ink-faint">
-                    <span className="flex items-center gap-1">
-                      <Clock className="h-3.5 w-3.5" />
-                      {arc.years}
-                    </span>
-                    <span className="flex items-center gap-1">
-                      <Users className="h-3.5 w-3.5" />
-                      {arc.keyCharacters.length} key figures
-                    </span>
-                    <span className="flex items-center gap-1">
-                      <PlayCircle className="h-3.5 w-3.5" />
-                      {arc.highlights.length} landmark eps
-                    </span>
-                  </div>
-                </Link>
-              </li>
-              )
-            })}
-          </ol>
-        </section>
-
-        {/* Recurring threads */}
-        <section className="mt-12">
-          <div className="mb-4 flex items-center gap-2">
-            <Sparkles className="h-5 w-5 text-accent-bright" />
-            <h2 className="font-display text-2xl tracking-tight text-ink">
-              Recurring threads
-            </h2>
-          </div>
-          <div className="grid gap-4 sm:grid-cols-2">
-            {RECURRING_THREADS.map((thread) => (
-              <div
-                key={thread.slug}
-                className="rounded-lg border border-line bg-surface p-5"
-              >
-                <h3 className="font-display text-lg tracking-tight text-ink">
-                  {thread.title}
-                </h3>
-                <p className="mt-1 text-sm font-medium text-accent-bright">
-                  {thread.tagline}
-                </p>
-                <p className="mt-2 text-sm text-ink-dim">
-                  {thread.description}
-                </p>
-                <p className="mt-3 font-mono text-xs text-ink-faint">
-                  Start: {thread.starterEpisodes}
-                </p>
-              </div>
+        {/* ── The eras ────────────────────────────────────────────────────
+            One divided surface, not seven bordered cards. Each row is a fixed
+            grid so the spans and the progress bars line up down the column. */}
+        <section className="mt-8" aria-labelledby="eras-heading">
+          <h2 id="eras-heading" className="sr-only">
+            The seven eras
+          </h2>
+          <div className="divide-y divide-line overflow-clip rounded-lg border border-line bg-surface">
+            {rows.map((row, i) => (
+              <ArcRow key={row.slug} row={row} signedIn={signedIn} striped={i % 2 === 1} />
             ))}
           </div>
         </section>
 
-        {/* Watch guide */}
-        <section className="mt-12">
-          <div className="mb-4 flex items-center gap-2">
-            <PlayCircle className="h-5 w-5 text-accent-bright" />
-            <h2 className="font-display text-2xl tracking-tight text-ink">
-              New here? How to watch
-            </h2>
-          </div>
-          <div className="grid gap-4 sm:grid-cols-2">
+        {/* ── Reference material ──────────────────────────────────────────
+            Everything below is for a reader who has already found the map and
+            wants the rules behind it. It is set denser and quieter so it does
+            not compete with the eras above. */}
+        <section className="mt-14" aria-labelledby="how-heading">
+          <h2 id="how-heading" className="font-display text-lg tracking-tight text-ink">
+            How the story works
+          </h2>
+          <dl className="mt-4 space-y-4">
+            {HOW_IT_WORKS.map((item) => (
+              <div key={item.title} className="border-l border-line pl-4">
+                <dt className="text-[13px] font-medium text-ink">{item.title}</dt>
+                <dd className="mt-1 text-[13px] leading-relaxed text-ink-dim">
+                  {item.body}
+                </dd>
+              </div>
+            ))}
+          </dl>
+        </section>
+
+        <section className="mt-12" aria-labelledby="threads-heading">
+          <h2
+            id="threads-heading"
+            className="flex items-center gap-2 font-display text-lg tracking-tight text-ink"
+          >
+            <Sparkles className="h-4 w-4 text-accent-bright" />
+            Recurring threads
+          </h2>
+          <p className="mt-1 text-[13px] text-ink-dim">
+            Side stories that pay off across hundreds of episodes.
+          </p>
+          <ul className="mt-4 divide-y divide-line border-y border-line">
+            {RECURRING_THREADS.map((thread) => (
+              <li key={thread.slug} className="py-3">
+                <div className="flex flex-wrap items-baseline justify-between gap-x-3 gap-y-1">
+                  <h3 className="text-[13px] font-medium text-ink">{thread.title}</h3>
+                  <span className="font-mono text-[10px] text-ink-faint">
+                    from ep {thread.starterEpisodes}
+                  </span>
+                </div>
+                <p className="mt-0.5 text-[13px] leading-relaxed text-ink-dim">
+                  {thread.description}
+                </p>
+              </li>
+            ))}
+          </ul>
+        </section>
+
+        <section className="mt-12" aria-labelledby="watch-heading">
+          <h2
+            id="watch-heading"
+            className="flex items-center gap-2 font-display text-lg tracking-tight text-ink"
+          >
+            <PlayCircle className="h-4 w-4 text-accent-bright" />
+            New here? How to watch
+          </h2>
+          <ol className="mt-4 space-y-3">
             {WATCH_GUIDE.map((step) => (
-              <div
-                key={step.step}
-                className="flex gap-4 rounded-lg border border-line bg-surface p-5"
-              >
-                <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-accent font-mono text-sm text-white">
+              <li key={step.step} className="flex gap-3">
+                <span className="mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-full border border-line font-mono text-[10px] text-ink-dim">
                   {step.step}
                 </span>
                 <div>
-                  <h3 className="font-display text-base tracking-tight text-ink">
-                    {step.title}
-                  </h3>
-                  <p className="mt-1 text-sm text-ink-dim">{step.detail}</p>
+                  <h3 className="text-[13px] font-medium text-ink">{step.title}</h3>
+                  <p className="mt-0.5 text-[13px] leading-relaxed text-ink-dim">
+                    {step.detail}
+                  </p>
                 </div>
-              </div>
+              </li>
             ))}
-          </div>
+          </ol>
         </section>
 
-        <div className="mt-10 flex items-center gap-2 text-sm text-ink-faint">
-          <ArrowRight className="h-4 w-4" />
-          <span>
-            Tap any arc above for its key episodes and characters.
-          </span>
-        </div>
+        <footer className="mt-12 border-t border-line pt-5">
+          <Link
+            href="/tracker"
+            className="group inline-flex items-center gap-2 text-[13px] text-ink-dim transition-colors hover:text-ink"
+          >
+            Open the tracker to mark what you have watched
+            <ArrowRight className="h-3.5 w-3.5 transition-transform group-hover:translate-x-0.5" />
+          </Link>
+        </footer>
       </div>
     </div>
   )
