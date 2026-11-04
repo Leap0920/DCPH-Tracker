@@ -37,8 +37,6 @@ interface CaseFilterBarProps {
   sortOptions: FilterOption[]
   /** Default sort — omitted from the URL when selected. */
   defaultSort: string
-  /** e.g. "1–50 of 2,010 files" — composed by the server. */
-  resultSummary: string
 }
 
 function optionLabel(option: FilterOption): string {
@@ -58,7 +56,6 @@ export function CaseFilterBar({
   linkOptions,
   sortOptions,
   defaultSort,
-  resultSummary,
 }: CaseFilterBarProps) {
   const router = useRouter()
   const searchParams = useSearchParams()
@@ -146,118 +143,106 @@ export function CaseFilterBar({
 
   return (
     <div className="-mx-4 border-y border-line bg-surface px-4 py-3 sm:-mx-6 sm:px-6">
-      <div className="flex items-center justify-between gap-2 pb-2.5">
-        <div className="flex shrink-0 items-center gap-1.5">
-          <SlidersHorizontal className="h-3.5 w-3.5 text-ink-faint" />
-          <span className="font-mono text-[10px] uppercase tracking-[0.12em] text-ink-faint">
-            Filter the archive
-          </span>
-        </div>
-        <span className="min-w-0 flex-1 truncate text-right font-mono text-[10px] tabular-nums text-ink-dim">
-          {resultSummary}
-        </span>
-      </div>
-
-      {/* Search and Mobile Filters Toggle */}
-      <div className="flex items-center gap-2">
-        <form
-          action="/cases"
-          onSubmit={(event) => {
-            event.preventDefault()
-            pushPatch({ q: search.trim() || null })
-          }}
-          className="relative min-w-0 flex-1"
-        >
-          <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-ink-faint" />
-          <input
-            name="q"
-            value={search}
-            onChange={(event) => {
-              setSearch(event.target.value)
-              pushPatch({ q: event.target.value.trim() || null }, 350)
+      {/* Search and Mobile Filters Toggle. On lg the three menus sit beside the
+          search field, so the whole console is one band instead of two. */}
+      <div className="flex flex-col gap-2.5 lg:flex-row lg:items-end lg:gap-3">
+        <div className="flex items-end gap-2 lg:min-w-0 lg:flex-1">
+          <form
+            action="/cases"
+            onSubmit={(event) => {
+              event.preventDefault()
+              pushPatch({ q: search.trim() || null })
             }}
-            placeholder="Search victim, case or location…"
-            aria-label="Search victim, case or location"
-            className="h-9 w-full rounded-lg border border-line bg-surface-muted pl-9 pr-9 text-sm text-ink placeholder:text-ink-faint focus:border-accent focus:outline-none focus-visible:ring-1 focus-visible:ring-accent/30"
-          />
-          {search && (
-            <button
-              type="button"
-              onClick={() => {
-                setSearch("")
-                pushPatch({ q: null })
-              }}
-              aria-label="Clear search"
-              className="absolute right-2 top-1/2 -translate-y-1/2 rounded p-1 text-ink-faint transition-colors hover:text-ink focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-accent/40"
-            >
-              <X className="h-3.5 w-3.5" />
-            </button>
-          )}
-        </form>
+            className="min-w-0 flex-1"
+          >
+            {/* Labelled like the three menus beside it: without a label the
+                search box sat 16px above them and the row read as misaligned. */}
+            <label className="block">
+              <span className="mb-1 block font-mono text-[10px] uppercase tracking-wide text-ink-faint">
+                Search
+              </span>
+              <span className="relative block">
+                <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-ink-faint" />
+                <input
+                  name="q"
+                  value={search}
+                  onChange={(event) => {
+                    setSearch(event.target.value)
+                    pushPatch({ q: event.target.value.trim() || null }, 350)
+                  }}
+                  placeholder="Victim, case or location…"
+                  aria-label="Search victim, case or location"
+                  className="h-9 w-full rounded-lg border border-line bg-surface-muted pl-9 pr-9 text-sm text-ink placeholder:text-ink-faint focus:border-accent focus:outline-none focus-visible:ring-1 focus-visible:ring-accent/30"
+                />
+                {search && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setSearch("")
+                      pushPatch({ q: null })
+                    }}
+                    aria-label="Clear search"
+                    className="absolute right-2 top-1/2 -translate-y-1/2 rounded p-1 text-ink-faint transition-colors hover:text-ink focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-accent/40"
+                  >
+                    <X className="h-3.5 w-3.5" />
+                  </button>
+                )}
+              </span>
+            </label>
+          </form>
 
-        <button
-          type="button"
-          onClick={() => setIsMobileFiltersOpen((prev) => !prev)}
-          className="inline-flex h-9 shrink-0 items-center gap-1.5 rounded-lg border border-line bg-surface-muted px-3 font-mono text-xs text-ink-dim transition-colors hover:border-ink hover:text-ink focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-accent/40 sm:hidden"
-          aria-expanded={isMobileFiltersOpen}
-          aria-label="Toggle filter options"
+          <button
+            type="button"
+            onClick={() => setIsMobileFiltersOpen((prev) => !prev)}
+            className="inline-flex h-9 shrink-0 items-center gap-1.5 rounded-lg border border-line bg-surface-muted px-3 font-mono text-xs text-ink-dim transition-colors hover:border-ink hover:text-ink focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-accent/40 sm:hidden"
+            aria-expanded={isMobileFiltersOpen}
+            aria-label="Toggle filter options"
+          >
+            <SlidersHorizontal className="h-3.5 w-3.5" />
+            <span>Filters</span>
+            {selectFiltersCount > 0 && (
+              <span className="inline-flex h-4 min-w-4 items-center justify-center rounded-full bg-accent/20 px-1 font-mono text-[10px] font-medium text-accent-bright">
+                {selectFiltersCount}
+              </span>
+            )}
+          </button>
+        </div>
+
+        {/* Method / Crime data / Sort. Content type and crime type used to be
+            dropdowns here too, but the tab rail and the crime-mix legend already
+            own those two dimensions on the same screen — five dropdowns, two of
+            them duplicates, was the bulk of the clutter. */}
+        <div
+          className={cn(
+            "gap-2 sm:grid sm:grid-cols-3 lg:flex lg:shrink-0",
+            isMobileFiltersOpen ? "grid grid-cols-2" : "hidden"
+          )}
         >
-          <SlidersHorizontal className="h-3.5 w-3.5" />
-          <span>Filters</span>
-          {selectFiltersCount > 0 && (
-            <span className="inline-flex h-4 min-w-4 items-center justify-center rounded-full bg-accent/20 px-1 font-mono text-[10px] font-medium text-accent-bright">
-              {selectFiltersCount}
-            </span>
-          )}
-        </button>
-      </div>
-
-      {/* Five dropdowns — 2 columns on mobile, 5 columns on desktop */}
-      <div
-        className={cn(
-          "mt-2.5 gap-2 sm:grid sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5",
-          isMobileFiltersOpen ? "grid grid-cols-2" : "hidden"
-        )}
-      >
-        <FilterSelect
-          label="Content type"
-          value={contentType || ANY}
-          options={contentTypeOptions}
-          allLabel="All content"
-          onChange={(value) =>
-            pushPatch({
-              format: value,
-              link: value !== ANY && link === "wiki" ? null : undefined,
-            })
-          }
-        />
-        <FilterSelect
-          label="Crime type"
-          value={typeSlug || ANY}
-          options={crimeOptions}
-          allLabel="All crime types"
-          onChange={(value) => pushPatch({ type: value })}
-        />
-        <FilterSelect
-          label="Method"
-          value={causeSlug || ANY}
-          options={methodOptions}
-          allLabel="All methods"
-          onChange={(value) => pushPatch({ cause: value })}
-        />
-        <FilterSelect
-          label="Source"
-          value={link || ANY}
-          options={visibleLinkOptions}
-          onChange={(value) => pushPatch({ link: value })}
-        />
-        <div className="col-span-2 sm:col-span-1">
-          <FilterSelect
-            label="Sort"
-            value={sort}
-            options={sortOptions}
-            onChange={(value) => pushPatch({ sort: value === defaultSort ? null : value })}
-          />
+          <div className="lg:w-[10.5rem]">
+            <FilterSelect
+              label="Method"
+              value={causeSlug || ANY}
+              options={methodOptions}
+              allLabel="All methods"
+              onChange={(value) => pushPatch({ cause: value })}
+            />
+          </div>
+          <div className="lg:w-[10rem]">
+            <FilterSelect
+              label="Crime data"
+              value={link || ANY}
+              options={visibleLinkOptions}
+              onChange={(value) => pushPatch({ link: value })}
+            />
+          </div>
+          <div className="col-span-2 sm:col-span-1 lg:w-[11.5rem]">
+            <FilterSelect
+              label="Sort"
+              value={sort}
+              options={sortOptions}
+              onChange={(value) => pushPatch({ sort: value === defaultSort ? null : value })}
+            />
+          </div>
         </div>
       </div>
 

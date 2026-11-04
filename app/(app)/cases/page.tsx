@@ -1,5 +1,5 @@
 import Link from "next/link"
-import { ExternalLink, FileText, MapPin } from "lucide-react"
+import { FileText } from "lucide-react"
 import type { PostgrestError } from "@supabase/supabase-js"
 import { createClient } from "@/utils/supabase/server"
 import {
@@ -11,6 +11,17 @@ import {
 } from "@/lib/dcw-cases"
 import { CONTENT_TYPES, CONTENT_TYPE_LABELS, type ContentType } from "@/lib/constants"
 import { CaseFilterBar, type FilterOption } from "@/components/cases/CaseFilterBar"
+import { CrimeSpectrum } from "@/components/cases/CrimeSpectrum"
+import { CategoryRail, type CategoryOption } from "@/components/cases/CategoryRail"
+import { CaseFileRow } from "@/components/cases/CaseFileRow"
+import {
+  buildCrimeDistribution,
+  compareCrimes,
+  summarizeCoverage,
+  groupFilesByType,
+  type CaseFile,
+  type CaseCrime,
+} from "@/lib/cases-view"
 import { ilikeOr } from "@/lib/postgrest-filter"
 import { cn } from "@/lib/utils"
 
@@ -47,7 +58,7 @@ const CONTENT_TYPE_ORDER: readonly ContentType[] = [
 const CONTENT_TYPE_VALUES = new Set<string>(CONTENT_TYPE_ORDER)
 
 const LINK_OPTIONS: FilterOption[] = [
-  { value: "all", label: "All episodes" },
+  { value: "all", label: "Any entry" },
   { value: "tracker", label: "With crime data" },
   { value: "wiki", label: "No crime data" },
 ]
@@ -56,58 +67,8 @@ const LINK_OPTIONS: FilterOption[] = [
  * Per-group tinting. `card` colours the crime stamp on each file row;
  * `bar` colours the row's left spine.
  */
-const CRIME_STYLES: Record<string, { card: string; bar: string }> = {
-  murder: { card: "border-danger/30 bg-danger/10 text-danger", bar: "bg-danger" },
-  "attempted-murder": { card: "border-danger/20 bg-danger/5 text-danger/90", bar: "bg-danger/60" },
-  kidnapping: { card: "border-accent/30 bg-accent-soft text-accent-bright", bar: "bg-accent" },
-  bombing: { card: "border-warning/25 bg-warning/10 text-warning", bar: "bg-warning" },
-  assault: { card: "border-warning/20 bg-warning/5 text-warning/90", bar: "bg-warning/60" },
-  robbery: { card: "border-accent/20 bg-accent-soft/50 text-accent-bright/90", bar: "bg-accent/60" },
-  fraud: { card: "border-line bg-surface-muted text-ink", bar: "bg-ink" },
-  suicide: { card: "border-line bg-surface-muted text-ink", bar: "bg-ink" },
-  accident: { card: "border-line bg-surface-muted text-ink-dim", bar: "bg-ink-dim" },
-  vandalism: { card: "border-line bg-surface-muted text-ink-dim", bar: "bg-ink-dim" },
-  "missing-person": { card: "border-line bg-surface-muted text-ink-dim", bar: "bg-ink-dim" },
-  other: { card: "border-line bg-transparent text-ink-faint", bar: "bg-ink-faint" },
-}
-
-const NEUTRAL_STYLE = { card: "border-line bg-surface-muted text-ink-dim", bar: "bg-ink-dim" }
-
-function crimeStyle(slug: string) {
-  return CRIME_STYLES[slug] ?? NEUTRAL_STYLE
-}
-
 function contentTypeLabel(type: string): string {
   return CONTENT_TYPE_LABELS[type as ContentType] ?? type
-}
-
-/** Higher = more severe. Drives spine colour + badge order for multi-crime files. */
-const CRIME_SEVERITY: Record<string, number> = {
-  "mass-murder": 110,
-  "serial-murder": 105,
-  murder: 100,
-  "attempted-murder": 90,
-  manslaughter: 85,
-  bombing: 82,
-  arson: 78,
-  kidnapping: 75,
-  "attempted-kidnapping": 70,
-  assault: 60,
-  poisoning: 58,
-  robbery: 50,
-  burglary: 46,
-  theft: 44,
-  blackmail: 40,
-  extortion: 38,
-  fraud: 34,
-  forgery: 30,
-  vandalism: 20,
-  other: 10,
-}
-
-function crimeSeverity(slug: string | null | undefined): number {
-  if (!slug) return 0
-  return CRIME_SEVERITY[slug] ?? 15
 }
 
 function uniqueStrings(values: (string | null | undefined)[]): string[] {
@@ -130,7 +91,7 @@ function uniqueStrings(values: (string | null | undefined)[]): string[] {
 function mergeCases(rows: CaseRow[]): CaseFile[] {
   const byTitle = new Map<string, CaseFile>()
 
-  rows.forEach((row, index) => {
+  rows.forEach((row) => {
     const crime: CaseCrime = {
       id: row.id,
       caseIndex: row.case_index,
@@ -164,7 +125,6 @@ function mergeCases(rows: CaseRow[]): CaseFile[] {
 
     byTitle.set(key, {
       pageTitle: row.page_title || row.entry_title || "Unknown",
-      startIndex: index,
       dateText: row.date_text,
       entryId: row.entry_id,
       entrySlug: row.entry_slug,
@@ -190,9 +150,7 @@ function mergeCases(rows: CaseRow[]): CaseFile[] {
       else badges.set(key, { type: crime.crimeType, slug: crime.crimeSlug, count: 1 })
     }
 
-    file.crimeBadges = Array.from(badges.values()).sort(
-      (a, b) => crimeSeverity(b.slug) - crimeSeverity(a.slug)
-    )
+    file.crimeBadges = Array.from(badges.values()).sort(compareCrimes)
     file.primarySlug = file.crimeBadges[0]?.slug ?? file.crimes[0]?.crimeSlug ?? "other"
     file.victims = uniqueStrings(file.crimes.map((c) => c.victim))
     file.locations = uniqueStrings(file.crimes.map((c) => c.location))
@@ -222,37 +180,6 @@ type CaseRow = {
   entry_episode_number: number | null
   entry_release_order: number | null
   entry_title: string | null
-}
-
-type CaseCrime = {
-  id: string
-  caseIndex: number
-  crimeType: string
-  crimeSlug: string
-  victim: string | null
-  victimLabel: string | null
-  causeDeath: string | null
-  causeDeathLabel: string | null
-  suspects: string | null
-  suspectsLabel: string | null
-  location: string | null
-  description: string | null
-}
-
-type CaseFile = {
-  pageTitle: string
-  startIndex: number
-  dateText: string | null
-  entryId: string | null
-  entrySlug: string | null
-  entryType: string | null
-  entryEpisodeNumber: number | null
-  entryReleaseOrder: number | null
-  crimes: CaseCrime[]
-  crimeBadges: { type: string; slug: string; count: number }[]
-  primarySlug: string
-  victims: string[]
-  locations: string[]
 }
 
 const CASE_COLUMNS =
@@ -456,7 +383,13 @@ export default async function CasesPage({
       // NULLs (cases with no local entry) trail on ASC.
       if (sort === "type") query = query.order("crime_slug", { ascending: true })
       if (sort === "release" || sort === "type") {
-        // Sort by episode number first (episodes), then release order (movies/specials)
+        // Content type FIRST, so a series stays contiguous: every content type
+        // numbers its episodes from 1, and keying on entry_episode_number first
+        // put Magic Kaito EP 1 beside Conan EP 1 with page_title breaking the
+        // tie. Grouping the sort also means sections never interleave across a
+        // page boundary.
+        query = query.order("entry_type", { ascending: true })
+        // Within a type: episode number, then release order (movies/specials).
         query = query
           .order("entry_episode_number", { ascending: true, nullsFirst: false })
           .order("entry_release_order", { ascending: true, nullsFirst: false })
@@ -495,6 +428,7 @@ export default async function CasesPage({
   }
 
   const crimeFacets = tally(facetRows, "crime")
+  const crimeDistribution = buildCrimeDistribution(crimeFacets)
   const methodFacets = tally(facetRows, "cause")
 
   // The view's rows are crime records AND entries that carry no crime data at
@@ -507,7 +441,12 @@ export default async function CasesPage({
   const noCrimeRows = facetRows.length - crimeRows
   const fileTitles = new Set<string>()
   for (const row of facetRows) if (row.page_title) fileTitles.add(row.page_title)
-  const caseFileTotal = fileTitles.size + noCrimeRows
+  // Files, counted one per dossier page. Adding noCrimeRows to a page count
+  // mixed two units: an entry with three case pages is three files AND one
+  // entry, so the old total (1,474) exceeded the number of entries that exist
+  // (1,371). Coverage is stated separately instead.
+  const caseFileTotal = fileTitles.size
+  const coverage = summarizeCoverage(facetRows)
 
   // Content type options: real counts, domain order, zero-count types omitted.
   const typeCounts = new Map<string, number>()
@@ -523,6 +462,28 @@ export default async function CasesPage({
   }))
 
   const trackerLinked = [...typeCounts.values()].reduce((sum, n) => sum + n, 0)
+
+  // Category counts as ENTRIES, not crime rows: a three-crime episode is one
+  // episode, and "Movies 34" is the number a reader can check.
+  const entriesByType = new Map<string, Set<string>>()
+  for (const row of facetRows) {
+    if (!row.entry_type || !row.entry_id) continue
+    const set = entriesByType.get(row.entry_type)
+    if (set) set.add(row.entry_id)
+    else entriesByType.set(row.entry_type, new Set([row.entry_id]))
+  }
+  const categoryOptions: CategoryOption[] = [
+    {
+      value: "",
+      label: "All",
+      count: [...entriesByType.values()].reduce((sum, set) => sum + set.size, 0),
+    },
+    ...CONTENT_TYPE_ORDER.filter((type) => entriesByType.has(type)).map((type) => ({
+      value: type,
+      label: CONTENT_TYPE_LABELS[type],
+      count: entriesByType.get(type)?.size ?? 0,
+    })),
+  ]
 
   const { data: caseData, count } = pageResult
   const total = count ?? 0
@@ -560,14 +521,39 @@ export default async function CasesPage({
     }
   }
 
-  const caseFiles = mergeCases(rows)
+  // Cover art lives on content_entries.image_url; the archive view does not
+  // expose it, so it comes in one extra query keyed by the entries on this
+  // page. 1,371 of 1,371 entries have artwork, so a missing image means the
+  // row genuinely has none rather than that the page forgot to ask.
+  const pageEntryIds = Array.from(
+    new Set(rows.map((row) => row.entry_id).filter((id): id is string => Boolean(id)))
+  )
+  const artById = new Map<string, string | null>()
+  if (pageEntryIds.length > 0) {
+    const { data: artRows } = await supabase
+      .from("content_entries")
+      .select("id, image_url")
+      .in("id", pageEntryIds)
+    for (const art of artRows ?? []) artById.set(art.id, art.image_url)
+  }
+
+  const caseFiles = mergeCases(rows).map((file) => ({
+    ...file,
+    imageUrl: file.entryId ? (artById.get(file.entryId) ?? null) : null,
+  }))
+  const caseSections = groupFilesByType(caseFiles, CONTENT_TYPE_ORDER, CONTENT_TYPE_LABELS)
 
   const firstShown = total === 0 ? 0 : from + lead + 1
   const lastShown = Math.min(from + ownRows.length, total)
+  // Pagination counts ROWS (one per crime, plus one per entry with no case at
+  // all), but the page renders FILES, and the row total includes 637 "no case
+  // on file" placeholders. Quoting a row range here put "of 2,655" beside a
+  // masthead reading "2,018 crimes" — two totals for the same archive. The
+  // page position says where the reader is without inventing a third number.
   const resultSummary =
     total === 0
       ? "No files"
-      : `${firstShown.toLocaleString()}–${lastShown.toLocaleString()} of ${total.toLocaleString()} records archived`
+      : `${caseFiles.length.toLocaleString()} ${caseFiles.length === 1 ? "file" : "files"} · page ${page.toLocaleString()} of ${totalPages.toLocaleString()}`
 
   return (
     <div className="px-4 py-8 sm:px-6 sm:py-12">
@@ -593,15 +579,54 @@ export default async function CasesPage({
             stay sealed until you open them — they name the culprit.
           </p>
 
-          <dl className="mt-6 grid grid-cols-2 gap-4 border-y border-line py-4 sm:flex sm:flex-wrap sm:gap-x-10 sm:gap-y-3">
-            <Stat label="Crimes" value={crimeRows} />
-            <Stat label="Files" value={caseFileTotal} />
-            <Stat label="Categories" value={crimeFacets.length} />
-            <Stat label="Methods" value={methodFacets.length} />
-          </dl>
+          {/* One line, each fact once. The four-tile band that stood here
+              restated numbers the controls below already carry: the crime
+              count is the crime-mix total, the entry count is the All tab,
+              "12 categories" is the twelve pills, "17 methods" is the Method
+              menu. Only the coverage figure appears nowhere else — it is the
+              one thing a reader cannot infer, so it leads. */}
+          <p className="mt-5 flex flex-wrap items-center gap-x-2 gap-y-1 border-t border-line pt-3 font-mono text-[11px] tabular-nums text-ink-dim">
+            <span className="text-ink">{crimeRows.toLocaleString()} crimes</span>
+            <span className="text-ink-faint/60" aria-hidden="true">·</span>
+            <span className="text-ink">{caseFileTotal.toLocaleString()} case files</span>
+            <span className="text-ink-faint/60" aria-hidden="true">·</span>
+            <span>
+              {coverage.covered.toLocaleString()} of {coverage.total.toLocaleString()} entries
+              have a case ({coverage.percent}%)
+            </span>
+          </p>
+
         </header>
 
-        {/* ── Filter console ── */}
+        {/* ── The shape of the archive ── */}
+        <div className="mt-8">
+          <CrimeSpectrum
+            segments={crimeDistribution}
+            activeSlug={typeSlug ?? ""}
+            totalCrimes={crimeRows}
+          />
+        </div>
+
+        {/* ── Categories: the archive's primary axis ── */}
+        <div className="mt-6">
+          <CategoryRail
+            options={categoryOptions}
+            active={contentType ?? ""}
+            hrefFor={(value) =>
+              buildHref({
+                format: value || null,
+                type: typeSlug,
+                cause: causeSlug,
+                q,
+                sort,
+                link: linkFilter,
+                page: 1,
+              })
+            }
+          />
+        </div>
+
+        {/* ── Narrow it down ── */}
         <CaseFilterBar
           q={q}
           contentType={contentType}
@@ -623,7 +648,6 @@ export default async function CasesPage({
           sortOptions={SORT_OPTIONS}
           linkOptions={LINK_OPTIONS}
           defaultSort={DEFAULT_SORT}
-          resultSummary={resultSummary}
         />
 
         {/* ── Ledger ── */}
@@ -632,166 +656,37 @@ export default async function CasesPage({
             No files match these filters.
           </p>
         ) : (
-          <ol className="mt-6">
-            {caseFiles.map((file) => {
-              const style = crimeStyle(file.primarySlug)
-              const fileNo = String(from + file.startIndex + 1).padStart(4, "0")
-              const isEpisode = file.entryType === CONTENT_TYPES.EPISODE
-              const episodeNumber = isEpisode ? file.entryEpisodeNumber : null
-              const trackerHref =
-                episodeNumber !== null && episodeNumber !== undefined
-                  ? `/tracker?ep=${episodeNumber}`
-                  : file.entrySlug
-                    ? `/tracker/${file.entrySlug}`
-                    : null
-              const isMulti = file.crimes.length > 1
-              const primary = file.crimes[0] ?? null
-
-              return (
-                <li key={file.pageTitle} className="relative">
-                  {/* Left spine — carries the colour of the most severe crime in the file. */}
-                  <span
-                    aria-hidden="true"
-                    className={cn("absolute bottom-0 left-0 top-0 w-[3px]", style.bar)}
-                  />
-
-                  <div className="border-b border-line px-4 py-4 pl-5 transition-colors hover:bg-surface-muted/40 sm:pl-7">
-                    <div className="flex flex-wrap items-baseline justify-between gap-x-3 gap-y-1.5">
-                      <div className="flex flex-wrap items-baseline gap-x-2.5">
-                        <span className="font-mono text-[10px] uppercase tracking-[0.12em] text-ink-faint">
-                          File no. {fileNo}
-                        </span>
-                        {file.dateText && (
-                          <span className="font-mono text-[10px] text-ink-faint">{file.dateText}</span>
-                        )}
-                      </div>
-
-                      <span className="flex flex-wrap items-center gap-1">
-                        {file.crimeBadges.map((badge) => (
-                          <span
-                            key={badge.slug || badge.type}
-                            className={cn(
-                              "shrink-0 rounded border px-1.5 py-0.5 font-mono text-[10px] uppercase tracking-wide",
-                              crimeStyle(badge.slug).card
-                            )}
-                            title={`Filed under ${crimeGroupLabel(badge.slug)}`}
-                          >
-                            {badge.type}
-                            {badge.count > 1 && (
-                              <span className="ml-1 opacity-70">&times;{badge.count}</span>
-                            )}
-                          </span>
-                        ))}
-                      </span>
-                    </div>
-
-                    <h2 className="mt-1 font-display text-base tracking-tight text-ink sm:text-lg">
-                      {file.pageTitle}
-                      {isMulti && (
-                        <span className="ml-1.5 font-mono text-[10px] text-danger">
-                          {file.crimes.length} crimes
-                        </span>
-                      )}
-                    </h2>
-
-                    {isMulti ? (
-                      <>
-                        {/* Roll-up so the collapsed card still says who and where. */}
-                        <dl className="mt-2.5 grid grid-cols-1 gap-x-8 gap-y-1.5 sm:grid-cols-2 lg:grid-cols-3">
-                          {file.victims.length > 0 && (
-                            <Field
-                              label={file.victims.length > 1 ? "Victims" : primary.victimLabel ?? "Victim"}
-                              value={file.victims.join(", ")}
-                            />
-                          )}
-                          {file.locations.length > 0 && (
-                            <Field
-                              label={file.locations.length > 1 ? "Locations" : "Location"}
-                              value={file.locations.join(", ")}
-                              icon={<MapPin className="h-3 w-3" />}
-                            />
-                          )}
-                        </dl>
-
-                        <details className="group/crimes mt-3">
-                          <summary className="inline-flex cursor-pointer list-none items-center gap-1.5 rounded-md border border-line bg-surface-muted px-2 py-1 font-mono text-[10px] text-ink-dim transition-colors hover:text-ink focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-accent/40 [&::-webkit-details-marker]:hidden">
-                            <span className="group-open/crimes:hidden">
-                              Open all {file.crimes.length} crime blocks
-                            </span>
-                            <span className="hidden group-open/crimes:inline">Collapse crime blocks</span>
-                            <span className="text-[9px] transition-transform group-open/crimes:rotate-180">
-                              &#9660;
-                            </span>
-                          </summary>
-
-                          <ol className="mt-3 space-y-3 border-l border-line/60 pl-3">
-                            {file.crimes.map((crime) => (
-                              <li key={crime.id}>
-                                <div className="flex flex-wrap items-baseline gap-x-2 gap-y-1">
-                                  <span className="font-mono text-[10px] uppercase tracking-[0.12em] text-ink-faint">
-                                    Case {crime.caseIndex}
-                                  </span>
-                                  <span
-                                    className={cn(
-                                      "shrink-0 rounded border px-1.5 py-0.5 font-mono text-[10px] uppercase tracking-wide",
-                                      crimeStyle(crime.crimeSlug).card
-                                    )}
-                                    title={`Filed under ${crimeGroupLabel(crime.crimeSlug)}`}
-                                  >
-                                    {crime.crimeType}
-                                  </span>
-                                </div>
-
-                                <CrimeFieldGrid crime={crime} />
-                                {crime.description && (
-                                  <CaseSummarySpoiler description={crime.description} />
-                                )}
-                              </li>
-                            ))}
-                          </ol>
-                        </details>
-                      </>
-                    ) : file.crimes.length === 1 ? (
-                      <>
-                        <CrimeFieldGrid crime={primary} />
-                        {primary.description && (
-                          <CaseSummarySpoiler description={primary.description} />
-                        )}
-                      </>
-                    ) : (
-                      <p className="mt-2 text-xs text-ink-faint italic">
-                        No crime data available for this entry.
-                      </p>
-                    )}
-
-                    <div className="mt-3 flex flex-wrap items-center gap-4">
-                      {trackerHref && (
-                        <Link
-                          href={trackerHref}
-                          className="font-mono text-[10px] text-accent-bright underline decoration-dotted transition-colors hover:text-accent"
-                        >
-                          {episodeNumber !== null
-                            ? `open episode ${episodeNumber} in tracker →`
-                            : "open in tracker →"}
-                        </Link>
-                      )}
-                      {file.pageTitle && file.pageTitle !== "Unknown" && (
-                        <a
-                          href={dcwPageUrl(file.pageTitle)}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="inline-flex items-center gap-1 font-mono text-[10px] text-ink-faint underline decoration-dotted transition-colors hover:text-ink-dim"
-                        >
-                          read on DCW
-                          <ExternalLink className="h-3 w-3" />
-                        </a>
-                      )}
-                    </div>
-                  </div>
-                </li>
-              )
-            })}
-          </ol>
+          <div className="mt-6 space-y-8">
+            {caseSections.map((section, sectionIndex) => (
+              <section
+                key={section.type || "other"}
+                aria-labelledby={`sec-${section.type}`}
+              >
+                {/* Always labelled: the section name is the answer to "what am
+                    I looking at", and page 1 of an unfiltered archive is all
+                    Episodes, so hiding the lone heading would leave the reader
+                    with an unlabelled list. */}
+                <div className="flex items-baseline justify-between gap-3 border-b border-ink pb-1.5">
+                  <h2
+                    id={`sec-${section.type}`}
+                    className="font-mono text-[10px] uppercase tracking-[0.14em] text-ink"
+                  >
+                    {section.label}
+                  </h2>
+                  <span className="font-mono text-[10px] tabular-nums text-ink-faint">
+                    {/* Count and page position sit with the results they
+                        describe, not inside the filter controls. */}
+                    {sectionIndex === 0 ? resultSummary : `${section.files.length} files`}
+                  </span>
+                </div>
+                <ol className="border-t border-line">
+                  {section.files.map((file) => (
+                    <CaseFileRow key={file.pageTitle} file={file} />
+                  ))}
+                </ol>
+              </section>
+            ))}
+          </div>
         )}
 
         {/* ── Pagination ── */}
@@ -862,62 +757,3 @@ export default async function CasesPage({
 
 /* ──────────────────────── Small server-rendered helpers ──────────────────────── */
 
-function Stat({ label, value }: { label: string; value: number }) {
-  return (
-    <div>
-      <dt className="font-mono text-[10px] uppercase tracking-[0.12em] text-ink-faint">{label}</dt>
-      <dd className="font-display text-2xl tabular-nums text-ink">{value.toLocaleString()}</dd>
-    </div>
-  )
-}
-
-function Field({
-  label,
-  value,
-  icon,
-}: {
-  label: string
-  value: string
-  icon?: React.ReactNode
-}) {
-  return (
-    <div className="min-w-0 break-words">
-      <dt className="flex items-center gap-1 font-mono text-[10px] uppercase tracking-wide text-ink-faint">
-        {icon}
-        {label}
-      </dt>
-      <dd className="mt-0.5 text-[13px] text-ink">{value}</dd>
-    </div>
-  )
-}
-
-function CrimeFieldGrid({ crime }: { crime: CaseCrime }) {
-  return (
-    <dl className="mt-2.5 grid grid-cols-1 gap-x-8 gap-y-1.5 sm:grid-cols-2 lg:grid-cols-3">
-      {crime.victim && <Field label={crime.victimLabel ?? "Victim"} value={crime.victim} />}
-      {crime.causeDeath && (
-        <Field label={crime.causeDeathLabel ?? "Cause of death"} value={crime.causeDeath} />
-      )}
-      {crime.location && (
-        <Field label="Location" value={crime.location} icon={<MapPin className="h-3 w-3" />} />
-      )}
-      {crime.suspects && (
-        <Field label={crime.suspectsLabel ?? "Suspects"} value={crime.suspects} />
-      )}
-    </dl>
-  )
-}
-
-function CaseSummarySpoiler({ description }: { description: string }) {
-  return (
-    <details className="group/spoiler mt-3">
-      <summary className="inline-flex cursor-pointer list-none items-center gap-1.5 rounded-md border border-line bg-surface-muted px-2 py-1 font-mono text-[10px] text-ink-dim transition-colors hover:text-ink focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-accent/40 [&::-webkit-details-marker]:hidden">
-        <span className="group-open/spoiler:hidden">Unseal case summary (spoilers)</span>
-        <span className="hidden group-open/spoiler:inline">Reseal summary</span>
-      </summary>
-      <p className="mt-2 select-none text-sm leading-relaxed text-ink-dim blur-sm transition-[filter] duration-200 group-open/spoiler:select-text group-open/spoiler:blur-none">
-        {description}
-      </p>
-    </details>
-  )
-}
