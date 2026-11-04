@@ -201,50 +201,73 @@ export function MotivationStats({ entries, userStatuses, userWatchCounts, userNa
   const nextMilestone = [25, 50, 75, 100].find((m) => personal.percent < m) ?? null
   const toMilestone = nextMilestone !== null ? nextMilestone - personal.percent : 0
 
+  // Four tiles, not five. A 2x2 grid holds exactly four; a fifth ("Years") sat
+  // alone on a third row with an empty half-cell beside it, which read as a
+  // broken grid. The span goes on its own full-width strip below instead —
+  // it describes the whole series rather than being one more thing to count.
   const seriesTiles = [
     { label: "Episodes", value: series.episodes.toLocaleString(), icon: BookOpen },
     { label: "Movies", value: series.movies.toLocaleString(), icon: Film },
     { label: "Total", value: series.total.toLocaleString(), icon: Target },
     { label: "Runtime", value: formatHours(series.totalMinutes), icon: Flame },
-    { label: "Years", value: String(series.years), icon: CalendarClock },
   ]
 
   return (
-    <div className="grid gap-6 md:grid-cols-3">
+    <div className="grid gap-6 md:grid-cols-3 md:items-stretch">
       {/* ── Series Totals (static) ── */}
-      <div className="bg-surface border border-ink-dim/20 rounded-lg p-6 shadow-card md:col-span-1">
+      <div className="flex flex-col bg-surface border border-ink-dim/20 rounded-lg p-6 shadow-card md:col-span-1">
         <h3 className="font-display text-sm tracking-tight text-ink mb-4 flex items-center gap-2">
           <span className="h-1.5 w-1.5 rounded-full bg-accent" />
           Series Totals
         </h3>
-        <div className="grid grid-cols-2 gap-3">
+        {/* Every tile is the same height and every value sits on the same
+            baseline: the icon row and the label row are fixed-height, so a wide
+            value like "644h 40m" cannot push its label down and break the grid.
+            Short values are centred in the same box as long ones. */}
+        <div className="grid flex-1 auto-rows-fr grid-cols-2 content-center gap-3">
           {seriesTiles.map((tile, i) => (
             <div
               key={tile.label}
-              className="text-center p-3 bg-surface-muted rounded-lg animate-dcph-rise"
+              className="flex flex-col items-center justify-center bg-surface-muted px-2 py-3 rounded-lg text-center animate-dcph-rise"
               style={{ animationDelay: `${100 + i * 80}ms` }}
             >
-              <tile.icon className="h-4 w-4 text-accent mx-auto mb-1" />
-              <div className="font-display text-lg text-ink leading-tight">{tile.value}</div>
-              <div className="font-mono text-[9px] text-ink-faint">
+              <tile.icon className="h-4 w-4 shrink-0 text-accent mb-1.5" />
+              <div className="font-display text-lg text-ink leading-none tabular-nums whitespace-nowrap">
+                {tile.value}
+              </div>
+              <div className="mt-1 font-mono text-[9px] uppercase tracking-[0.1em] text-ink-faint">
                 {tile.label}
               </div>
             </div>
           ))}
         </div>
-        <p className="mt-4 text-[11px] text-ink-dim leading-relaxed">
+        {/* The span of the series, stated once across the full card width. The
+            content is centred, not left-aligned: it is a single statement in a
+            full-width box, and hugging the left edge left the right half empty. */}
+        <div className="mt-3 flex items-center justify-center gap-2 rounded-lg bg-surface-muted px-3 py-2">
+          <CalendarClock className="h-3.5 w-3.5 shrink-0 text-accent" />
+          <span className="font-display text-sm text-ink">{series.years} years</span>
+          <span className="font-mono text-[9px] uppercase tracking-[0.12em] text-ink-faint">
+            on air
+          </span>
+        </div>
+        <p className="mt-3 text-center text-[11px] text-ink-dim leading-relaxed">
           The truth is out there, one episode at a time.
         </p>
       </div>
 
       {/* ── Personal Progress ── */}
-      <div className="bg-surface border border-ink-dim/20 rounded-lg p-6 shadow-card md:col-span-1">
+      <div className="flex flex-col bg-surface border border-ink-dim/20 rounded-lg p-6 shadow-card md:col-span-1">
         <h3 className="font-display text-sm tracking-tight text-ink mb-4 flex items-center gap-2">
           <span className="h-1.5 w-1.5 rounded-full bg-accent" />
           Your Progress
         </h3>
         {!hasUser ? (
-          <div className="py-8 text-center">
+          <div className="flex flex-1 flex-col items-center justify-center py-8 text-center">
+            {/* The Finish Line card beside this one leads with a large icon;
+               a text-only block here made the two empty states look like
+               different components. Same icon size, same stack. */}
+            <Target className="h-8 w-8 text-ink-faint mx-auto mb-2" />
             <p className="font-display text-sm text-ink-faint mb-1">
               Sign in to track
             </p>
@@ -253,7 +276,7 @@ export function MotivationStats({ entries, userStatuses, userWatchCounts, userNa
             </p>
           </div>
         ) : (
-          <>
+          <div className="flex flex-1 flex-col justify-center">
             <div className="flex items-center gap-4 mb-4">
               <div className="font-display text-4xl text-ink">{personal.percent}%</div>
               <div className="flex-1 space-y-1">
@@ -297,18 +320,18 @@ export function MotivationStats({ entries, userStatuses, userWatchCounts, userNa
                 )
               })}
             </div>
-          </>
+          </div>
         )}
       </div>
 
       {/* ── Finish Projection ── */}
-      <div className="bg-surface border border-ink-dim/20 rounded-lg p-6 shadow-card md:col-span-1">
+      <div className="flex flex-col bg-surface border border-ink-dim/20 rounded-lg p-6 shadow-card md:col-span-1">
         <h3 className="font-display text-sm tracking-tight text-ink mb-4 flex items-center gap-2">
           <span className="h-1.5 w-1.5 rounded-full bg-accent" />
           Finish Line
         </h3>
         {!hasUser ? (
-          <div className="py-8 text-center">
+          <div className="flex flex-1 flex-col items-center justify-center py-8 text-center">
             <CalendarClock className="h-8 w-8 text-ink-faint mx-auto mb-2" />
             <p className="font-display text-sm text-ink-faint mb-1">
               No projection yet
@@ -318,7 +341,7 @@ export function MotivationStats({ entries, userStatuses, userWatchCounts, userNa
             </p>
           </div>
         ) : finishDate ? (
-          <>
+          <div className="flex flex-1 flex-col justify-center">
             <div className="text-center py-3">
               <div className="flex items-center justify-center gap-1.5 mb-1.5">
                 <label
@@ -356,9 +379,9 @@ export function MotivationStats({ entries, userStatuses, userWatchCounts, userNa
                 </p>
               </div>
             )}
-          </>
+          </div>
         ) : (
-          <div className="py-8 text-center">
+          <div className="flex flex-1 flex-col items-center justify-center py-8 text-center">
             <p className="font-display text-sm text-ink mb-1">
               All caught up!
             </p>

@@ -76,3 +76,21 @@ task5-*.png
 *.xlsx
 tracker-t5-snapshot.yml
 
+# local QA scratch: the CDP screenshot driver, step scripts, the dev-server log
+# and every raw capture. Nothing here is a source file, and 100+ PNGs would
+# otherwise land in the next `git add -A`.
+/.perch/
+
+# QA screenshots. Every capture folder is reviewed by a human once and then dies
+# with the browser session, so none of it belongs in version control — these are
+# 100+ PNGs per feature and they only ever bloat a clone. The written record of
+# what was checked stays in docs/qa/**/README.md, which is NOT ignored.
+/.perch
+/docs/**/*.png
+/docs/**/*.jpg
+/docs/**/*.jpeg
+/docs/**/*.webp
+# stray Windows-absolute paths that some tooling creates inside the repo root
+/C:/
+*.pdb
+

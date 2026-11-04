@@ -1,38 +1,36 @@
 "use client"
 
-import { useState, useMemo, useEffect, useRef, useCallback } from "react"
+import { useState, useMemo, useEffect, useRef } from "react"
 import Image from "next/image"
 import {
-  Search,
+  BookOpen,
+  Bookmark,
   Check,
-  Play,
-  ChevronDown,
   ChevronLeft,
   ChevronRight,
-  Info,
-  Users,
-  BookOpen,
-  Film,
-  Bookmark,
-  Video,
-  Clapperboard,
-  Sparkles,
   CircleDot,
+  Clapperboard,
   Coffee,
+  Film,
+  Info,
+  Sparkles,
   Swords,
-  ArrowDownToLine,
+  Users,
+  Video,
+  Search as SearchIcon,
 } from "lucide-react"
-import { cn } from "@/lib/utils"
+import { cn, formatHours, padNumber } from "@/lib/utils"
 import {
   CONTENT_TYPE_LABELS,
-  VIEW_MODE_OPTIONS,
-  WATCH_STATUS_LABELS,
   type ContentType,
   type ViewMode,
   type WatchStatus,
 } from "@/lib/constants"
-import type { Database } from "@/types/database.types"
-import { ContentCard } from "@/components/tracker/ContentCard"
+import { TrackerRow } from "@/components/tracker/TrackerRow"
+import { TrackerToolbar } from "@/components/tracker/TrackerToolbar"
+import { TrackerSection } from "@/components/tracker/TrackerSection"
+import { Rail } from "@/components/tracker/Rail"
+import { PosterCard } from "@/components/tracker/PosterCard"
 import {
   Select,
   SelectContent,
@@ -40,18 +38,65 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select"
-import { SUBCATEGORY_CONFIGS } from "@/lib/subcategories"
-import {
-  CANON_GUIDE_SOURCE,
-  canonTypeForEpisode,
-  type CanonType,
-} from "@/lib/canon-guide"
+import { CANON_GUIDE_SOURCE } from "@/lib/canon-guide"
 import { resolveWatchOrder } from "@/lib/watch-order"
 import { isNonMainlineMovie, MAINLINE_MOVIES } from "@/lib/movies-guide"
+import {
+  buildEpisodeTags,
+  canonTagOf,
+  collectTagFacets,
+  type CrimeTagMap,
+  type EpisodeTag,
+} from "@/lib/episode-tags"
+import {
+  buildSections,
+  buildTypeTabs,
+  canonSectionBucket,
+  CANON_SECTION_LABELS,
+  CANON_SECTION_ORDER,
+  countRewatchableUpTo,
+  countUnwatchedUpTo,
+  DEFAULT_TYPE,
+  entryNumber,
+  isWatched,
+  jumpList,
+  jumpSectionKey,
+  matchesStatus,
+  matchesTag,
+  pageForEntry,
+  PAGE_SIZE,
+  type CanonBucket,
+  type ContentEntry,
+  type StatusFilter,
+  type TrackerSection as TrackerSectionData,
+} from "@/lib/tracker-view"
 
-type ContentEntry = Database["public"]["Tables"]["content_entries"]["Row"]
+/** Icon per content type, for section headers and the rail's context. */
+const TYPE_ICONS: Record<ContentType, React.ComponentType<{ className?: string }>> = {
+  episode: BookOpen,
+  movie: Film,
+  special: Bookmark,
+  ova: Video,
+  live_action: Clapperboard,
+  magic_kaito: Sparkles,
+  hanzawa: CircleDot,
+  zero_tea_time: Coffee,
+  yaiba: Swords,
+}
 
-export type StatusFilter = "all" | WatchStatus
+/** Canon Guide legend swatches — the same fills the chips use. */
+const CANON_SECTION_SWATCHES: Record<CanonBucket, string> = {
+  manga_canon: "bg-accent-soft border-accent/40",
+  anime_canon: "bg-surface border-accent ring-1 ring-accent",
+  filler: "bg-surface-muted border-line",
+  unclassified: "bg-transparent border-line border-dashed",
+}
+
+/**
+ * Search matches one row each, and a two-letter query can match most of the
+ * catalog. Cap the list; the count line still reports every match.
+ */
+const SEARCH_RENDER_LIMIT = 60
 
 interface ContentGridProps {
   entries: ContentEntry[]
@@ -67,6 +112,8 @@ interface ContentGridProps {
   ratings?: Map<string, number>
   onSetRating?: (contentId: string, rating: number) => void
   onMarkAll?: (ids: string[], status: WatchStatus) => void
+  /** Bulk rewatch: bumps every id by one. Same write as the row's rewatch button. */
+  onRewatchAll?: (ids: string[]) => void
   /**
    * Initial values for the view mode / filters. The tracker page resolves these
    * from the URL params first (?mode=… deep links), then falls back to the
@@ -76,114 +123,23 @@ interface ContentGridProps {
   initialMode?: ViewMode
   initialStatusFilter?: StatusFilter
   initialSearch?: string
-  initialType?: ContentType | "all"
+  initialType?: ContentType
   initialPage?: number
   /** Notify the parent of changes so it can persist state in the URL. */
   onModeChange?: (mode: ViewMode) => void
   onStatusFilterChange?: (filter: StatusFilter) => void
   onSearchChange?: (query: string) => void
-  onTypeChange?: (type: ContentType | "all") => void
+  onTypeChange?: (type: ContentType) => void
   onPageChange?: (type: string, page: number) => void
   /** When set to an episode number, the grid jumps to that episode and calls onJumped. */
   jumpTarget?: number | null
   onJumped?: () => void
   /** arc_id -> { slug, title } lookup for episode arc badges. */
   arcMap?: Map<string, { slug: string; title: string }> | null
+  /** content id -> crime slugs (dcw_cases_view), for crime tags. */
+  crimeByContentId?: CrimeTagMap | null
   /** Optional: intercept card title clicks (e.g. open a detail modal instead of navigating). */
   onSelect?: (entry: ContentEntry) => void
-}
-
-/** Order + presentation metadata for each content-type section. */
-const SECTION_ORDER: {
-  type: ContentType
-  icon: React.ComponentType<{ className?: string }>
-}[] = [
-  { type: "episode", icon: BookOpen },
-  { type: "movie", icon: Film },
-  { type: "special", icon: Bookmark },
-  { type: "ova", icon: Video },
-  { type: "live_action", icon: Clapperboard },
-  { type: "magic_kaito", icon: Sparkles },
-  { type: "hanzawa", icon: CircleDot },
-  { type: "zero_tea_time", icon: Coffee },
-  { type: "yaiba", icon: Swords },
-]
-
-/**
- * Canon Guide grouping. Manga Canon and Anime Canon sit adjacent because both
- * are "don't skip"; Filler follows. Unclassified only ever renders if the
- * tracker contains an episode the source guide doesn't cover yet.
- */
-type CanonBucket = CanonType | "unclassified"
-
-/**
- * Rendered buckets. "anime_canon" is deliberately absent: episode 1187 is the
- * lone anime-canon entry and reads as an orphan section, so canonSectionBucket()
- * folds it into the canon group. Re-add it here to split it back out.
- */
-const CANON_SECTION_ORDER: readonly CanonBucket[] = ["manga_canon", "filler", "unclassified"]
-
-/** Presentation labels — the data-layer names live in lib/canon-guide.ts. */
-const CANON_SECTION_LABELS: Record<CanonBucket, string> = {
-  manga_canon: "Canon Episodes",
-  anime_canon: "Anime Canon",
-  filler: "Filler Episodes",
-  unclassified: "Unclassified",
-}
-
-const CANON_SECTION_ICONS: Record<
-  CanonBucket,
-  React.ComponentType<{ className?: string }>
-> = {
-  manga_canon: BookOpen,
-  anime_canon: Bookmark,
-  filler: Sparkles,
-  unclassified: CircleDot,
-}
-
-const CANON_SECTION_SWATCHES: Record<CanonBucket, string> = {
-  manga_canon: "bg-accent-soft border-accent/40",
-  anime_canon: "bg-surface border-accent ring-1 ring-accent",
-  filler: "bg-surface-muted border-line",
-  unclassified: "bg-transparent border-line border-dashed",
-}
-
-/**
- * Which rendered section an episode belongs to. Anime canon is story-relevant,
- * so it groups with manga canon rather than standing alone.
- */
-function canonSectionBucket(episodeNumber: number | null | undefined): CanonBucket {
-  const type = canonTypeForEpisode(episodeNumber)
-  if (type === "manga_canon" || type === "anime_canon") return "manga_canon"
-  if (type === "filler") return "filler"
-  return "unclassified"
-}
-
-/** Section key for the single Full Watch Order section. */
-const WATCH_ORDER_KEY = "watch-order"
-
-/**
- * Search matches mount a card each, and a two-letter query can match most of the
- * catalog. Cap the grid; the count line still reports every match.
- */
-const SEARCH_RENDER_LIMIT = 60
-
-function getNumber(entry: ContentEntry): number {
-  if (entry.type === "movie") return entry.movie_number ?? entry.release_order ?? 0
-  if (entry.type === "episode") return entry.episode_number ?? 0
-  return entry.release_order ?? 0
-}
-
-type SectionData = {
-  key: string
-  type: ContentType
-  title: string
-  icon: React.ComponentType<{ className?: string }>
-  entries: ContentEntry[]
-  watched: number
-  total: number
-  subcats?: { key: string; label: string; count: number }[]
-  activeSubcat?: string
 }
 
 export function ContentGrid({
@@ -197,10 +153,11 @@ export function ContentGrid({
   ratings,
   onSetRating,
   onMarkAll,
+  onRewatchAll,
   initialMode = "year",
   initialStatusFilter = "all",
   initialSearch = "",
-  initialType = "all",
+  initialType = DEFAULT_TYPE,
   initialPage,
   onModeChange,
   onStatusFilterChange,
@@ -210,31 +167,59 @@ export function ContentGrid({
   jumpTarget,
   onJumped,
   arcMap,
+  crimeByContentId,
   onSelect,
 }: ContentGridProps) {
   const [search, setSearch] = useState(initialSearch)
-  const [typeFilter, setTypeFilter] = useState<ContentType | "all">(initialType)
+  const [typeFilter, setTypeFilter] = useState<ContentType>(initialType)
   const [mode, setMode] = useState<ViewMode>(initialMode)
   const [statusFilter, setStatusFilter] = useState<StatusFilter>(initialStatusFilter)
   const [expandedType, setExpandedType] = useState<string | null>(null)
   const [pages, setPages] = useState<Record<string, number>>({})
   const [subcat, setSubcat] = useState<Record<string, string>>({})
-  const [jumpInput, setJumpInput] = useState("")
-  const [jumpError, setJumpError] = useState<string | null>(null)
-  const [markInput, setMarkInput] = useState("")
-  const [markError, setMarkError] = useState<string | null>(null)
+  const [activeTag, setActiveTag] = useState<string | null>(null)
   const [flashId, setFlashId] = useState<string | null>(null)
-  const didInit = useRef(false)
   const flashTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
-  const PAGE_SIZE = 30
+
+  /**
+   * Tags for every entry, computed once per catalog load.
+   *
+   * buildEpisodeTags is cheap but not free (it scans STORY_ARCS and sorts), and
+   * a page renders 30 rows — computing per row would repeat that work on every
+   * status toggle. One Map keyed by content id keeps the row component a pure
+   * lookup.
+   */
+  const tagsByContentId = useMemo(() => {
+    const map = new Map<string, EpisodeTag[]>()
+    for (const entry of entries) {
+      map.set(entry.id, buildEpisodeTags(entry, { arcMap, crimeByContentId }))
+    }
+    return map
+  }, [entries, arcMap, crimeByContentId])
+
+  /**
+   * Filterable tags, with a count each.
+   *
+   * minCount 3 keeps the filter honest: a chip on one or two episodes is not a
+   * useful way to narrow 1,200 rows, and offering it would make the filter list
+   * long enough to be unusable.
+   */
+  const tagFacets = useMemo(
+    () => collectTagFacets(entries, { arcMap, crimeByContentId, minCount: 3 }),
+    [entries, arcMap, crimeByContentId]
+  )
 
   // Highest episode number that actually exists in the tracker, so the
-  // "jump to" / "mark up to" UI never caps at a stale hardcoded ceiling.
+  // jump / bulk-mark controls never cap at a stale hardcoded ceiling.
   const maxEpisode = useMemo(() => {
     let max = 1209
-    for (const e of entries) {
-      if (e.type === "episode" && typeof e.episode_number === "number" && e.episode_number > max) {
-        max = e.episode_number
+    for (const entry of entries) {
+      if (
+        entry.type === "episode" &&
+        typeof entry.episode_number === "number" &&
+        entry.episode_number > max
+      ) {
+        max = entry.episode_number
       }
     }
     return max
@@ -246,11 +231,11 @@ export function ContentGrid({
     const items = resolveWatchOrder(entries)
     const indexById = new Map<string, number>()
     for (const item of items) indexById.set(item.entry.id, item.position)
-    return { items, indexById }
+    return { items, entries: items.map((item) => item.entry), indexById }
   }, [entries])
 
   // Canon tallies over every episode row, independent of the status filter, so
-  // the summary line reads as a fact about the series rather than the view.
+  // the legend reads as a fact about the series rather than the view.
   const canonCounts = useMemo(() => {
     const counts: Record<CanonBucket, number> = {
       manga_canon: 0,
@@ -258,12 +243,58 @@ export function ContentGrid({
       filler: 0,
       unclassified: 0,
     }
-    for (const e of entries) {
-      if (e.type !== "episode" || typeof e.episode_number !== "number") continue
-      counts[canonSectionBucket(e.episode_number)] += 1
+    for (const entry of entries) {
+      if (entry.type !== "episode" || typeof entry.episode_number !== "number") continue
+      counts[canonSectionBucket(entry.episode_number)] += 1
     }
     return counts
   }, [entries])
+
+  const tabs = useMemo(() => buildTypeTabs(entries, userStatuses), [entries, userStatuses])
+
+  const sections = useMemo(
+    () =>
+      buildSections({
+        entries,
+        mode,
+        type: typeFilter,
+        status: statusFilter,
+        activeTag,
+        statuses: userStatuses,
+        tagsByContentId,
+        watchOrder: watchOrder.entries,
+        subcat,
+      }),
+    [
+      entries,
+      mode,
+      typeFilter,
+      statusFilter,
+      activeTag,
+      userStatuses,
+      tagsByContentId,
+      watchOrder,
+      subcat,
+    ]
+  )
+
+  // Sections are built for every category; the rail decides which one renders.
+  const visibleSections: TrackerSectionData[] =
+    mode === "order" ? sections : sections.filter((section) => section.type === typeFilter)
+
+  const firstVisibleKey = visibleSections[0]?.key ?? null
+
+  // Keep exactly one section open, and keep it open as the data arrives: the
+  // sections can be built a tick after the mode/type effects run, so keying
+  // this only on [mode, typeFilter] left the list collapsed on a cold load.
+  useEffect(() => {
+    setExpandedType((current) =>
+      current && visibleSections.some((section) => section.key === current)
+        ? current
+        : firstVisibleKey
+    )
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [mode, typeFilter, firstVisibleKey])
 
   function setPage(key: string, page: number) {
     setPages((prev) => ({ ...prev, [key]: page }))
@@ -282,549 +313,295 @@ export function ContentGrid({
   useEffect(() => setStatusFilter(initialStatusFilter), [initialStatusFilter])
   useEffect(() => {
     if (initialPage === undefined) return
-    const key =
-      typeFilter !== "all"
-        ? sections.find((s) => s.type === typeFilter)?.key
-        : mode === "chronological"
-          ? "episode"
-          : null
+    const key = sections.find((section) => section.type === typeFilter)?.key
     if (key) setPages((prev) => ({ ...prev, [key]: initialPage }))
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [initialPage, typeFilter, mode])
 
-  function matchesStatus(entry: ContentEntry): boolean {
-    if (statusFilter === "all") return true
-    const s = userStatuses?.get(entry.id)
-    if (statusFilter === "unwatched") return !s || s === "unwatched"
-    if (statusFilter === "watched") return s === "watched" || s === "rewatched"
-    return s === statusFilter
+  /** Watched OR rewatched both count as "has been seen". */
+  const seen = (entry: ContentEntry) => isWatched(userStatuses?.get(entry.id))
+
+  function changeType(next: ContentType) {
+    setTypeFilter(next)
+    onTypeChange?.(next)
   }
 
-  /** Watched OR rewatched both count as "has been seen". */
-  function isWatched(entry: ContentEntry): boolean {
-    const s = userStatuses?.get(entry.id)
-    return s === "watched" || s === "rewatched"
+  function changeStatus(next: StatusFilter) {
+    setStatusFilter(next)
+    onStatusFilterChange?.(next)
+  }
+
+  function changeMode(next: ViewMode) {
+    setMode(next)
+    onModeChange?.(next)
   }
 
   // Same footing as the Your Progress tile: crossovers, TV specials and the
   // manner short are catalog rows but not mainline films, and counting them made
   // this header say 34 movies while the tile said 29.
-  const mainlineEntries = entries.filter((e) => !isNonMainlineMovie(e))
-  const totalYears = new Set(mainlineEntries.map((e) => e.air_date?.slice(0, 4))).size
-  const totalEpisodes = mainlineEntries.filter((e) => e.type === "episode").length
+  const mainlineEntries = entries.filter((entry) => !isNonMainlineMovie(entry))
+  const totalYears = new Set(mainlineEntries.map((entry) => entry.air_date?.slice(0, 4))).size
+  const totalEpisodes = mainlineEntries.filter((entry) => entry.type === "episode").length
   const totalMovies = MAINLINE_MOVIES.length
-  const overallWatched = mainlineEntries.filter(isWatched).length
+  const overallWatched = mainlineEntries.filter(seen).length
   const overallPercent =
     mainlineEntries.length > 0
       ? Math.min(100, Math.round((overallWatched / mainlineEntries.length) * 100))
       : 0
 
-  // Sections grouped by content type. Episodes are grouped by air-date year in
-  // "year" mode, or sorted by canon_order in "chronological" mode.
-  const sections = useMemo(() => {
-    // Full Watch Order: one section holding the whole franchise in viewing
-    // order. Reuses the accordion, image cards, pagination and progress bar
-    // unchanged — only the ordering and the ordinal chips are new.
-    if (mode === "order") {
-      const list = watchOrder.items.map((item) => item.entry).filter(matchesStatus)
-      if (list.length === 0) return []
-      const orderSections: SectionData[] = [
-        {
-          key: WATCH_ORDER_KEY,
-          type: "episode",
-          title: "Full Watch Order",
-          icon: Play,
-          entries: list,
-          watched: list.filter(isWatched).length,
-          total: list.length,
-        },
-      ]
-      return orderSections
-    }
+  // Rails read the whole catalogue, not the active filter: a rail that empties
+  // because a tag filter is on would strand the reader on a blank row.
+  const railContinue = useMemo(
+    () =>
+      entries
+        .filter((entry) => entry.type === "episode" && !isWatched(userStatuses?.get(entry.id)))
+        .sort((a, b) => (a.episode_number ?? 0) - (b.episode_number ?? 0))
+        .slice(0, 14),
+    [entries, userStatuses]
+  )
 
-    const episodeFiltered = entries.filter((e) => e.type === "episode" && matchesStatus(e))
-    const episodeSections: SectionData[] = []
-
-    if (mode === "chronological") {
-      const list = [...episodeFiltered].sort((a, b) => (a.canon_order ?? 0) - (b.canon_order ?? 0))
-      episodeSections.push({
-        key: "episode",
-        type: "episode",
-        title: CONTENT_TYPE_LABELS.episode,
-        icon: BookOpen,
-        entries: list,
-        watched: list.filter(isWatched).length,
-        total: list.length,
-      })
-    } else if (mode === "canon") {
-      // Same accordion + image cards as By Year — grouped by canon type
-      // instead of air-date year.
-      const sorted = [...episodeFiltered].sort(
-        (a, b) => (a.episode_number ?? 0) - (b.episode_number ?? 0)
-      )
-      const buckets = new Map<CanonBucket, ContentEntry[]>()
-      for (const e of sorted) {
-        const bucket = canonSectionBucket(e.episode_number)
-        const list = buckets.get(bucket)
-        if (list) list.push(e)
-        else buckets.set(bucket, [e])
-      }
-      for (const bucket of CANON_SECTION_ORDER) {
-        const list = buckets.get(bucket)
-        if (!list || list.length === 0) continue
-        episodeSections.push({
-          key: `canon-${bucket}`,
-          type: "episode",
-          title: CANON_SECTION_LABELS[bucket],
-          icon: CANON_SECTION_ICONS[bucket],
-          entries: list,
-          watched: list.filter(isWatched).length,
-          total: list.length,
-        })
-      }
-    } else {
-      const byYear = new Map<string, ContentEntry[]>()
-      for (const e of episodeFiltered) {
-        const year = e.air_date?.slice(0, 4) ?? "Unknown"
-        const bucket = byYear.get(year)
-        if (bucket) bucket.push(e)
-        else byYear.set(year, [e])
-      }
-      for (const [year, list] of [...byYear.entries()].sort((a, b) => a[0].localeCompare(b[0]))) {
-        const sorted = list.sort((a, b) => (a.episode_number ?? 0) - (b.episode_number ?? 0))
-        episodeSections.push({
-          key: `year-${year}`,
-          type: "episode",
-          title: year,
-          icon: BookOpen,
-          entries: sorted,
-          watched: sorted.filter(isWatched).length,
-          total: sorted.length,
-        })
-      }
-    }
-
-    const otherSections = SECTION_ORDER.filter((s) => s.type !== "episode")
-      .map((s) => {
-        const base = entries
-          .filter((e) => e.type === s.type && matchesStatus(e))
-          .sort((a, b) => getNumber(a) - getNumber(b))
-        const config = SUBCATEGORY_CONFIGS[s.type]
-        let list = base
-        let activeSubcat: string | undefined
-        let subcats: { key: string; label: string; count: number }[] | undefined
-        if (config) {
-          activeSubcat = subcat[s.type] ?? config.defaultKey
-          subcats = config.groups
-            .map((g) => ({
-              key: g.key,
-              label: g.label,
-              count: base.filter((e) => g.match(e)).length,
-            }))
-            .filter((g) => g.count > 0)
-          const activeGroup = config.groups.find((g) => g.key === activeSubcat)
-          if (activeGroup) list = base.filter((e) => activeGroup.match(e))
-        }
-        return {
-          key: s.type,
-          type: s.type,
-          title: CONTENT_TYPE_LABELS[s.type],
-          icon: s.icon,
-          entries: list,
-          watched: list.filter(isWatched).length,
-          total: list.length,
-          subcats,
-          activeSubcat,
-        }
-      })
-      .filter((s) => s.total > 0)
-
-    return [...episodeSections, ...otherSections].filter((s) => s.total > 0)
-  }, [entries, userStatuses, mode, statusFilter, subcat])
-
-  // Full Watch Order is a single section whose SectionData.type is always
-  // "episode"; section-level type filtering would hide it outright.
-  const visibleSections =
-    typeFilter === "all" || mode === "order"
-      ? sections
-      : sections.filter((s) => s.type === typeFilter)
-
-  // Open the first section by default, only once on initial load
-  useEffect(() => {
-    if (!didInit.current && sections.length > 0) {
-      didInit.current = true
-      setExpandedType(sections[0].key)
-    }
-  }, [sections])
-
-  // Guide modes rebuild the section keys from scratch, so the previously open
-  // key no longer exists — open the first section instead of showing a fully
-  // collapsed accordion. Keyed on `mode` only: re-running on every `sections`
-  // change would re-open a section the user just collapsed.
-  useEffect(() => {
-    if (mode === "canon" || mode === "order") setExpandedType(sections[0]?.key ?? null)
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [mode])
-
-  // Selecting a single type filter opens that section
-  useEffect(() => {
-    if (mode === "order") return
-    if (typeFilter !== "all") {
-      const first = sections.find((s) => s.type === typeFilter)
-      setExpandedType(first?.key ?? typeFilter)
-    }
-  }, [typeFilter, sections, mode])
-
-  // Continue tracking: first few unwatched episodes in order
-  const continueTracking = useMemo(() => {
-    return entries
-      .filter((e) => e.type === "episode" && matchesStatus(e) && !isWatched(e))
-      .sort((a, b) => (a.episode_number ?? 0) - (b.episode_number ?? 0))
-      .slice(0, 12)
-  }, [entries, userStatuses, statusFilter])
-
-  // Search results (search overrides sections)
+  // Search is deliberately catalogue-wide, not scoped to the selected category:
+  // the query box is the one control that should answer "where is this thing?"
+  // without the reader first guessing which tab it lives under.
   const searchResults = useMemo(() => {
     if (!search.trim()) return null
-    const q = search.toLowerCase()
-    const trimmed = q.trim()
-    const isNumericQuery = /^\d+$/.test(trimmed)
-    const qNum = Number(trimmed)
+    const query = search.trim().toLowerCase()
+    const isNumericQuery = /^\d+$/.test(query)
+    const numericQuery = Number(query)
     return entries
-      .filter((e) => {
-        if (!matchesStatus(e)) return false
-        const titleHit = e.title.toLowerCase().includes(q)
-        const synopsisHit = (e.synopsis ?? "").toLowerCase().includes(q)
-        // Numeric fields so "50" finds episode 50 (whose title has no "50")
-        const numberHit = [e.episode_number, e.movie_number, e.release_order]
-          .filter((n): n is number => typeof n === "number")
-          .some((n) => String(n).includes(q))
-        // Exact number match (e.g. "28" → movie 28)
-        const exactNumberHit = isNumericQuery && getNumber(e) === qNum
+      .filter((entry) => {
+        if (!matchesStatus(entry, statusFilter, userStatuses)) return false
+        if (!matchesTag(entry, activeTag, tagsByContentId)) return false
+        const titleHit = entry.title.toLowerCase().includes(query)
+        const synopsisHit = (entry.synopsis ?? "").toLowerCase().includes(query)
+        const numberHit = [entry.episode_number, entry.movie_number, entry.release_order]
+          .filter((value): value is number => typeof value === "number")
+          .some((value) => String(value).includes(query))
+        const exactNumberHit = isNumericQuery && entryNumber(entry) === numericQuery
         return titleHit || synopsisHit || numberHit || exactNumberHit
       })
-      .sort((a, b) => getNumber(a) - getNumber(b))
-    // userStatuses drives matchesStatus: a status filter must re-partition the
-    // results the moment the reader marks something watched.
-  }, [search, entries, statusFilter, userStatuses])
-
-  function getStatusForEntry(id: string): WatchStatus | null {
-    return userStatuses?.get(id) ?? null
-  }
-
-  function getArcForEntry(entry: ContentEntry): { slug: string; title: string } | null {
-    if (!arcMap || entry.type !== "episode") return null
-    return arcMap.get(entry.arc_id ?? "") ?? null
-  }
+      .sort((a, b) => entryNumber(a) - entryNumber(b))
+  }, [search, entries, statusFilter, userStatuses, activeTag, tagsByContentId])
 
   /**
-   * The list `handleJump` should locate the episode in: the target section as it
-   * will look AFTER the jump clears the type/status filters. Using `sections`
-   * here would search a list built from the filters being cleared, so a deep
-   * link like ?ep=800&status=unwatched landed on page 0 and scrolled nowhere.
+   * Scroll to a row once it exists. A jump can change the open section, the
+   * page and the category in the same tick, so the row is not in the DOM on the
+   * first frame — poll a handful of frames instead of guessing a timeout.
    */
-  function jumpList(mode: ViewMode, n: number, ep: ContentEntry): ContentEntry[] {
-    if (mode === "order") return watchOrder.items.map((item) => item.entry)
-    const byEpisodeNumber = (list: ContentEntry[]) =>
-      [...list].sort((a, b) => (a.episode_number ?? 0) - (b.episode_number ?? 0))
-    const episodesOnly = entries.filter((e) => e.type === "episode")
-    if (mode === "canon")
-      return byEpisodeNumber(
-        episodesOnly.filter((e) => canonSectionBucket(e.episode_number) === canonSectionBucket(n))
-      )
-    if (mode === "year") {
-      const year = ep.air_date?.slice(0, 4) ?? "Unknown"
-      return byEpisodeNumber(
-        episodesOnly.filter((e) => (e.air_date?.slice(0, 4) ?? "Unknown") === year)
-      )
+  function revealRow(entryId: string, attempt = 0) {
+    const element = document.getElementById(`row-${entryId}`)
+    if (element) {
+      element.scrollIntoView({ behavior: "smooth", block: "center" })
+      setFlashId(entryId)
+      if (flashTimer.current) clearTimeout(flashTimer.current)
+      flashTimer.current = setTimeout(() => setFlashId(null), 2200)
+      return
     }
-    // Chronological mode orders episodes by canon_order.
-    return [...episodesOnly].sort((a, b) => (a.canon_order ?? 0) - (b.canon_order ?? 0))
+    if (attempt < 12) requestAnimationFrame(() => revealRow(entryId, attempt + 1))
   }
 
-  function handleJump(value: string) {
-    const n = parseInt(value, 10)
-    if (!Number.isInteger(n) || n < 1 || n > maxEpisode) {
-      setJumpError(`Enter an episode number between 1 and ${maxEpisode}.`)
-      return
+  /** Returns an error message, or null when the jump was accepted. */
+  function handleJump(episodeNumber: number): string | null {
+    if (!Number.isInteger(episodeNumber) || episodeNumber < 1 || episodeNumber > maxEpisode) {
+      return `Enter an episode number between 1 and ${maxEpisode}.`
     }
-    const ep = entries.find((e) => e.type === "episode" && e.episode_number === n)
-    if (!ep) {
-      setJumpError(`Episode ${n} isn't in the tracker yet.`)
-      return
-    }
-    setJumpError(null)
-    setTypeFilter("all")
+    const episode = entries.find(
+      (entry) => entry.type === "episode" && entry.episode_number === episodeNumber
+    )
+    if (!episode) return `Episode ${episodeNumber} isn't in the tracker yet.`
+
+    // A jump is a jump to an EPISODE: clear the filters that would hide it.
+    changeType("episode")
     setStatusFilter("all")
+    onStatusFilterChange?.("all")
+    setActiveTag(null)
 
-    const targetKey =
-      mode === "order"
-        ? WATCH_ORDER_KEY
-        : mode === "canon"
-          ? `canon-${canonSectionBucket(n)}`
-          : mode === "year"
-            ? `year-${ep.air_date?.slice(0, 4) ?? "Unknown"}`
-            : "episode"
-    const list = jumpList(mode, n, ep)
-    setExpandedType(targetKey)
-    setPages((prev) => ({
-      ...prev,
-      [targetKey]: Math.floor(Math.max(0, list.findIndex((e) => e.id === ep.id)) / PAGE_SIZE),
-    }))
+    const key = jumpSectionKey(mode, episode)
+    const list = jumpList(mode, episode, entries, watchOrder.entries)
+    setExpandedType(key)
+    setPages((prev) => ({ ...prev, [key]: pageForEntry(list, episode.id) }))
+    revealRow(episode.id)
+    return null
+  }
 
-    requestAnimationFrame(() => {
-      const el = document.getElementById(`card-${ep.id}`)
-      if (el) {
-        el.scrollIntoView({ behavior: "smooth", block: "center" })
-        setFlashId(ep.id)
-        if (flashTimer.current) clearTimeout(flashTimer.current)
-        flashTimer.current = setTimeout(() => setFlashId(null), 2000)
-      }
-    })
+  /** Returns an error message, or null when the bulk mark was accepted. */
+  function handleMarkUpTo(episodeNumber: number): string | null {
+    if (!Number.isInteger(episodeNumber) || episodeNumber < 1 || episodeNumber > maxEpisode) {
+      return `Enter an episode number between 1 and ${maxEpisode}.`
+    }
+    if (!onMarkAll) return "Sign in to mark episodes as watched."
+    const ids = entries
+      .filter(
+        (entry) =>
+          entry.type === "episode" &&
+          (entry.episode_number ?? 0) <= episodeNumber &&
+          !isWatched(userStatuses?.get(entry.id))
+      )
+      .map((entry) => entry.id)
+    if (ids.length === 0) {
+      return `Nothing to mark. Everything up to episode ${episodeNumber} is already watched.`
+    }
+    onMarkAll(ids, "watched")
+    return null
+  }
+
+  function handleRewatchUpTo(episodeNumber: number): string | null {
+    if (!Number.isInteger(episodeNumber) || episodeNumber < 1 || episodeNumber > maxEpisode) {
+      return `Enter an episode number between 1 and ${maxEpisode}.`
+    }
+    if (!onRewatchAll) return "Sign in to rewatch episodes."
+    // Only episodes already seen: a rewatch on an unwatched row would invent a
+    // viewing that never happened.
+    const ids = entries
+      .filter(
+        (entry) =>
+          entry.type === "episode" &&
+          (entry.episode_number ?? 0) <= episodeNumber &&
+          isWatched(userStatuses?.get(entry.id))
+      )
+      .map((entry) => entry.id)
+    if (ids.length === 0) {
+      return `Nothing to rewatch. Nothing up to episode ${episodeNumber} is marked watched.`
+    }
+    onRewatchAll(ids)
+    return null
   }
 
   // External jump request (from the ?ep= URL param)
   useEffect(() => {
     if (jumpTarget && Number.isInteger(jumpTarget) && jumpTarget >= 1 && jumpTarget <= maxEpisode) {
-      handleJump(String(jumpTarget))
+      handleJump(jumpTarget)
       onJumped?.()
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [jumpTarget])
 
-  function handleMarkUpTo(value: string) {
-    const n = parseInt(value, 10)
-    if (!Number.isInteger(n) || n < 1 || n > maxEpisode) {
-      setMarkError(`Enter a valid episode number (between 1 and ${maxEpisode}).`)
-      return
-    }
-    if (!onMarkAll) return
-    const ids = entries
-      .filter(
-        (e) =>
-          e.type === "episode" &&
-          (e.episode_number ?? 0) <= n &&
-          !isWatched(e)
-      )
-      .map((e) => e.id)
-    if (ids.length === 0) {
-      setMarkError(`Nothing to mark. All episodes up to ${n} are already watched.`)
-      return
-    }
-    setMarkError(null)
-    onMarkAll(ids, "watched")
-    setMarkInput("")
-  }
-  const presentTypes = new Set(sections.map((s) => s.type))
-  const pillTypes = SECTION_ORDER.map((s) => s.type).filter((t) => presentTypes.has(t))
-
   return (
     <div className="space-y-0">
-      {/* ── Hero Banner ── */}
-      <div className="relative w-full h-64 sm:h-80 bg-surface-muted overflow-hidden rounded-t-lg border-b border-line/40">
-        {/* Tracker Banner Image. The group-shot art carries every head in the top
-            third of the frame, so the cover crop is anchored to the top — the
-            default centred crop slices the faces off at the banner's top edge. */}
-        <Image
-          src="/New-poster.jpg"
-          alt="Detective Conan Tracker Banner"
-          fill
-          priority
-          sizes="(max-width: 1280px) 100vw, 1280px"
-          className="absolute inset-0 h-full w-full object-cover object-top"
-        />
-        {/* Gradient overlay at bottom to ensure text readability on top of straight image */}
-        <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/25 to-transparent" />
-
-        <div className="relative z-10 flex flex-col justify-end h-full p-6 sm:p-8 text-white">
-          <h1 className="font-display text-3xl sm:text-5xl leading-tight tracking-tight text-white mb-2 drop-shadow-md">
-            Detective Conan
-          </h1>
-          <div className="flex items-center gap-2 text-sm text-white/90 mb-3 drop-shadow">
-            <span className="font-mono text-xs">{totalYears} years</span>
-            <span>·</span>
-            <span className="font-mono text-xs">{totalEpisodes} episodes</span>
-            <span>·</span>
-            <span className="font-mono text-xs">{totalMovies} movies</span>
-          </div>
-          <div className="flex items-center gap-2.5 max-w-md">
-            <div className="flex-1 h-2 bg-black/40 backdrop-blur-xs rounded-full overflow-hidden border border-white/20">
-              <div
-                className="h-full bg-accent rounded-full transition-[width] duration-[800ms] ease-out"
-                style={{ width: `${overallPercent}%` }}
-              />
-            </div>
-            <span className="font-mono text-xs text-white font-bold drop-shadow">{overallPercent}%</span>
-          </div>
-        </div>
-      </div>
-
-      {/* ── Sticky Toolbar ── */}
-      <div className="sticky top-16 z-20 bg-surface/95 backdrop-blur border-b border-ink-dim/20 px-4 sm:px-6 py-3 space-y-3">
-        <div className="relative">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-ink-faint" />
-          <input
-            type="text"
-            placeholder="Search episodes, movies, specials..."
-            aria-label="Search episodes, movies, specials"
-            value={search}
-            onChange={(e) => {
-              setSearch(e.target.value)
-              onSearchChange?.(e.target.value)
-            }}
-            className="w-full h-9 rounded-lg border border-ink-dim/20 bg-surface-muted pl-10 pr-3 text-sm text-ink placeholder:text-ink-faint focus:outline-none focus:ring-2 focus:ring-accent/20 focus:border-accent"
-          />
-        </div>
-
-        {/* Dropdown filters: view mode / status / type */}
-        <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
-          <Select
-            value={mode}
-            onValueChange={(v) => {
-              setMode(v as ViewMode)
-              onModeChange?.(v as ViewMode)
-            }}
-          >
-            <SelectTrigger className="h-9 text-xs font-mono">
-              <SelectValue placeholder="View mode" />
-            </SelectTrigger>
-            <SelectContent>
-              {VIEW_MODE_OPTIONS.map((opt) => (
-                <SelectItem key={opt.value} value={opt.value}>
-                  {opt.label}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-
-          <Select
-            value={statusFilter}
-            onValueChange={(v) => {
-              setStatusFilter(v as StatusFilter)
-              onStatusFilterChange?.(v as StatusFilter)
-            }}
-          >
-            <SelectTrigger className="h-9 text-xs font-mono">
-              <SelectValue placeholder="Status" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">All</SelectItem>
-              {(Object.keys(WATCH_STATUS_LABELS) as WatchStatus[]).map((s) => (
-                <SelectItem key={s} value={s}>
-                  {WATCH_STATUS_LABELS[s]}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-
-          <Select
-            value={typeFilter}
-            onValueChange={(v) => {
-              setTypeFilter(v as ContentType | "all")
-              onTypeChange?.(v as ContentType | "all")
-            }}
-          >
-            <SelectTrigger className="h-9 text-xs font-mono col-span-2 sm:col-span-1">
-              <SelectValue placeholder="Type" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">All</SelectItem>
-              {pillTypes.map((t) => (
-                <SelectItem key={t} value={t}>
-                  {CONTENT_TYPE_LABELS[t]}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-        </div>
-
-        {/* Jump-to-episode + mark-up-to-N */}
-        <div className="flex flex-wrap items-center gap-1.5 sm:gap-2 pt-0.5">
-          <div className="flex min-w-0 flex-1 items-center gap-1.5 sm:flex-none">
-            <ArrowDownToLine className="h-3.5 w-3.5 text-ink-faint shrink-0" />
-            <input
-              type="number"
-              min={1}
-              max={maxEpisode}
-              placeholder="EP no."
-              aria-label="Jump to episode number"
-              value={jumpInput}
-              onChange={(e) => setJumpInput(e.target.value)}
-              onKeyDown={(e) => {
-                if (e.key === "Enter") handleJump(jumpInput)
-              }}
-              className="h-9 w-full min-w-12 rounded-md border border-ink-dim/20 bg-surface-muted px-2 text-xs text-ink placeholder:text-ink-faint focus:outline-none focus:ring-2 focus:ring-accent/20 focus:border-accent sm:w-20"
-            />
-            <button
-              onClick={() => handleJump(jumpInput)}
-              className="inline-flex items-center gap-1 h-9 px-3 rounded-md border border-ink-dim/30 bg-surface text-[10px] font-mono text-ink-faint hover:text-ink hover:border-ink transition-colors"
-              title="Jump to episode"
+      {/* ── Rail ──
+          One row, the next thing to watch. A "watched so far" row was tried and
+          removed: it repeats what the list below already says, and it pushed
+          the actual catalogue further down the page. */}
+      {railContinue.length > 0 && (
+        <div className="space-y-8 pt-8">
+          {railContinue.length > 0 && (
+            <Rail
+              title="Continue watching"
+              subtitle={
+                railContinue[0]?.episode_number
+                  ? `Next up · EP ${padNumber(railContinue[0].episode_number, 3)}${
+                      railContinue[0].runtime_minutes
+                        ? ` · ${formatHours(railContinue[0].runtime_minutes)}`
+                        : ""
+                    }`
+                  : undefined
+              }
+              action={
+                <button
+                  type="button"
+                  onClick={() => changeStatus("unwatched")}
+                  className="shrink-0 font-mono text-[10px] uppercase tracking-[0.14em] text-ink-dim transition-colors hover:text-ink"
+                >
+                  Show unwatched →
+                </button>
+              }
             >
-              Jump
-            </button>
-          </div>
+              {railContinue.map((entry) => (
+                <PosterCard
+                  key={entry.id}
+                  entry={entry}
+                  watchStatus={userStatuses?.get(entry.id) ?? null}
+                  canon={canonTagOf(tagsByContentId.get(entry.id) ?? [])}
+                  onSelect={onSelect}
+                />
+              ))}
+            </Rail>
+          )}
 
-          <div className="flex min-w-0 flex-1 items-center gap-1.5 sm:flex-none">
-            <span className="shrink-0 font-mono text-[10px] text-ink-faint">
-              <span className="sm:hidden">Up to</span>
-              <span className="hidden sm:inline">Mark up to</span>
-            </span>
-            <input
-              type="number"
-              min={1}
-              max={maxEpisode}
-              placeholder="EP no."
-              aria-label="Mark up to episode number"
-              value={markInput}
-              onChange={(e) => setMarkInput(e.target.value)}
-              onKeyDown={(e) => {
-                if (e.key === "Enter") handleMarkUpTo(markInput)
-              }}
-              className="h-9 w-full min-w-12 rounded-md border border-ink-dim/20 bg-surface-muted px-2 text-xs text-ink placeholder:text-ink-faint focus:outline-none focus:ring-2 focus:ring-accent/20 focus:border-accent sm:w-20"
-            />
-            <button
-              onClick={() => handleMarkUpTo(markInput)}
-              disabled={!onMarkAll}
-              className="inline-flex items-center gap-1 h-9 px-3 rounded-md border border-ink-dim/30 bg-surface text-[10px] font-mono text-ink-faint hover:text-ink hover:border-ink disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
-              title={onMarkAll ? "Mark episodes up to N as watched" : "Sign in to mark episodes"}
-            >
-              <Check className="h-3.5 w-3.5" />
-              Mark
-            </button>
-          </div>
-
-          {jumpError && <span className="text-[11px] text-red-400">{jumpError}</span>}
-          {markError && <span className="text-[11px] text-red-400">{markError}</span>}
         </div>
-      </div>
+      )}
 
-      {/* ── Search Results ── */}
+      {/* ── Controls ── */}
+      <TrackerToolbar
+        tabs={tabs}
+        type={typeFilter}
+        onTypeChange={changeType}
+        search={search}
+        onSearchChange={(value) => {
+          setSearch(value)
+          onSearchChange?.(value)
+        }}
+        mode={mode}
+        onModeChange={changeMode}
+        status={statusFilter}
+        onStatusChange={changeStatus}
+        facets={tagFacets}
+        activeTag={activeTag}
+        onTagChange={setActiveTag}
+        maxEpisode={maxEpisode}
+        onJump={handleJump}
+        onMarkUpTo={handleMarkUpTo}
+        unwatchedUpTo={(episodeNumber) => countUnwatchedUpTo(entries, episodeNumber, userStatuses)}
+        markDisabled={!onMarkAll}
+        markDisabledReason="Sign in to mark episodes as watched"
+        onRewatchUpTo={handleRewatchUpTo}
+        rewatchableUpTo={(episodeNumber) =>
+          countRewatchableUpTo(entries, episodeNumber, userStatuses)
+        }
+        rewatchDisabled={!onRewatchAll}
+        rewatchDisabledReason="Sign in to rewatch episodes"
+      />
+
+      {/* ── Search results ── */}
       {searchResults && (
-        <div className="px-4 sm:px-6 py-6">
-          <p className="font-mono text-[10px] text-ink-faint mb-4">
-            {searchResults.length} results for &quot;{search}&quot;
-          </p>
+        <div>
+          <div className="flex flex-wrap items-center justify-between gap-2 border-b border-line px-3 py-3 sm:px-5">
+            <p className="font-mono text-[11px] text-ink-dim">
+              <span className="tabular-nums text-ink">{searchResults.length}</span>{" "}
+              {searchResults.length === 1 ? "match" : "matches"} for “{search}”
+              <span className="ml-2 text-ink-faint">across every category</span>
+            </p>
+            <button
+              type="button"
+              onClick={() => {
+                setSearch("")
+                onSearchChange?.("")
+              }}
+              className="font-mono text-[10px] uppercase tracking-stamp text-ink-faint underline decoration-dotted hover:text-ink"
+            >
+              Clear
+            </button>
+          </div>
+
           {searchResults.length === 0 ? (
-            <p className="text-sm text-ink-dim">No matches found.</p>
+            <div className="px-5 py-12 text-center">
+              <SearchIcon className="mx-auto mb-3 h-6 w-6 text-ink-faint" />
+              <p className="text-sm text-ink-dim">No matches found.</p>
+              <p className="mt-1 text-xs text-ink-faint">
+                Try an episode number, a case name, or clear the filters.
+              </p>
+            </div>
           ) : (
             <>
-              <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4">
-                {searchResults.slice(0, SEARCH_RENDER_LIMIT).map((entry) => (
-                  <ContentCard
-                    key={entry.id}
-                    entry={entry}
-                    watchStatus={getStatusForEntry(entry.id)}
-                    onSetStatus={onSetStatus}
-                    onIncrementRewatch={onIncrementRewatch}
-                    watchCount={watchCounts?.get(entry.id) ?? 0}
-                    flash={flashId === entry.id}
-                    arc={getArcForEntry(entry)}
-                    onSelect={onSelect}
-                  />
-                ))}
-              </div>
+              {searchResults.slice(0, SEARCH_RENDER_LIMIT).map((entry) => (
+                <TrackerRow
+                  key={entry.id}
+                  entry={entry}
+                  watchStatus={userStatuses?.get(entry.id) ?? null}
+                  onSetStatus={onSetStatus}
+                  onIncrementRewatch={onIncrementRewatch}
+                  watchCount={watchCounts?.get(entry.id) ?? 0}
+                  favorite={favorites?.get(entry.id) ?? false}
+                  onToggleFavorite={onToggleFavorite}
+                  rating={ratings?.get(entry.id) ?? 0}
+                  tags={tagsByContentId.get(entry.id) ?? []}
+                  flash={flashId === entry.id}
+                  onSelect={onSelect}
+                  onTagClick={setActiveTag}
+                />
+              ))}
               {searchResults.length > SEARCH_RENDER_LIMIT && (
-                <p className="mt-4 text-xs text-ink-dim">
+                <p className="px-5 py-4 text-xs text-ink-dim">
                   Showing the first {SEARCH_RENDER_LIMIT} of {searchResults.length} — narrow the
                   search to see the rest.
                 </p>
@@ -834,12 +611,12 @@ export function ContentGrid({
         </div>
       )}
 
-      {/* ── Sectioned Browse (accordion) ── */}
+      {/* ── Sectioned browse ── */}
       {!searchResults && (
         <div>
           {/* Canon Guide legend — explains the grouping, not a separate layout */}
           {mode === "canon" && (
-            <div className="flex flex-wrap items-center gap-x-3 gap-y-1.5 border-b border-ink-dim/10 px-4 sm:px-6 pt-5 pb-4">
+            <div className="flex flex-wrap items-center gap-x-3 gap-y-1.5 border-b border-line px-3 pb-4 pt-4 sm:px-5">
               {CANON_SECTION_ORDER.map((bucket) =>
                 canonCounts[bucket] > 0 ? (
                   <span key={bucket} className="inline-flex items-center gap-1.5">
@@ -868,95 +645,61 @@ export function ContentGrid({
               </a>
             </div>
           )}
+
           {/* Full Watch Order intro */}
           {mode === "order" && (
-            <div className="border-b border-ink-dim/10 px-4 sm:px-6 pt-5 pb-4">
-              <p className="text-xs text-ink-dim">
-                Every episode, movie, OVA, TV special, live-action drama and spin-off in one
-                continuous run. The number on each card is its position in the order.
+            <div className="border-b border-line px-3 pb-4 pt-4 sm:px-5">
+              <p className="max-w-2xl text-xs leading-relaxed text-ink-dim">
+                {CONTENT_TYPE_LABELS[typeFilter]} in one continuous run, positioned by where they
+                sit in the franchise. The number on each row is its place in the full order.
               </p>
             </div>
           )}
 
-          {/* Continue Tracking — always-visible quick strip */}
-          {continueTracking.length > 0 && typeFilter === "all" && mode !== "order" && (
-            <div className="px-4 sm:px-6 py-5 border-b border-ink-dim/10">
-              <div className="flex items-center gap-2.5 mb-3">
-                <span className="flex h-8 w-8 items-center justify-center rounded-md bg-ink text-page shrink-0">
-                  <Play className="h-4 w-4" />
-                </span>
-                <h2 className="font-display text-sm tracking-tight text-ink">
-                  Continue Tracking
-                </h2>
-                <span className="font-mono text-xs text-ink-dim rounded-md bg-surface-muted px-1.5 py-0.5">
-                  {continueTracking.length}
-                </span>
-              </div>
-              <div className="flex gap-4 overflow-x-auto pb-2 -mx-1 px-1 scrollbar-thin scrollbar-thumb-ink-dim/40 scrollbar-track-transparent snap-x">
-                {continueTracking.map((entry) => (
-                  <div key={entry.id} className="snap-start w-36 sm:w-40 shrink-0">
-                    <ContentCard
-                      entry={entry}
-                      sizes="160px"
-                      watchStatus={getStatusForEntry(entry.id)}
-                      onSetStatus={onSetStatus}
-                      onIncrementRewatch={onIncrementRewatch}
-                      watchCount={watchCounts?.get(entry.id) ?? 0}
-                      favorite={favorites?.get(entry.id) ?? false}
-                      onToggleFavorite={onToggleFavorite}
-                      rating={ratings?.get(entry.id) ?? 0}
-                      onSetRating={onSetRating}
-                      arc={getArcForEntry(entry)}
-                      onSelect={onSelect}
-                    />
-                  </div>
-                ))}
-              </div>
-            </div>
-          )}
-
           {visibleSections.map((section) => {
-            const Icon = section.icon
+            const Icon = TYPE_ICONS[section.type]
             const isOpen = expandedType === section.key
-            const complete = section.watched === section.total
+            const complete = section.watched === section.total && section.total > 0
             const started = section.watched > 0
             const progressColor = complete
-              ? "bg-green-500"
+              ? "bg-success"
               : started
-                ? "bg-ink"
+                ? "bg-accent"
                 : "bg-surface-muted"
             const totalPages = Math.max(1, Math.ceil(section.entries.length / PAGE_SIZE))
             const page = Math.min(pages[section.key] ?? 0, totalPages - 1)
             const pageItems = section.entries.slice(page * PAGE_SIZE, (page + 1) * PAGE_SIZE)
 
             return (
-              <Section
+              <TrackerSection
                 key={section.key}
                 icon={Icon}
                 title={section.title}
                 count={section.total}
                 watched={section.watched}
                 progressColor={progressColor}
-                progressPercent={section.total > 0 ? (section.watched / section.total) * 100 : 0}
+                progressPercent={
+                  section.total > 0 ? (section.watched / section.total) * 100 : 0
+                }
                 isOpen={isOpen}
                 onToggle={() => setExpandedType(isOpen ? null : section.key)}
                 action={
                   section.subcats && section.subcats.length > 1 ? (
-                    <div onClick={(e) => e.stopPropagation()}>
+                    <div onClick={(event) => event.stopPropagation()}>
                       <Select
                         value={section.activeSubcat}
-                        onValueChange={(v) => setSubcatKey(section.key, v)}
+                        onValueChange={(value) => setSubcatKey(section.key, value)}
                       >
                         <SelectTrigger
-                          className="h-8 w-auto gap-1.5 border border-ink-dim/30 bg-surface px-3 text-xs font-mono text-ink-faint hover:text-ink hover:border-ink transition-colors"
+                          className="h-9 w-auto gap-1.5 rounded-lg border border-line bg-surface px-3 text-xs font-mono text-ink-dim transition-colors hover:border-ink-faint hover:text-ink"
                           aria-label={`${section.title} subcategory`}
                         >
                           <SelectValue />
                         </SelectTrigger>
                         <SelectContent>
-                          {section.subcats.map((g) => (
-                            <SelectItem key={g.key} value={g.key}>
-                              {g.label} ({g.count})
+                          {section.subcats.map((group) => (
+                            <SelectItem key={group.key} value={group.key}>
+                              {group.label} ({group.count})
                             </SelectItem>
                           ))}
                         </SelectContent>
@@ -964,15 +707,15 @@ export function ContentGrid({
                     </div>
                   ) : onMarkAll && !complete && section.type === "episode" ? (
                     <button
-                      onClick={(e) => {
-                        e.stopPropagation()
+                      onClick={(event) => {
+                        event.stopPropagation()
                         onMarkAll(
-                          section.entries.filter((en) => !isWatched(en)).map((en) => en.id),
+                          section.entries.filter((entry) => !seen(entry)).map((entry) => entry.id),
                           "watched"
                         )
                       }}
-                      className="inline-flex items-center gap-1.5 h-8 px-3 rounded-md border border-ink-dim/30 bg-surface text-[10px] font-mono text-ink-faint hover:text-ink hover:border-ink transition-colors"
-                      title="Mark all as watched"
+                      className="inline-flex h-9 items-center gap-1.5 rounded-lg border border-line bg-surface px-3 font-mono text-[10px] text-ink-dim transition-colors hover:border-ink hover:text-ink"
+                      title={`Mark all ${section.total - section.watched} unwatched in this section`}
                     >
                       <Check className="h-3.5 w-3.5" />
                       Mark all
@@ -981,55 +724,34 @@ export function ContentGrid({
                 }
               >
                 <>
-                  <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4 pt-1">
-                    {pageItems.map((entry) => {
-                      const card = (
-                        <ContentCard
-                          key={entry.id}
-                          entry={entry}
-                          watchStatus={getStatusForEntry(entry.id)}
-                          onSetStatus={onSetStatus}
-                          onIncrementRewatch={onIncrementRewatch}
-                          watchCount={watchCounts?.get(entry.id) ?? 0}
-                          favorite={favorites?.get(entry.id) ?? false}
-                          onToggleFavorite={onToggleFavorite}
-                          rating={ratings?.get(entry.id) ?? 0}
-                          onSetRating={onSetRating}
-                          flash={flashId === entry.id}
-                          arc={getArcForEntry(entry)}
-                          onSelect={onSelect}
-                        />
-                      )
-                      if (mode !== "order") return card
-                      const ordinal = watchOrder.indexById.get(entry.id)
-                      return (
-                        <div key={entry.id} className="relative">
-                          {ordinal !== undefined && (
-                            <span
-                              className={cn(
-                                "pointer-events-none absolute left-1.5 top-1.5 z-10 rounded px-1.5 py-0.5 font-mono text-[10px] tabular-nums shadow-sm",
-                                // Non-episodes get the accent so movies, OVAs and
-                                // specials stand out from the run of episodes.
-                                entry.type === "episode"
-                                  ? "bg-ink/90 text-page"
-                                  : "bg-accent text-page"
-                              )}
-                            >
-                              {ordinal}
-                            </span>
-                          )}
-                          {card}
-                        </div>
-                      )
-                    })}
+                  <div className="border-t border-line">
+                    {pageItems.map((entry) => (
+                      <TrackerRow
+                        key={entry.id}
+                        entry={entry}
+                        watchStatus={userStatuses?.get(entry.id) ?? null}
+                        onSetStatus={onSetStatus}
+                        onIncrementRewatch={onIncrementRewatch}
+                        watchCount={watchCounts?.get(entry.id) ?? 0}
+                        favorite={favorites?.get(entry.id) ?? false}
+                        onToggleFavorite={onToggleFavorite}
+                        rating={ratings?.get(entry.id) ?? 0}
+                        tags={tagsByContentId.get(entry.id) ?? []}
+                        flash={flashId === entry.id}
+                        ordinal={mode === "order" ? watchOrder.indexById.get(entry.id) : undefined}
+                        onSelect={onSelect}
+                        onTagClick={setActiveTag}
+                        hideYear={mode === "year"}
+                      />
+                    ))}
                   </div>
 
                   {totalPages > 1 && (
-                    <div className="flex items-center justify-center gap-3 mt-4">
+                    <div className="mt-4 flex items-center justify-center gap-3">
                       <button
                         onClick={() => setPage(section.key, Math.max(0, page - 1))}
                         disabled={page === 0}
-                        className="inline-flex items-center gap-1.5 h-9 px-3 rounded-md border border-ink-dim/30 bg-surface text-[11px] font-mono text-ink-dim transition-colors hover:text-ink hover:border-ink disabled:opacity-30 disabled:cursor-not-allowed disabled:hover:border-ink-dim/30 disabled:hover:text-ink-dim"
+                        className="inline-flex h-10 items-center gap-1.5 rounded-lg border border-line bg-surface px-3 font-mono text-[11px] text-ink-dim transition-colors hover:border-ink hover:text-ink disabled:cursor-not-allowed disabled:opacity-30 disabled:hover:border-line disabled:hover:text-ink-dim"
                       >
                         <ChevronLeft className="h-4 w-4" />
                         Prev
@@ -1040,7 +762,7 @@ export function ContentGrid({
                       <button
                         onClick={() => setPage(section.key, Math.min(totalPages - 1, page + 1))}
                         disabled={page >= totalPages - 1}
-                        className="inline-flex items-center gap-1.5 h-9 px-3 rounded-md border border-ink-dim/30 bg-surface text-[11px] font-mono text-ink-dim transition-colors hover:text-ink hover:border-ink disabled:opacity-30 disabled:cursor-not-allowed disabled:hover:border-ink-dim/30 disabled:hover:text-ink-dim"
+                        className="inline-flex h-10 items-center gap-1.5 rounded-lg border border-line bg-surface px-3 font-mono text-[11px] text-ink-dim transition-colors hover:border-ink hover:text-ink disabled:cursor-not-allowed disabled:opacity-30 disabled:hover:border-line disabled:hover:text-ink-dim"
                       >
                         Next
                         <ChevronRight className="h-4 w-4" />
@@ -1048,177 +770,79 @@ export function ContentGrid({
                     </div>
                   )}
                 </>
-              </Section>
+              </TrackerSection>
             )
           })}
 
-          {visibleSections.length === 0 && typeFilter !== "all" && (
-            <div className="p-10 text-center text-sm text-ink-dim">
-              No {CONTENT_TYPE_LABELS[typeFilter]} found in the tracker.
+          {visibleSections.length === 0 && (
+            <div className="px-5 py-14 text-center">
+              <p className="font-display text-base tracking-tight text-ink">
+                No {CONTENT_TYPE_LABELS[typeFilter]} in this view
+              </p>
+              <p className="mt-1 text-sm text-ink-dim">
+                {statusFilter !== "all" || activeTag
+                  ? "The status or tag filter is hiding every row."
+                  : "This category has no entries yet."}
+              </p>
+              {(statusFilter !== "all" || activeTag) && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    changeStatus("all")
+                    setActiveTag(null)
+                  }}
+                  className="mt-4 inline-flex h-10 items-center rounded-lg border border-line bg-surface px-4 text-sm text-ink transition-colors hover:border-ink"
+                >
+                  Clear filters
+                </button>
+              )}
             </div>
           )}
 
           {/* About */}
-          <Section icon={Info} title="About the Series" isOpen={expandedType === "__about"} onToggle={() => setExpandedType(expandedType === "__about" ? null : "__about")}>
-            <div className="grid gap-6 lg:grid-cols-3">
-              <div className="lg:col-span-2 space-y-4">
-                <p className="text-sm text-ink-dim leading-relaxed">
+          <TrackerSection
+            icon={Info}
+            title="About the Series"
+            isOpen={expandedType === "__about"}
+            onToggle={() => setExpandedType(expandedType === "__about" ? null : "__about")}
+          >
+            <div className="grid gap-6 px-3 sm:px-5 lg:grid-cols-3">
+              <div className="space-y-4 lg:col-span-2">
+                <p className="text-sm leading-relaxed text-ink-dim">
                   High-school detective Shinichi Kudo is poisoned by the Black Organization and
                   shrinks into a child. As Conan Edogawa, he solves cases while hunting the
                   syndicate — and an antidote back to his true form.
                 </p>
-                <dl className="grid grid-cols-2 gap-y-3 gap-x-6 text-sm">
+                <dl className="grid grid-cols-2 gap-x-6 gap-y-3 text-sm">
                   <Detail term="Creator" value="Gosho Aoyama" />
                   <Detail term="Studio" value="TMS Entertainment" />
                   <Detail term="First Aired" value="January 8, 1996" />
                   <Detail term="Status" value="Ongoing" />
                 </dl>
               </div>
-              <div className="bg-surface-muted border border-ink-dim/20 rounded-lg p-5 flex flex-col justify-center">
-                <div className="flex items-center gap-2 mb-3 text-ink">
+              <div className="flex flex-col justify-center rounded-xl border border-line bg-surface-muted p-5">
+                <div className="mb-3 flex items-center gap-2 text-ink">
                   <Users className="h-4 w-4" />
                   <span className="font-display text-sm text-ink">Progress</span>
                 </div>
                 <div className="font-display text-3xl text-ink">{overallPercent}%</div>
-                <div className="font-mono text-[10px] text-ink-faint mt-1">
+                <div className="mt-1 font-mono text-[10px] text-ink-faint">
                   {overallWatched} of {mainlineEntries.length} watched
                 </div>
               </div>
             </div>
-          </Section>
+          </TrackerSection>
         </div>
       )}
     </div>
   )
 }
 
-/* ──────────────────────── Accordion Section ──────────────────────── */
-
-function Section({
-  icon: Icon,
-  title,
-  count,
-  watched,
-  progressColor,
-  progressPercent,
-  isOpen,
-  onToggle,
-  action,
-  children,
-}: {
-  icon: React.ComponentType<{ className?: string }>
-  title: string
-  count?: number
-  watched?: number
-  progressColor?: string
-  progressPercent?: number
-  isOpen: boolean
-  onToggle: () => void
-  action?: React.ReactNode
-  children: React.ReactNode
-}) {
-  const showProgress =
-    typeof progressPercent === "number" &&
-    typeof watched === "number" &&
-    typeof count === "number"
-
-  // A collapsed section kept its cards mounted, so "By Year" shipped ~30 cards
-  // per year (≈900 cards, tens of thousands of nodes) for the one section the
-  // reader could actually see. Mount on open, hold through the collapse
-  // animation, then drop.
-  const [mounted, setMounted] = useState(isOpen)
-  useEffect(() => {
-    if (isOpen) {
-      setMounted(true)
-      return
-    }
-    const timer = setTimeout(() => setMounted(false), 250) // matches duration-[250ms]
-    return () => clearTimeout(timer)
-  }, [isOpen])
-
-  return (
-    <section className="border-b border-ink-dim/10 last:border-b-0">
-      <div
-        role="button"
-        tabIndex={0}
-        onClick={onToggle}
-        onKeyDown={(e) => {
-          if (e.key === "Enter" || e.key === " ") {
-            e.preventDefault()
-            onToggle()
-          }
-        }}
-        aria-expanded={isOpen}
-        className="w-full flex items-center gap-3 sm:gap-4 px-4 sm:px-6 py-4 hover:bg-surface-muted transition-colors text-left cursor-pointer outline-none focus-visible:ring-2 focus-visible:ring-accent/30"
-      >
-        <span className="flex h-8 w-8 items-center justify-center rounded-md bg-ink text-page shrink-0">
-          <Icon className="h-4 w-4" />
-        </span>
-
-        <div className="flex-1 min-w-0">
-          <div className="flex items-center gap-2 min-w-0">
-            {/* Wraps instead of ellipsizing: "The Culprit Hanzawa" and
-                "Zero's Tea Time" were cut to "Magic..." on narrow phones
-                because the row's fixed-width siblings left almost nothing. */}
-            <h2 className="font-display text-sm sm:text-base lg:text-lg tracking-tight text-ink break-words min-w-0">
-              {title}
-            </h2>
-            {typeof count === "number" && (
-              <span className="font-mono text-[10px] sm:text-xs text-ink-dim shrink-0 rounded-md bg-surface-muted px-1.5 py-0.5">
-                {count}
-              </span>
-            )}
-          </div>
-          {showProgress && (
-            <div className="mt-2 flex items-center gap-3 max-w-xs">
-              <div className="flex-1 h-1.5 bg-surface-muted rounded-full overflow-hidden">
-                <div
-                  className={cn("h-full rounded-full transition-[width] duration-[600ms] ease-out", progressColor)}
-                  style={{ width: `${progressPercent}%` }}
-                />
-              </div>
-              <span className="font-mono text-[10px] text-ink-dim shrink-0 tabular-nums">
-                {watched}/{count}
-              </span>
-            </div>
-          )}
-        </div>
-
-        {action && (
-          <div className="shrink-0 max-w-[42%] sm:max-w-none [&_button]:max-w-full [&_button]:truncate">
-            {action}
-          </div>
-        )}
-
-        <ChevronDown
-          className={cn(
-            "h-5 w-5 text-ink-faint shrink-0 transition-transform duration-200",
-            isOpen && "rotate-180"
-          )}
-        />
-      </div>
-
-      <div
-        className={cn(
-          "grid transition-[grid-template-rows] duration-[250ms] ease-in-out",
-          isOpen ? "grid-rows-[1fr]" : "grid-rows-[0fr]"
-        )}
-      >
-        <div className="overflow-hidden">
-          <div className="px-4 sm:px-6 pb-6">{mounted ? children : null}</div>
-        </div>
-      </div>
-    </section>
-  )
-}
-
-/* ──────────────────────── Small helpers ──────────────────────── */
-
 function Detail({ term, value }: { term: string; value: string }) {
   return (
     <div>
       <dt className="font-mono text-[10px] text-ink-faint">{term}</dt>
-      <dd className="text-ink mt-0.5">{value}</dd>
+      <dd className="mt-0.5 text-ink">{value}</dd>
     </div>
   )
 }

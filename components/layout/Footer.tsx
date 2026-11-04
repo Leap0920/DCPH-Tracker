@@ -8,6 +8,7 @@ const footerLinks = [
   { label: "Characters", href: "/characters" },
   { label: "Rankings", href: "/community/rankings" },
   { label: "Chat", href: "/community/chat" },
+  { label: "Support", href: "/support" },
 ]
 
 const socialLinks = [

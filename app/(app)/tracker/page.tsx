@@ -1,10 +1,11 @@
 "use client"
 
-import { useState, useEffect, useRef, Suspense, useCallback } from "react"
+import { useState, useEffect, useRef, useMemo, Suspense, useCallback } from "react"
 import dynamic from "next/dynamic"
 import { useRouter, useSearchParams } from "next/navigation"
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query"
-import type { StatusFilter } from "@/components/tracker/ContentGrid"
+import type { StatusFilter } from "@/lib/tracker-view"
+import { DEFAULT_TYPE, parseTypeParam } from "@/lib/tracker-view"
 import { MotivationStats } from "@/components/tracker/MotivationStats"
 import { fetchContentEntries } from "@/lib/queries/client/content"
 import { Button } from "@/components/ui/button"
@@ -19,6 +20,7 @@ import {
   toggleFavorite,
   setRating,
   markAll,
+  markAllRewatched,
   type UserWatchStatuses,
 } from "@/lib/queries/client/watch-status"
 import { queryKeys } from "@/lib/queries/keys"
@@ -27,13 +29,11 @@ import { lockPageScroll } from "@/lib/scroll-lock"
 import {
   WATCH_STATUSES,
   VIEW_MODES,
-  CONTENT_TYPES,
   type WatchStatus,
   type ViewMode,
   type ContentType,
 } from "@/lib/constants"
 
-const VALID_TYPES = new Set<string>([CONTENT_TYPES.EPISODE, CONTENT_TYPES.MOVIE, CONTENT_TYPES.SPECIAL, CONTENT_TYPES.OVA, CONTENT_TYPES.LIVE_ACTION, CONTENT_TYPES.MAGIC_KAITO, CONTENT_TYPES.HANZAWA, CONTENT_TYPES.ZERO_TEA_TIME, CONTENT_TYPES.YAIBA])
 const VALID_STATUS = new Set<string>([WATCH_STATUSES.UNWATCHED, WATCH_STATUSES.WATCHED, WATCH_STATUSES.REWATCHED])
 const VALID_MODES = new Set<string>([VIEW_MODES.YEAR, VIEW_MODES.CHRONOLOGICAL, VIEW_MODES.CANON, VIEW_MODES.ORDER])
 
@@ -95,13 +95,14 @@ function TrackerPageContent() {
 
   // ── URL param parsing (invalid values fall back to defaults) ──
   const qParam = searchParams.get("q")?.slice(0, 100) ?? ""
-  const typeParam = searchParams.get("type") ?? "all"
   const modeParam = searchParams.get("mode")
   const statusParam = searchParams.get("status") ?? "all"
   const pageParam = clampInt(searchParams.get("page"), 1, 1000)
 
   const initialStatus: StatusFilter = VALID_STATUS.has(statusParam) ? (statusParam as WatchStatus) : "all"
-  const initialType: ContentType | "all" = VALID_TYPES.has(typeParam) ? (typeParam as ContentType) : "all"
+  // There is no "all" category any more: an absent or unknown ?type= resolves to
+  // Episodes, which is what a Conan tracker is for.
+  const initialType: ContentType = parseTypeParam(searchParams.get("type"))
   const initialPage = pageParam ? pageParam - 1 : undefined
 
   // ── View-mode memory ──
@@ -123,7 +124,6 @@ function TrackerPageContent() {
       // Private mode / disabled storage — default view is fine.
     }
     // One-time read; later changes flow through onModeChange.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
   const initialMode: ViewMode = modeParam
     ? VALID_MODES.has(modeParam)
@@ -177,8 +177,11 @@ function TrackerPageContent() {
     staleTime: 1000 * 60 * 60, // Cache content entries for 1 hour
     gcTime: 1000 * 60 * 60, // Keep in memory for 1 hour (match staleTime)
   })
-  const entries = contentQuery.data?.entries ?? []
+  // Memoised because a bare `?? []` hands every consumer a new array identity
+  // on each render, which makes each dependent useMemo recompute forever.
+  const entries = useMemo(() => contentQuery.data?.entries ?? [], [contentQuery.data?.entries])
   const arcMap = contentQuery.data?.arcMap ?? null
+  const crimeByContentId = contentQuery.data?.crimeByContentId ?? null
 
   // Open the episode-detail modal instantly from cached data — merge the arc
   // from arcMap (slug/title) with zero extra fetch. ContentDetail only reads
@@ -224,7 +227,10 @@ function TrackerPageContent() {
     enabled: !!user,
     staleTime: 1000 * 60 * 5, // Cache watch status for 5 minutes
   })
-  const userStatuses = watchStatusQuery.data?.statuses ?? new Map<string, WatchStatus>()
+  const userStatuses = useMemo(
+    () => watchStatusQuery.data?.statuses ?? new Map<string, WatchStatus>(),
+    [watchStatusQuery.data?.statuses]
+  )
   const watchCounts = watchStatusQuery.data?.counts ?? new Map<string, number>()
   const favorites = watchStatusQuery.data?.favorites ?? new Map<string, boolean>()
   const ratings = watchStatusQuery.data?.ratings ?? new Map<string, number>()
@@ -383,6 +389,45 @@ function TrackerPageContent() {
     },
   })
 
+  // Bulk rewatch: one upsert for the whole range instead of a mutate per row.
+  // The optimistic patch has to add one to each count individually — a shared
+  // value would flatten every episode to the same watch_count.
+  const markAllRewatchedMutation = useMutation({
+    mutationFn: ({
+      ids,
+      countByContent,
+    }: {
+      ids: string[]
+      countByContent: Map<string, number>
+    }) => markAllRewatched(user as string, ids, countByContent),
+    onMutate: async ({ ids }) => {
+      await queryClient.cancelQueries({ queryKey: statusKey() })
+      const prev = queryClient.getQueryData<UserWatchStatuses>(statusKey())
+      if (prev) {
+        const statuses = new Map(prev.statuses)
+        const counts = new Map(prev.counts)
+        ids.forEach((id) => {
+          statuses.set(id, "rewatched")
+          counts.set(id, (counts.get(id) ?? 0) + 1)
+        })
+        queryClient.setQueryData<UserWatchStatuses>(statusKey(), {
+          ...prev,
+          statuses,
+          counts,
+        })
+      }
+      return { prev }
+    },
+    onError: (_err, _vars, ctx) => {
+      if (ctx?.prev) queryClient.setQueryData(statusKey(), ctx.prev)
+      setMutationError("Couldn't update your rewatch counts. Please try again.")
+    },
+    onSuccess: () => setMutationError(null),
+    onSettled: () => {
+      queryClient.invalidateQueries({ queryKey: statusKey() })
+    },
+  })
+
   function requireUser(): boolean {
     if (user) return true
     openAuthModal("signin")
@@ -421,37 +466,50 @@ function TrackerPageContent() {
     markAllMutation.mutate({ ids, status, countByContent: watchCounts })
   }
 
+  function handleRewatchAll(ids: string[]) {
+    if (!requireUser()) return
+    markAllRewatchedMutation.mutate({ ids, countByContent: watchCounts })
+  }
+
   const loading = contentQuery.isLoading
   const error = contentQuery.isError ? "We couldn't load the case files. Please try again." : mutationError
 
   return (
-    <div className="px-0 sm:px-6 py-6 sm:py-10">
-      <div className="mx-auto max-w-5xl">
+    <div className="px-0 py-6 sm:py-10">
+      {/*
+        Width: the list is a 1,200-row table of artwork + number + title +
+        chips + three controls. The container is capped and centred — that is the
+        page's shape and it stays. Only the inner gutter changed: every row, tab,
+        search field and tools label now starts on the same `px-3 sm:px-5` line
+        instead of the header sitting 56px further right than the rows.
+      */}
+      <div className="mx-auto max-w-7xl">
         {loading ? (
-          <div className="text-center py-24">
+          <div className="py-24 text-center">
             <div className="inline-flex items-center gap-3">
-              <div className="h-2 w-2 bg-ink rounded-full animate-pulse" />
-              <p className="font-display text-lg text-ink-faint animate-pulse tracking-tight">
+              <div className="h-2 w-2 rounded-full bg-ink animate-pulse" />
+              <p className="font-display text-lg tracking-tight text-ink-faint animate-pulse">
                 Loading case files...
               </p>
-              <div className="h-2 w-2 bg-ink rounded-full animate-pulse" style={{ animationDelay: "0.3s" }} />
+              <div
+                className="h-2 w-2 rounded-full bg-ink animate-pulse"
+                style={{ animationDelay: "0.3s" }}
+              />
             </div>
           </div>
         ) : error && entries.length === 0 ? (
-          <div className="text-center py-24 px-6">
-            <p className="font-display text-lg tracking-tight text-ink mb-2">
+          <div className="px-6 py-24 text-center">
+            <p className="mb-2 font-display text-lg tracking-tight text-ink">
               Investigation stalled
             </p>
-            <p className="text-sm text-ink-dim mb-6">{error}</p>
+            <p className="mb-6 text-sm text-ink-dim">{error}</p>
             <Button onClick={() => contentQuery.refetch()} className="rounded-lg">
               Try Again
             </Button>
           </div>
         ) : entries.length === 0 ? (
-          <div className="text-center py-24 px-6">
-            <p className="font-display text-lg tracking-tight text-ink mb-2">
-              No case files yet
-            </p>
+          <div className="px-6 py-24 text-center">
+            <p className="mb-2 font-display text-lg tracking-tight text-ink">No case files yet</p>
             <p className="text-sm text-ink-dim">
               Content hasn&apos;t been added to the tracker yet. Check back soon.
             </p>
@@ -463,6 +521,10 @@ function TrackerPageContent() {
                 {error}
               </div>
             )}
+
+            {/* The dashboard stays first. The streaming rails live inside the
+                list below it, not above it: the page opens on your progress,
+                the way it always has. */}
             <MotivationStats
               entries={entries}
               userStatuses={userStatuses}
@@ -470,6 +532,7 @@ function TrackerPageContent() {
               userName={user}
               userId={user}
             />
+
             {!user && (
               <div className="flex flex-wrap items-center gap-4 rounded-lg border border-line bg-surface p-5">
                 <div className="flex-1">
@@ -485,47 +548,53 @@ function TrackerPageContent() {
                 </Button>
               </div>
             )}
-            <div className="bg-surface border border-line rounded-lg overflow-hidden shadow-card">
-              <ContentGrid
-                entries={entries}
-                userStatuses={userStatuses}
-                watchCounts={watchCounts}
-                favorites={favorites}
-                ratings={ratings}
-                onSetStatus={user ? handleSetStatus : undefined}
-                onIncrementRewatch={user ? handleRewatch : undefined}
-                onToggleFavorite={user ? handleToggleFavorite : undefined}
-                onSetRating={user ? handleSetRating : undefined}
-                onMarkAll={user ? handleMarkAll : undefined}
-                onSelect={openEpisode}
-                initialMode={initialMode}
-                initialStatusFilter={initialStatus}
-                initialSearch={qParam}
-                initialType={initialType}
-                initialPage={initialPage}
-                onModeChange={(m) => {
-                  updateUrl({ mode: m, page: null })
-                  try {
-                    window.localStorage.setItem(VIEW_MODE_STORAGE_KEY, m)
-                  } catch {
-                    // Private mode / disabled storage — URL param still set.
-                  }
-                }}
-                onStatusFilterChange={(s) => updateUrl({ status: s, page: null })}
-                onSearchChange={(q) => updateUrl({ q: q.trim() || null }, true)}
-                onTypeChange={(t) => updateUrl({ type: t === "all" ? null : t, page: null })}
-                onPageChange={(_key, page) =>
-                  updateUrl({
-                    page:
-                      (initialType !== "all" || initialMode === "chronological") && page > 0
-                        ? String(page + 1)
-                        : null,
-                  })
+
+            {/* overflow-clip, not overflow-hidden: a hidden box becomes the
+                scroll container for descendants, which kills the sticky
+                toolbar inside ContentGrid. clip still trims the rail peek. */}
+            <div
+              id="tracker-list"
+              className="scroll-mt-20 overflow-clip rounded-lg border border-line bg-surface shadow-card"
+            >
+            <ContentGrid
+              entries={entries}
+              userStatuses={userStatuses}
+              watchCounts={watchCounts}
+              favorites={favorites}
+              ratings={ratings}
+              onSetStatus={user ? handleSetStatus : undefined}
+              onIncrementRewatch={user ? handleRewatch : undefined}
+              onToggleFavorite={user ? handleToggleFavorite : undefined}
+              onSetRating={user ? handleSetRating : undefined}
+              onMarkAll={user ? handleMarkAll : undefined}
+              onRewatchAll={user ? handleRewatchAll : undefined}
+              onSelect={openEpisode}
+              initialMode={initialMode}
+              initialStatusFilter={initialStatus}
+              initialSearch={qParam}
+              initialType={initialType}
+              initialPage={initialPage}
+              onModeChange={(m) => {
+                updateUrl({ mode: m, page: null })
+                try {
+                  window.localStorage.setItem(VIEW_MODE_STORAGE_KEY, m)
+                } catch {
+                  // Private mode / disabled storage — URL param still set.
                 }
-                jumpTarget={epParam}
-                onJumped={() => updateUrl({ ep: null })}
-                arcMap={arcMap}
-              />
+              }}
+              onStatusFilterChange={(s) => updateUrl({ status: s, page: null })}
+              onSearchChange={(q) => updateUrl({ q: q.trim() || null }, true)}
+              onTypeChange={(t) => updateUrl({ type: t === DEFAULT_TYPE ? null : t, page: null })}
+              onPageChange={(_key, page) =>
+                updateUrl({
+                  page: page > 0 ? String(page + 1) : null,
+                })
+              }
+              jumpTarget={epParam}
+              onJumped={() => updateUrl({ ep: null })}
+              arcMap={arcMap}
+              crimeByContentId={crimeByContentId}
+          />
             </div>
           </div>
         )}

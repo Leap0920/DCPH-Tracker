@@ -310,3 +310,50 @@ export async function markAll(
 
   return { ids, status }
 }
+
+/**
+ * Bulk rewatch: sets every id to "rewatched" and bumps its watch_count by one.
+ *
+ * A season rewatch used to mean pressing the row's rewatch button N times — N
+ * upserts, N event inserts, N optimistic updates, and one dropped request in
+ * the middle leaves the counts half-applied. This is the same write
+ * `incrementRewatch` makes, batched into one upsert plus one chunked event
+ * insert tagged 'bulk'.
+ *
+ * `countByContent` must hold the CURRENT count for each id, because the
+ * increment happens here rather than in SQL: a stale map silently writes the
+ * wrong number of viewings. Callers read it from the watch-status query cache.
+ */
+export async function markAllRewatched(
+  userId: string,
+  ids: string[],
+  countByContent: Map<string, number>
+) {
+  if (ids.length === 0) return { ids, rows: [] }
+
+  const supabase = createClient()
+  const now = new Date().toISOString()
+
+  const rows = ids.map((id) => ({
+    user_id: userId,
+    content_id: id,
+    status: "rewatched" as const,
+    watch_count: (countByContent.get(id) ?? 0) + 1,
+    updated_at: now,
+  }))
+
+  const { error } = await supabase.from("watch_status").upsert(rows, {
+    onConflict: "user_id,content_id",
+  })
+
+  if (error) throw error
+
+  await recordWatchEvents(
+    supabase,
+    userId,
+    ids.map((id) => ({ content_id: id, event_type: "rewatched" })),
+    "bulk"
+  )
+
+  return { ids, rows }
+}

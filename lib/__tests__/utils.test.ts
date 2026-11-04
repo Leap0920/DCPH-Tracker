@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from "vitest"
-import { randomId } from "@/lib/utils"
+import { formatHours, randomId } from "@/lib/utils"
 
 /**
  * Regression cover for `crypto.randomUUID is not a function`.
@@ -38,5 +38,27 @@ describe("randomId", () => {
     const first = randomId()
     expect(first).toMatch(UUID_V4)
     expect(randomId()).not.toBe(first)
+  })
+})
+
+/**
+ * Episode rows now print the length next to the title, so the formatter is a
+ * user-facing string: "25m" for an episode, "1h 55m" for a film. Anything that
+ * reads "115m" or "1h 0m" is a regression.
+ */
+describe("formatHours", () => {
+  it("keeps an episode as plain minutes", () => {
+    expect(formatHours(25)).toBe("25m")
+    expect(formatHours(1)).toBe("1m")
+  })
+
+  it("splits a feature into hours and minutes", () => {
+    expect(formatHours(95)).toBe("1h 35m")
+    expect(formatHours(115)).toBe("1h 55m")
+  })
+
+  it("drops the minutes when there are none", () => {
+    expect(formatHours(60)).toBe("1h")
+    expect(formatHours(120)).toBe("2h")
   })
 })

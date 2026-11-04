@@ -8,6 +8,8 @@ import { cn } from "@/lib/utils"
 import { padNumber } from "@/lib/utils"
 import { CONTENT_TYPE_LABELS, type ContentType, type WatchStatus } from "@/lib/constants"
 import { typeBadgeClass } from "@/lib/badges"
+import type { EpisodeTag } from "@/lib/episode-tags"
+import { CanonBadge } from "@/components/tracker/CanonBadge"
 import type { Database } from "@/types/database.types"
 
 type ContentEntry = Database["public"]["Tables"]["content_entries"]["Row"]
@@ -30,6 +32,8 @@ interface ContentCardProps {
   onSetRating?: (contentId: string, rating: number) => void
   /** Story arc for episodes, rendered as a badge linking to /arcs/[slug]. */
   arc?: { slug: string; title: string } | null
+  /** Canon verdict for this entry, rendered as a green/amber badge. */
+  canon?: EpisodeTag | null
   /** Brief highlight ring, used by the jump-to-episode feature. */
   flash?: boolean
   /** Optional: intercept title clicks (e.g. open a detail modal instead of navigating). */
@@ -57,6 +61,7 @@ export function ContentCard({
   rating = 0,
   onSetRating,
   arc,
+  canon,
   flash = false,
   onSelect,
   sizes = GRID_SIZES,
@@ -110,11 +115,10 @@ export function ContentCard({
             className="h-full w-full object-cover transition-transform group-hover:scale-105"
           />
         ) : (
-          <div className="flex h-full items-center justify-center">
-            <span className="font-display text-4xl text-ink-dim/15 uppercase">
-              {displayNumber}
-            </span>
-          </div>
+          // The number badge above already prints this; repeating it as the
+          // placeholder read as a rendering glitch ("EP 13" twice). A neutral
+          // block keeps the card's geometry without duplicating the label.
+          <div className="h-full w-full bg-surface-muted" />
         )}
 
         {/* Favorite heart */}
@@ -203,17 +207,24 @@ export function ContentCard({
           </h3>
         </Link>
 
-        {/* Arc badge (episodes only) */}
-        {entry.type === "episode" && arc && (
-          <Link
-            href={`/arcs/${arc.slug}`}
-            onClick={(e) => e.stopPropagation()}
-            className="mt-2 inline-flex items-center gap-1 rounded-md border border-line bg-surface-muted px-1.5 py-0.5 text-[9px] font-mono text-ink-faint hover:border-ink hover:text-ink transition-colors"
-            title={`View the ${arc.title} story arc`}
-          >
-            <span className="h-1 w-1 rounded-full bg-accent" />
-            {arc.title}
-          </Link>
+        {/* Canon verdict + arc badge (episodes only). One line, never wrapping:
+            two wrapped badges made neighbouring cards taller and knocked the
+            star rows out of alignment across the strip. */}
+        {entry.type === "episode" && (canon || arc) && (
+          <div className="mt-2 flex items-center gap-1.5">
+            {canon && <CanonBadge tag={canon} className="gap-0.5 px-1 py-0.5 text-[8px]" />}
+            {arc && (
+              <Link
+                href={`/arcs/${arc.slug}`}
+                onClick={(e) => e.stopPropagation()}
+                className="inline-flex min-w-0 items-center gap-1 rounded-md border border-line bg-surface-muted px-1.5 py-0.5 text-[9px] font-mono text-ink-faint hover:border-ink hover:text-ink transition-colors"
+                title={`View the ${arc.title} story arc`}
+              >
+                <span className="h-1 w-1 shrink-0 rounded-full bg-accent" />
+                <span className="truncate">{arc.title}</span>
+              </Link>
+            )}
+          </div>
         )}
 
         {/* Star rating (signed-in only) */}

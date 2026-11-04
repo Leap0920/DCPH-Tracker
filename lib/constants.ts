@@ -48,11 +48,32 @@ export const VIEW_MODES = {
 
 export type ViewMode = (typeof VIEW_MODES)[keyof typeof VIEW_MODES];
 
+/**
+ * Tracker view modes. `hint` is the one-line explanation shown under each
+ * option in the tracker's Order dropdown — the labels alone ("Story Order" vs
+ * "Full Watch Order") are too close to guess between.
+ */
 export const VIEW_MODE_OPTIONS = [
-  { value: VIEW_MODES.YEAR, label: "By Year" },
-  { value: VIEW_MODES.CHRONOLOGICAL, label: "Story Order" },
-  { value: VIEW_MODES.CANON, label: "Canon Guide" },
-  { value: VIEW_MODES.ORDER, label: "Full Watch Order" },
+  {
+    value: VIEW_MODES.YEAR,
+    label: "By Year",
+    hint: "Episodes grouped by the year they aired.",
+  },
+  {
+    value: VIEW_MODES.CHRONOLOGICAL,
+    label: "Story Order",
+    hint: "Episodes in the order the story happens, filler included.",
+  },
+  {
+    value: VIEW_MODES.CANON,
+    label: "Canon Guide",
+    hint: "Split into canon and filler, so skippable episodes are obvious.",
+  },
+  {
+    value: VIEW_MODES.ORDER,
+    label: "Full order",
+    hint: "Every episode, movie and special in one continuous run.",
+  },
 ] as const;
 
 /** Watch status values */
@@ -126,6 +147,7 @@ export const NAV_EXPLORE: NavSubItem[] = [
   { href: "/characters", label: "Characters", description: "Profiles & relationships", icon: "Users" },
   { href: "/analytics", label: "Self Analytics", description: "Your viewing stats", icon: "BarChart3" },
   { href: "/wrapped", label: "Wrapped", description: "Shareable watch card", icon: "BarChart3" },
+  { href: "/support", label: "Support", description: "Keep the site free", icon: "HeartHandshake" },
 ];
 
 export const NAV_COMMUNITY: NavSubItem[] = [
