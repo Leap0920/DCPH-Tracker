@@ -87,7 +87,7 @@ npm run build
 
 ## Deployment
 
-Hosted on Vercel. Only `main` auto-deploys; production deployments from other branches are disabled in `vercel.json`, and the `production` branch is a mirror. Vercel's Production Branch must stay set to `main` or the cron jobs stop running.
+Hosted on Vercel. Automatic deployments are disabled for **both** `main` and `production` in `vercel.json`, so pushing to a branch never ships to the live site — production goes out by promoting a preview or running `vercel --prod`. Preview builds still trigger on every push. Vercel's Production Branch must stay set to `main` or the cron jobs stop running.
 
 Scheduled jobs, both authenticated with `CRON_SECRET`:
 
